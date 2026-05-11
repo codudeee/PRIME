@@ -142,12 +142,30 @@
     doPublish();
   }
   function schedulePublish(delay){clearTimeout(publishTimer);publishTimer=setTimeout(publishNow,delay==null?450:delay);}
+
+  function syncLiveScoreboardSize(){
+    var grid=document.getElementById('grid');
+    var wrap=document.getElementById('wrap');
+    if(!grid || !wrap || !/pkl-scoreboard-live/i.test(location.pathname)) return;
+    var count=parseInt(grid.getAttribute('data-count')||'0',10)||0;
+    var cols=count<=1?1:(count===2?2:(count<=4?4:(count<=8?4:5)));
+    var card=288, gap=10, pad=24;
+    var width=count?((cols*card)+((cols-1)*gap)+pad):520;
+    grid.style.width=width+'px';
+    wrap.style.width=width+'px';
+    document.documentElement.style.width=width+'px';
+    document.body.style.width=width+'px';
+    document.documentElement.style.height='auto';
+    document.body.style.height='auto';
+  }
+
   function renderSnapshot(snap){
     var grid=document.getElementById('grid'); if(!grid||!snap) return;
     var teams=Array.isArray(snap.teams)?snap.teams:[];
     grid.setAttribute('data-count', String(Math.max(0, Math.min(10, teams.length))));
-    if(!teams.length){grid.innerHTML='<div class="pkl-empty">표시할 팀 스코어보드가 없습니다.</div>';return;}
+    if(!teams.length){grid.innerHTML='<div class="pkl-empty">표시할 팀 스코어보드가 없습니다.</div>';syncLiveScoreboardSize();return;}
     grid.innerHTML=teams.map(function(t,rank){return '<article class="pkl-team-card '+(rank===0?'first':'')+'"><div class="pkl-score" style="--gauge:'+num(t.gauge)+'%"><span>'+num(t.score)+' / '+num(t.target)+' ('+num(t.percent)+'%)</span></div><div class="pkl-members">'+(Array.isArray(t.members)?t.members:[]).map(function(m,i){var kill=num((t.kills||[])[i]);var death=Math.abs(num(m.death)*num((t.deaths||[])[i]));return '<div class="pkl-member"><span class="pkl-name">'+esc(m.name)+'</span><span class="pkl-kd">'+(kill-death)+' ('+kill+'/'+death+')</span></div>';}).join('')+'</div><div class="pkl-team-footer"><span class="pkl-foot-stat chicken">'+num(t.chicken||0)+'</span><span class="pkl-foot-stat stop">'+num(t.stop||0)+'</span></div></article>';}).join('');
+    syncLiveScoreboardSize();
   }
   function readRemotePayload(doc){
     var p=doc&&doc.fields&&doc.fields.payload&&doc.fields.payload.stringValue; if(!p && doc&&doc.payload&&doc.payload.payload) p=doc.payload.payload;
@@ -213,7 +231,7 @@
   function startFallbackPoll(){
     if(fallbackPollTimer) return;
     var tick=function(){try{sb('live_scores?id=eq.live_scoreboard&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){var doc=rows&&rows[0];var snap=readRemotePayload(doc);if(snap){writeLocalSnapshot(snap);renderSnapshot(snap);}applySheetFromDoc(doc);}).catch(function(){});}catch(e){}};
-    tick(); fallbackPollTimer=
+    tick(); fallbackPollTimer=setInterval(tick, 2500);
   }
   function applySheetFromDoc(doc){
     var bridge=window.PKLSheetLiveBridge;

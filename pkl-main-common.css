@@ -1783,3 +1783,29 @@ button, a, .btn, .card, .clickable, [onclick] {
     line-height: 1.4 !important;
     letter-spacing: 0 !important;
 }
+
+
+/* =========================================================
+   PKL desktop scroll responsive guard
+   - 창을 줄여도 요소를 억지로 찌그러뜨리지 않고 가로 스크롤로 유지
+   - 메인/공통 페이지 버튼·단어 중앙 몰림 방지
+   ========================================================= */
+html{overflow-x:auto !important;min-width:1280px;}
+body{overflow-x:visible !important;min-width:1280px;}
+.site{min-width:1280px;overflow:visible;}
+.topbar,.topbar-inner,.hero,.primary-grid,.quickbar,.info-grid,.footer{flex-shrink:0;}
+.topbar-inner{min-width:1180px;}
+.hero{min-width:1180px;}
+.primary-grid{min-width:1180px;}
+.quickbar{min-width:1180px;}
+.info-grid{min-width:1180px;}
+.main-nav{flex-wrap:nowrap !important;}
+.main-nav a,.top-btn,.card-btn,.quickbar a{white-space:nowrap !important;flex-shrink:0;}
+@media (max-width:1280px){
+  html,body,.site{min-width:1280px !important;}
+  .topbar-inner{grid-template-columns:300px minmax(0,1fr) 300px !important;padding:0 54px !important;}
+  .hero{max-width:1238px !important;min-width:1180px !important;padding-left:20px !important;padding-right:20px !important;}
+  .primary-grid{grid-template-columns:repeat(4,minmax(0,1fr)) !important;}
+  .quickbar{grid-template-columns:repeat(5,minmax(0,1fr)) !important;height:68px !important;}
+  .info-grid{grid-template-columns:1fr 1fr 1fr !important;}
+}

@@ -6252,6 +6252,19 @@ input[type="number"]{
 }
 </style>
 
+
+<style id="pkl-sheet-desktop-scroll-url-fit-final">
+/* 시트지: 창이 줄어도 UI가 찌그러지지 않고 가로 스크롤로 유지 */
+html{overflow-x:auto !important;min-width:1560px !important;}
+body{overflow-x:visible !important;min-width:1560px !important;width:auto !important;}
+.app{min-width:1560px !important;overflow:visible !important;}
+.left,.right,.board,.sheet,.team-grid,.record-table{flex-shrink:0 !important;}
+.topbar,.panel-head,.sheet-head{min-width:0 !important;}
+/* URL 모달: 숨겨둔 가로/세로 입력 여백을 완전히 제거하고 URL 출력만 깔끔하게 표시 */
+.pkl-score-url-grid[style]{display:none !important;height:0 !important;margin:0 !important;padding:0 !important;overflow:hidden !important;}
+.pkl-score-url-output{min-height:78px !important;height:auto !important;}
+</style>
+
 </head>
 <body>
 <div class="app">
