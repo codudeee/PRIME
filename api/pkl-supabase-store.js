@@ -182,6 +182,75 @@ async function writeUserDoc(user, forceAdmin=false){
     return await upsert(fallback);
   }
 }
+
+async function readUserRowByIdentity(identity={}){
+  const cleanVal = v => clean(v).replace(/^discord-/, '');
+  const candidates = [];
+  const discordId = cleanVal(identity.discordId || identity.discord_id || identity.uid || identity.id || identity.userId || identity.key);
+  const pubgId = clean(identity.pubgId || identity.pubg_id || identity.gameId || identity.ref);
+  const nickname = clean(identity.nickname || identity.nick || identity.name);
+  if(discordId) candidates.push(`discord_id=eq.${encodeURIComponent(discordId)}`);
+  if(pubgId) candidates.push(`pubg_id=eq.${encodeURIComponent(pubgId)}`);
+  if(nickname) candidates.push(`nickname=eq.${encodeURIComponent(nickname)}`);
+  for(const filter of candidates){
+    const { json } = await supabaseFetch(`users?select=*&${filter}&limit=1`);
+    if(Array.isArray(json) && json[0]) return json[0];
+  }
+  throw new Error('대상 회원을 Supabase users에서 찾을 수 없습니다.');
+}
+async function insertAdminLogSafe(payload){
+  try{
+    await supabaseFetch('admin_logs', {
+      method:'POST',
+      headers:{ Prefer:'return=minimal' },
+      body:JSON.stringify(payload)
+    });
+  }catch(e){ console.warn && console.warn('admin_logs insert failed', e && e.message ? e.message : e); }
+}
+async function insertPointLogSafe(payload){
+  try{
+    await supabaseFetch('point_logs', {
+      method:'POST',
+      headers:{ Prefer:'return=minimal' },
+      body:JSON.stringify(payload)
+    });
+  }catch(e){ console.warn && console.warn('point_logs insert failed', e && e.message ? e.message : e); }
+}
+async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
+  const delta = Number(amount) || 0;
+  if(!delta) throw new Error('프라임 수량이 없습니다.');
+  const row = await readUserRowByIdentity(identity);
+  const current = Number(row.prime ?? row.points ?? (row.raw && (row.raw.prime ?? row.raw.points ?? row.raw.dia ?? row.raw.chicken)) ?? 0) || 0;
+  const next = Math.max(0, current + delta);
+  const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
+  const now = new Date().toISOString();
+  const action = delta > 0 ? 'prime_grant' : 'prime_seize';
+  const title = delta > 0 ? '프라임 지급' : '프라임 압수';
+  const abs = Math.abs(delta);
+  const mailText = `${abs} 프라임이 ${delta > 0 ? '지급' : '압수'}되었습니다.${reason ? ' 사유: ' + reason : ''}`;
+  raw.prime = next;
+  raw.points = next;
+  raw.dia = next;
+  raw.chicken = next;
+  raw.history = Array.isArray(raw.history) ? raw.history : [];
+  raw.memoList = Array.isArray(raw.memoList) ? raw.memoList : [];
+  raw.mailbox = Array.isArray(raw.mailbox) ? raw.mailbox : [];
+  const log = { type: action, reason: `${title}: ${abs} 프라임${reason ? ' · ' + reason : ''}`, date: now, admin: clean(actor || 'SYSTEM'), amount: delta, before: current, after: next };
+  raw.history.unshift(log);
+  raw.memoList.unshift({ date: now, admin: clean(actor || 'SYSTEM'), text: `[${title}] ${abs} · ${reason || '사유 없음'}` });
+  raw.mailbox.unshift({ type:'prime', title, message: mailText, amount: delta, before: current, after: next, reason: clean(reason), actor: clean(actor || 'SYSTEM'), created_at: now, read:false });
+  const body = { prime: next, points: next, raw, updated_at: now };
+  const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
+    method:'PATCH',
+    headers:{ Prefer:'return=representation' },
+    body:JSON.stringify(body)
+  });
+  await insertPointLogSafe({ user_id: row.id, discord_id: row.discord_id || null, amount: delta, reason: clean(reason), actor: clean(actor || 'SYSTEM') });
+  await insertAdminLogSafe({ action, actor: clean(actor || 'SYSTEM'), target: row.nickname || row.pubg_id || row.discord_id || '', detail: { amount: delta, before: current, after: next, reason: clean(reason), mail: mailText, discord_id: row.discord_id || '', pubg_id: row.pubg_id || '' } });
+  const savedRow = Array.isArray(json) && json[0] ? json[0] : {...row, ...body};
+  return { user: rowToUser(savedRow), before: current, after: next, amount: delta, mail: mailText };
+}
+
 async function readUsers(options={}){
   const result = await readUserDocs({ limit: options.limit || 100, offset: options.offset || 0, q: options.q || "" });
   return result.users;
@@ -196,4 +265,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime };
