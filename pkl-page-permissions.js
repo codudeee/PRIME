@@ -222,6 +222,7 @@
     });
     mo.observe(document.body||document.documentElement,{childList:true,subtree:true,attributes:false});
     window.addEventListener('storage',function(e){ if(!e || !e.key || /pkl|PKL/i.test(e.key)) scheduleApply(); });
+    window.addEventListener('pkl-data-updated',scheduleApply);
     window.PKLPagePermissions={apply:applyAll,schedule:scheduleApply,isAdmin:isAdmin,isOperatorUp:isOperatorUp,currentRole:role};
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();

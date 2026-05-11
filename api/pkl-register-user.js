@@ -1,4 +1,6 @@
 
+let supabaseStore;
+try{ supabaseStore = require("./pkl-supabase-store"); }catch(e){ supabaseStore = { async readUsers(){ return []; }, async writeUsers(users){ return users; } }; }
 function normalizeNickname(value){return String(value==null?"":value).normalize("NFKC").replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]/g,"").trim();}
 function normalizePubgId(value){return String(value==null?"":value).normalize("NFKC").trim();}
 function isKoreanNickname(value){return /^[가-힣]{1,4}$/.test(normalizeNickname(value));}
@@ -9,6 +11,7 @@ function identityValue(u){u=u||{};return [u.discordId,u.uid,u.id,u.userId,u.key,
 function sameAnyUser(a,b){const av=identityValue(a), bv=identityValue(b);return av.length&&bv.length&&av.some(v=>bv.includes(v));}
 function parseKoreanDateMs(text){const m=String(text||"").match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);if(!m)return 0;return new Date(`${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}T00:00:00+09:00`).getTime();}
 function isActiveBanRecord(b){if(!b)return false;if(b.permanent===false||b.selfWithdraw||b.withdrawal||b.type==="withdraw"){const t=parseKoreanDateMs(b.date||b.withdrawnAt||b.createdAt);return !t || Date.now()-t < 30*86400000;}return true;}
+async function readActiveBans(){try{const st=await supabaseStore.readAdminState();return (Array.isArray(st&&st.bans)?st.bans:[]).filter(isActiveBanRecord);}catch(e){return []}}
 
 
 function buildApprovedUser(discordUser,nickname,pubgId,old){
@@ -70,6 +73,8 @@ async function handler(req,res){
 
     const localUsers=Array.isArray(body.localUsers) ? body.localUsers : [];
     let serverUsers=[];
+    try{ serverUsers = await supabaseStore.readUsers(); }catch(e){ serverUsers = []; }
+    const allUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(serverUsers, localUsers) : serverUsers.concat(localUsers);
     const activeBans = await readActiveBans();
     const banSeed = Object.assign({}, discordUser, {nickname:nickname, pubgId:pubgId, gameId:pubgId, ref:pubgId});
     if(activeBans.some(b=>sameAnyUser(b, banSeed))){
@@ -129,6 +134,8 @@ async function handler(req,res){
       user.memberRole="admin";
       user.memberRoleName="관리자";
     }
+    const nextUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(allUsers, [user]) : allUsers.concat([user]);
+    const savedUsers = await supabaseStore.writeUsers(nextUsers);
 
     return res.status(200).json({
       ok:true,

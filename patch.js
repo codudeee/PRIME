@@ -70,8 +70,10 @@
       if(selected < 0 || selected >= notes.length) selected = 0;
       render();
     };
+    window.addEventListener("pkl-data-updated", e => {
       if(e && e.detail && e.detail.key === STORAGE_KEY) reloadFromShared();
     });
+    window.addEventListener("pkl-sync-ready", () => setTimeout(reloadFromShared, 80));
     window.addEventListener("storage", e => {
       if(e && e.key === STORAGE_KEY) reloadFromShared();
     });
@@ -98,6 +100,8 @@
     localStorage.setItem(STORAGE_KEY, text);
     localStorage.setItem(BACKUP_KEY, text);
     try{
+      if(window.PKLDataSync && typeof window.PKLDataSync.setShared === "function"){
+        window.PKLDataSync.setShared(STORAGE_KEY, normalized);
       }else if(typeof window.saveSharedData === "function"){
         window.saveSharedData(STORAGE_KEY, normalized);
       }

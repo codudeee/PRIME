@@ -7184,6 +7184,7 @@ function pklApplyRemoteSheetState(){
   }
 }
 window.addEventListener('storage',function(e){ if(e && e.key===STORAGE_KEY) pklApplyRemoteSheetState(); });
+window.addEventListener('pkl-data-updated',function(e){ if(e && e.detail && e.detail.key===STORAGE_KEY) pklApplyRemoteSheetState(); });
 
 let pklOwnTeamAutoSelected=false;
 function pklAutoSelectOwnTeamOnce(){
@@ -11359,6 +11360,8 @@ function pklSharedSet(key,value){
       localStorage.setItem(key,typeof value==='string'?value:JSON.stringify(value));
       return;
     }
+    if(window.PKLDataSync&&typeof window.PKLDataSync.setShared==='function'){
+      window.PKLDataSync.setShared(key,value);
       return;
     }
     if(typeof window.saveSharedData==='function'){
@@ -11370,6 +11373,7 @@ function pklSharedSet(key,value){
 }
 function pklBroadcastDataUpdate(key){
   try{window.dispatchEvent(new StorageEvent('storage',{key:key,newValue:localStorage.getItem(key)}));}catch(e){}
+  try{window.dispatchEvent(new CustomEvent('pkl-data-updated',{detail:{key:key}}));}catch(e){}
 }
 function pklUpsertMatchUserStats(matchId,title,st){
   try{
@@ -11731,6 +11735,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
   },true);
 
   window.addEventListener('storage',function(e){ if(!e || !e.key || /pkl|PKL/i.test(e.key)) setTimeout(refreshStaffUi,50); });
+  window.addEventListener('pkl-data-updated',function(){setTimeout(refreshStaffUi,50);});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',refreshStaffUi); else setTimeout(refreshStaffUi,0);
 })();
 </script>
@@ -11852,6 +11857,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
   var obs=new MutationObserver(function(){ensureDragAttrs();});
   if(document.body) obs.observe(document.body,{childList:true,subtree:true});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ensureDragAttrs); else setTimeout(ensureDragAttrs,80);
+  window.addEventListener('pkl-data-updated',function(){setTimeout(ensureDragAttrs,80);});
 })();
 </script>
 
@@ -12029,6 +12035,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
   });
   var mo=new MutationObserver(function(){ensureRows();});
   if(document.body) mo.observe(document.body,{childList:true,subtree:true});
+  window.addEventListener('pkl-data-updated',function(){setTimeout(ensureRows,80);});
   window.addEventListener('storage',function(){setTimeout(ensureRows,80);});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(ensureRows,100);}); else setTimeout(ensureRows,100);
 })();
@@ -12423,6 +12430,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   },true);
   var mo=new MutationObserver(function(){hideSideForBlocked();ensureDragAttrs();});
   if(document.body) mo.observe(document.body,{childList:true,subtree:true});
+  window.addEventListener('pkl-data-updated',function(){setTimeout(function(){hideSideForBlocked();ensureDragAttrs();},80);});
   window.addEventListener('storage',function(){setTimeout(function(){hideSideForBlocked();ensureDragAttrs();},80);});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){hideSideForBlocked();ensureDragAttrs();}); else setTimeout(function(){hideSideForBlocked();ensureDragAttrs();},100);
 })();

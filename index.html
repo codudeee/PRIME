@@ -835,6 +835,8 @@ font-weight:700;
   function rerenderSoon(){clearTimeout(rerenderSoon._t);rerenderSoon._t=setTimeout(render,80);}
   render();
   window.addEventListener("storage",function(e){if(!e||e.key===MATCHES_KEY) rerenderSoon();});
+  window.addEventListener("pkl-data-updated",function(e){if(!e.detail||!e.detail.key||e.detail.key===MATCHES_KEY) rerenderSoon();});
+  window.addEventListener("pkl-sync-ready",rerenderSoon);
   
   document.addEventListener("visibilitychange",function(){if(!document.hidden) render();});
 })();
@@ -915,8 +917,10 @@ font-weight:700;
     localStorage.setItem(STORAGE_KEY,text);
     localStorage.setItem(BACKUP_KEY,text);
     try{
+      if(window.PKLDataSync && typeof window.PKLDataSync.setShared === "function") window.PKLDataSync.setShared(STORAGE_KEY,text);
       else if(typeof window.saveSharedData === "function") window.saveSharedData(STORAGE_KEY,text);
     }catch(e){}
+    try{window.dispatchEvent(new CustomEvent("pkl-data-updated",{detail:{key:STORAGE_KEY}}));}catch(e){}
   }
   function sortItems(items){return items.slice().sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});}
   function esc(v){return String(v||"").replace(/[&<>"]/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch];});}
@@ -1014,6 +1018,9 @@ font-weight:700;
     if(modal.classList.contains("open")) renderModal();
   }
   window.addEventListener("storage",function(e){if(!e || e.key===STORAGE_KEY) handleNoticeDataUpdated(e);});
+  window.addEventListener("pkl-data-updated",handleNoticeDataUpdated);
+  window.addEventListener("pkl-sync-ready",handleNoticeDataUpdated);
+  setTimeout(function(){try{if(window.PKLDataSync&&typeof window.PKLDataSync.refresh==='function')window.PKLDataSync.refresh();}catch(e){}},120);
   syncNoticeAdminState();
   renderPreview();
   setTimeout(handleNoticeDataUpdated,700);

@@ -1,5 +1,8 @@
+let supabaseStore;
 try {
+  supabaseStore = require("./pkl-supabase-store");
 } catch (error) {
+  supabaseStore = {
     async readUsers(){ return []; },
     async writeUsers(users){ return true; }, async readAdminState(){ return {users:[],pending:[],bans:[],warningRecords:[]}; }
   };
@@ -54,6 +57,7 @@ function identityValues(u){u=u||{};return [u.discordId,u.uid,u.id,u.userId,u.key
 function sameAnyUser(a,b){const av=identityValues(a), bv=identityValues(b);return av.length&&bv.length&&av.some(v=>bv.includes(v));}
 function parseBanDateMs(text){const m=String(text||"").match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);if(!m)return 0;return new Date(`${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}T00:00:00+09:00`).getTime();}
 function isActiveBanRecord(b){if(!b)return false;if(b.permanent===false||b.selfWithdraw||b.withdrawal||b.type==="withdraw"){const t=parseBanDateMs(b.date||b.withdrawnAt||b.createdAt);return !t || Date.now()-t < 30*86400000;}return true;}
+async function isBlockedByBanRecords(user){try{const st=await supabaseStore.readAdminState();const bans=(Array.isArray(st&&st.bans)?st.bans:[]).filter(isActiveBanRecord);return bans.some(b=>sameAnyUser(b,user));}catch(e){return false;}}
 
 function getUserNickname(u){ return normalizeNickname(u && (u.nickname || u.nick || u.name || u.displayName || u.pubgId)); }
 function nicknameTaken(users, nickname, current){
@@ -70,8 +74,10 @@ function normalizeRole(role){
   return "user";
 }
 async function readServerUsers(){
+  return await supabaseStore.readUsers();
 }
 async function writeServerUsers(users){
+  await supabaseStore.writeUsers(users);
   return true;
 }
 function createUser(discordUser, nickname, saved){
