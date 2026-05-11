@@ -5,6 +5,8 @@
   var USER_KEYS = {pklUsers:true, PKL_USERS:true};
   var applying = false;
   var nativeSetItem = localStorage.setItem.bind(localStorage);
+  var nativeRemoveItem = localStorage.removeItem.bind(localStorage);
+  var memoryUsers = [];
 
   function esc(v){return String(v == null ? "" : v).replace(/[&<>\"']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m];});}
   function parse(raw, fb){try{var v=JSON.parse(raw);return v==null?fb:v;}catch(e){return fb;}}
@@ -69,26 +71,46 @@
   }
   function stateUsers(){var st=read("pklAdminState_v3",{});return st&&Array.isArray(st.users)?st.users:[];}
   function users(){
-    var p=read("pklUsers",[]); if(Array.isArray(p)&&p.length)return mergeLists(p);
-    var a=read("PKL_USERS",[]); if(Array.isArray(a)&&a.length)return mergeLists(a);
-    return mergeLists(read("pklAdminUsers",[]),read("PKL_ADMIN_USERS",[]),stateUsers());
+    if(Array.isArray(memoryUsers) && memoryUsers.length) return mergeLists(memoryUsers);
+    var p=read("pklUsers",[]); if(Array.isArray(p)&&p.length){memoryUsers=mergeLists(p);return mergeLists(memoryUsers);}
+    var a=read("PKL_USERS",[]); if(Array.isArray(a)&&a.length){memoryUsers=mergeLists(a);return mergeLists(memoryUsers);}
+    memoryUsers=mergeLists(read("pklAdminUsers",[]),read("PKL_ADMIN_USERS",[]),stateUsers());
+    return mergeLists(memoryUsers);
   }
   function findUser(u){return users().find(function(x){return same(x,u);})||null;}
   function hydrate(u){var found=findUser(u); return found?mergeOne(u,found,true):normalize(u||{});}
   function setUsers(list, saveRemote){
     var arr=mergeLists(list);
+    memoryUsers=arr;
     applying=true;
-    try{nativeSetItem("pklUsers",JSON.stringify(arr));nativeSetItem("PKL_USERS",JSON.stringify(arr));}finally{applying=false;}
+    try{
+      /* 운영 유저 목록은 Supabase가 단일 원본이므로 localStorage에 전체 저장하지 않는다.
+         브라우저 저장소가 꽉 차면 admin 정보수정/티어변경 저장 버튼까지 막히므로 메모리 이벤트만 갱신한다. */
+      try{nativeRemoveItem("pklUsers");nativeRemoveItem("PKL_USERS");nativeRemoveItem("pklAdminUsers");nativeRemoveItem("PKL_ADMIN_USERS");}catch(_e){}
+    }finally{applying=false;}
     try{window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:arr}}));window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:arr}}));}catch(e){}
-    if(saveRemote && window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.setShared){try{window.PKLSupabaseDataSync.setShared("pklUsers",arr);window.PKLSupabaseDataSync.setShared("PKL_USERS",arr);}catch(e){}}
     return arr;
   }
   function upsert(u){var list=users(); var nu=normalize(Object.assign({},u,{pklProfileUpdatedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),__pklProfileWrite:true})); var i=list.findIndex(function(x){return same(x,nu);}); if(i>=0)list[i]=mergeOne(list[i],nu,true); else list.push(nu); return setUsers(list,true);}
 
   localStorage.setItem=function(key,value){
     if(applying) return nativeSetItem(key,value);
-    try{ if(USER_KEYS[key]) value=JSON.stringify(mergeLists(parse(value,[]))); }catch(e){}
-    return nativeSetItem(key,value);
+    if(USER_KEYS[key]){
+      try{
+        memoryUsers=mergeLists(parse(value,[]));
+        window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:memoryUsers}}));
+        window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:memoryUsers}}));
+      }catch(e){}
+      return;
+    }
+    try{return nativeSetItem(key,value);}
+    catch(e){
+      if(e && (e.name==="QuotaExceededError" || String(e.message||e).indexOf("quota")>=0)){
+        console.warn("PKL localStorage quota skipped:", key);
+        return;
+      }
+      throw e;
+    }
   };
 
   function renderTierForUser(u,extra){u=hydrate(u); if(window.PKLTierBadge&&window.PKLTierBadge.renderForUser)return window.PKLTierBadge.renderForUser(u,{extraClass:extra||""}); var t=normTier(u.memberTier||u.gradeRole||u.tierRole||u.tier); return t&&t!=="none"?'<span class="pkl-tier-badge tier-mark '+esc(extra||'')+'">'+esc(tierLabel(t))+'</span>':"";}
