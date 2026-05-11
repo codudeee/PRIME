@@ -7,7 +7,7 @@ function pklCanChangeRole(currentUser){
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <script src="./pkl-firebase-data-sync.js"></script>
+  <script src="./pkl-supabase-sync.js"></script>
   <script src="./pkl-join-realtime.js"></script>
 <meta charset="utf-8"/>
 <title>PKL 회원가입</title>
@@ -6861,7 +6861,7 @@ body.pkl-recruit-waiting #joinCancelBtn,
     try{localStorage.setItem('pklDiscordRecruitMessage',JSON.stringify(msg));}catch(e){}
     try{localStorage.setItem('PKL_DISCORD_RECRUIT_MESSAGE_V1',JSON.stringify(msg));}catch(e){}
     try{localStorage.setItem('pklDiscordBotMessage',JSON.stringify(msg));}catch(e){}
-    try{ if(window.PKLFirebaseDataSync&&typeof window.PKLFirebaseDataSync.setShared==='function') window.PKLFirebaseDataSync.setShared('pklDiscordRecruitMessage',msg); }catch(e){}
+    try{ if(window.PKLSupabaseDataSync&&typeof window.PKLSupabaseDataSync.setShared==='function') window.PKLSupabaseDataSync.setShared('pklDiscordRecruitMessage',msg); }catch(e){}
     try{ window.dispatchEvent(new CustomEvent('pkl-discord-recruit-message',{detail:msg})); }catch(e){}
   }
 

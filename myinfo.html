@@ -1329,7 +1329,7 @@ async function withdrawAccount(){
 }
 
 </script>
-<script src="pkl-firebase-data-sync.js"></script>
+<script src="pkl-supabase-sync.js"></script>
 <script src="pkl-user-profile-core.js"></script>
 </head>
 <body>
@@ -1409,7 +1409,7 @@ function saveUsers(users){
   localStorage.setItem("pklUsers", JSON.stringify(arr));
   localStorage.setItem("PKL_USERS", JSON.stringify(arr));
   try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.setUsers === "function") window.PKLUserProfile.setUsers(arr, true); }catch(e){}
-  try{ if(window.PKLFirebaseDataSync && window.PKLFirebaseDataSync.setShared) window.PKLFirebaseDataSync.setShared("pklUsers", arr); }catch(e){}
+  try{ if(window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.setShared) window.PKLSupabaseDataSync.setShared("pklUsers", arr); }catch(e){}
 }
 
 function getLoginUser(){
@@ -1588,7 +1588,7 @@ function saveMyInfo(e){
   const stored = updateAccountStorage(Object.assign({}, updated, {__pklProfileWrite:true,pklProfileUpdatedAt:new Date().toISOString()}));
   updateAdminStorage(stored);
   try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function") window.PKLUserProfile.upsert(stored, true); }catch(e){}
-  try{ if(window.PKLFirebaseDataSync && window.PKLFirebaseDataSync.setShared) window.PKLFirebaseDataSync.setShared("pklUsers", JSON.parse(localStorage.getItem("pklUsers")||"[]")); }catch(e){}
+  try{ if(window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.setShared) window.PKLSupabaseDataSync.setShared("pklUsers", JSON.parse(localStorage.getItem("pklUsers")||"[]")); }catch(e){}
   setEveryLoginUser(stored);
   originalUser = {...stored};
   nicknameCheckedValue = nickname;
@@ -1945,8 +1945,8 @@ async function withdrawAccount(){
         else users.push(updated);
         localStorage.setItem("pklUsers", JSON.stringify(users));
         localStorage.setItem("PKL_USERS", JSON.stringify(users));
-        if(window.PKLFirebaseDataSync && window.PKLFirebaseDataSync.setShared){
-          await window.PKLFirebaseDataSync.setShared("pklUsers", users);
+        if(window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.setShared){
+          await window.PKLSupabaseDataSync.setShared("pklUsers", users);
         }
       }
     }catch(e){ console.warn("[PKL] myinfo final pklUsers save failed", e); }
@@ -2001,7 +2001,7 @@ async function withdrawAccount(){
     const div=document.createElement('div');div.id='pklWithdrawPolicyModal';div.innerHTML=`<div class="pkl-withdraw-card"><div class="k">PKL ACCOUNT WITHDRAWAL</div><h2>회원탈퇴 안내</h2><p>회원탈퇴를 진행하면 현재 계정 정보가 삭제됩니다.</p><div class="warn">회원 탈퇴하면 30일간 다시 회원가입할 수 없습니다.</div><div class="pkl-withdraw-actions"><button type="button" class="pkl-withdraw-cancel">취소</button><button type="button" class="pkl-withdraw-ok">회원탈퇴</button></div></div>`;document.body.appendChild(div);
   }
   function confirmWithdraw(){ensureModal();return new Promise(resolve=>{const m=document.getElementById('pklWithdrawPolicyModal');const ok=m.querySelector('.pkl-withdraw-ok'),cancel=m.querySelector('.pkl-withdraw-cancel');function done(v){m.classList.remove('open');ok.onclick=cancel.onclick=null;resolve(v);}ok.onclick=()=>done(true);cancel.onclick=()=>done(false);m.classList.add('open');});}
-  async function syncShared(key,val){try{if(window.PKLFirebaseDataSync&&window.PKLFirebaseDataSync.setShared)await window.PKLFirebaseDataSync.setShared(key,val);}catch(e){}}
+  async function syncShared(key,val){try{if(window.PKLSupabaseDataSync&&window.PKLSupabaseDataSync.setShared)await window.PKLSupabaseDataSync.setShared(key,val);}catch(e){}}
   window.withdrawAccount=async function(){
     const ok=await confirmWithdraw(); if(!ok) return;
     const login=getLogin(); if(!login){location.href='login.html';return;}
@@ -2041,7 +2041,7 @@ function syncUserEverywhere(user){
    admin.users=admin.users.map(v=>String(v.discordId||v.uid||'')===String(user.discordId||user.uid||'')?({...v,...user}):v);
    localStorage.setItem('pklAdminState_v3',JSON.stringify(admin));
   }
-  if(window.PKLFirebaseDataSync?.setShared){window.PKLFirebaseDataSync.setShared('pklUsers',next);}
+  if(window.PKLSupabaseDataSync?.setShared){window.PKLSupabaseDataSync.setShared('pklUsers',next);}
  }catch(e){console.error(e)}
 }
  const oldSave=window.saveMyInfo;
@@ -2064,7 +2064,7 @@ function syncUserEverywhere(user){
   localStorage.removeItem('pklLoginUser');
   localStorage.removeItem('pklCurrentUser');
   localStorage.removeItem('discordUser');
-  if(window.PKLFirebaseDataSync?.setShared){await window.PKLFirebaseDataSync.setShared('pklUsers',users);}
+  if(window.PKLSupabaseDataSync?.setShared){await window.PKLSupabaseDataSync.setShared('pklUsers',users);}
   alert('회원탈퇴 완료');
   location.href='index.html';
  }
@@ -2112,7 +2112,7 @@ function syncUserEverywhere(user){
       m.classList.add('open');
     });
   }
-  async function syncShared(key,val){try{if(window.PKLFirebaseDataSync&&window.PKLFirebaseDataSync.setShared)await window.PKLFirebaseDataSync.setShared(key,val);}catch(e){}}
+  async function syncShared(key,val){try{if(window.PKLSupabaseDataSync&&window.PKLSupabaseDataSync.setShared)await window.PKLSupabaseDataSync.setShared(key,val);}catch(e){}}
   async function realWithdraw(){
     const ok=await confirmWithdraw(); if(!ok) return;
     const login=getLogin(); if(!login){location.href='login.html';return;}

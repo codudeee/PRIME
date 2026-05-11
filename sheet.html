@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <script src="./pkl-firebase-data-sync.js"></script>
+  <script src="./pkl-supabase-sync.js"></script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PKL MATCH SHEET</title>
@@ -6485,7 +6485,7 @@ function save(){
   state.selectedTeamId=selectedTeamId;
   state.savedAt=new Date().toISOString();
   localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
-  /* 전체 시트 상태는 Firebase 공유문서에 저장하지 않음.
+  /* 전체 시트 상태는 Supabase 공유문서에 저장하지 않음.
      점수/치킨/LIVE카드 실시간 공유는 pkl-scoreboard-realtime.js가 작은 live payload만 전송한다. */
   try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(120); }catch(e){}
 }
@@ -7165,7 +7165,7 @@ function pklApplyRemoteSheetState(){
   }
 }
 window.addEventListener('storage',function(e){ if(e && e.key===STORAGE_KEY) pklApplyRemoteSheetState(); });
-window.addEventListener('pkl-firebase-data-updated',function(e){ if(e && e.detail && e.detail.key===STORAGE_KEY) pklApplyRemoteSheetState(); });
+window.addEventListener('pkl-supabase-data-updated',function(e){ if(e && e.detail && e.detail.key===STORAGE_KEY) pklApplyRemoteSheetState(); });
 
 let pklOwnTeamAutoSelected=false;
 function pklAutoSelectOwnTeamOnce(){
@@ -11341,8 +11341,8 @@ function pklSharedSet(key,value){
       localStorage.setItem(key,typeof value==='string'?value:JSON.stringify(value));
       return;
     }
-    if(window.PKLFirebaseDataSync&&typeof window.PKLFirebaseDataSync.setShared==='function'){
-      window.PKLFirebaseDataSync.setShared(key,value);
+    if(window.PKLSupabaseDataSync&&typeof window.PKLSupabaseDataSync.setShared==='function'){
+      window.PKLSupabaseDataSync.setShared(key,value);
       return;
     }
     if(typeof window.saveSharedData==='function'){
@@ -11354,7 +11354,7 @@ function pklSharedSet(key,value){
 }
 function pklBroadcastDataUpdate(key){
   try{window.dispatchEvent(new StorageEvent('storage',{key:key,newValue:localStorage.getItem(key)}));}catch(e){}
-  try{window.dispatchEvent(new CustomEvent('pkl-firebase-data-updated',{detail:{key:key}}));}catch(e){}
+  try{window.dispatchEvent(new CustomEvent('pkl-supabase-data-updated',{detail:{key:key}}));}catch(e){}
 }
 function pklUpsertMatchUserStats(matchId,title,st){
   try{
@@ -11716,7 +11716,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
   },true);
 
   window.addEventListener('storage',function(e){ if(!e || !e.key || /pkl|PKL/i.test(e.key)) setTimeout(refreshStaffUi,50); });
-  window.addEventListener('pkl-firebase-data-updated',function(){setTimeout(refreshStaffUi,50);});
+  window.addEventListener('pkl-supabase-data-updated',function(){setTimeout(refreshStaffUi,50);});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',refreshStaffUi); else setTimeout(refreshStaffUi,0);
 })();
 </script>
@@ -11838,7 +11838,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
   var obs=new MutationObserver(function(){ensureDragAttrs();});
   if(document.body) obs.observe(document.body,{childList:true,subtree:true});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ensureDragAttrs); else setTimeout(ensureDragAttrs,80);
-  window.addEventListener('pkl-firebase-data-updated',function(){setTimeout(ensureDragAttrs,80);});
+  window.addEventListener('pkl-supabase-data-updated',function(){setTimeout(ensureDragAttrs,80);});
 })();
 </script>
 
@@ -12016,7 +12016,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
   });
   var mo=new MutationObserver(function(){ensureRows();});
   if(document.body) mo.observe(document.body,{childList:true,subtree:true});
-  window.addEventListener('pkl-firebase-data-updated',function(){setTimeout(ensureRows,80);});
+  window.addEventListener('pkl-supabase-data-updated',function(){setTimeout(ensureRows,80);});
   window.addEventListener('storage',function(){setTimeout(ensureRows,80);});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(ensureRows,100);}); else setTimeout(ensureRows,100);
 })();
@@ -12411,7 +12411,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   },true);
   var mo=new MutationObserver(function(){hideSideForBlocked();ensureDragAttrs();});
   if(document.body) mo.observe(document.body,{childList:true,subtree:true});
-  window.addEventListener('pkl-firebase-data-updated',function(){setTimeout(function(){hideSideForBlocked();ensureDragAttrs();},80);});
+  window.addEventListener('pkl-supabase-data-updated',function(){setTimeout(function(){hideSideForBlocked();ensureDragAttrs();},80);});
   window.addEventListener('storage',function(){setTimeout(function(){hideSideForBlocked();ensureDragAttrs();},80);});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){hideSideForBlocked();ensureDragAttrs();}); else setTimeout(function(){hideSideForBlocked();ensureDragAttrs();},100);
 })();

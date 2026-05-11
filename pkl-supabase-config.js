@@ -47,11 +47,11 @@
 
   function ensureUnifiedSyncLoaded(){
     try{
-      if(window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.__pklSupabaseUnified20260511) return;
-      var exists = Array.prototype.some.call(document.scripts || [], function(sc){ return /pkl-supabase-data-sync\.js(?:\?|$)/.test(sc.src || ""); });
+      if(window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.__pklSupabaseSingleSource20260512) return;
+      var exists = Array.prototype.some.call(document.scripts || [], function(sc){ return /pkl-supabase-sync\.js(?:\?|$)/.test(sc.src || ""); });
       if(exists) return;
       var script = document.createElement("script");
-      script.src = "./pkl-supabase-data-sync.js?v=20260511-unified";
+      script.src = "./pkl-supabase-sync.js?v=20260512";
       script.defer = true;
       (document.head || document.documentElement).appendChild(script);
     }catch(e){}

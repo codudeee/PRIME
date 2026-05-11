@@ -80,7 +80,7 @@
     applying=true;
     try{nativeSetItem("pklUsers",JSON.stringify(arr));nativeSetItem("PKL_USERS",JSON.stringify(arr));}finally{applying=false;}
     try{window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:arr}}));window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:arr}}));}catch(e){}
-    if(saveRemote && window.PKLFirebaseDataSync && window.PKLFirebaseDataSync.setShared){try{window.PKLFirebaseDataSync.setShared("pklUsers",arr);window.PKLFirebaseDataSync.setShared("PKL_USERS",arr);}catch(e){}}
+    if(saveRemote && window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.setShared){try{window.PKLSupabaseDataSync.setShared("pklUsers",arr);window.PKLSupabaseDataSync.setShared("PKL_USERS",arr);}catch(e){}}
     return arr;
   }
   function upsert(u){var list=users(); var nu=normalize(Object.assign({},u,{pklProfileUpdatedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),__pklProfileWrite:true})); var i=list.findIndex(function(x){return same(x,nu);}); if(i>=0)list[i]=mergeOne(list[i],nu,true); else list.push(nu); return setUsers(list,true);}
