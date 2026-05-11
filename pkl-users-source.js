@@ -41,7 +41,9 @@
     var src = Object.assign({}, raw && raw.raw && typeof raw.raw === 'object' ? raw.raw : {}, raw || {});
     var did = id(src), n = nick(src), p = pubg(src);
     var r = role(src.memberRole || src.member_role || src.role || src.userRole || src.authRole || src.adminRole || (src.is_admin ? 'admin' : 'user'));
-    var t = tier(src.memberTier || src.gradeRole || src.tierRole || src.baseRole || src.tier || src.memberTierName || src.tierName || src.roleName);
+    // memberTier/gradeRole/tierRole/tier가 명시적으로 none이면 baseRole/raw의 예전 티어로 되살리지 않는다.
+    var tierCandidate = (src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : (src.baseRole != null ? src.baseRole : (src.memberTierName || src.tierName || src.roleName))))));
+    var t = tier(tierCandidate);
     if(did){ src.discordId = did; src.uid = 'discord-' + did; src.id = 'discord-' + did; src.userId = 'discord-' + did; src.key = 'discord-' + did; }
     if(n){ src.nickname = n; src.nick = n; src.name = n; src.displayName = n; }
     if(p){ src.pubgId = p; src.gameId = p; src.pubgName = p; src.ref = p; }
@@ -101,8 +103,12 @@
       discordUsername: r.discord_username || raw.discordUsername,
       nickname: r.nickname || raw.nickname,
       pubgId: r.pubg_id || raw.pubgId,
-      memberTier: r.tier || raw.memberTier,
-      tier: r.tier || raw.tier,
+      memberTier: (r.tier != null ? r.tier : raw.memberTier),
+      gradeRole: (r.tier != null ? r.tier : raw.gradeRole),
+      tierRole: (r.tier != null ? r.tier : raw.tierRole),
+      baseRole: (r.tier != null ? r.tier : raw.baseRole),
+      originalRole: (r.tier != null ? r.tier : raw.originalRole),
+      tier: (r.tier != null ? r.tier : raw.tier),
       prime: r.prime != null ? r.prime : raw.prime,
       points: r.points != null ? r.points : raw.points,
       warnings: r.warnings != null ? r.warnings : raw.warnings,

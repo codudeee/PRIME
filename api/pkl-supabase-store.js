@@ -33,7 +33,8 @@ function normalizeUser(raw){
   const nick = clean(src.nickname || src.nick || src.name || src.displayName || src.discord_username || src.discordUsername || src.username || src.discordGlobalName);
   const pubg = clean(src.pubgId || src.pubg_id || src.pubgID || src.gameId || src.pubgName || src.ref || src.pubg);
   const role = normalizeRole(src.memberRole || src.role || src.userRole || src.authRole || src.adminRole || (src.is_admin ? 'admin' : 'user'));
-  const tier = normalizeTier(src.memberTier || src.gradeRole || src.tierRole || src.baseRole || src.tier || src.memberTierName || src.tierName);
+  const tierInput = (src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : (src.baseRole != null ? src.baseRole : (src.memberTierName || src.tierName))))));
+  const tier = normalizeTier(tierInput);
   const prime = Number(src.prime ?? src.points ?? src.dia ?? src.chicken ?? 0) || 0;
   const warnings = Number(src.warnings ?? src.warn ?? 0) || 0;
   const u = {
@@ -162,7 +163,7 @@ async function writeUserDoc(user, forceAdmin=false){
     discord_username: clean(u.discordUsername || u.username || u.displayName || u.nickname),
     nickname: clean(u.nickname || u.displayName || u.nick || u.name),
     pubg_id: clean(u.pubgId || u.gameId || u.ref),
-    tier: clean(u.memberTier || u.gradeRole || u.tierRole || u.tier || 'none'),
+    tier: normalizeTier(u.memberTier != null ? u.memberTier : (u.gradeRole != null ? u.gradeRole : (u.tierRole != null ? u.tierRole : (u.tier != null ? u.tier : 'none')))),
     prime: Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0) || 0,
     points: Number(u.points ?? u.prime ?? 0) || 0,
     warnings: Number(u.warnings ?? 0) || 0,
@@ -293,7 +294,7 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
     discord_username: clean(nextInput.discordUsername || row.discord_username),
     nickname: clean(nextInput.nickname || row.nickname),
     pubg_id: clean(nextInput.pubgId || row.pubg_id),
-    tier: clean(nextInput.memberTier || nextInput.gradeRole || row.tier || 'none'),
+    tier: normalizeTier(nextInput.memberTier != null ? nextInput.memberTier : (nextInput.gradeRole != null ? nextInput.gradeRole : (nextInput.tierRole != null ? nextInput.tierRole : (nextInput.tier != null ? nextInput.tier : (row.tier || 'none'))))),
     role: normalizeRole(nextInput.memberRole || nextInput.role || row.role || 'user'),
     prime: Number(nextInput.prime ?? nextInput.points ?? row.prime ?? 0) || 0,
     points: Number(nextInput.points ?? nextInput.prime ?? row.points ?? row.prime ?? 0) || 0,
@@ -302,7 +303,7 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
     updated_at: now
   };
   async function patch(obj){
-    const { json } = await supabaseFetch(`users?discord_id=eq.${encodeURIComponent(row.discord_id)}`, {method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(obj)});
+    const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(obj)});
     return Array.isArray(json) && json[0] ? json[0] : {...row, ...obj};
   }
   let saved;
@@ -345,7 +346,7 @@ async function recordBan(ban={}, actor='ADMIN'){
       const row = await readUserRowByIdentity({discordId});
       const raw = row.raw && typeof row.raw==='object' ? {...row.raw} : {};
       raw.banned = true; raw.banReason = payload.reason; raw.banDate = now;
-      await supabaseFetch(`users?discord_id=eq.${encodeURIComponent(row.discord_id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:true, role:'banned', raw, updated_at:now})});
+      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:true, role:'banned', raw, updated_at:now})});
     }catch(_e){}
   }
   await insertAdminLogSafe({action:'ban', actor:payload.actor, target:payload.nickname||payload.pubg_id||payload.discord_id||'', detail:payload});
@@ -368,7 +369,7 @@ async function deleteBanRecord(ban={}, actor='ADMIN'){
       const row = await readUserRowByIdentity({discordId});
       const raw = row.raw && typeof row.raw==='object' ? {...row.raw} : {};
       raw.banned = false; delete raw.banReason; delete raw.banDate;
-      await supabaseFetch(`users?discord_id=eq.${encodeURIComponent(row.discord_id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:false, role: raw.memberRole || raw.role || 'user', raw, updated_at:new Date().toISOString()})});
+      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:false, role: raw.memberRole || raw.role || 'user', raw, updated_at:new Date().toISOString()})});
     }catch(_e){}
   }
   await insertAdminLogSafe({action:'ban_delete',actor:clean(actor||'ADMIN'),target:nickname||pubg||discordId,detail:{discord_id:discordId,nickname,pubg_id:pubg}});

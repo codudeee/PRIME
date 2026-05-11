@@ -5942,7 +5942,7 @@ a,
         </div>
         <div class="dash-grid">
           <div class="dash-card"><small>금일 누적 접속자</small><strong id="dashTodayUsers">0</strong></div>
-          <div class="dash-card"><small>회원 데이터</small><strong id="dashPendingCount">0</strong></div>
+          <div class="dash-card"><small>승인 대기</small><strong id="dashPendingCount">0</strong></div>
           <div class="dash-card"><small>전체 회원</small><strong id="dashUserCount">0</strong></div>
         </div>
       </div>
@@ -6505,9 +6505,10 @@ function gradeRoleFromTierText(text){
   return pklGradeRoles.includes(text)?text:(map[text]||"none");
 }
 function gradeRole(u){
-  const sys=pklRoleSystem();
-  if(typeof sys.gradeRoleFromUser==="function") return sys.gradeRoleFromUser(u);
-  const fields=[u?.memberTier,u?.gradeRole,u?.tierRole,u?.baseRole,u?.role,u?.tier,u?.memberTierName,u?.tierName,u?.roleName];
+  /* admin 화면은 현재 state.users의 값만 신뢰한다.
+     PKLRoleSystem/PKLTierBadge가 localStorage의 예전 pklUsers를 hydrate하면
+     `없음` 저장 후에도 이전 티어 배지가 다시 살아나는 문제가 생긴다. */
+  const fields=[u?.memberTier,u?.gradeRole,u?.tierRole,u?.baseRole,u?.tier,u?.memberTierName,u?.tierName];
   for(const field of fields){
     const r=gradeRoleFromTierText(field);
     if(r&&r!=="none") return r;
@@ -6532,9 +6533,7 @@ function memberBadgeHtml(u){
   return `<span class="member-role-badge ${memberRoleClass(mr)}">${esc(memberRoleName(mr))}</span>`;
 }
 function gradeBadgeHtml(u){
-  if(window.PKLTierBadge&&typeof window.PKLTierBadge.renderForUser==="function") return window.PKLTierBadge.renderForUser(u);
-  const sys=pklRoleSystem();
-  if(typeof sys.gradeBadgeForUser==="function") return sys.gradeBadgeForUser(u);
+  /* 외부 공통 배지 함수는 예전 localStorage hydrate를 탈 수 있으므로 admin에서는 직접 렌더한다. */
   const g=gradeRole(u);
   if(!g||g==="none") return "";
   return `<span class="pkl-tier-badge tier-mark ${gradeRoleClass(u)}" data-pkl-tier-badge="${esc(g)}">${esc(gradeRoleName(u))}</span>`;
@@ -6874,21 +6873,19 @@ function pklMemberDataLogs(){
 function renderPendingList(){
   const wrap=document.getElementById("pendingList");if(!wrap)return;
   const logs=pklMemberDataLogs();
+  const pending=Array.isArray(state.pending)?state.pending:[];
   const warnCount=logs.filter(x=>pklMemberDataLabel(x.type)==="경고").length;
   const prisonCount=logs.filter(x=>pklMemberDataLabel(x.type)==="수감").length;
   const banCount=logs.filter(x=>pklMemberDataLabel(x.type)==="추방").length;
-  const editCount=logs.filter(x=>["수정","정보수정","티어변동","지급/압수"].includes(pklMemberDataLabel(x.type))).length;
   const count=document.getElementById("pendingBoardCount");if(count)count.textContent=logs.length;
-  const nav=document.getElementById("navPending");if(nav)nav.textContent=logs.length;
-  const dash=document.getElementById("dashPendingCount");if(dash)dash.textContent=logs.length;
-  const pd=document.getElementById("pdPending");if(pd)pd.textContent=logs.length;
+  const pendingHtml=pending.length?`<div class="member-data-section-title">승인 대기</div>`+pending.map((p,i)=>`<div class="pending-card"><div class="pending-no">${i+1}</div><div class="pending-info"><strong>${esc(p.nickname)}</strong><span>가입일자 : ${esc(p.date||'-')}</span><span>배그아이디 : ${esc(p.ref||p.pubgId||'-')}</span></div><div class="pending-actions"><button class="pending-approve" data-min-role="operator" onclick="approvePending(${i})">승인</button><button class="pending-reject" data-min-role="operator" onclick="rejectPending(${i})">거절</button></div></div>`).join(""):"";
   const logHtml=logs.length?logs.map(x=>{
     const label=pklMemberDataLabel(x.type), cls=pklMemberDataClass(x.type);
     const extra=x.warningCount!==""&&x.warningCount!=null?` · 누적 경고 ${esc(x.warningCount)}회`:"";
     const change=(x.before||x.after)?` · ${esc(x.before||'-')} → ${esc(x.after||'-')}`:"";
     return `<div class="member-data-log-card"><div class="member-data-kind ${cls}">${label}</div><div class="member-data-main"><strong>${esc(x.nickname||'-')} / ${esc(x.pubgId||'-')}${extra}</strong><p>${esc(x.reason||'-')}${change}</p></div><div class="member-data-meta">${esc(x.date||'-')}<br>처리자 ${esc(x.admin||'-')}</div></div>`;
   }).join(""):`<div class="pending-empty">회원 데이터 로그가 없습니다.</div>`;
-  wrap.innerHTML=`<div class="member-data-summary"><div class="member-data-stat"><small>정보수정</small><strong>${editCount}</strong></div><div class="member-data-stat"><small>경고 로그</small><strong>${warnCount}</strong></div><div class="member-data-stat"><small>수감 로그</small><strong>${prisonCount}</strong></div><div class="member-data-stat"><small>추방 로그</small><strong>${banCount}</strong></div></div><div class="member-data-section-title">회원 활동 로그</div>${logHtml}`;
+  wrap.innerHTML=`<div class="member-data-summary"><div class="member-data-stat"><small>승인 대기</small><strong>${pending.length}</strong></div><div class="member-data-stat"><small>경고 로그</small><strong>${warnCount}</strong></div><div class="member-data-stat"><small>수감 로그</small><strong>${prisonCount}</strong></div><div class="member-data-stat"><small>추방 로그</small><strong>${banCount}</strong></div></div>${pendingHtml}<div class="member-data-section-title">회원 활동 로그</div>${logHtml}`;
 }
 function approvePending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const p=state.pending[i];if(!p)return;state.users.push({nickname:p.nickname,pubgId:p.ref||p.pubgId||p.nickname,password:p.password||"",tier:"없음",role:"user",baseRole:"none",gradeRole:"none",memberRole:"user",status:"approved",approved:true,warnings:0,uid:"approved-"+Date.now(),join:nowText().split(' ')[0],last:"-",logs:0,memoList:[],history:[{type:"approve",reason:"가입 승인",date:nowText(),admin:adminName()}]});state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];state.memberDataLogs.unshift({type:"approve",nickname:p.nickname,pubgId:p.ref||p.pubgId||"",reason:"가입 승인",date:nowText(),admin:adminName()});removeApprovedFromPendingStorage(p);state.pending.splice(i,1);save();render();renderPendingList();}
 function rejectPending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const p=state.pending[i];if(!p)return;state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];state.memberDataLogs.unshift({type:"reject",nickname:p.nickname,pubgId:p.ref||p.pubgId||"",reason:"가입 거절",date:nowText(),admin:adminName()});state.pending.splice(i,1);save();render();renderPendingList();}
@@ -7131,7 +7128,20 @@ async function saveMemberEdit(){
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.message||"Supabase 저장 실패");
     if(data.user){
-      u.prime=Number(data.user.prime ?? data.user.points ?? u.prime ?? u.dia ?? 0)||0;
+      const saved=(window.PKLUsersSource&&typeof window.PKLUsersSource.normalize==="function") ? window.PKLUsersSource.normalize(data.user) : data.user;
+      Object.assign(u,saved);
+      // `없음` 저장은 화면에서도 즉시 배지가 사라져야 하므로 티어 관련 필드를 확실히 정리한다.
+      if(selectedGrade==="none"){
+        u.gradeRole="none";
+        u.tierRole="none";
+        u.memberTier="none";
+        u.memberTierName="없음";
+        u.baseRole="none";
+        u.originalRole="none";
+        u.tier="없음";
+        u.role=memberRole||"guest";
+      }
+      u.prime=Number(u.prime ?? u.points ?? u.dia ?? 0)||0;
       u.points=u.prime;
       u.dia=u.prime;
       u.chicken=u.prime;
@@ -7142,21 +7152,25 @@ async function saveMemberEdit(){
     return;
   }
   try{
-    if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function"){
+    if(window.PKLUsersSource && typeof window.PKLUsersSource.saveUser === "function"){
+      await window.PKLUsersSource.saveUser(u);
+    }else if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function"){
       window.PKLUserProfile.upsert(u);
     }
   }catch(e){}
 
   save();
   try{syncUsersToAccountStorage();}catch(e){}
-  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
-  try{window.dispatchEvent(new StorageEvent("storage",{key:dataKey,newValue:JSON.stringify(state)}));}catch(e){}
+  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:state.users}}));}catch(e){}
 
   closeMemberEditModal();
+  // 현재 화면 메모리와 DOM을 Supabase 저장 결과 기준으로 즉시 다시 그린다.
+  normalizeUserGradeAndMemberRole(u);
   renderUserList();
   renderProfile();
   renderStats();
   renderCurrentScreen();
+  if(typeof renderPklRoleDistribution==="function")renderPklRoleDistribution(state.users||[]);
   if(typeof updatePremiumDashboard==="function")updatePremiumDashboard();
 }
 
@@ -7460,7 +7474,7 @@ document.addEventListener("DOMContentLoaded",renderRoleDropdownOptions);
           '<div><div class="hero-kicker">PRIME KILL LEAGUE · ADMIN CENTER</div><div class="hero-title">PKL 운영 대시보드</div><div class="hero-sub">회원, 승인, 경고, 프라임 현황을 한눈에 확인하는 운영 메인 화면입니다.</div></div>',
           '<div class="hero-status">',
             '<div class="hero-mini"><span>현재 회원</span><b id="pdNow">0</b></div>',
-            '<div class="hero-mini"><span>회원 데이터</span><b id="pdPending">0</b></div>',
+            '<div class="hero-mini"><span>승인 대기</span><b id="pdPending">0</b></div>',
             '<div class="hero-mini"><span>보유 프라임</span><b id="pdHeroChicken">0</b></div>',
             '<div class="hero-mini"><span>현재 시간</span><b id="pdClock">--:--</b></div>',
           '</div>',
@@ -7710,7 +7724,7 @@ document.addEventListener("DOMContentLoaded",()=>{
     }
     const options=[...select.options].filter(opt=>pklGradeRoles.includes(opt.value));
 
-    text.textContent=select.options[select.selectedIndex]?.textContent || "회원 티어 선택";
+    text.textContent=(select.value==="none"||select.value==="" ? "없음" : (select.options[select.selectedIndex]?.textContent || "회원 티어 선택"));
     menu.innerHTML=options.map(opt=>(
       '<button type="button" class="pkl-role-option '+(opt.value===select.value?'active':'')+'" data-value="'+opt.value+'">'+opt.textContent+'</button>'
     )).join("");
