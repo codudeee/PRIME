@@ -182,4 +182,34 @@ async function writeUserDoc(user, forceAdmin=false){
     return await upsert(fallback);
   }
 }
-module.exports = { readUserDocs, writeUserDoc, mergeUsers, normalizeUser };
+async function readUsers(options={}){
+  const pageSize = Math.max(1, Math.min(100, Number(options.limit || 100)));
+  const q = clean(options.q || '');
+  if(q){
+    const result = await readUserDocs({ limit: pageSize, offset: Math.max(0, Number(options.offset || 0)), q });
+    return result.users;
+  }
+  const max = Math.max(pageSize, Math.min(1000, Number(options.max || 1000)));
+  const users = [];
+  for(let offset = 0; offset < max; offset += pageSize){
+    const result = await readUserDocs({ limit: Math.min(pageSize, max - offset), offset });
+    users.push(...(result.users || []));
+    if(!result.users || result.users.length < pageSize) break;
+  }
+  return mergeUsers(users);
+}
+async function writeUsers(users){
+  const input = Array.isArray(users) ? users : [];
+  const saved = [];
+  for(const user of input){
+    if(!user || typeof user !== 'object') continue;
+    const normalized = normalizeUser(user);
+    if(!cleanId(normalized.discordId || normalized.uid || normalized.id)) continue;
+    saved.push(await writeUserDoc(normalized, normalizeRole(normalized.role || normalized.memberRole) === 'admin'));
+  }
+  return mergeUsers(saved);
+}
+async function readAdminState(){
+  return { users: await readUsers({ max: 1000 }), pending: [], bans: [], warningRecords: [] };
+}
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser };

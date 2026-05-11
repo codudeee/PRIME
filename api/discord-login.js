@@ -15,11 +15,11 @@ function getRedirectUri(event) {
   const configured = env("DISCORD_REDIRECT_URI");
   const siteUrl = currentSiteUrl(event);
   const host = String(event.headers.host || event.headers.Host || "");
-  if (host && !/localhost|127\.0\.0\.1/i.test(host)) {
+  if (/localhost|127\.0\.0\.1/i.test(host)) {
     return `${siteUrl}/api/discord-callback`;
   }
   if (configured && !/localhost|127\.0\.0\.1/i.test(configured)) return configured.replace(/\/$/, "");
-  return PRODUCTION_REDIRECT_URI;
+  return `${siteUrl}/api/discord-callback`;
 }
 
 exports.handler = async function(event) {
