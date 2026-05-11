@@ -836,8 +836,8 @@ font-weight:700;
   function rerenderSoon(){clearTimeout(rerenderSoon._t);rerenderSoon._t=setTimeout(render,80);}
   render();
   window.addEventListener("storage",function(e){if(!e||e.key===MATCHES_KEY) rerenderSoon();});
-  window.addEventListener("pkl-firebase-data-updated",function(e){if(!e.detail||!e.detail.key||e.detail.key===MATCHES_KEY) rerenderSoon();});
-  window.addEventListener("pkl-firebase-sync-ready",rerenderSoon);
+  window.addEventListener("pkl-local-data-updated",function(e){if(!e.detail||!e.detail.key||e.detail.key===MATCHES_KEY) rerenderSoon();});
+  window.addEventListener("pkl-local-sync-ready",rerenderSoon);
   
   document.addEventListener("visibilitychange",function(){if(!document.hidden) render();});
 })();
@@ -918,10 +918,10 @@ font-weight:700;
     localStorage.setItem(STORAGE_KEY,text);
     localStorage.setItem(BACKUP_KEY,text);
     try{
-      if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.setShared === "function") window.PKLFirebaseDataSync.setShared(STORAGE_KEY,text);
+      if(null;
       else if(typeof window.saveSharedData === "function") window.saveSharedData(STORAGE_KEY,text);
     }catch(e){}
-    try{window.dispatchEvent(new CustomEvent("pkl-firebase-data-updated",{detail:{key:STORAGE_KEY}}));}catch(e){}
+    try{window.dispatchEvent(new CustomEvent("pkl-local-data-updated",{detail:{key:STORAGE_KEY}}));}catch(e){}
   }
   function sortItems(items){return items.slice().sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});}
   function esc(v){return String(v||"").replace(/[&<>"]/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch];});}
@@ -1019,9 +1019,9 @@ font-weight:700;
     if(modal.classList.contains("open")) renderModal();
   }
   window.addEventListener("storage",function(e){if(!e || e.key===STORAGE_KEY) handleNoticeDataUpdated(e);});
-  window.addEventListener("pkl-firebase-data-updated",handleNoticeDataUpdated);
-  window.addEventListener("pkl-firebase-sync-ready",handleNoticeDataUpdated);
-  setTimeout(function(){try{if(window.PKLFirebaseDataSync&&typeof window.PKLFirebaseDataSync.refresh==='function')window.PKLFirebaseDataSync.refresh();}catch(e){}},120);
+  window.addEventListener("pkl-local-data-updated",handleNoticeDataUpdated);
+  window.addEventListener("pkl-local-sync-ready",handleNoticeDataUpdated);
+  setTimeout(function(){try{if(null;}catch(e){}},120);
   syncNoticeAdminState();
   renderPreview();
   setTimeout(handleNoticeDataUpdated,700);

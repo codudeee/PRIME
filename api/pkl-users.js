@@ -1,9 +1,9 @@
-let firebaseStore;
-try{ firebaseStore = require("./pkl-supabase-store"); }catch(e){ firebaseStore = null; }
+let supabaseStore;
+try{ supabaseStore = require("./pkl-supabase-store"); }catch(e){ supabaseStore = null; }
 let memoryUsers = [];
 
 function mergeUsers(base, incoming){
-  if (firebaseStore && firebaseStore.mergeUsers) return firebaseStore.mergeUsers(base, incoming);
+  if (supabaseStore && supabaseStore.mergeUsers) return supabaseStore.mergeUsers(base, incoming);
   const out = Array.isArray(base) ? base.slice() : [];
   (Array.isArray(incoming) ? incoming : []).forEach(u => out.push(u));
   return out;
@@ -12,16 +12,16 @@ function mergeUsers(base, incoming){
 module.exports = async function handler(req, res) {
   try {
     if (req.method === "GET") {
-      const users = firebaseStore ? await firebaseStore.readUsers() : memoryUsers;
+      const users = supabaseStore ? await supabaseStore.readUsers() : memoryUsers;
       memoryUsers = mergeUsers(memoryUsers, users);
       return res.status(200).json({ ok: true, users: memoryUsers });
     }
     if (req.method === "POST") {
       const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
       const incoming = Array.isArray(body.users) ? body.users : [];
-      const current = firebaseStore ? await firebaseStore.readUsers() : memoryUsers;
+      const current = supabaseStore ? await supabaseStore.readUsers() : memoryUsers;
       memoryUsers = mergeUsers(current, incoming);
-      if (firebaseStore) memoryUsers = await firebaseStore.writeUsers(memoryUsers);
+      if (supabaseStore) memoryUsers = await supabaseStore.writeUsers(memoryUsers);
       return res.status(200).json({ ok: true, users: memoryUsers });
     }
     res.setHeader("Allow", "GET, POST");

@@ -51,7 +51,7 @@
       var exists = Array.prototype.some.call(document.scripts || [], function(sc){ return /pkl-firebase-data-sync\.js(?:\?|$)/.test(sc.src || ""); });
       if(exists) return;
       var script = document.createElement("script");
-      script.src = "./pkl-firebase-data-sync.js?v=20260511-unified";
+      return; // firebase sync removed
       script.defer = true;
       (document.head || document.documentElement).appendChild(script);
     }catch(e){}

@@ -1204,18 +1204,5 @@ window.getUnifiedMatchRecords=function(){
 </script>
 
   <script src="./pkl-responsive-scale.js"></script>
-
-<script>
-async function pklLoadSearchStats(){
-  try{
-    if(!window.supabase)return;
-    const {data,error}=await window.supabase.from('match_players').select('*').limit(500);
-    if(error){console.log(error);return;}
-    window.PKL_MATCH_PLAYERS=data||[];
-    console.log('PKL stats loaded', data?.length||0);
-  }catch(e){console.log(e);}
-}
-window.addEventListener('load',()=>setTimeout(pklLoadSearchStats,500));
-</script>
 </body>
 </html>

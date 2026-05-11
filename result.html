@@ -1447,8 +1447,8 @@ function pklResultSharedSet(key,value){
   const text=typeof value==='string'?value:JSON.stringify(value);
   try{
     localStorage.setItem(key,text);
-    if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.setShared==='function'){
-      window.PKLFirebaseDataSync.setShared(key,text);
+    if(null
+      null;
     }else if(typeof window.saveSharedData==='function'){
       window.saveSharedData(key,text);
     }
@@ -2427,14 +2427,14 @@ bind();renderAll();
 window.addEventListener('storage',function(e){
   if(e && e.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
 });
-window.addEventListener('pkl-firebase-data-updated',function(e){
+window.addEventListener('pkl-local-data-updated',function(e){
   if(e && e.detail && e.detail.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
 });
 window.addEventListener('pkl-users-updated',function(){ renderSide(); });
 window.addEventListener('pkl-role-data-updated',function(){ renderSide(); });
-window.addEventListener('pkl-firebase-sync-ready',function(){
-  if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.refresh==='function'){
-    window.PKLFirebaseDataSync.refresh();
+window.addEventListener('pkl-local-sync-ready',function(){
+  if(null
+    null;
   }
   setTimeout(pklResultRefreshMatchesFromStorage,350);
 });
@@ -2873,7 +2873,7 @@ window.addEventListener('load', restoreDiscordSession);
   function markDeleted(id){if(!id)return;var arr=deletedIds().filter(Boolean);if(arr.indexOf(String(id))<0)arr.push(String(id));writeJSON(DELETED_KEY,arr.slice(-80));}
   function filterDeletedMatches(){var ids=deletedIds();if(!ids.length)return false;var list=readJSON(MATCH_KEY,[]);if(!Array.isArray(list))return false;var next=list.filter(function(m){return ids.indexOf(String(m&&m.id))<0;});if(next.length!==list.length){writeJSON(MATCH_KEY,next);return true;}return false;}
   document.addEventListener('click',function(e){var yes=e.target&&e.target.closest&&e.target.closest('#resultDeleteYesBtn');if(yes){var active=document.querySelector('#adminMatchList .admin-match-item.active');var id=active&&active.getAttribute('data-admin-match');markDeleted(id);setTimeout(filterDeletedMatches,60);setTimeout(filterDeletedMatches,420);}},true);
-  window.addEventListener('pkl-firebase-data-updated',function(e){if(e&&e.detail&&e.detail.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
+  window.addEventListener('pkl-local-data-updated',function(e){if(e&&e.detail&&e.detail.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
   window.addEventListener('storage',function(e){if(e&&e.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
   function getMatches(){return readJSON(MATCH_KEY,[]);} function currentMatch(){var id=(document.getElementById('matchSelect')||{}).value||'';var list=getMatches();return list.find(function(m){return String(m&&m.id)===String(id);})||list[0]||null;}
   function fmtTime(t){if(!t)return '-';var d=new Date(Number(t)||t);if(String(d)==='Invalid Date')return String(t);return d.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
@@ -2885,40 +2885,6 @@ window.addEventListener('load', restoreDiscordSession);
 })();
 </script>
 
-
-<script>
-async function saveMatchPlayerResults(rows,mode){
-  try{
-    if(!window.supabase||!Array.isArray(rows)) return;
-    const matchInsert = await window.supabase.from('matches').insert({
-      match_type: mode || 'normal',
-      created_at: new Date().toISOString()
-    }).select().single();
-
-    if(matchInsert.error){
-      console.log(matchInsert.error);
-      return;
-    }
-
-    const matchId = matchInsert.data.id;
-
-    const payload = rows.map(r=>({
-      match_id: matchId,
-      user_id: r.user_id || null,
-      kills: Number(r.kills||0),
-      deaths: Number(r.deaths||0),
-      rank: Number(r.rank||0),
-      team: r.team || '',
-      mode: mode || 'normal'
-    }));
-
-    const {error}=await window.supabase.from('match_players').insert(payload);
-    if(error) console.log(error);
-    else console.log('PKL result saved');
-  }catch(e){console.log(e);}
-}
-window.saveMatchPlayerResults = saveMatchPlayerResults;
-</script>
 </body>
 </html>
 
