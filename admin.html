@@ -1,7 +1,12 @@
+const seoulClockText = document.getElementById("seoulClockText");
+
+
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <script src="./pkl-supabase-config.js"></script>
+  
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PKL ADMIN CONSOLE</title>
@@ -1544,6 +1549,28 @@ button,input,select,textarea{font-family:inherit}button{cursor:pointer}input,sel
   .temp-edit-grid{grid-template-columns:1fr;grid-template-rows:auto;grid-auto-flow:row;}
   .temp-edit-empty{display:none;}
 }
+
+/* PKL member data log panel */
+.member-data-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0 12px;}
+.member-data-stat{border:1px solid rgba(216,180,254,.14);border-radius:16px;background:rgba(255,255,255,.035);padding:12px;text-align:center;}
+.member-data-stat small{display:block;color:rgba(231,225,255,.62);font-size:11px;font-weight:900;}
+.member-data-stat strong{display:block;margin-top:5px;color:#fff;font-size:22px;font-weight:1000;}
+.member-data-section-title{margin:10px 2px 8px;color:#fff;font-weight:1000;font-size:15px;text-shadow:0 0 12px rgba(216,180,254,.18);}
+.member-data-log-card{display:grid;grid-template-columns:112px minmax(0,1fr) 168px;gap:12px;align-items:center;border:1px solid rgba(216,180,254,.13);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));padding:12px;}
+.member-data-log-card + .member-data-log-card{margin-top:8px;}
+.member-data-kind{height:30px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:1000;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.055);color:#e9d5ff;}
+.member-data-kind.warn{color:#fde68a;border-color:rgba(251,191,36,.28);background:rgba(245,158,11,.10);}
+.member-data-kind.minus{color:#bfdbfe;border-color:rgba(96,165,250,.26);background:rgba(59,130,246,.10);}
+.member-data-kind.prison{color:#f0abfc;border-color:rgba(217,70,239,.28);background:rgba(168,85,247,.10);}
+.member-data-kind.release{color:#bbf7d0;border-color:rgba(74,222,128,.24);background:rgba(34,197,94,.09);}
+.member-data-kind.ban{color:#fecaca;border-color:rgba(248,113,113,.28);background:rgba(239,68,68,.10);}
+.member-data-kind.edit{color:#ddd6fe;border-color:rgba(167,139,250,.26);background:rgba(124,58,237,.10);}
+.member-data-main{min-width:0;}
+.member-data-main strong{display:block;color:#fff;font-size:14px;font-weight:1000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.member-data-main p{margin:5px 0 0;color:rgba(231,225,255,.68);font-size:12px;font-weight:800;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.member-data-meta{text-align:right;color:rgba(231,225,255,.62);font-size:11px;font-weight:900;line-height:1.55;}
+@media(max-width:900px){.member-data-summary{grid-template-columns:repeat(2,minmax(0,1fr));}.member-data-log-card{grid-template-columns:1fr}.member-data-meta{text-align:left}}
+
 </style>
 
 
@@ -2456,7 +2483,7 @@ color:#fff;
   font-size:11px;
 }
 
-/* 보유 치킨 강조 */
+/* 보유 프라임 강조 */
 #dDia{
   color:#c4b5fd;
   text-shadow:0 0 10px rgba(167,139,250,.25);
@@ -2644,7 +2671,7 @@ color:#fff;
   box-shadow:0 0 14px rgba(167,139,250,.18);
 }
 
-/* 보유 치킨 입력칸: 색감 변경 + 숫자 스핀 제거 */
+/* 보유 프라임 입력칸: 색감 변경 + 숫자 스핀 제거 */
 #editDia{
   background:
     radial-gradient(circle at 15% 20%, rgba(251,191,36,.20), transparent 38%),
@@ -4394,22 +4421,22 @@ letter-spacing:1px;
 }
 
 .role-eight-box.role-tier0{--tier-color:#ff5f5f;--tier-glow:rgba(255,77,77,.20);--tier-shadow:rgba(255,77,77,.18);}
-.role-eight-box.role-tier1{--tier-color:#ff9f43;--tier-glow:rgba(255,140,66,.20);--tier-shadow:rgba(255,140,66,.18);}
-.role-eight-box.role-tier2{--tier-color:#ffd93d;--tier-glow:rgba(255,217,61,.17);--tier-shadow:rgba(255,217,61,.16);}
-.role-eight-box.role-tier3{--tier-color:#6bff9f;--tier-glow:rgba(107,255,159,.15);--tier-shadow:rgba(107,255,159,.14);}
-.role-eight-box.role-tier4{--tier-color:#6bcfff;--tier-glow:rgba(107,207,255,.16);--tier-shadow:rgba(107,207,255,.15);}
+.role-eight-box.role-tier1{--tier-color:#ffd93d;--tier-glow:rgba(255,217,61,.18);--tier-shadow:rgba(255,217,61,.16);}
+.role-eight-box.role-tier2{--tier-color:#6bff9f;--tier-glow:rgba(107,255,159,.15);--tier-shadow:rgba(107,255,159,.14);}
+.role-eight-box.role-tier3{--tier-color:#6bcfff;--tier-glow:rgba(107,207,255,.16);--tier-shadow:rgba(107,207,255,.15);}
+.role-eight-box.role-tier4{--tier-color:#a78bfa;--tier-glow:rgba(167,139,250,.18);--tier-shadow:rgba(167,139,250,.16);}
 .role-eight-box.role-beast{--tier-color:#a47148;--tier-glow:rgba(164,113,72,.18);--tier-shadow:rgba(164,113,72,.16);}
-.role-eight-box.role-temp{--tier-color:#ffffff;--tier-glow:rgba(255,255,255,.12);--tier-shadow:rgba(255,255,255,.10);}
-.role-eight-box.role-prisoner{--tier-color:#ff4d4d;--tier-glow:rgba(0,0,0,.38);--tier-shadow:rgba(255,77,77,.16);}
+.role-eight-box.role-temp{--tier-color:#777777;--tier-glow:rgba(0,0,0,.30);--tier-shadow:rgba(0,0,0,.22);}
+.role-eight-box.role-prisoner{--tier-color:#111111;--tier-glow:rgba(0,0,0,.42);--tier-shadow:rgba(0,0,0,.28);}
 
 .role-eight-box.role-tier0 .eight-head b{color:#ff9b9b;}
-.role-eight-box.role-tier1 .eight-head b{color:#ffc08a;}
-.role-eight-box.role-tier2 .eight-head b{color:#ffe989;}
-.role-eight-box.role-tier3 .eight-head b{color:#aaffcd;}
-.role-eight-box.role-tier4 .eight-head b{color:#aee5ff;}
+.role-eight-box.role-tier1 .eight-head b{color:#ffe989;}
+.role-eight-box.role-tier2 .eight-head b{color:#aaffcd;}
+.role-eight-box.role-tier3 .eight-head b{color:#aee5ff;}
+.role-eight-box.role-tier4 .eight-head b{color:#c4b5fd;}
 .role-eight-box.role-beast .eight-head b{color:#d7a26d;}
-.role-eight-box.role-temp .eight-head b{color:#fff;}
-.role-eight-box.role-prisoner .eight-head b{color:#ff6b6b;}
+.role-eight-box.role-temp .eight-head b{color:#9ca3af;}
+.role-eight-box.role-prisoner .eight-head b{color:#9ca3af;}
 
 .dash-panel:has(#pdTierBars){
   min-height:370px!important;
@@ -4521,13 +4548,13 @@ letter-spacing:1px;
 }
 
 .role-eight-compact .role-eight-box.role-tier0 .tier-ring-inner strong{color:#ff9b9b;}
-.role-eight-compact .role-eight-box.role-tier1 .tier-ring-inner strong{color:#ffc08a;}
-.role-eight-compact .role-eight-box.role-tier2 .tier-ring-inner strong{color:#ffe989;}
-.role-eight-compact .role-eight-box.role-tier3 .tier-ring-inner strong{color:#aaffcd;}
-.role-eight-compact .role-eight-box.role-tier4 .tier-ring-inner strong{color:#aee5ff;}
+.role-eight-compact .role-eight-box.role-tier1 .tier-ring-inner strong{color:#ffe989;}
+.role-eight-compact .role-eight-box.role-tier2 .tier-ring-inner strong{color:#aaffcd;}
+.role-eight-compact .role-eight-box.role-tier3 .tier-ring-inner strong{color:#aee5ff;}
+.role-eight-compact .role-eight-box.role-tier4 .tier-ring-inner strong{color:#c4b5fd;}
 .role-eight-compact .role-eight-box.role-beast .tier-ring-inner strong{color:#d7a26d;}
-.role-eight-compact .role-eight-box.role-temp .tier-ring-inner strong{color:#fff;}
-.role-eight-compact .role-eight-box.role-prisoner .tier-ring-inner strong{color:#ff6b6b;}
+.role-eight-compact .role-eight-box.role-temp .tier-ring-inner strong{color:#9ca3af;}
+.role-eight-compact .role-eight-box.role-prisoner .tier-ring-inner strong{color:#9ca3af;}
 
 .dash-panel:has(#pdTierBars){
   min-height:316px!important;
@@ -5750,8 +5777,72 @@ a,
 .logout{
   cursor:pointer !important;
 }
+
+
+/* =========================================================
+   PKL ADMIN DESKTOP CANVAS / HORIZONTAL SCROLL FIX
+   ========================================================= */
+html,body{
+  min-width:1440px !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+}
+.app{
+  width:calc(100% - 32px) !important;
+  min-width:1408px !important;
+  max-width:1780px !important;
+  height:calc(100vh - 32px) !important;
+  grid-template-columns:250px minmax(0,1fr) !important;
+}
+.sidebar{display:block !important;}
+.main{grid-template-rows:72px minmax(0,1fr) !important;}
+.grid{grid-template-columns:360px minmax(0,1fr) 360px !important;height:100% !important;overflow:hidden !important;}
+.action-panel{display:grid !important;}
+@media (max-width:1439px){
+  html,body{width:1440px !important;}
+}
 </style>
 
+
+<style id="pkl-admin-users-supabase-lazy-style">
+/* 회원관리 유저 목록 전용: 기존 UI 보존 + 디자인 스크롤 */
+#userManageTab{display:grid;}
+#userList.user-list{
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(196,181,253,.78) rgba(255,255,255,.045);
+  scroll-behavior:smooth;
+}
+#userList.user-list::-webkit-scrollbar{width:10px;}
+#userList.user-list::-webkit-scrollbar-track{
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(124,58,237,.045));
+  border-radius:999px;
+  margin:8px 0;
+}
+#userList.user-list::-webkit-scrollbar-thumb{
+  border:2px solid rgba(8,7,18,.92);
+  border-radius:999px;
+  background:linear-gradient(180deg,rgba(233,213,255,.92),rgba(124,58,237,.66));
+  box-shadow:0 0 16px rgba(124,58,237,.34);
+}
+#userList.user-list::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(167,139,250,.86));
+}
+.pkl-users-loading-row,.pkl-users-end-row{
+  height:42px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:8px 0 2px;
+  border-radius:14px;
+  border:1px solid rgba(216,180,254,.13);
+  background:rgba(124,58,237,.08);
+  color:rgba(237,233,254,.74);
+  font-size:12px;
+  font-weight:950;
+}
+</style>
 </head>
 <body>
 <div class="app">
@@ -5766,7 +5857,7 @@ a,
     <div class="nav">
       <button class="nav-btn" data-tab="dashboard" onclick="switchAdminTab('dashboard', this)"><i>⌂</i>대시보드</button>
       <button class="nav-btn active" data-tab="users" onclick="switchAdminTab('users', this)"><i>♟</i>회원 관리</button>
-      <button class="nav-btn" data-tab="pending" onclick="switchAdminTab('pending', this)"><i>◴</i>승인 대기 <span id="navPending">0</span></button>
+      <button class="nav-btn" data-tab="pending" onclick="switchAdminTab('pending', this)"><i>◴</i>회원 데이터 <span id="navPending">0</span></button>
       <button class="nav-btn" data-tab="warnings" onclick="switchAdminTab('warnings', this)"><i>⚠</i>경고 기록</button>
       <button class="nav-btn" data-tab="bans" onclick="switchAdminTab('bans', this)"><i>♜</i>추방 기록</button>
       <button class="nav-btn" data-tab="settings" data-min-role="admin" onclick="switchAdminTab('settings', this)"><i>⚙</i>설정</button>
@@ -5787,10 +5878,10 @@ a,
       </div>
     </section>
 
-    <section class="grid user-tab" id="userManageTab">
+    <section class="grid user-tab" id="userManageTab" style="display:grid;">
       <section class="glass user-panel">
         <div class="panel-title"><h2>유저 목록</h2><small id="userCount">0명</small></div>
-        <div class="search-row"><input id="search" placeholder="닉네임 / ID 검색" oninput="render()"><button class="filter-btn">≡</button></div>
+        <div class="search-row"><input id="search" placeholder="닉네임 / ID 검색"><button class="filter-btn">≡</button></div>
         <div class="user-list" id="userList"></div>
       </section>
 
@@ -5826,7 +5917,7 @@ a,
             <div class="row"><label>회원 등급</label><strong id="dRole">-</strong></div>
             <div class="row"><label>회원 역할</label><strong id="dMemberRole">-</strong></div>
             <div class="row"><label>현재 경고</label><strong id="dWarn">-</strong></div>
-            <div class="row"><label>보유 치킨</label><strong id="dDia">-</strong></div>
+            <div class="row"><label>보유 프라임</label><strong id="dDia">-</strong></div>
             <div class="row"><label>가입 일자</label><strong id="dOrder">-</strong></div>
           </div>
           <div class="info-block">
@@ -5910,11 +6001,11 @@ a,
       <div class="glass pending-board">
         <div class="pending-head">
           <div>
-            <h2>승인 대기</h2>
-            <p>회원가입 후 운영진 승인을 기다리는 신청 목록입니다.</p>
+            <h2>회원 데이터</h2>
+            <p>가입·탈퇴·경고·차감·수감·해제·추방·티어변동·닉네임 변경 내역을 확인합니다.</p>
           </div>
           <div class="pending-count-card">
-            <small>대기 인원</small>
+            <small>전체 로그</small>
             <strong id="pendingBoardCount">0</strong>
           </div>
         </div>
@@ -6070,7 +6161,17 @@ function pklAlert(message,title="알림"){return openPklNotice({title,message,mo
 function pklConfirm(message,title="처리 확인",danger=false){return openPklNotice({title,message,mode:"confirm",ok:"확인",cancel:"취소",danger});}
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.getElementById("pklNoticeLayer")?.classList.contains("open"))closePklNotice(false);});
 
-let state=load();
+var state=load();
+window.state=state;
+window.addEventListener("pkl-users-updated", function(e){
+  try{
+    const users = e && e.detail && Array.isArray(e.detail.users) ? e.detail.users : [];
+    state.users = users;
+    window.state = state;
+    if(typeof current !== "undefined" && current >= state.users.length) current = 0;
+    if(typeof render === "function") render();
+  }catch(err){ console.warn("PKL Supabase users sync skipped", err); }
+});
 window.state=state;
 
 
@@ -6079,7 +6180,6 @@ function seed(){return {users:[],pending:[],bans:[],warningRecords:[]};}
 
 
 function pklHasAssignedTier(u){
-  // 회원목록은 Firebase/가입 데이터 기준으로 보여야 하므로 티어가 없어도 제거하지 않는다.
   // 티어 값은 권한이 아니라 회원 티어 표시용 데이터다.
   return !!(u && !pklIsDeletedUser(u));
 }
@@ -6625,7 +6725,17 @@ function penaltyBadgeHtml(u){if(!isPenaltyActive(u))return "";const until=u.pena
 function permanentBanRecord(u,reason,auto){const role=normalizeRole(u.role);return {nickname:u.nickname,pubgId:u.pubgId,discordId:u.discordId||"",role:role,reason:reason,date:nowText(),admin:adminName(),auto:!!auto,permanent:true,ip:u.ip||u.lastIp||"",clientId:u.clientId||"",uid:u.uid||u.id||""};}
 function syncPermanentBanStorage(){try{const old=JSON.parse(localStorage.getItem("pklBannedUsers")||"[]");const merged=[...old];(state.bans||[]).forEach(b=>{const same=merged.some(x=>(x.uid&&b.uid&&x.uid===b.uid)||(x.discordId&&b.discordId&&x.discordId===b.discordId)||(x.nickname&&x.nickname===b.nickname)||(x.pubgId&&x.pubgId===b.pubgId)||(x.ip&&b.ip&&x.ip===b.ip));if(!same)merged.push({nickname:b.nickname,pubgId:b.pubgId,discordId:b.discordId||"",uid:b.uid||"",ip:b.ip||"",clientId:b.clientId||"",reason:b.reason||"영구추방",date:b.date||nowText(),admin:b.admin||adminName(),permanent:b.permanent!==false});});localStorage.setItem("pklBannedUsers",JSON.stringify(merged));}catch(e){}}
 
-function render(){ if(typeof renderPklRoleDistribution==='function' && typeof state!=="undefined"){setTimeout(()=>renderPklRoleDistribution(state.users||[]),50);} renderUserList();renderProfile();renderStats();renderCurrentScreen();if(typeof updatePremiumDashboard==='function')updatePremiumDashboard();}
+function pklVisibleScreenId(){const screens=[...document.querySelectorAll('#userManageTab,.admin-screen')];const visible=screens.find(el=>el&&getComputedStyle(el).display!=="none");return visible?visible.id:"userManageTab";}
+function render(){
+  const visibleId=pklVisibleScreenId();
+  if(visibleId==="userManageTab"){
+    renderUserList();
+    renderProfile();
+  }else{
+    renderCurrentScreen();
+  }
+  renderStats();
+}
 function renderUserList(){
   normalizeAllUserRoles();
   const q=(document.getElementById("search")?.value||"").trim().toLowerCase();
@@ -6680,12 +6790,15 @@ function renderProfile(){
   document.getElementById("dRole").textContent=gradeRoleName(u);
   const dMemberRole=document.getElementById("dMemberRole"); if(dMemberRole)dMemberRole.textContent=memberRoleName(u.memberRole)+(isPenaltyActive(u)?" · 수감자":"");
   document.getElementById("dWarn").textContent=u.warnings+"/4";
-  document.getElementById("dDia").textContent=(u.dia??0)+" 마리";
+  document.getElementById("dDia").textContent=(u.dia??0)+"";
   document.getElementById("dOrder").textContent=u.join||"-";
-  document.getElementById("mJoin").textContent=(u.logs||0)+"회";
-  document.getElementById("mWin").textContent=Math.max(0,78-current*3)+"%";
-  document.getElementById("mLast").textContent=u.last||"-";
-  document.getElementById("mAvgKill").textContent=(Math.max(1.2,(u.logs*0.7+current*0.25))).toFixed(1);
+  const joinCount=Number(u.logs??u.matchCount??u.matches??u.games??u.stats?.matches??0)||0;
+  const winRate=(u.winRate??u.stats?.winRate);
+  const avgKill=(u.avgKill??u.averageKill??u.stats?.avgKill);
+  document.getElementById("mJoin").textContent=joinCount+"회";
+  document.getElementById("mWin").textContent=(winRate==null||winRate==="")?"-":(Number(winRate)||0)+"%";
+  document.getElementById("mLast").textContent=u.last||u.lastLogin||"-";
+  document.getElementById("mAvgKill").textContent=(avgKill==null||avgKill==="")?"-":(Number(avgKill)||0).toFixed(1);
   renderMemoList();
   if(activeDetailTab!=="detail")renderDetailLog(activeDetailTab);
 }
@@ -6786,11 +6899,79 @@ function confirmModal(){
   save();render();
 }
 
-async function switchAdminTab(tab,btn){if(tab==="settings"&&!isSuperAdmin()){await pklAlert("관리자 외 출입금지","접근 제한");tab="dashboard";btn=document.querySelector('[data-tab="dashboard"]');}document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));if(btn)btn.classList.add("active");const ids={users:"userManageTab",dashboard:"dashboardManageTab",pending:"pendingManageTab",warnings:"warningsManageTab",bans:"bansManageTab",settings:"settingsManageTab"};Object.values(ids).forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none"});const target=document.getElementById(ids[tab]||"userManageTab");if(target)target.style.display=tab==="users"?"grid":"block";if(tab==="users"){const search=document.getElementById("search");if(search)search.value="";}render();}
+async function switchAdminTab(tab,btn){if(tab==="settings"&&!isSuperAdmin()){await pklAlert("관리자 외 출입금지","접근 제한");tab="users";btn=document.querySelector('[data-tab="users"]');}document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));if(btn)btn.classList.add("active");const ids={users:"userManageTab",dashboard:"dashboardManageTab",pending:"pendingManageTab",warnings:"warningsManageTab",bans:"bansManageTab",settings:"settingsManageTab"};Object.values(ids).forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none"});const target=document.getElementById(ids[tab]||"userManageTab");if(target)target.style.display=tab==="users"?"grid":"block";if(tab==="users"){const search=document.getElementById("search");if(search)search.value="";}render();}
 function removeApprovedFromPendingStorage(p){try{const pending=JSON.parse(localStorage.getItem("pklPendingUsers")||"[]");if(!Array.isArray(pending))return;const nick=p?.nickname||"";const pubg=p?.ref||p?.pubgId||"";const next=pending.filter(x=>!((nick&&(x.nickname===nick||x.nick===nick||x.name===nick))||(pubg&&(x.pubgId===pubg||x.ref===pubg||x.gameId===pubg))));localStorage.setItem("pklPendingUsers",JSON.stringify(next));}catch(e){}}
-function renderPendingList(){const wrap=document.getElementById("pendingList");if(!wrap)return;document.getElementById("pendingBoardCount").textContent=state.pending.length;wrap.innerHTML=state.pending.length?state.pending.map((p,i)=>`<div class="pending-card"><div class="pending-no">${i+1}</div><div class="pending-info"><strong>${esc(p.nickname)}</strong><span>가입일자 : ${esc(p.date||'-')}</span><span>배그아이디 : ${esc(p.ref||'-')}</span></div><div class="pending-actions"><button class="pending-approve" data-min-role="operator" onclick="approvePending(${i})">승인</button><button class="pending-reject" data-min-role="operator" onclick="rejectPending(${i})">거절</button></div></div>`).join(""):`<div class="pending-empty">승인 대기 중인 회원이 없습니다.</div>`;}
-function approvePending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const p=state.pending[i];if(!p)return;state.users.push({nickname:p.nickname,pubgId:p.ref||p.pubgId||p.nickname,password:p.password||"",tier:"없음",role:"user",baseRole:"none",gradeRole:"none",memberRole:"user",status:"approved",approved:true,warnings:0,uid:"approved-"+Date.now(),join:nowText().split(' ')[0],last:"-",logs:0,memoList:[],history:[{type:"approve",reason:"가입 승인",date:nowText(),admin:adminName()}]});removeApprovedFromPendingStorage(p);state.pending.splice(i,1);save();render();renderPendingList();}
-function rejectPending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}if(!state.pending[i])return;state.pending.splice(i,1);save();render();renderPendingList();}
+function pklMemberDataLabel(type){
+  const t=String(type||"log").toLowerCase();
+  if(t==="join"||t==="signup"||t==="approve")return "가입";
+  if(t==="leave"||t==="withdraw"||t==="delete")return "탈퇴";
+  if(t==="warn"||t==="warning")return "경고";
+  if(t==="minus"||t==="warning-minus"||t==="warning_reduce"||t==="reduce")return "차감";
+  if(t==="penalty"||t==="prison"||t==="jail")return "수감";
+  if(t==="release"||t==="unjail")return "해제";
+  if(t==="ban"||t==="banned")return "추방";
+  if(t==="tier"||t==="tier-change")return "티어변동";
+  if(t==="nickname"||t==="nickname-change")return "닉네임변경";
+  if(t==="edit")return "정보수정";
+  return "기록";
+}
+function pklMemberDataClass(type){
+  const label=pklMemberDataLabel(type);
+  if(label==="경고")return "warn";
+  if(label==="차감")return "minus";
+  if(label==="수감")return "prison";
+  if(label==="해제")return "release";
+  if(label==="추방")return "ban";
+  if(label==="티어변동"||label==="닉네임변경"||label==="정보수정")return "edit";
+  return "";
+}
+function pklMemberDataLogs(){
+  const logs=[];
+  const push=(x)=>{if(!x)return;logs.push({
+    type:x.type||x.kind||"log",
+    nickname:x.nickname||x.nick||x.name||x.toNickname||"-",
+    pubgId:x.pubgId||x.gameId||x.ref||"-",
+    reason:x.reason||x.memo||x.message||x.detail||"-",
+    date:x.date||x.createdAt||x.updatedAt||x.time||"-",
+    admin:x.admin||x.moderator||x.moderatorTag||x.by||x.actor||"-",
+    warningCount:x.warningCount||x.warnings||x.count||"",
+    before:x.before||x.oldValue||x.old||"",
+    after:x.after||x.newValue||x.new||""
+  });};
+  [state.memberDataLogs,state.memberActivityLogs,state.activityLogs,state.adminLogs].forEach(arr=>{if(Array.isArray(arr))arr.forEach(push);});
+  (state.users||[]).forEach(u=>{
+    const nick=u.nickname||u.nick||u.name||"-", pubg=u.pubgId||u.gameId||u.ref||"-";
+    push({type:"join",nickname:nick,pubgId:pubg,reason:"회원 가입/승인",date:u.join||u.createdAt||u.approvedAt||"-",admin:u.approvedBy||"SYSTEM"});
+    (Array.isArray(u.history)?u.history:[]).forEach(h=>push({...h,nickname:nick,pubgId:pubg,warningCount:h.warningCount||u.warnings||""}));
+    if(u.penalty&&u.penalty.date)push({type:"penalty",nickname:nick,pubgId:pubg,reason:u.penalty.reason||"수감자 처리",date:u.penalty.date,admin:u.penalty.admin||"SYSTEM",warningCount:u.warnings||""});
+  });
+  (Array.isArray(state.warningRecords)?state.warningRecords:[]).forEach(push);
+  (Array.isArray(state.bans)?state.bans:[]).forEach(b=>push({...b,type:"ban"}));
+  const seen=new Set();
+  return logs.filter(x=>{
+    const key=[x.type,x.nickname,x.pubgId,x.reason,x.date,x.admin].join("|");
+    if(seen.has(key))return false;seen.add(key);return true;
+  }).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,500);
+}
+function renderPendingList(){
+  const wrap=document.getElementById("pendingList");if(!wrap)return;
+  const logs=pklMemberDataLogs();
+  const pending=Array.isArray(state.pending)?state.pending:[];
+  const warnCount=logs.filter(x=>pklMemberDataLabel(x.type)==="경고").length;
+  const prisonCount=logs.filter(x=>pklMemberDataLabel(x.type)==="수감").length;
+  const banCount=logs.filter(x=>pklMemberDataLabel(x.type)==="추방").length;
+  document.getElementById("pendingBoardCount").textContent=logs.length;
+  const pendingHtml=pending.length?`<div class="member-data-section-title">승인 대기</div>`+pending.map((p,i)=>`<div class="pending-card"><div class="pending-no">${i+1}</div><div class="pending-info"><strong>${esc(p.nickname)}</strong><span>가입일자 : ${esc(p.date||'-')}</span><span>배그아이디 : ${esc(p.ref||p.pubgId||'-')}</span></div><div class="pending-actions"><button class="pending-approve" data-min-role="operator" onclick="approvePending(${i})">승인</button><button class="pending-reject" data-min-role="operator" onclick="rejectPending(${i})">거절</button></div></div>`).join(""):"";
+  const logHtml=logs.length?logs.map(x=>{
+    const label=pklMemberDataLabel(x.type), cls=pklMemberDataClass(x.type);
+    const extra=x.warningCount!==""&&x.warningCount!=null?` · 누적 경고 ${esc(x.warningCount)}회`:"";
+    const change=(x.before||x.after)?` · ${esc(x.before||'-')} → ${esc(x.after||'-')}`:"";
+    return `<div class="member-data-log-card"><div class="member-data-kind ${cls}">${label}</div><div class="member-data-main"><strong>${esc(x.nickname||'-')} / ${esc(x.pubgId||'-')}${extra}</strong><p>${esc(x.reason||'-')}${change}</p></div><div class="member-data-meta">${esc(x.date||'-')}<br>처리자 ${esc(x.admin||'-')}</div></div>`;
+  }).join(""):`<div class="pending-empty">회원 데이터 로그가 없습니다.</div>`;
+  wrap.innerHTML=`<div class="member-data-summary"><div class="member-data-stat"><small>승인 대기</small><strong>${pending.length}</strong></div><div class="member-data-stat"><small>경고 로그</small><strong>${warnCount}</strong></div><div class="member-data-stat"><small>수감 로그</small><strong>${prisonCount}</strong></div><div class="member-data-stat"><small>추방 로그</small><strong>${banCount}</strong></div></div>${pendingHtml}<div class="member-data-section-title">회원 활동 로그</div>${logHtml}`;
+}
+function approvePending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const p=state.pending[i];if(!p)return;state.users.push({nickname:p.nickname,pubgId:p.ref||p.pubgId||p.nickname,password:p.password||"",tier:"없음",role:"user",baseRole:"none",gradeRole:"none",memberRole:"user",status:"approved",approved:true,warnings:0,uid:"approved-"+Date.now(),join:nowText().split(' ')[0],last:"-",logs:0,memoList:[],history:[{type:"approve",reason:"가입 승인",date:nowText(),admin:adminName()}]});state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];state.memberDataLogs.unshift({type:"approve",nickname:p.nickname,pubgId:p.ref||p.pubgId||"",reason:"가입 승인",date:nowText(),admin:adminName()});removeApprovedFromPendingStorage(p);state.pending.splice(i,1);save();render();renderPendingList();}
+function rejectPending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const p=state.pending[i];if(!p)return;state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];state.memberDataLogs.unshift({type:"reject",nickname:p.nickname,pubgId:p.ref||p.pubgId||"",reason:"가입 거절",date:nowText(),admin:adminName()});state.pending.splice(i,1);save();render();renderPendingList();}
 function renderBanRecords(){const list=document.getElementById("banRecordList"),count=document.getElementById("banBoardCount");state.bans=Array.isArray(state.bans)?state.bans:[];if(count)count.textContent=state.bans.length;if(!list)return;list.innerHTML=state.bans.length?state.bans.map((b,i)=>`<div class="record-card"><div class="record-badge red">영구추방</div><div><strong>${esc(b.nickname)} / ${esc(b.pubgId||'-')}</strong><p>${esc(b.reason)}</p></div><div class="record-meta">${esc(b.date)}<br>처리자 ${esc(b.admin)}</div>${recordDeleteButton('ban',i)}</div>`).join(""):`<div class="pending-empty">추방 기록이 없습니다.</div>`;}
 function renderWarnRecords(){
   state.warningRecords=Array.isArray(state.warningRecords)?state.warningRecords:[];
@@ -6982,6 +7163,8 @@ function saveMemberEdit(){
 
   if(!nick)return;
 
+  const beforeEdit={nickname:u.nickname||"",pubgId:u.pubgId||"",tier:u.memberTier||u.gradeRole||u.tierRole||u.tier||"",memberRole:u.memberRole||u.role||""};
+  state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];
 
   u.history=Array.isArray(u.history)?u.history:[];
   u.history.unshift({type:"edit",reason:"회원 정보 수정",date:nowText(),admin:adminName()});
@@ -7022,6 +7205,19 @@ function saveMemberEdit(){
   if(pw)u.password=pw;
   u.updatedAt=new Date().toISOString();
   u.pklProfileUpdatedAt=u.updatedAt;
+  const afterTier=selectedGrade&&selectedGrade!=="none"?roleName(selectedGrade):(u.memberTierName||u.tier||"없음");
+  const beforeTierText=beforeEdit.tier||"없음";
+  if(beforeEdit.nickname && beforeEdit.nickname!==u.nickname){
+    state.memberDataLogs.unshift({type:"nickname",nickname:u.nickname,pubgId:u.pubgId,reason:"닉네임 변경",before:beforeEdit.nickname,after:u.nickname,date:nowText(),admin:adminName()});
+    u.history.unshift({type:"nickname",reason:`닉네임 변경: ${beforeEdit.nickname} → ${u.nickname}`,date:nowText(),admin:adminName(),before:beforeEdit.nickname,after:u.nickname});
+  }
+  if(String(beforeTierText)!==String(afterTier) && afterTier){
+    state.memberDataLogs.unshift({type:"tier",nickname:u.nickname,pubgId:u.pubgId,reason:"회원 티어 변경",before:beforeTierText,after:afterTier,date:nowText(),admin:adminName()});
+    u.history.unshift({type:"tier",reason:`회원 티어 변경: ${beforeTierText} → ${afterTier}`,date:nowText(),admin:adminName(),before:beforeTierText,after:afterTier});
+  }
+  if(beforeEdit.memberRole!==u.memberRole){
+    state.memberDataLogs.unshift({type:u.memberRole==="prisoner"?"penalty":"release",nickname:u.nickname,pubgId:u.pubgId,reason:`회원 역할 변경: ${memberRoleName(beforeEdit.memberRole)} → ${memberRoleName(u.memberRole)}`,before:beforeEdit.memberRole,after:u.memberRole,date:nowText(),admin:adminName(),warningCount:u.warnings||0});
+  }
   u.__pklProfileWrite=true;
   try{
     if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function"){
@@ -7042,7 +7238,7 @@ function saveMemberEdit(){
   renderCurrentScreen();
   if(typeof updatePremiumDashboard==="function")updatePremiumDashboard();
 }
-async function deleteMemberData(){if(!pklIsSuperAdmin()){pklAlert("회원 데이터 삭제는 관리자만 사용할 수 있습니다.","권한 제한");return;}const u=state.users[current];if(!u)return;if(!await pklConfirm(`${u.nickname} 회원 데이터를 삭제하시겠습니까?`,"회원 데이터 삭제",true))return;pklPurgeDeletedUserFromStorage(u);state.users.splice(current,1);current=0;save();closeMemberEditModal();render();renderWelcome();}
+async function deleteMemberData(){if(!pklIsSuperAdmin()){pklAlert("회원 데이터 삭제는 관리자만 사용할 수 있습니다.","권한 제한");return;}const u=state.users[current];if(!u)return;if(!await pklConfirm(`${u.nickname} 회원 데이터를 삭제하시겠습니까?`,"회원 데이터 삭제",true))return;state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];state.memberDataLogs.unshift({type:"delete",nickname:u.nickname,pubgId:u.pubgId,reason:"회원 데이터 삭제/탈퇴 처리",date:nowText(),admin:adminName(),warningCount:u.warnings||0});pklPurgeDeletedUserFromStorage(u);state.users.splice(current,1);current=0;save();closeMemberEditModal();render();renderWelcome();}
 async function exportAdminState(){
   if(!pklIsSuperAdmin()){pklAlert("관리자만 사용할 수 있습니다.","권한 제한");return;}
   const text=JSON.stringify(state,null,2);
@@ -7155,11 +7351,11 @@ function renderWelcome(){
   if(settingsBtn)settingsBtn.style.display=isSuperAdmin()?"":"none";
 
   if(!window.__pklWelcomeUserSyncTimer){
-    window.__pklWelcomeUserSyncTimer=setInterval(renderWelcome,800);
+    window.__pklWelcomeUserSyncTimer=
   }
 }
 function initActionPlaceholders(){document.querySelectorAll(".action-panel textarea").forEach(el=>{if(!el.dataset.placeholderText)el.dataset.placeholderText=el.getAttribute("placeholder")||"";const hide=()=>{el.setAttribute("placeholder","")};const show=()=>{if(!el.matches(":focus")&&!el.value.trim())el.setAttribute("placeholder",el.dataset.placeholderText)};el.addEventListener("mouseenter",hide);el.addEventListener("focus",hide);el.addEventListener("mouseleave",show);el.addEventListener("blur",show);});}
-setInterval(tick,1000);tick();renderWelcome();initActionPlaceholders();save();render();
+tick();renderWelcome();initActionPlaceholders();save();render();
 
 function pklSeoulTimeOnly(value){
   return String(value || '')
@@ -7249,7 +7445,7 @@ function pklSeoulTimeOnly(value){
           <div class="pkl-role-select-menu pkl-member-title-select-menu" id="editMemberTitleCustomMenu"></div>
         </div>
       </div>
-      <div class="temp-edit-field"><label>보유치킨</label><input id="editDia" type="number" min="0" step="1" placeholder="0 마리"></div>
+      <div class="temp-edit-field"><label>보유 프라임</label><input id="editDia" type="number" min="0" step="1" placeholder="0 프라임"></div>
       <div class="temp-edit-field temp-edit-empty" aria-hidden="true"></div>
       <div class="temp-edit-field temp-edit-empty" aria-hidden="true"></div>
     </div>
@@ -7286,17 +7482,17 @@ document.addEventListener("DOMContentLoaded",renderRoleDropdownOptions);
     dash.innerHTML = [
       '<div class="premium-dash">',
         '<div class="premium-dash-hero">',
-          '<div><div class="hero-kicker">PRIME KILL LEAGUE · ADMIN CENTER</div><div class="hero-title">PKL 운영 대시보드</div><div class="hero-sub">회원, 승인, 경고, 치킨 현황을 한눈에 확인하는 운영 메인 화면입니다.</div></div>',
+          '<div><div class="hero-kicker">PRIME KILL LEAGUE · ADMIN CENTER</div><div class="hero-title">PKL 운영 대시보드</div><div class="hero-sub">회원, 승인, 경고, 프라임 현황을 한눈에 확인하는 운영 메인 화면입니다.</div></div>',
           '<div class="hero-status">',
             '<div class="hero-mini"><span>현재 회원</span><b id="pdNow">0</b></div>',
             '<div class="hero-mini"><span>승인 대기</span><b id="pdPending">0</b></div>',
-            '<div class="hero-mini"><span>보유 치킨</span><b id="pdHeroChicken">0</b></div>',
+            '<div class="hero-mini"><span>보유 프라임</span><b id="pdHeroChicken">0</b></div>',
             '<div class="hero-mini"><span>현재 시간</span><b id="pdClock">--:--</b></div>',
           '</div>',
         '</div>',
         '<div class="premium-stats">',
           '<div class="premium-stat stat-purple"><div class="stat-label">전체 회원</div><div class="stat-value" id="pdTotalUsers">0</div><div class="stat-note">PKL 등록 회원</div></div>',
-          '<div class="premium-stat stat-gold"><div class="stat-label">보유 치킨 합계</div><div class="stat-value" id="pdChicken">0</div><div class="stat-note">전체 회원 보유량</div></div>',
+          '<div class="premium-stat stat-gold"><div class="stat-label">보유 프라임 합계</div><div class="stat-value" id="pdChicken">0</div><div class="stat-note">전체 회원 보유량</div></div>',
           '<div class="premium-stat stat-red"><div class="stat-label">현재 경고</div><div class="stat-value" id="pdWarns">0</div><div class="stat-note">현재 회원 경고 합산</div></div>',
           '<div class="premium-stat stat-blue"><div class="stat-label">수감자</div><div class="stat-value" id="pdPrisoners">0</div><div class="stat-note">제재 상태 회원</div></div>',
         '</div>',
@@ -7381,15 +7577,8 @@ document.addEventListener("DOMContentLoaded",renderRoleDropdownOptions);
     }
   };
 
-  function openDashboardOnLoad(){
-    const dash=document.getElementById("dashboardManageTab");
-    if(!dash) return;
-    document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{el.style.display="none";});
-    dash.style.display="block";
-    if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("dashboardManageTab");
-    window.renderPremiumDashboard();
-  }
-  document.addEventListener("DOMContentLoaded",()=>setTimeout(openDashboardOnLoad,80));
+  /* PKL admin 초기 화면은 회원 관리로 유지한다.
+     이전 대시보드 강제 진입 로직은 회원관리 → 대시보드 전환 깜빡임을 만들기 때문에 제거했다. */
 })();
 </script>
 
@@ -7435,7 +7624,7 @@ function setAdminNavActiveByScreen(screenId){
   const textMap={
     dashboardManageTab:"대시보드",
     userManageTab:"회원 관리",
-    pendingManageTab:"승인 대기",
+    pendingManageTab:"회원 데이터",
     bansManageTab:"추방 기록",
     warningsManageTab:"경고 기록",
     settingsManageTab:"설정"
@@ -7452,25 +7641,36 @@ function setAdminNavActiveByScreen(screenId){
 function getVisibleAdminScreenId(){
   const screens=[...document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen")];
   const visible=screens.find(el=>el && getComputedStyle(el).display!=="none");
-  return visible ? visible.id : "dashboardManageTab";
+  return visible ? visible.id : "userManageTab";
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
   setTimeout(()=>{
-    const dash=document.getElementById("dashboardManageTab");
-    if(dash){
-      document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{
+    const users=document.getElementById("userManageTab");
+    if(users){
+      document.querySelectorAll("#dashboardManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{
         el.style.display="none";
       });
-      dash.style.display="";
-      if(typeof renderPremiumDashboard==="function") renderPremiumDashboard();
-      if(typeof updatePremiumDashboard==="function") updatePremiumDashboard();
-      setAdminNavActiveByScreen("dashboardManageTab");
+      users.style.display="grid";
+      setAdminNavActiveByScreen("userManageTab");
+      if(typeof render==="function") render();
     }
-  },180);
+  },80);
 });
 </script>
 
+
+
+<script>
+function pklForceUsersTabNow(){
+  const ids={dashboard:"dashboardManageTab",pending:"pendingManageTab",warnings:"warningsManageTab",bans:"bansManageTab",settings:"settingsManageTab"};
+  Object.values(ids).forEach(id=>{const el=document.getElementById(id); if(el) el.style.display="none";});
+  const users=document.getElementById("userManageTab"); if(users) users.style.display="grid";
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active", b.dataset.tab==="users"));
+}
+document.addEventListener("DOMContentLoaded", pklForceUsersTabNow);
+window.addEventListener("pkl-users-updated", function(){ setTimeout(pklForceUsersTabNow,0); });
+</script>
 
 <script>
 (function(){
@@ -7779,181 +7979,66 @@ document.addEventListener("DOMContentLoaded",()=>{
   window.pklApplyAdminAccess=applyAccess;
 })();
 </script>
-<script type="module">
-
-import {
-  initializeApp,
-  getApps,
-  getApp
-}
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-
-import {
-  getFirestore,
-  collection,
-  getDocs
-}
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-const firebaseConfig = {
-
-  apiKey: "AIzaSyAeoucXoL2DKzbeMdEOTr1BXtStUWXhnvU",
-
-  authDomain:
-    "primekillleague.firebaseapp.com",
-
-  projectId: "primekillleague",
-
-  storageBucket:
-    "primekillleague.firebasestorage.app",
-
-  messagingSenderId: "775204287038",
-
-  appId: "1:775204287038:web:9c9429c4ed3a2715a6976f"
-
-};
-
-const app = getApps().length
-  ? getApp()
-  : initializeApp(firebaseConfig);
-
-const db = getFirestore(app);
-
-
-function normalizeFirestoreUserForAdmin(raw){
-  const u = raw || {};
-  const nick = u.nickname || u.nick || u.name || u.displayName || u.pubgId || "회원";
-  const role = u.memberRole || u.role || "user";
-  return {
-    ...u,
-    uid: u.uid || u.id || (u.discordId ? "discord-" + u.discordId : (u.firestoreId || "firestore-" + Date.now())),
-    id: u.id || u.uid || (u.discordId ? "discord-" + u.discordId : (u.firestoreId || "firestore-" + Date.now())),
-    nickname: nick,
-    nick: nick,
-    name: nick,
-    displayName: nick,
-    pubgId: u.pubgId || u.gameId || u.ref || "",
-    gameId: u.gameId || u.pubgId || u.ref || "",
-    ref: u.ref || u.pubgId || u.gameId || "",
-    memberRole: role,
-    role: u.gradeRole || u.tierRole || u.memberTier || u.tier || "none",
-    memberTier: u.memberTier || u.gradeRole || u.tierRole || "none",
-    gradeRole: u.gradeRole || u.memberTier || u.tierRole || "none",
-    status: u.status || "approved",
-    approved: u.approved !== false,
-    warnings: Number(u.warnings || 0),
-    memoList: Array.isArray(u.memoList) ? u.memoList : [],
-    history: Array.isArray(u.history) ? u.history : []
-  };
-}
-function mergeFirestoreUsersIntoAdminState(firestoreUsers){
-  try{
-    if(!Array.isArray(firestoreUsers) || !firestoreUsers.length) return;
-    state = state || seed();
-    state.users = Array.isArray(state.users) ? state.users : [];
-    const accountUsers = JSON.parse(localStorage.getItem("pklUsers") || "[]");
-    const accountList = Array.isArray(accountUsers) ? accountUsers : [];
-    firestoreUsers.forEach(raw=>{
-      const imported = normalizeFirestoreUserForAdmin(raw);
-      if(!imported || pklIsDeletedUser(imported) || imported.isBanned || imported.banned) return;
-      const account = accountList.find(x=>pklUserIdentityMatches(x, imported));
-      // Firestore users 컬렉션은 디스코드/가입자 보조 원본이다. 이미 pklUsers에 있는 회원은 pklUsers 값이 우선이다.
-      const u = account ? normalizeFirestoreUserForAdmin({...imported, ...account}) : imported;
-      const idx = state.users.findIndex(x=>pklUserIdentityMatches(x,u));
-      if(idx >= 0){
-        const old = state.users[idx] || {};
-        state.users[idx] = {
-          ...old,
-          ...u,
-          warnings:Number(old.warnings ?? u.warnings ?? 0),
-          dia:Number(old.dia ?? u.dia ?? 0),
-          chicken:Number(old.chicken ?? old.dia ?? u.dia ?? 0),
-          memoList:Array.isArray(old.memoList) ? old.memoList : u.memoList,
-          history:Array.isArray(old.history) ? old.history : u.history,
-          password:old.password || u.password || ""
-        };
-      }else state.users.push(u);
-    });
-    localStorage.setItem(dataKey, JSON.stringify(state));
-    const merged = accountList.slice();
-    state.users.forEach(u=>{
-      const idx = merged.findIndex(x=>pklUserIdentityMatches(x,u));
-      if(idx >= 0){
-        const old = merged[idx] || {};
-        merged[idx] = {...u, ...old, pubgId:old.pubgId||old.gameId||old.ref||u.pubgId||"", gameId:old.gameId||old.pubgId||u.gameId||u.pubgId||"", ref:old.ref||old.pubgId||u.ref||u.pubgId||""};
-      }else merged.push(u);
-    });
-    localStorage.setItem("pklUsers", JSON.stringify(merged));
-    if(typeof render === "function") render();
-  }catch(error){ console.error("Firestore users merge failed", error); }
-}
-
-async function loadFirestoreUsers(){
-
-  try{
-
-    const snapshot =
-      await getDocs(collection(db,"users"));
-
-    const users = [];
-
-    snapshot.forEach(docSnap=>{
-
-      users.push({
-        firestoreId: docSnap.id,
-        ...docSnap.data()
-      });
-
-    });
-
-    console.log(users);
-
-    window.firestoreUsers = users;
-    mergeFirestoreUsersIntoAdminState(users);
-
-  }catch(error){
-
-    console.error(error);
-
-  }
-}
-
-loadFirestoreUsers();
-
+<script id="pkl-admin-supabase-users-load-disabled">
+/*
+  Disabled 2026-05-12:
+  기존 localStorage 병합형 Supabase 로더는 admin 진입 시 로컬 데이터를 다시 쓰면서
+  최신 Supabase page loader와 충돌할 수 있어 제거한다.
+  회원 목록은 pkl-users-source.js -> /api/pkl-users -> Supabase users 기준으로만 불러온다.
+*/
 </script>
 <script id="pklAdminIdentityPklUsersFix">
 (function(){
-  if(window.__PKL_ADMIN_IDENTITY_PKLUSERS_FIX__) return;
-  window.__PKL_ADMIN_IDENTITY_PKLUSERS_FIX__ = true;
-  const PKL_USERS_KEY="pklUsers", PKL_USERS_ALIAS="PKL_USERS";
-  function parse(raw,fb){try{const v=JSON.parse(raw);return v==null?fb:v;}catch(e){return fb;}}
-  function clean(v){return String(v==null?"":v).trim();}
-  function uid(u){return clean(u&&(u.discordId||u.uid||u.id||u.userId||u.memberId||u.key));}
-  function pubg(u){return clean(u&&(u.pubgId||u.gameId||u.ref||u.pubgName));}
-  function nick(u){return clean(u&&(u.nickname||u.nick||u.name||u.displayName||u.discordGlobalName||u.discordUsername));}
-  function same(a,b){const ai=uid(a),bi=uid(b);if(ai&&bi)return ai===bi;const ap=pubg(a).toLowerCase(),bp=pubg(b).toLowerCase();if(ap&&bp)return ap===bp;const an=nick(a).toLowerCase(),bn=nick(b).toLowerCase();return !!(an&&bn&&an===bn);}
-  function mergeLists(){const out=[];function add(list){(Array.isArray(list)?list:[]).forEach(u=>{if(!u||typeof u!=="object")return;const i=out.findIndex(x=>same(x,u));if(i>=0)out[i]={...out[i],...u};else out.push({...u});});}for(let i=0;i<arguments.length;i++)add(arguments[i]);return out;}
-  function readUsers(){return mergeLists(parse(localStorage.getItem(PKL_USERS_KEY),[]),parse(localStorage.getItem(PKL_USERS_ALIAS),[]));}
-  function writeUsers(users,remote){const arr=mergeLists(users);localStorage.setItem(PKL_USERS_KEY,JSON.stringify(arr));localStorage.setItem(PKL_USERS_ALIAS,JSON.stringify(arr));if(remote&&window.PKLFirebaseDataSync&&window.PKLFirebaseDataSync.setShared){try{window.PKLFirebaseDataSync.setShared(PKL_USERS_KEY,arr);window.PKLFirebaseDataSync.setShared(PKL_USERS_ALIAS,arr);}catch(e){}}try{window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:arr}}));window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:arr}}));}catch(e){}return arr;}
-  function syncAdminFromUsers(users){
-    if(!Array.isArray(users)||!users.length||!window.state||!Array.isArray(window.state.users))return;
-    let changed=false;
-    users.forEach(u=>{
-      const idx=window.state.users.findIndex(x=>same(x,u));
-      if(idx>=0){
-        const old=window.state.users[idx];
-        window.state.users[idx]={...old,...u,history:Array.isArray(old.history)?old.history:u.history,memoList:Array.isArray(old.memoList)?old.memoList:u.memoList,warnings:Number(old.warnings??u.warnings??0)};
-        changed=true;
-      }else{
-        window.state.users.push({...u});changed=true;
-      }
-    });
-    if(changed){try{if(typeof normalizeState==="function")window.state=normalizeState(window.state);if(typeof render==="function")render();}catch(e){}}
-  }
-  window.PKLAdminIdentity={readPklUsers:readUsers,savePklUsers:function(list){return writeUsers(list,true)},upsertUser:function(user){const users=readUsers();const i=users.findIndex(x=>same(x,user));if(i>=0)users[i]={...users[i],...user};else users.push({...user});return writeUsers(users,true);},sameUser:same,mergeList:mergeLists};
-  window.addEventListener("pkl-users-updated",function(e){syncAdminFromUsers(e.detail&&e.detail.users?e.detail.users:readUsers());});
-  setTimeout(function(){syncAdminFromUsers(readUsers());},700);
+  if(window.__PKL_ADMIN_IDENTITY_SUPABASE_ONLY__) return;
+  window.__PKL_ADMIN_IDENTITY_SUPABASE_ONLY__=true;
+  function users(){return (window.PKLUsersSource&&typeof window.PKLUsersSource.localUsers==='function')?window.PKLUsersSource.localUsers():((window.state&&Array.isArray(window.state.users))?window.state.users:[]);}
+  function same(a,b){return window.PKLUsersSource&&typeof window.PKLUsersSource.same==='function'?window.PKLUsersSource.same(a,b):false;}
+  window.PKLAdminIdentity={
+    readPklUsers:users,
+    savePklUsers:function(list){
+      if(window.PKLUsersSource&&typeof window.PKLUsersSource.saveUser==='function'){(Array.isArray(list)?list:[]).forEach(function(u){window.PKLUsersSource.saveUser(u);});}
+      return users();
+    },
+    upsertUser:function(user){
+      if(window.PKLUsersSource&&typeof window.PKLUsersSource.saveUser==='function')window.PKLUsersSource.saveUser(user);
+      return users();
+    },
+    sameUser:same,
+    mergeList:function(){return users();}
+  };
 })();
+</script>
+
+  <script src="./pkl-responsive-scale.js"></script>
+
+<script id="pklPrimeLabelRuntime20260511">
+(function(){
+  function replacePrimeLabels(root){
+    var walker=document.createTreeWalker(root||document.body, NodeFilter.SHOW_TEXT);
+    var nodes=[];
+    while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(function(n){
+      if(!n || !n.nodeValue) return;
+      n.nodeValue=n.nodeValue
+        .replace(/보유\s*치킨/g,'보유 프라임')
+        .replace(/보유치킨/g,'보유 프라임')
+        .replace(/치킨\s*현황/g,'프라임 현황')
+        .replace(/치킨\s*합계/g,'프라임 합계')
+        .replace(/0\s*마리/g,'0 프라임');
+    });
+    document.querySelectorAll('input[placeholder]').forEach(function(el){
+      el.placeholder=String(el.placeholder||'').replace(/0\s*마리/g,'0 프라임').replace(/치킨/g,'프라임');
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){replacePrimeLabels(document.body);});
+  else replacePrimeLabels(document.body);
+  window.addEventListener('pkl-admin-rendered',function(){replacePrimeLabels(document.body);});
+  setTimeout(function(){replacePrimeLabels(document.body);},300);
+})();
+</script>
+
+<script id="pkl-admin-prime-unit-remove-final">
+(function(){function clean(){document.querySelectorAll('body *').forEach(function(el){if(el.childNodes&&el.childNodes.length===1&&el.childNodes[0].nodeType===3&&/마리/.test(el.textContent)){el.textContent=el.textContent.replace(/\s*마리/g,'');}});}document.addEventListener('DOMContentLoaded',clean);setTimeout(clean,300);setTimeout(clean,1200);})();
 </script>
 
 </body>

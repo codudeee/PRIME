@@ -146,20 +146,24 @@
       return await fetchViaBrowserSupabase(options);
     }
   }
+  function sortUsers(list){
+    return (Array.isArray(list)?list:[]).slice().sort(function(a,b){
+      return nick(a).localeCompare(nick(b), 'ko-KR', { numeric:true, sensitivity:'base' });
+    });
+  }
   function applyUsers(users, options){
     options = options || {};
-    cache = options.append ? mergeLists(cache, users) : mergeLists(users);
+    cache = sortUsers(options.append ? mergeLists(cache, users) : mergeLists(users));
     if(!window.state || typeof window.state !== 'object') window.state = { users: [], pending: [], bans: [], warningRecords: [] };
     window.state.users = cache.slice();
+    if(typeof window.current !== 'number' || window.current < 0 || window.current >= window.state.users.length) window.current = 0;
     if(!Array.isArray(window.state.pending)) window.state.pending = [];
     if(!Array.isArray(window.state.bans)) window.state.bans = [];
     if(!Array.isArray(window.state.warningRecords)) window.state.warningRecords = [];
     try { if(typeof normalizeState === 'function') window.state = normalizeState(window.state); } catch(e) {}
-    try { window.dispatchEvent(new CustomEvent('pkl-users-updated', { detail: { users: cache.slice(), meta: Object.assign({}, meta) } })); } catch(e) {}
-    try { window.dispatchEvent(new CustomEvent('pkl-role-data-updated', { detail: { users: cache.slice(), meta: Object.assign({}, meta) } })); } catch(e) {}
     try { if(typeof window.render === 'function') window.render(); } catch(e) { console.warn('PKL render skipped', e); }
     setStatus(meta.count ? (cache.length + ' / ' + meta.count + '명') : (cache.length + '명'));
-    renderLoadMore();
+    renderScrollStatus();
     return cache.slice();
   }
   async function load(options){
@@ -174,7 +178,7 @@
       var wrap = document.getElementById('userList');
       if(wrap && !cache.length) wrap.innerHTML = '<div class="pending-empty">Supabase 유저를 불러오지 못했습니다.<br>users SELECT 정책 또는 환경변수를 확인해주세요.</div>';
       return cache.slice();
-    } finally { meta.loading = false; renderLoadMore(); }
+    } finally { meta.loading = false; renderScrollStatus(); }
   }
   async function loadMore(){
     if(meta.loading) return;
@@ -191,21 +195,26 @@
     } catch(e) { console.warn('PKL Supabase user save skipped', e); }
     return local;
   }
-  function renderLoadMore(){
+  function renderScrollStatus(){
     var wrap = document.getElementById('userList');
     if(!wrap) return;
-    var old = document.getElementById('pklUsersLoadMore');
-    if(old) old.remove();
-    if(meta.count && cache.length < meta.count){
-      var btn = document.createElement('button');
-      btn.id = 'pklUsersLoadMore';
-      btn.type = 'button';
-      btn.textContent = meta.loading ? '불러오는 중...' : '더 불러오기';
-      btn.disabled = !!meta.loading;
-      btn.style.cssText = 'width:100%;height:42px;border-radius:14px;border:1px solid rgba(216,180,254,.22);background:rgba(124,58,237,.22);color:#fff;font-weight:1000;margin:4px 0 10px;';
-      btn.onclick = function(){ loadMore(); };
-      wrap.appendChild(btn);
-    }
+    Array.prototype.slice.call(wrap.querySelectorAll('.pkl-users-loading-row,.pkl-users-end-row')).forEach(function(el){ el.remove(); });
+    var row = document.createElement('div');
+    row.className = meta.loading ? 'pkl-users-loading-row' : 'pkl-users-end-row';
+    if(meta.loading) row.textContent = 'Supabase에서 회원을 불러오는 중...';
+    else if(meta.count && cache.length < meta.count) row.textContent = '아래로 스크롤하면 다음 회원을 불러옵니다.';
+    else row.textContent = cache.length ? '전체 회원을 모두 불러왔습니다.' : '회원 데이터가 없습니다.';
+    wrap.appendChild(row);
+  }
+  function bindInfiniteScroll(){
+    var wrap = document.getElementById('userList');
+    if(!wrap || wrap.__pklSupabaseInfiniteBound) return;
+    wrap.__pklSupabaseInfiniteBound = true;
+    wrap.addEventListener('scroll', function(){
+      if(meta.loading) return;
+      if(!(meta.count && cache.length < meta.count)) return;
+      if(wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 90) loadMore();
+    }, { passive:true });
   }
   function patchProfile(){
     if(!window.PKLUserProfile || window.PKLUserProfile.__supabasePagedUsers20260512Fix) return;
@@ -223,8 +232,13 @@
     input.addEventListener('input', function(){ clearTimeout(debounceTimer); debounceTimer = setTimeout(function(){ search(input.value); }, 320); });
   }
   function boot(){
-    patchProfile(); bindSearch();
-    setTimeout(function(){ load({ limit: 20, offset: 0, q: '', append: false }); }, 50);
+    patchProfile(); bindSearch(); bindInfiniteScroll();
+    if(!window.state || typeof window.state !== 'object') window.state = { users: [], pending: [], bans: [], warningRecords: [] };
+    if(Array.isArray(window.state.users)) window.state.users = [];
+    var wrap = document.getElementById('userList');
+    if(wrap) wrap.innerHTML = '<div class="pkl-users-loading-row">Supabase에서 회원을 불러오는 중...</div>';
+    setStatus('불러오는 중...');
+    setTimeout(function(){ load({ limit: 20, offset: 0, q: '', append: false }); }, 80);
   }
   window.PKLUsersSource = { __supabasePagedUsers20260512Fix: true, load: load, loadMore: loadMore, search: search, saveUser: saveUser, localUsers: function(){ return cache.slice(); }, normalize: normalize, same: same, meta: meta };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
