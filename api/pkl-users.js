@@ -32,6 +32,12 @@ module.exports = async function handler(req, res) {
       }
       return res.status(400).json({ ok: false, message: '지원하지 않는 PATCH action입니다.' });
     }
+    if (req.method === 'DELETE') {
+      const body = parseBody(req);
+      if (typeof supabaseStore.deleteUserDoc !== 'function') throw new Error('Supabase delete function missing');
+      const result = await supabaseStore.deleteUserDoc(body.user || body.identity || {});
+      return res.status(200).json({ ok: true, ...result });
+    }
     if (req.method === 'POST') {
       const body = parseBody(req);
       const input = body.user || (Array.isArray(body.users) ? body.users[0] : null);
@@ -39,7 +45,7 @@ module.exports = async function handler(req, res) {
       const user = await supabaseStore.writeUserDoc(input, !!body.forceAdmin);
       return res.status(200).json({ ok: true, user, users: [user] });
     }
-    res.setHeader('Allow', 'GET, POST, PATCH');
+    res.setHeader('Allow', 'GET, POST, PATCH, DELETE');
     return res.status(405).json({ ok: false, message: 'Method not allowed' });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message || String(error) });

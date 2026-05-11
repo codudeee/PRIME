@@ -266,6 +266,13 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   return { user: rowToUser(savedRow), before: current, after: next, amount: delta, mail: mailText };
 }
 
+async function deleteUserDoc(identity={}){
+  const row = await readUserRowByIdentity(identity);
+  await insertAdminLogSafe({ action:'user_delete', actor: clean(identity.actor || 'ADMIN'), target: row.nickname || row.pubg_id || row.discord_id || '', detail:{ discord_id: row.discord_id || '', pubg_id: row.pubg_id || '', nickname: row.nickname || '' } });
+  await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, { method:'DELETE', headers:{ Prefer:'return=minimal' } });
+  return { ok:true, deleted:true, user: rowToUser(row) };
+}
+
 async function readUsers(options={}){
   const result = await readUserDocs({ limit: options.limit || 100, offset: options.offset || 0, q: options.q || "" });
   return result.users;
@@ -280,4 +287,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime };
+module.exports = { readUserDocs, writeUserDoc, deleteUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime };
