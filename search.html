@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="./pkl-supabase-config.js"></script>
+  
+<title>PKL 전적검색</title>
+<link rel="stylesheet" href="pkl-main-common.css">
+<style>
+:root{
+  --bg:#05040c;--panel:#0a0a14;--panel2:#11111f;--line:rgba(174,123,255,.34);--line-strong:rgba(201,168,255,.55);
+  --purple:#9b5cff;--purple2:#c9a8ff;--cyan:#8be7ff;--gold:#ffd45a;--red:#ff4d64;--text:#f8f7ff;--muted:#9691ad;--dim:#6e6a82;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Pretendard,'Noto Sans KR','Malgun Gothic',system-ui,sans-serif;}
+body{
+  background:
+    radial-gradient(ellipse at 50% 0%,rgba(155,92,255,.23),transparent 36%),
+    radial-gradient(ellipse at 10% 20%,rgba(75,39,160,.18),transparent 34%),
+    radial-gradient(ellipse at 88% 18%,rgba(56,217,255,.08),transparent 30%),
+    linear-gradient(180deg,#05040c 0%,#090717 48%,#04040a 100%);
+  overflow-x:hidden;
+}
+body:before{content:"ARCHIVE";position:fixed;left:50%;top:72px;transform:translateX(-50%);font-size:128px;font-weight:1000;font-style:italic;letter-spacing:-8px;color:rgba(255,255,255,.028);text-shadow:0 0 60px rgba(155,92,255,.13);pointer-events:none;z-index:0;}
+a{color:inherit;text-decoration:none}button,input{font-family:inherit}button{cursor:pointer}
+.site{position:relative;z-index:1;min-height:100vh;}#pklCommonHeader{min-height:70px;}
+.search-page{width:min(1500px,calc(100vw - 42px));margin:0 auto;padding:26px 0 48px;}
+.hero{text-align:center;margin:2px 0 22px;}
+.hero-kicker{font-size:12px;font-weight:1000;letter-spacing:3px;color:#b9a4e4;text-transform:uppercase;}
+.hero-title{margin:7px 0 7px;font-size:34px;font-weight:1000;letter-spacing:-.5px;text-shadow:0 0 22px rgba(155,92,255,.58);}
+.hero-title span{color:var(--purple2)}
+.hero-desc{margin:0;color:var(--muted);font-size:14px;font-weight:800;}
+.search-shell{width:min(720px,100%);margin:0 auto 20px;padding:9px;border:1px solid rgba(201,168,255,.36);border-radius:17px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012)),rgba(8,8,18,.80);box-shadow:0 0 30px rgba(155,92,255,.14),inset 0 0 0 1px rgba(255,255,255,.04);display:grid;grid-template-columns:1fr 112px;gap:8px;backdrop-filter:blur(10px);}
+.search-input{height:48px;border:0;border-radius:12px;background:rgba(4,5,13,.72);color:#fff;padding:0 17px;font-size:15px;font-weight:900;outline:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);}
+.search-input:focus{box-shadow:inset 0 0 0 1px rgba(201,168,255,.62),0 0 16px rgba(155,92,255,.18)}
+.search-autocomplete-wrap{
+  position:relative;
+  width:100%;
+}
+
+
+
+
+
+.search-autocomplete-item{
+  min-height:68px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:0 18px;
+  border-radius:16px;
+  cursor:pointer;
+  transition:.15s ease;
+}
+
+.search-autocomplete-item:hover,
+.search-autocomplete-item.active{
+  background:linear-gradient(90deg,rgba(140,82,255,.26),rgba(140,82,255,.08));
+}
+
+.search-autocomplete-badge{
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:11px;
+font-weight:900;
+flex-shrink:0;
+}
+
+.search-autocomplete-name{
+  color:#fff;
+  font-size:18px;
+  font-weight:900;
+}
+
+
+
+
+
+
+.search-container,
+.search-panel,
+.search-card,
+.search-box,
+.search-section,
+.search-area,
+.search-result,
+.search-results,
+.record-container,
+.record-card{
+  overflow:visible !important;
+}
+
+.search-result,
+.search-results,
+.record-container,
+.record-card{
+  position:relative;
+  z-index:1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+.search-btn{height:48px;border-radius:12px;border:1px solid rgba(201,168,255,.36);background:linear-gradient(180deg,rgba(155,92,255,.72),rgba(72,35,148,.72));color:#fff;font-size:15px;font-weight:1000;box-shadow:0 10px 24px rgba(0,0,0,.32),0 0 18px rgba(155,92,255,.14);}
+.search-btn:hover{filter:brightness(1.12);}
+.record-layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px;align-items:start;}
+.main-stack{display:grid;gap:14px;min-width:0;}
+.panel{border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012) 38%,rgba(255,255,255,.004)),radial-gradient(circle at 50% -20%,rgba(155,92,255,.15),transparent 50%),rgba(7,7,15,.88);box-shadow:0 24px 60px rgba(0,0,0,.42),0 0 0 1px rgba(255,255,255,.035) inset,0 0 34px rgba(155,92,255,.10);overflow:hidden;backdrop-filter:blur(10px);}
+.tabs{height:48px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.075);display:flex;gap:8px;background:linear-gradient(90deg,rgba(155,92,255,.14),rgba(255,255,255,.012),transparent);}
+.tab-btn{height:32px;padding:0 18px;border-radius:10px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.035);color:#a9a2bf;font-weight:1000;font-size:13px;}
+.tab-btn.active{color:#fff;border-color:rgba(201,168,255,.55);background:linear-gradient(180deg,rgba(155,92,255,.32),rgba(80,42,158,.34));box-shadow:0 0 16px rgba(155,92,255,.16);}
+.profile-panel{min-height:300px;}
+.profile-body{padding:22px;display:grid;grid-template-columns:250px 1fr;gap:22px;align-items:center;}
+.player-card{height:214px;border:1px solid rgba(201,168,255,.26);border-radius:17px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.008)),rgba(8,8,18,.70);display:grid;place-items:center;text-align:center;position:relative;overflow:hidden;}
+.player-card:before{content:"";position:absolute;inset:18px;border-radius:50%;background:radial-gradient(circle,rgba(155,92,255,.28),transparent 62%);filter:blur(4px);}
+.avatar{position:relative;width:94px;height:94px;border-radius:50%;border:2px solid rgba(201,168,255,.55);background:linear-gradient(180deg,rgba(255,255,255,.20),rgba(255,255,255,.04));box-shadow:0 0 26px rgba(155,92,255,.34),inset 0 0 18px rgba(255,255,255,.05);}
+.avatar:before{content:"";position:absolute;left:50%;top:24px;transform:translateX(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.22)}
+.avatar:after{content:"";position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:58px;height:30px;border-radius:50% 50% 12px 12px;background:rgba(255,255,255,.18)}
+.player-name{position:relative;margin-top:12px;font-size:28px;font-weight:1000;letter-spacing:-.6px;}
+.player-sub{position:relative;margin-top:4px;color:var(--purple2);font-size:12px;font-weight:1000;letter-spacing:.7px;text-transform:uppercase;}
+.summary{min-width:0;display:grid;gap:16px;}
+.stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.stat-card{min-height:86px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.035);display:grid;place-items:center;text-align:center;padding:10px;}
+.stat-label{font-size:11px;color:#8f8aa3;font-weight:1000;letter-spacing:.8px}.stat-value{margin-top:6px;font-size:25px;font-weight:1000;color:#fff;text-shadow:0 0 14px rgba(155,92,255,.28)}
+.summary-row{border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.028);padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.mini-label{font-size:11px;font-weight:1000;color:#8f8aa3;letter-spacing:.8px;margin-bottom:5px}.mini-value{font-size:14px;font-weight:1000;color:#fff;line-height:1.4;word-break:keep-all;}
+.table-head{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid rgba(255,255,255,.075);background:linear-gradient(90deg,rgba(155,92,255,.14),rgba(255,255,255,.012),transparent)}
+.table-title{font-size:18px;font-weight:1000;font-style:italic;letter-spacing:.5px}.table-title span{color:var(--purple2)}.table-note{font-size:12px;font-weight:900;color:var(--muted)}
+.table-wrap{overflow:auto;padding:12px;}.history-table{width:100%;min-width:780px;border-collapse:separate;border-spacing:0;table-layout:fixed;}
+.history-table th,.history-table td{height:42px;text-align:center;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.075);background:rgba(5,6,14,.50);font-size:13px;font-weight:900;}
+.history-table th:first-child,.history-table td:first-child{border-left:1px solid rgba(255,255,255,.08)}.history-table thead th{height:43px;background:linear-gradient(180deg,rgba(32,24,60,.98),rgba(13,14,27,.98));color:#e9dcff;font-size:12px;font-weight:1000;}
+.empty{min-height:285px;display:grid;place-items:center;text-align:center;padding:34px;color:var(--muted);}.empty h3{margin:0 0 8px;color:#fff;font-size:25px;font-weight:1000}.empty p{margin:0;font-size:14px;font-weight:800;line-height:1.6}.empty-mark{width:70px;height:70px;margin:0 auto 14px;border-radius:20px;border:1px solid rgba(201,168,255,.32);background:rgba(155,92,255,.08);display:grid;place-items:center;font-size:31px;box-shadow:0 0 22px rgba(155,92,255,.14)}
+.side-stack{display:grid;gap:12px;}.side-panel{padding:16px;}.side-kicker{font-size:11px;font-weight:1000;letter-spacing:2.4px;color:#b9a4e4;text-transform:uppercase;margin-bottom:8px}.side-title{font-size:20px;font-weight:1000;margin-bottom:12px}.rank-list{display:grid;gap:7px}.rank-item{min-height:38px;border:1px solid rgba(255,255,255,.08);border-radius:11px;background:rgba(255,255,255,.032);display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:8px;padding:0 10px;font-size:13px;font-weight:1000}.rank-no{color:var(--purple2)}.rank-score{color:#fff}.info-box{border:1px solid rgba(255,255,255,.08);border-radius:13px;background:rgba(255,255,255,.032);padding:14px;margin-top:10px}.info-box b{display:block;font-size:25px;margin-top:4px}.team-chip-wrap{display:flex;flex-wrap:wrap;gap:8px}.team-chip{min-height:34px;border-radius:10px;border:1px solid rgba(201,168,255,.24);background:rgba(155,92,255,.08);padding:8px 12px;font-size:13px;font-weight:1000;color:#e9dcff}.notice{margin-top:10px;font-size:12px;font-weight:800;line-height:1.55;color:#8f8aa3;}
+.hidden{display:none!important;}
+@media (max-width:1150px){.record-layout{grid-template-columns:1fr}.profile-body{grid-template-columns:1fr}.player-card{height:180px}.side-stack{grid-template-columns:1fr 1fr}.stat-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:720px){.search-page{width:calc(100vw - 24px);padding-top:14px}.hero-title{font-size:28px}.search-shell{grid-template-columns:1fr}.record-layout,.side-stack{grid-template-columns:1fr}.summary-row{grid-template-columns:1fr}.tabs{overflow:auto}.tab-btn{white-space:nowrap}}
+
+.search-autocomplete-wrap{
+  position:relative;
+  width:100%;
+  z-index:99999;
+}
+
+
+
+
+
+.search-container,
+.search-panel,
+.search-content,
+.search-main,
+.search-layout,
+.player-search-section,
+.record-section,
+.record-panel,
+.record-card,
+.content-card{
+  overflow:visible !important;
+  position:relative;
+}
+
+
+</style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<style id="pkl-autocomplete-clean">
+#searchAutocomplete{
+  position:fixed;
+  display:none;
+  flex-direction:column;
+  gap:6px;
+  padding:10px;
+  border-radius:18px;
+  background:rgba(10,10,18,.98);
+  border:1px solid rgba(167,139,250,.22);
+  box-shadow:0 24px 60px rgba(0,0,0,.55);
+  backdrop-filter:blur(18px);
+  z-index:2147483647;
+}
+
+.search-autocomplete-item{
+  min-height:72px;
+  display:flex;
+  align-items:center;
+  gap:18px;
+  padding:14px 20px;
+  border-radius:14px;
+  cursor:pointer;
+}
+
+.search-autocomplete-item:hover{
+  background:rgba(124,58,237,.18);
+}
+
+.search-autocomplete-meta{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.search-autocomplete-name{
+  color:#fff;
+  font-size:17px;
+  font-weight:1000;
+  margin-bottom:2px;
+}
+
+.search-autocomplete-pubg{
+  font-size:11px;
+  color:rgba(255,255,255,.58);
+}
+</style>
+
+
+<style id="pkl-badge-render-fix">
+.search-autocomplete-badge{
+  width:58px;
+  min-width:58px;
+  margin-right:4px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.search-autocomplete-badge img{
+  width:40px;
+  height:40px;
+  object-fit:contain;
+  display:block;
+}
+</style>
+
+
+<style id="pkl-record-search-center-strict-v1">
+/* 전적검색 상단 타이틀은 검색창 폭(720px) 기준으로 완전 중앙 고정 */
+#pklSearchPage{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+}
+#pklSearchPage > .hero,
+#pklSearchPage > #searchForm.search-shell{
+  width:min(720px,100%) !important;
+  max-width:720px !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+}
+#pklSearchPage > .hero{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  padding-left:0 !important;
+  padding-right:0 !important;
+  transform:none !important;
+}
+#pklSearchPage > .hero .hero-kicker,
+#pklSearchPage > .hero .hero-title,
+#pklSearchPage > .hero .hero-title span{
+  display:block !important;
+  width:100% !important;
+  text-align:center !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+  padding-left:0 !important;
+  padding-right:0 !important;
+  transform:none !important;
+}
+#pklSearchPage > .hero .hero-title{
+  margin-top:7px !important;
+  margin-bottom:7px !important;
+}
+</style>
+
+
+<style id="pkl-search-record-title-center-final-real">
+#pklSearchPage .hero,#pklSearchPage .search-hero,#pklSearchPage .hero-kicker,#pklSearchPage .hero-title,#pklSearchPage .hero-title span{text-align:center!important;margin-left:auto!important;margin-right:auto!important;left:auto!important;transform:none!important;}
+#pklSearchPage .hero{width:min(920px,100%)!important;margin:0 auto 24px!important;display:flex!important;flex-direction:column!important;align-items:center!important;}
+#pklSearchPage .search-box,#pklSearchPage #searchForm,#pklSearchPage .search-form{margin-left:auto!important;margin-right:auto!important;}
+</style>
+<script id="pkl-search-normal-history-final">
+(function(){'use strict';var MATCH_KEY='PKL_RESULT_MATCHES_V1';function readJSON(k,fb){try{var raw=localStorage.getItem(k);return raw?JSON.parse(raw):fb;}catch(e){return fb;}}function norm(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}function isNormal(m){return String(m&&m.kind||'').toLowerCase()==='normal'||/일반|무료/.test(String(m&&m.title||''))||/일반|무료/.test(String(m&&m.type||''));}function teamViews(st){var teams=Array.isArray(st&&st.teams)?st.teams:[];return teams.map(function(t,i){return {id:t.id||('team'+(i+1)),name:t.name||t.teamName||((i+1)+'팀'),members:Array.isArray(t.members)?t.members:[]};});}function normalStats(name){var key=norm(name);var rows=[];var totalK=0,totalD=0,best=0,rounds=0;var matches=readJSON(MATCH_KEY,[]);if(!Array.isArray(matches))matches=[];matches.filter(isNormal).forEach(function(m){var snap=m.snapshot||{};var rs=Array.isArray(snap.rounds)?snap.rounds:[];teamViews(snap).forEach(function(t){t.members.forEach(function(mem,idx){var n=String(mem&&mem.name||mem&&mem.nickname||'').trim();if(!n||norm(n)!==key)return;var k=0,d=0;rs.forEach(function(r){var td=(r&&r.teams&&r.teams[t.id])||{};var rk=Number((Array.isArray(td.kills)?td.kills:[])[idx]||0);var rd=Number((Array.isArray(td.deaths)?td.deaths:[])[idx]||0);k+=rk;d+=rd;best=Math.max(best,rk);rounds++;});totalK+=k;totalD+=d;rows.push({match:m.title||'일반경기',date:m.date||String(m.savedAt||'').slice(0,10)||'-',team:t.name,kills:k,deaths:d,score:k-d});});});});return {rows:rows,totalKills:totalK,totalDeaths:totalD,bestKill:best,rounds:rounds,avg:rounds?totalK/rounds:0,score:totalK-totalD};}function currentName(){var el=document.getElementById('playerName');return el?String(el.textContent||'').replace(/\s+/g,' ').trim().split(' ')[0]:'';}function renderNormal(){var summary=document.getElementById('summaryTab');if(!summary)return;var name=currentName();var s=normalStats(name);summary.innerHTML='<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">일반전 총 킬</div><div class="stat-value">'+s.totalKills+'</div></div></div><div class="stat-card"><div><div class="stat-label">일반전 참여 라운드</div><div class="stat-value">'+s.rounds+'</div></div></div><div class="stat-card"><div><div class="stat-label">일반전 평균 킬</div><div class="stat-value">'+s.avg.toFixed(1)+'</div></div></div><div class="stat-card"><div><div class="stat-label">일반전 최고 킬</div><div class="stat-value">'+s.bestKill+'</div></div></div></div><div class="summary-row"><div><div class="mini-label">일반전 기록</div><div class="mini-value">'+(s.rows.length?s.rows.map(function(r){return esc(r.match)+' · '+esc(r.team)+' · '+r.kills+'킬';}).join('<br>'):'일반경기 기록이 없습니다.')+'</div></div><div><div class="mini-label">일반전 총 점수</div><div class="mini-value">'+s.score+'</div></div></div>';}function normalizeLabels(){document.querySelectorAll('[data-tab="teams"]').forEach(function(b){b.textContent='일반 이력';});document.querySelectorAll('.mini-label').forEach(function(el){if(/팀 이력|TEAM HISTORY/.test(el.textContent))el.textContent='일반 이력';});}document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-tab="teams"]');if(b){setTimeout(renderNormal,0);setTimeout(renderNormal,60);}},true);var mo=new MutationObserver(normalizeLabels);if(document.body)mo.observe(document.body,{childList:true,subtree:true,characterData:true});setTimeout(normalizeLabels,100);})();
+</script>
+
+
+<style id="pkl-record-search-center-absolute-20260511">
+#pklSearchPage.search-page{display:flex!important;flex-direction:column!important;align-items:center!important;}
+#pklSearchPage .hero{width:100%!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;}
+#pklSearchPage .hero-title,#pklSearchPage .hero-title span{display:block!important;width:100%!important;text-align:center!important;margin-left:auto!important;margin-right:auto!important;}
+#pklSearchPage #searchForm.search-shell{align-self:center!important;margin-left:auto!important;margin-right:auto!important;left:auto!important;right:auto!important;transform:none!important;}
+</style>
+</head>
+<body>
+
+<!-- PKL_COMMON_HEADER_ENABLED -->
+<div class="site">
+<div id="pklCommonHeader"></div>
+
+<div class="site">
+  <main class="search-page" id="pklSearchPage">
+    <section class="hero">
+      <div class="hero-kicker">PKL ARCHIVE</div>
+      <h1 class="hero-title"><span>RECORD SEARCH</span></h1>
+    </section>
+
+    <form class="search-shell" id="searchForm" autocomplete="off">
+      
+      
+<div class="search-autocomplete-wrap">
+<input class="search-input" id="searchInput" placeholder="닉네임을 입력하세요" />
+<div id="searchAutocomplete"></div>
+</div>
+
+<button class="search-btn" type="submit">검색</button>
+    </form>
+
+    <section class="record-layout">
+      <div class="main-stack">
+        <article class="panel profile-panel">
+          <div class="tabs" id="tabBar">
+            <button type="button" class="tab-btn active" data-tab="summary">요약 정보</button>
+            <button type="button" class="tab-btn" data-tab="history">매치 기록</button>
+            <button type="button" class="tab-btn" data-tab="teams">일반 이력</button>
+            <button type="button" class="tab-btn" data-tab="detail">상세 통계</button>
+          </div>
+          <div id="emptyState" class="empty">
+            <div><div class="empty-mark">⌕</div><h3>PKL PLAYER DATABASE</h3><p>선수 닉네임을 입력하면<br>총 킬, 참여 라운드, 평균 킬, 최고 킬 기록이 표시됩니다.</p></div>
+          </div>
+          <div id="resultState" class="profile-body hidden">
+            <div class="player-card"><div><div class="avatar"></div><div class="player-name" id="playerName">-</div><div class="player-sub" id="playerTeam">PKL PLAYER</div></div></div>
+            <div class="summary" id="summaryTab">
+              <div class="stat-grid">
+                <div class="stat-card"><div><div class="stat-label">총 킬</div><div class="stat-value" id="totalKills">0</div></div></div>
+                <div class="stat-card"><div><div class="stat-label">참여 라운드</div><div class="stat-value" id="roundCount">0</div></div></div>
+                <div class="stat-card"><div><div class="stat-label">평균 킬</div><div class="stat-value" id="avgKills">0</div></div></div>
+                <div class="stat-card"><div><div class="stat-label">최고 킬</div><div class="stat-value" id="bestKill">0</div></div></div>
+              </div>
+              <div class="summary-row">
+                <div><div class="mini-label">최근 참여</div><div class="mini-value" id="recentMatch">-</div></div>
+                <div><div class="mini-label">일반 이력</div><div class="mini-value" id="teamHistoryText">-</div></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel" id="historyPanel">
+          <div class="table-head"><div class="table-title">MATCH <span>HISTORY</span></div><div class="table-note" id="historyNote">검색 후 표시</div></div>
+          <div class="table-wrap"><table class="history-table"><thead><tr><th>회차</th><th>날짜</th><th>팀</th><th>라운드</th><th>맵</th><th>킬</th><th>사망</th><th>점수</th></tr></thead><tbody id="historyBody"><tr><td colspan="8">검색 결과가 없습니다.</td></tr></tbody></table></div>
+        </article>
+      </div>
+
+      <aside class="side-stack">
+        <article class="panel side-panel"><div class="side-kicker">RANKING</div><div class="side-title">TOP KILLER</div><div class="rank-list" id="topKillerList"></div></article>
+        <article class="panel side-panel"><div class="side-kicker">DATABASE</div><div class="side-title">등록 선수</div><div class="info-box"><span>현재 등록 유저 기준</span><b id="playerCount">0명</b></div><p class="notice">결과표/시트지에 저장된 localStorage 데이터를 기준으로 전적을 계산합니다.</p></article>
+      </aside>
+    </section>
+  </main>
+</div>
+<script src="pkl-user-profile-core.js"></script>
+<script src="pkl-role-system.js"></script>
+<script src="pkl-page-permissions.js"></script>
+<script src="pkl-common-role-badge.js"></script>
+<script src="pkl-common-tier-badge.js"></script>
+<script src="pkl-users-source.js"></script>
+<script>
+const STORAGE_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
+const RESULT_MATCHES_KEY='PKL_RESULT_MATCHES_V1';
+const USER_MATCH_STATS_KEY='PKL_USER_MATCH_STATS_V1';
+const RECENT_KEY='PKL_PLAYER_SEARCH_RECENT_V1';
+const DEMO_NAMES=[];
+const DEFAULT_MATCHES=[];
+function makeDemo(){
+  return {
+    mode:'squad',
+    selectedTeamId:'',
+    teams:[],
+    rounds:[],
+    startTime:'',
+    endTime:''
+  };
+}
+function loadState(){try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(saved&&Array.isArray(saved.teams)&&saved.teams.some(t=>Array.isArray(t.members)&&t.members.some(m=>String(m&&m.name||'').trim())))return Object.assign(makeDemo(),saved,{rounds:Array.isArray(saved.rounds)&&saved.rounds.length?saved.rounds:makeDemo().rounds});}catch(e){}return makeDemo();}
+function loadMatches(){try{const saved=JSON.parse(localStorage.getItem(RESULT_MATCHES_KEY)||'null');if(Array.isArray(saved)&&saved.length)return saved;}catch(e){}return [];}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function norm(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}
+function teamData(round,teamId){return (round.teams&&round.teams[teamId])||{kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};}
+function visibleTeams(){return (state.teams||[]).slice(0,10).map((t,i)=>({id:t.id||'team'+(i+1),name:t.name||t.teamName||('TEAM '+(i+1)),members:(Array.isArray(t.members)?t.members:[]).slice(0,4)}));}
+function chickenScore(round,data){return Number(data.chicken||0)?(String(round.map||'')==='사'?5:8):0;}
+function pklIsNormalMatch(match){return String(match&&match.kind||'').toLowerCase()==='normal'||/일반/.test(String(match&&match.title||''))||/일반/.test(String(match&&match.type||''));}
+function pklSnapshotVisibleTeams(snapshot){const st=snapshot&&typeof snapshot==='object'?snapshot:{};const mode=st.mode||'squad';const teams=Array.isArray(st.teams)?st.teams:[];if(mode==='duo'){const out=[];teams.forEach((t,i)=>{const id=t.id||('team'+(i+1));const mem=Array.isArray(t.members)?t.members:[];out.push({id:id+'a',realId:id,name:(mem[0]&&mem[0].name?mem[0].name:(i+1)+'팀')+' A',offset:0,len:2,members:mem});out.push({id:id+'b',realId:id,name:(mem[2]&&mem[2].name?mem[2].name:(i+1)+'팀')+' B',offset:2,len:2,members:mem});});return out;}return teams.map((t,i)=>({id:t.id||('team'+(i+1)),realId:t.id||('team'+(i+1)),name:t.name||t.teamName||(((i+1)+'팀')),offset:0,len:4,members:Array.isArray(t.members)?t.members:[]}));}
+function pklRowsFromResultMatches(){const rows=[];(Array.isArray(matches)?matches:[]).forEach(match=>{if(!match||pklIsNormalMatch(match))return;const snap=match.snapshot&&typeof match.snapshot==='object'?match.snapshot:null;if(!snap)return;const rounds=Array.isArray(snap.rounds)?snap.rounds:[];pklSnapshotVisibleTeams(snap).forEach(team=>{for(let idx=team.offset;idx<team.offset+team.len;idx++){const member=team.members[idx]||{};const name=String(member.name||member.nickname||member.nick||member.displayName||'').trim();if(!name||name==='-')continue;let kills=0,deaths=0,bestRoundKill=0,roundCount=0;rounds.forEach(round=>{const d=(round&&round.teams&&round.teams[team.realId])||{};const rk=Number((Array.isArray(d.kills)?d.kills:[])[idx]||0);const rd=Number((Array.isArray(d.deaths)?d.deaths:[])[idx]||0);kills+=rk;deaths+=rd;bestRoundKill=Math.max(bestRoundKill,rk);roundCount+=1;});rows.push({matchId:match.id,matchTitle:match.title||'PKL 회차',savedAt:match.savedAt||match.date||'',name,teamName:team.name,kills,deaths,bestRoundKill,roundCount});}});});return rows;}
+let state=loadState();let matches=loadMatches();let players=[];let current=null;
+function buildPlayers(){
+const map=new Map();
+try{
+  const stats=pklRowsFromResultMatches();
+  if(Array.isArray(stats) && stats.length){
+    stats.forEach(row=>{
+      const name=String(row&&row.name||'').trim();
+      if(!name)return;
+      const key=norm(name);
+      if(!map.has(key)) map.set(key,{name,teams:new Set(),rows:[],totalKills:0,totalDeaths:0,bestKill:0,rounds:0,score:0});
+      const p=map.get(key);
+      const kills=Number(row.kills||0);
+      const deaths=Number(row.deaths||0);
+      const score=kills-deaths;
+      p.teams.add(row.teamName||'-');
+      p.rows.push({
+        match:row.matchTitle||'PKL 회차',
+        date:row.savedAt?String(row.savedAt).slice(0,10):'-',
+        team:row.teamName||'-',
+        round:'전체합산',
+        map:'결과표',
+        kills:kills,
+        deaths:deaths,
+        score:score
+      });
+      p.totalKills+=kills;
+      p.totalDeaths+=deaths;
+      p.bestKill=Math.max(p.bestKill,Number(row.bestRoundKill||kills||0));
+      p.rounds+=Number(row.roundCount||1);
+      p.score+=score;
+    });
+    return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),avg:p.rounds?(p.totalKills/p.rounds):0})).sort((a,b)=>b.totalKills-a.totalKills||a.name.localeCompare(b.name,'ko'));
+  }
+}catch(e){console.error(e);}
+const match=matches[0]||DEFAULT_MATCHES[0];visibleTeams().forEach((team,teamIndex)=>{team.members.forEach((member,memberIndex)=>{const name=String(member&&member.name||'').trim();if(!name||name==='-')return;const key=norm(name);if(!map.has(key))map.set(key,{name,teams:new Set(),rows:[],totalKills:0,totalDeaths:0,bestKill:0,rounds:0,score:0});const p=map.get(key);p.teams.add(team.name);(state.rounds||[]).forEach((round,ri)=>{const d=teamData(round,team.id);const kills=Number(d.kills&&d.kills[memberIndex]||0);const deaths=Number(d.deaths&&d.deaths[memberIndex]||0);const score=kills-deaths;p.rows.push({match:match.title||'PKL 회차',date:match.date||'-',team:team.name,round:round.no||ri+1,map:round.map||'-',kills,deaths,score});p.totalKills+=kills;p.totalDeaths+=deaths;p.bestKill=Math.max(p.bestKill,kills);p.rounds+=1;p.score+=score;});});});return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),avg:p.rounds?(p.totalKills/p.rounds):0})).sort((a,b)=>b.totalKills-a.totalKills||a.name.localeCompare(b.name,'ko'));}
+function pklSearchReadUsers(){if(window.PKLUserProfile&&window.PKLUserProfile.users)return window.PKLUserProfile.users();try{const v=JSON.parse(localStorage.getItem('pklUsers')||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+function pklSearchNormName(v){return String(v??'').trim().toLowerCase();}
+function pklSearchUserNames(u){return [u?.nickname,u?.nick,u?.name,u?.displayName,u?.pubgId,u?.gameId,u?.ref,u?.pubgName,u?.playerName,u?.ingameName].map(pklSearchNormName).filter(Boolean);}
+function pklSearchFindPklUser(name){const key=pklSearchNormName(name);if(!key)return null;return pklSearchReadUsers().find(u=>pklSearchUserNames(u).includes(key))||null;}
+function pklSearchTierValue(user){if(window.PKLUserProfile&&window.PKLUserProfile.tierFrom){const t=window.PKLUserProfile.tierFrom(user); if(t&&t!=='none') return t;} return user?.memberTier||user?.gradeRole||user?.tierRole||user?.baseRole||user?.memberTierName||user?.tierName||user?.tierText||user?.currentTier||user?.tier||user?.roleName||user?.grade||'';}
+function pklSearchTierBadgeHtml(player){const user=pklSearchFindPklUser(player&&player.name)||null;const source=user||{nickname:player?.name,name:player?.name};if(window.PKLUserProfile&&typeof window.PKLUserProfile.renderTierForUser==='function'){const html=window.PKLUserProfile.renderTierForUser(source);if(html)return html;}if(window.PKLTierBadge&&typeof window.PKLTierBadge.renderForUser==='function'){const html=window.PKLTierBadge.renderForUser(source);if(html)return html;}const tier=pklSearchTierValue(user);if(window.PKLTierBadge&&typeof window.PKLTierBadge.render==='function'&&tier&&tier!=='없음'){const html=window.PKLTierBadge.render(tier);if(html)return html;}return tier&&tier!=='없음'?`<span class="tier-mark">${esc(tier)}</span>`:'';}
+function renderTop(){const top=document.getElementById('topKillerList');top.innerHTML=players.slice(0,5).map((p,i)=>{const badgeHtml=pklSearchTierBadgeHtml(p);return `<div class="rank-item"><span class="rank-no">${i+1}</span><span class="rank-player-name"><span class="rank-player-nick">${esc(p.name)}</span>${badgeHtml}</span><span class="rank-score">${p.totalKills}</span></div>`}).join('')||'<div class="notice">등록된 선수가 없습니다.</div>';document.getElementById('playerCount').textContent=players.length+'명';}
+function getRecent(){try{return JSON.parse(localStorage.getItem(RECENT_KEY)||'[]').filter(Boolean).slice(0,5);}catch(e){return [];}}
+function saveRecent(name){return;}
+function renderRecent(){return;}
+function showTab(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));if(!current)return;const summary=document.getElementById('summaryTab');if(tab==='summary'){summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">총 킬</div><div class="stat-value">${current.totalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">참여 라운드</div><div class="stat-value">${current.rounds}</div></div></div><div class="stat-card"><div><div class="stat-label">평균 킬</div><div class="stat-value">${current.avg.toFixed(1)}</div></div></div><div class="stat-card"><div><div class="stat-label">최고 킬</div><div class="stat-value">${current.bestKill}</div></div></div></div><div class="summary-row"><div><div class="mini-label">최근 참여</div><div class="mini-value">${esc((matches[0]&&matches[0].title)||'PKL 회차')} ${esc((matches[0]&&matches[0].date)||'')}</div></div><div><div class="mini-label">일반 이력</div><div class="mini-value">${esc(current.teams.join(' · '))}</div></div></div>`;}else if(tab==='teams'){summary.innerHTML=`<div><div class="mini-label">NORMAL HISTORY</div><div class="team-chip-wrap">${current.teams.map(t=>`<span class="team-chip">${esc(t)}</span>`).join('')}</div></div>`;}else if(tab==='detail'){const deathRate=current.rounds?((current.totalDeaths/current.rounds)*100).toFixed(1):'0.0';summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">총 사망</div><div class="stat-value">${current.totalDeaths}</div></div></div><div class="stat-card"><div><div class="stat-label">킬/데스</div><div class="stat-value">${current.totalDeaths?(current.totalKills/current.totalDeaths).toFixed(2):current.totalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">사망률</div><div class="stat-value">${deathRate}%</div></div></div><div class="stat-card"><div><div class="stat-label">순수 점수</div><div class="stat-value">${current.score}</div></div></div></div>`;}else{summary.innerHTML=`<div class="summary-row"><div><div class="mini-label">매치 기록</div><div class="mini-value">아래 MATCH HISTORY 테이블에서 라운드별 기록을 확인하세요.</div></div><div><div class="mini-label">총 기록</div><div class="mini-value">${current.rows.length}개 라운드 기록</div></div></div>`;}}
+function renderPlayer(p){current=p;document.getElementById('emptyState').classList.add('hidden');document.getElementById('resultState').classList.remove('hidden');const pn=document.getElementById('playerName'); if(pn) pn.innerHTML=esc(p.name)+' '+pklSearchTierBadgeHtml(p);document.getElementById('playerTeam').textContent=p.teams[0]||'PKL PLAYER';showTab(document.querySelector('.tab-btn.active')?.dataset.tab||'summary');document.getElementById('historyNote').textContent=p.rows.length+'개 기록';document.getElementById('historyBody').innerHTML=p.rows.map(r=>`<tr><td>${esc(r.match)}</td><td>${esc(r.date)}</td><td>${esc(r.team)}</td><td>${esc(r.round)}</td><td>${esc(r.map)}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.score}</td></tr>`).join('')||'<tr><td colspan="8">기록이 없습니다.</td></tr>';saveRecent(p.name);}
+function searchPlayer(q){const key=norm(q);if(!key)return;const exact=players.find(p=>norm(p.name)===key);const partial=players.find(p=>norm(p.name).includes(key));const p=exact||partial;if(p){renderPlayer(p);return;}document.getElementById('emptyState').classList.remove('hidden');document.getElementById('resultState').classList.add('hidden');document.getElementById('emptyState').innerHTML='<div><div class="empty-mark">!</div><h3>검색 결과 없음</h3><p>현재 시트지에서 해당 닉네임을 찾지 못했습니다.</p></div>';document.getElementById('historyNote').textContent='검색 결과 없음';document.getElementById('historyBody').innerHTML='<tr><td colspan="8">검색 결과가 없습니다.</td></tr>';}
+document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault();searchPlayer(document.getElementById('searchInput').value);});
+document.getElementById('tabBar').addEventListener('click',e=>{const btn=e.target.closest('.tab-btn');if(!btn)return;showTab(btn.dataset.tab);});
+
+
+players=buildPlayers();
+
+players = players.filter(p=>
+  p &&
+  p.name &&
+  p.rows &&
+  p.rows.length
+);
+
+try{
+
+  const realUsers = (window.PKLUserProfile&&window.PKLUserProfile.users)?window.PKLUserProfile.users():JSON.parse(localStorage.getItem('pklUsers') || '[]');
+
+  if(Array.isArray(realUsers) && realUsers.length){
+
+    const merged = new Map();
+
+    players.forEach(p=>{
+      merged.set(norm(p.name), p);
+    });
+
+    realUsers.forEach(user=>{
+
+      const nick = String(
+        user.nickname ||
+        user.name ||
+        ''
+      ).trim();
+
+      if(!nick) return;
+
+      const key = norm(nick);
+
+      if(!merged.has(key)){
+
+        merged.set(key,{
+          name:nick,
+          teams:[],
+          rows:[],
+          totalKills:0,
+          totalDeaths:0,
+          bestKill:0,
+          rounds:0,
+          score:0,
+          avg:0,
+          tier:user.tier || '',
+          tierBadge:user.tierBadge || ''
+        });
+
+      }else{
+
+        const existing = merged.get(key);
+
+        existing.tier =
+          user.tier ||
+          existing.tier ||
+          '';
+
+        existing.tierBadge =
+          user.tierBadge ||
+          existing.tierBadge ||
+          '';
+
+      }
+
+    });
+
+    players = Array.from(merged.values());
+
+  }
+
+}catch(e){
+  console.error(e);
+}
+
+renderTop();
+
+
+
+
+
+
+
+
+
+const searchInput=document.getElementById('searchInput');
+const searchAutocomplete=document.getElementById('searchAutocomplete');
+
+const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+
+function getInitials(text=''){
+  return [...text].map(char=>{
+    const code=char.charCodeAt(0)-44032;
+    if(code>=0 && code<=11171){
+      return CHO[Math.floor(code/588)];
+    }
+    return char.toLowerCase();
+  }).join('');
+}
+
+function matchPlayer(name,query){
+  const q=query.trim().toLowerCase();
+  if(!q)return false;
+
+  return (
+    norm(name).includes(norm(q)) ||
+    getInitials(name).includes(q) ||
+    name.toLowerCase().includes(q)
+  );
+}
+
+function hideAutocomplete(){
+  searchAutocomplete.style.display='none';
+  searchAutocomplete.innerHTML='';
+}
+
+function showAutocomplete(query){
+  const q=query.trim();
+
+  if(!q){
+    hideAutocomplete();
+    return;
+  }
+
+  const matches=players
+    .filter(p=>matchPlayer(p.name,q))
+    .slice(0,8);
+
+  if(!matches.length){
+    hideAutocomplete();
+    return;
+  }
+
+  searchAutocomplete.innerHTML=matches.map(p=>{
+    const user=(window.PKLUserProfile&&window.PKLUserProfile.hydrate)?window.PKLUserProfile.hydrate(p):p;
+    const badge=(window.PKLUserProfile&&window.PKLUserProfile.renderTierForUser)?window.PKLUserProfile.renderTierForUser(user,"search-tier-badge"):esc(p.tier||"");
+    const pubg=esc(user.pubgId||user.gameId||user.ref||"");
+    return `
+    <div class="search-autocomplete-item" data-name="${esc(p.name)}">
+      <div class="search-autocomplete-badge">${badge}</div>
+      <div class="search-autocomplete-name">${esc(user.nickname||user.nick||user.name||p.name)}${pubg?`<small class="search-autocomplete-pubg">${pubg}</small>`:""}</div>
+    </div>`;
+  }).join('');
+
+  
+searchAutocomplete.style.display='flex';
+
+}
+
+
+
+
+window.addEventListener('resize',()=>{
+  if(searchAutocomplete.style.display==='flex'){
+    showAutocomplete(searchInput.value);
+  }
+});
+
+window.addEventListener('scroll',()=>{
+  if(searchAutocomplete.style.display==='flex'){
+    showAutocomplete(searchInput.value);
+  }
+}, true);
+
+searchInput.addEventListener('input',e=>{
+  showAutocomplete(e.target.value);
+});
+
+searchAutocomplete.addEventListener('mousedown',e=>{
+  const item=e.target.closest('.search-autocomplete-item');
+  if(!item)return;
+
+  const name=item.dataset.name;
+
+  searchInput.value=name;
+  hideAutocomplete();
+
+  if(typeof searchPlayer==='function'){
+    searchPlayer(name);
+  }
+});
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.search-autocomplete-wrap')){
+    hideAutocomplete();
+  }
+});
+
+</script>
+
+<style id="pkl-search-final-layout-fix">
+.site{overflow:visible!important;}
+#pklSearchPage.search-page{width:min(1500px,calc(100vw - 42px))!important;margin:0 auto!important;padding:26px 0 48px!important;display:block!important;position:relative!important;z-index:2!important;}
+#pklSearchPage .hero{max-width:none!important;margin:0 0 22px!important;padding:0!important;min-height:0!important;height:auto!important;display:block!important;text-align:center!important;}
+#pklSearchPage .hero-kicker{font-size:12px!important;font-weight:1000!important;letter-spacing:3px!important;color:#b9a4e4!important;text-transform:uppercase!important;}
+#pklSearchPage .hero-title{margin:7px 0!important;font-size:34px!important;font-weight:1000!important;letter-spacing:-.5px!important;line-height:1.14!important;text-align:center!important;}
+#pklSearchPage .hero-desc{margin:0!important;color:#9691ad!important;font-size:14px!important;font-weight:800!important;}
+#pklSearchPage .search-shell{width:min(720px,100%)!important;margin:0 auto 20px!important;padding:9px!important;display:grid!important;grid-template-columns:1fr 112px!important;gap:8px!important;border:1px solid rgba(201,168,255,.36)!important;border-radius:17px!important;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012)),rgba(8,8,18,.80)!important;box-shadow:0 0 30px rgba(155,92,255,.14),inset 0 0 0 1px rgba(255,255,255,.04)!important;}
+#pklSearchPage .search-input{display:block!important;height:48px!important;width:100%!important;border:0!important;border-radius:12px!important;background:rgba(4,5,13,.72)!important;color:#fff!important;padding:0 17px!important;font-size:15px!important;font-weight:900!important;outline:none!important;}
+#pklSearchPage .search-btn{display:flex!important;align-items:center!important;justify-content:center!important;height:48px!important;border-radius:12px!important;border:1px solid rgba(201,168,255,.36)!important;background:linear-gradient(180deg,rgba(155,92,255,.72),rgba(72,35,148,.72))!important;color:#fff!important;font-size:15px!important;font-weight:1000!important;}
+#pklSearchPage .record-layout{display:grid!important;grid-template-columns:minmax(0,1fr) 290px!important;gap:16px!important;align-items:start!important;}
+#pklSearchPage .main-stack{display:grid!important;gap:14px!important;min-width:0!important;}
+#pklSearchPage .panel{width:auto!important;max-height:none!important;overflow:hidden!important;padding:0!important;border:1px solid rgba(174,123,255,.34)!important;border-radius:18px!important;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012) 38%,rgba(255,255,255,.004)),radial-gradient(circle at 50% -20%,rgba(155,92,255,.15),transparent 50%),rgba(7,7,15,.88)!important;box-shadow:0 24px 60px rgba(0,0,0,.42),0 0 0 1px rgba(255,255,255,.035) inset,0 0 34px rgba(155,92,255,.10)!important;}
+#pklSearchPage .side-panel{padding:16px!important;}
+#pklSearchPage .empty{min-height:285px!important;display:grid!important;place-items:center!important;text-align:center!important;padding:34px!important;color:#9691ad!important;}
+#pklSearchPage .empty.hidden,#pklSearchPage .hidden{display:none!important;}
+#pklSearchPage .profile-body{padding:22px!important;display:grid!important;grid-template-columns:250px 1fr!important;gap:22px!important;align-items:center!important;}
+#pklSearchPage .profile-body.hidden{display:none!important;}
+#pklSearchPage .table-wrap{overflow:auto!important;padding:12px!important;border:0!important;border-radius:0!important;}
+#pklSearchPage .rank-list{display:grid!important;gap:7px!important;}
+@media (max-width:1150px){#pklSearchPage .record-layout{grid-template-columns:1fr!important}#pklSearchPage .profile-body{grid-template-columns:1fr!important}#pklSearchPage .side-stack{grid-template-columns:1fr 1fr!important}}
+@media (max-width:720px){#pklSearchPage.search-page{width:calc(100vw - 24px)!important;padding-top:14px!important}#pklSearchPage .search-shell{grid-template-columns:1fr!important}#pklSearchPage .record-layout,#pklSearchPage .side-stack{grid-template-columns:1fr!important}}
+
+.search-autocomplete-wrap{
+  position:relative;
+  width:100%;
+  z-index:99999;
+}
+
+
+
+
+
+.search-container,
+.search-panel,
+.search-content,
+.search-main,
+.search-layout,
+.player-search-section,
+.record-section,
+.record-panel,
+.record-card,
+.content-card{
+  overflow:visible !important;
+  position:relative;
+}
+
+
+</style>
+
+<style id="pkl-search-side-panel-align-fix">
+/* Right side panel alignment: keep the two boxes in one visual rhythm */
+#pklSearchPage .side-stack{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:14px!important;
+  align-content:start!important;
+}
+#pklSearchPage .side-panel{
+  padding:18px!important;
+  border-radius:18px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:0!important;
+}
+#pklSearchPage .side-panel .side-kicker{
+  height:14px!important;
+  margin:0 0 7px!important;
+  font-size:11px!important;
+  line-height:14px!important;
+  letter-spacing:2.8px!important;
+  color:#bfa9ff!important;
+}
+#pklSearchPage .side-panel .side-title{
+  height:26px!important;
+  margin:0 0 14px!important;
+  font-size:19px!important;
+  line-height:26px!important;
+  letter-spacing:-.2px!important;
+}
+#pklSearchPage .rank-list{
+  display:grid!important;
+  gap:9px!important;
+}
+#pklSearchPage .rank-item{
+  min-height:40px!important;
+  border-radius:12px!important;
+  grid-template-columns:28px minmax(0,1fr) 48px!important;
+  padding:0 12px!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018))!important;
+  border:1px solid rgba(255,255,255,.085)!important;
+}
+#pklSearchPage .rank-item span:nth-child(2){
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#pklSearchPage .rank-score{
+  text-align:right!important;
+}
+#pklSearchPage .rank-player-name{
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  overflow:hidden!important;
+  white-space:nowrap!important;
+}
+#pklSearchPage .rank-player-nick{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  font-size:16px!important;
+  line-height:1.1!important;
+  font-weight:1000!important;
+  letter-spacing:-.2px!important;
+}
+#pklSearchPage .rank-player-name .tier-mark,
+#pklSearchPage .rank-player-name .pkl-tier-badge{
+  flex:0 0 auto!important;
+  margin-left:0!important;
+  transform:scale(.86);
+  transform-origin:left center;
+}
+#pklSearchPage .info-box{
+  min-height:76px!important;
+  margin:0!important;
+  padding:15px 16px!important;
+  border-radius:12px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018))!important;
+  border:1px solid rgba(255,255,255,.085)!important;
+}
+#pklSearchPage .info-box span{
+  display:block!important;
+  font-size:12px!important;
+  line-height:16px!important;
+  font-weight:900!important;
+  color:#a9a2bf!important;
+}
+#pklSearchPage .info-box b{
+  display:block!important;
+  margin-top:4px!important;
+  font-size:28px!important;
+  line-height:34px!important;
+  font-weight:1000!important;
+}
+#pklSearchPage .notice{
+  min-height:58px!important;
+  margin:10px 0 0!important;
+  padding:12px 14px!important;
+  border-radius:12px!important;
+  border:1px solid rgba(255,255,255,.075)!important;
+  background:rgba(255,255,255,.026)!important;
+  font-size:11px!important;
+  line-height:1.5!important;
+  font-weight:850!important;
+  color:#8f8aa3!important;
+}
+#pklSearchPage .side-stack .side-panel:nth-child(1){
+  min-height:264px!important;
+}
+#pklSearchPage .side-stack .side-panel:nth-child(2){
+  min-height:200px!important;
+}
+@media (max-width:1150px){
+  #pklSearchPage .side-stack{grid-template-columns:1fr 1fr!important;gap:14px!important;}
+  #pklSearchPage .side-stack .side-panel{min-height:220px!important;}
+}
+@media (max-width:720px){
+  #pklSearchPage .side-stack{grid-template-columns:1fr!important;}
+}
+
+.search-autocomplete-wrap{
+  position:relative;
+  width:100%;
+  z-index:99999;
+}
+
+
+
+
+
+.search-container,
+.search-panel,
+.search-content,
+.search-main,
+.search-layout,
+.player-search-section,
+.record-section,
+.record-panel,
+.record-card,
+.content-card{
+  overflow:visible !important;
+  position:relative;
+}
+
+
+</style>
+
+
+
+
+
+
+
+
+
+
+
+<script id="pkl-autocomplete-script">
+(function(){
+
+const input = document.getElementById('searchInput');
+const box = document.getElementById('searchAutocomplete');
+
+if(!input || !box) return;
+
+if(box.parentElement !== document.body){
+  document.body.appendChild(box);
+}
+
+const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+
+function getInitials(text=''){
+  return String(text).split('').map(char=>{
+    const code = char.charCodeAt(0)-44032;
+
+    if(code>=0 && code<=11171){
+      return CHO[Math.floor(code/588)];
+    }
+
+    return char.toLowerCase();
+
+  }).join('');
+}
+
+function getUsers(){
+  if(window.PKLUserProfile && typeof window.PKLUserProfile.users === 'function') return window.PKLUserProfile.users();
+  try{
+    return JSON.parse(localStorage.getItem('pklUsers') || '[]');
+  }catch(e){
+    return [];
+  }
+}
+
+function hide(){
+  box.style.display='none';
+  box.innerHTML='';
+}
+
+function updatePosition(){
+
+  const rect = input.getBoundingClientRect();
+
+  box.style.left = rect.left + 'px';
+  box.style.top = (rect.bottom + 8) + 'px';
+  box.style.width = rect.width + 'px';
+
+}
+
+function render(query){
+
+  const q = String(query || '').trim();
+
+  if(!q){
+    hide();
+    return;
+  }
+
+  const users = getUsers();
+
+  const matched = users.filter(user=>{
+
+    const nick = String(
+      user.nickname ||
+      user.name ||
+      ''
+    );
+
+    const pubg = String(
+      user.pubgName ||
+      user.playerName ||
+      user.ingameName ||
+      user.pubgId ||
+      user.gameId ||
+      ''
+    );
+
+    const cho = getInitials(nick);
+
+    return (
+      nick.includes(q) ||
+      nick.toLowerCase().includes(q.toLowerCase()) ||
+      pubg.toLowerCase().includes(q.toLowerCase()) ||
+      cho.includes(q)
+    );
+
+  }).slice(0,8);
+
+  if(!matched.length){
+    hide();
+    return;
+  }
+
+  box.innerHTML = matched.map(user=>{
+
+    const rawTier =
+      user.tierBadge ||
+      user.tierBadgeHtml ||
+      user.tierImage ||
+      user.tierIcon ||
+      user.tierName ||
+      user.tierText ||
+      user.currentTier ||
+      user.tier ||
+      user.rank ||
+      user.grade ||
+      '';
+
+    const pubg =
+      user.pubgName ||
+      user.playerName ||
+      user.ingameName ||
+      user.pubgId ||
+      user.gameId ||
+      '-';
+
+    const nick =
+      user.nickname ||
+      user.name ||
+      '-';
+
+    let badgeHtml = '';
+
+    if(typeof rawTier === 'string' && rawTier.includes('pkl-tier-badge')){
+      badgeHtml = rawTier;
+    }else if(
+      window.PKLTierBadge &&
+      typeof window.PKLTierBadge.renderForUser === 'function'
+    ){
+      badgeHtml = window.PKLTierBadge.renderForUser(user);
+    }else if(
+      window.PKLTierBadge &&
+      typeof window.PKLTierBadge.render === 'function' &&
+      rawTier &&
+      rawTier !== '없음'
+    ){
+      badgeHtml = window.PKLTierBadge.render(rawTier);
+    }else if(rawTier && rawTier !== '없음'){
+      badgeHtml = `<span>${rawTier}</span>`;
+    }else{
+      badgeHtml = '';
+    }
+
+    return `
+      <div class="search-autocomplete-item" data-name="${nick}">
+        <div class="search-autocomplete-badge">${badgeHtml}</div>
+
+        <div class="search-autocomplete-meta">
+          <div class="search-autocomplete-name">${nick}</div>
+          <div class="search-autocomplete-pubg">${pubg}</div>
+        </div>
+      </div>
+    `;
+
+  }).join('');
+
+  updatePosition();
+
+  box.style.display='flex';
+
+}
+
+input.addEventListener('input',e=>{
+  render(e.target.value);
+});
+
+window.addEventListener('resize',()=>{
+  if(box.style.display==='flex'){
+    updatePosition();
+  }
+});
+
+window.addEventListener('scroll',()=>{
+  if(box.style.display==='flex'){
+    updatePosition();
+  }
+}, true);
+
+box.addEventListener('mousedown',e=>{
+
+  const item=e.target.closest('.search-autocomplete-item');
+
+  if(!item) return;
+
+  input.value=item.dataset.name;
+
+  hide();
+
+  if(typeof searchPlayer==='function'){
+    searchPlayer(item.dataset.name);
+  }
+
+});
+
+document.addEventListener('click',e=>{
+
+  if(
+    !e.target.closest('.search-autocomplete-wrap') &&
+    !e.target.closest('#searchAutocomplete')
+  ){
+    hide();
+  }
+
+});
+
+})();
+</script>
+
+
+<script>
+(function(){
+window.PKL_RECORD_KEYS=['pklMatchRecords','searchRecords','pklMatchHistory'];
+window.getUnifiedMatchRecords=function(){
+ let arr=[];
+ PKL_RECORD_KEYS.forEach(k=>{
+   try{
+    const v=JSON.parse(localStorage.getItem(k)||'[]');
+    if(Array.isArray(v)) arr=arr.concat(v);
+   }catch(e){}
+ });
+ return arr;
+}
+})();
+</script>
+
+<script src="pkl-common-header.js"></script>
+
+<!-- PKL global stacked modal layer manager -->
+<style id="pkl-global-stacked-modal-layer-style">
+  .pkl-layer-managed-modal{
+    position:fixed !important;
+    pointer-events:auto !important;
+  }
+  .pkl-layer-managed-modal > *,
+  .pkl-layer-managed-modal [role="dialog"],
+  .pkl-layer-managed-modal .modal-box,
+  .pkl-layer-managed-modal .modal-card,
+  .pkl-layer-managed-modal .pkl-result-admin-panel,
+  .pkl-layer-managed-modal .pkl-delete-confirm-box,
+  .pkl-layer-managed-modal .pkl-notice-card,
+  .pkl-layer-managed-modal .temp-edit-box{
+    position:relative !important;
+    pointer-events:auto !important;
+  }
+</style>
+<script id="pkl-global-stacked-modal-layer-script">
+(function(){
+  if(window.__PKL_STACKED_MODAL_LAYER_FINAL__) return;
+  window.__PKL_STACKED_MODAL_LAYER_FINAL__=true;
+  var BASE=2147481000;
+  var step=0;
+  var modalSelector=[
+    '.modal',
+    '.edit-modal',
+    '.member-edit-modal',
+    '.temp-edit-modal',
+    '.pkl-notice-layer',
+    '.pkl-result-admin-modal',
+    '.pkl-delete-confirm-modal',
+    '#resultAdminModal',
+    '#resultDeleteConfirmModal'
+  ].join(',');
+  function isOpen(el){
+    if(!el || !el.classList) return false;
+    var cs;
+    try{cs=getComputedStyle(el);}catch(e){cs=null;}
+    return el.classList.contains('open') ||
+      el.getAttribute('aria-hidden')==='false' ||
+      (cs && cs.position==='fixed' && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0');
+  }
+  function setLayer(el,z){
+    if(!el || !el.style) return;
+    el.classList.add('pkl-layer-managed-modal');
+    el.style.setProperty('z-index', String(z), 'important');
+    el.style.setProperty('pointer-events', 'auto', 'important');
+    var kids=el.querySelectorAll(':scope > *, [role="dialog"], .modal-box, .modal-card, .pkl-result-admin-panel, .pkl-delete-confirm-box, .pkl-notice-card, .temp-edit-box');
+    kids.forEach(function(k){
+      k.style.setProperty('z-index', String(z+1), 'important');
+      k.style.setProperty('pointer-events','auto','important');
+      if(getComputedStyle(k).position==='static') k.style.setProperty('position','relative','important');
+    });
+  }
+  function bring(el){
+    if(!el) return;
+    step+=10;
+    setLayer(el,BASE+step);
+  }
+  function scan(){
+    Array.prototype.forEach.call(document.querySelectorAll(modalSelector),function(el){
+      if(isOpen(el) && !el.dataset.pklLayerNoAuto){
+        if(!el.dataset.pklLayerOrder){
+          el.dataset.pklLayerOrder=String(++step);
+        }
+        setLayer(el,BASE+Number(el.dataset.pklLayerOrder));
+      }else if(el && el.dataset){
+        delete el.dataset.pklLayerOrder;
+      }
+    });
+  }
+  window.PKLBringModalToFront=function(el){
+    if(typeof el==='string') el=document.querySelector(el);
+    if(el){ delete el.dataset.pklLayerOrder; bring(el); }
+  };
+  document.addEventListener('click',function(e){
+    var el=e.target && e.target.closest && e.target.closest(modalSelector);
+    if(el) window.PKLBringModalToFront(el);
+    setTimeout(scan,0);
+    setTimeout(scan,80);
+  },true);
+  var mo=new MutationObserver(function(list){
+    list.forEach(function(m){
+      var el=m.target;
+      if(el && el.matches && el.matches(modalSelector) && isOpen(el)) window.PKLBringModalToFront(el);
+    });
+    setTimeout(scan,0);
+  });
+  function boot(){
+    try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
+    scan();
+    
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
+  <script src="./pkl-responsive-scale.js"></script>
+</body>
+</html>

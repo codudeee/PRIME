@@ -1,0 +1,2911 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+  <script src="./pkl-supabase-config.js"></script>
+  
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PKL 킬내기 결과</title>
+<link href="pkl-main-common.css" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#05040c;
+  --panel:#0a0a14;
+  --panel2:#11111f;
+  --line:rgba(174,123,255,.34);
+  --line-strong:rgba(201,168,255,.54);
+  --purple:#9b5cff;
+  --purple2:#c9a8ff;
+  --cyan:#8be7ff;
+  --gold:#ffd45a;
+  --red:#ff4d64;
+  --text:#f8f7ff;
+  --muted:#9691ad;
+  --dim:#6e6a82;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Pretendard,"Noto Sans KR","Malgun Gothic",system-ui,sans-serif;}
+body{
+  background:
+    radial-gradient(ellipse at 50% 0%,rgba(155,92,255,.22),transparent 37%),
+    radial-gradient(ellipse at 12% 14%,rgba(75,39,160,.20),transparent 36%),
+    radial-gradient(ellipse at 86% 10%,rgba(56,217,255,.08),transparent 30%),
+    linear-gradient(180deg,#05040c 0%,#090717 46%,#04040a 100%);
+  overflow-x:hidden;
+}
+body:before{
+  content:"PKL";
+  position:fixed;
+  left:50%;top:70px;
+  transform:translateX(-50%);
+  font-size:170px;
+  font-weight:1000;
+  font-style:italic;
+  letter-spacing:-14px;
+  color:rgba(255,255,255,.035);
+  text-shadow:0 0 60px rgba(155,92,255,.14);
+  pointer-events:none;
+  z-index:0;
+}
+a{color:inherit;text-decoration:none}
+button,select,input{font-family:inherit}
+button{cursor:pointer}
+.site{position:relative;z-index:1;min-height:100vh;}
+#pklCommonHeader{min-height:70px;}
+.result-page{width:min(1760px,calc(100vw - 40px));margin:0 auto;padding:18px 0 42px;}
+.result-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start;}
+.result-left{min-width:0;display:grid;gap:14px;}
+
+.result-board,.sheet-panel,.side-panel{
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012) 34%,rgba(255,255,255,.004)),
+    radial-gradient(circle at 50% -18%,rgba(155,92,255,.15),transparent 48%),
+    rgba(7,7,15,.88);
+  box-shadow:0 24px 60px rgba(0,0,0,.42),0 0 0 1px rgba(255,255,255,.035) inset,0 0 34px rgba(155,92,255,.10);
+  overflow:hidden;
+  backdrop-filter:blur(10px);
+}
+.result-board{min-height:0;display:flex;flex-direction:column;}
+.board-head{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid rgba(255,255,255,.075);background:linear-gradient(90deg,rgba(155,92,255,.16),rgba(255,255,255,.015),transparent)}
+.board-title{font-size:25px;font-style:italic;font-weight:1000;letter-spacing:.7px;text-shadow:0 0 18px rgba(155,92,255,.55)}
+.board-title span{color:var(--purple2)}
+.board-note{font-size:13px;font-weight:900;color:var(--muted)}
+.team-grid{flex:0 0 auto;min-height:0;padding:14px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:minmax(230px,auto);gap:12px;align-content:start;}
+.team-card{
+  min-width:0;min-height:0;
+  border:1px solid rgba(168,111,255,.34);
+  border-radius:15px;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.052),rgba(255,255,255,.007)),
+    linear-gradient(180deg,rgba(16,16,29,.97),rgba(5,5,12,.98));
+  box-shadow:0 12px 28px rgba(0,0,0,.38),inset 0 0 18px rgba(255,255,255,.020);
+  display:grid;
+  grid-template-rows:48px 1fr 42px;
+  padding:10px;
+  gap:8px;
+  overflow:hidden;
+  transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,filter .16s ease;
+}
+.team-card:hover{transform:translateY(-2px);filter:brightness(1.08);border-color:rgba(201,168,255,.58);box-shadow:0 16px 34px rgba(0,0,0,.46),0 0 24px rgba(155,92,255,.14)}
+.team-card.active{border-color:rgba(139,231,255,.82);box-shadow:0 0 0 1px rgba(139,231,255,.18) inset,0 0 28px rgba(139,231,255,.20),0 14px 34px rgba(0,0,0,.42)}
+.card-score-main{
+  position:relative;isolation:isolate;overflow:hidden;
+  height:48px;border-radius:11px;border:1px solid rgba(255,255,255,.17);
+  background:rgba(255,255,255,.065);
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  font-size:25px;font-weight:1000;line-height:1;color:#fff;letter-spacing:.1px;
+}
+.card-score-main:before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--gauge,0%);max-width:100%;background:linear-gradient(90deg,rgba(155,92,255,.72),rgba(56,217,255,.34));z-index:0;opacity:.82;pointer-events:none;transition:width .32s ease}
+.card-score-main:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.14),transparent 52%);z-index:1;pointer-events:none}
+.score-gauge-text{position:relative;z-index:2;white-space:nowrap;text-shadow:0 0 14px rgba(255,255,255,.18),0 0 18px rgba(155,92,255,.34)}
+.member-list{min-height:0;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:2px 8px;}
+.member-row{display:flex;align-items:center;justify-content:center;gap:9px;min-height:28px;font-size:22px;line-height:1.08;font-weight:1000;color:#fff;white-space:nowrap;overflow:visible;text-align:center;}
+.member-name{display:inline-block;min-width:44px;max-width:92px;overflow:visible;text-overflow:clip;white-space:nowrap;text-align:center;}
+.member-kd{display:inline-block;min-width:98px;text-align:center;color:#fff;font-weight:1000;white-space:nowrap;}
+.member-row.team-extra-row{display:none;}
+.team-foot{height:42px;border-top:1px solid rgba(255,255,255,.075);display:flex;align-items:center;justify-content:center;gap:18px;font-size:20px;font-weight:1000;color:#fff;white-space:nowrap;}
+.foot-stat{display:inline-flex;align-items:center;justify-content:center;gap:5px;color:#fff;}
+.foot-stat b{font-size:20px;color:#fff;font-weight:1000;}
+.foot-stat.chicken:before{content:"🍗";font-size:19px;line-height:1}.foot-stat.stop:before{content:"⛔";font-size:17px;line-height:1}.foot-stat.cold:before{content:"❄";font-size:18px;line-height:1;color:#baf4ff}
+
+.sheet-panel{display:block;}
+.sheet-toggle{width:100%;height:54px;border:0;background:linear-gradient(90deg,rgba(155,92,255,.18),rgba(255,255,255,.012),transparent);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:23px;font-weight:1000;font-style:italic;text-shadow:0 0 15px rgba(155,92,255,.50)}
+.sheet-toggle span{color:var(--purple2)}
+.sheet-toggle small{font-size:13px;font-style:normal;font-weight:900;color:var(--muted);text-shadow:none}
+.sheet-content{display:none;border-top:1px solid rgba(255,255,255,.075);}
+.sheet-panel.open .sheet-content{display:block;}
+.table-wrap{overflow:auto;padding:0 12px 12px;max-height:440px;}
+.record-table{width:100%;min-width:1060px;border-collapse:separate;border-spacing:0;table-layout:fixed;}
+.record-table th,.record-table td{height:42px;text-align:center;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.075);background:rgba(5,6,14,.86);}
+.record-table th:first-child,.record-table td:first-child{border-left:1px solid rgba(255,255,255,.08)}
+.record-table thead th{position:sticky;top:0;z-index:20;height:44px;background:linear-gradient(180deg,rgba(32,24,60,1),rgba(13,14,27,1));color:#e9dcff;font-size:17px;font-weight:1000;box-shadow:0 2px 0 rgba(255,255,255,.07),0 10px 22px rgba(3,2,12,.62)}
+.record-table thead{position:relative;z-index:20;}
+.record-table input,.record-table select,.map-pill,.stop-pill{height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.13);background:rgba(9,11,22,.96);color:#fff;text-align:center;font-size:17px;font-weight:1000;display:inline-flex;align-items:center;justify-content:center;}
+.record-table input{width:calc(100% - 12px)}
+.map-pill{width:calc(100% - 12px);margin:0 auto}.stop-pill{width:calc(100% - 14px);margin:0 auto;color:#fff}.total-cell{font-size:21px;font-weight:1000;color:#fff}.kill-box{display:grid;grid-template-columns:1fr 28px;gap:6px;align-items:center;padding:0 6px}.death-check{width:26px;height:26px;border-radius:7px;border:1px solid rgba(255,255,255,.18);background:rgba(5,6,14,.95);display:block;position:relative}.death-check.checked{border-color:rgba(255,77,100,.8);background:linear-gradient(135deg,rgba(255,77,100,.85),rgba(155,92,255,.34));box-shadow:0 0 10px rgba(255,77,100,.25)}.death-check.checked:after{content:"";position:absolute;left:8px;top:4px;width:7px;height:13px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg)}
+
+.side-panel{padding:16px;}
+.side-kicker{font-size:11px;font-weight:1000;letter-spacing:2.4px;color:#b9a4e4;text-transform:uppercase;margin-bottom:7px;}
+.side-title-main{font-size:24px;font-weight:1000;letter-spacing:-.4px;margin-bottom:14px;}
+.match-info{display:grid;gap:9px;margin-top:12px;}
+.info-row{border:1px solid rgba(255,255,255,.09);border-radius:13px;background:rgba(255,255,255,.035);padding:10px 11px;display:grid;gap:4px;}
+.info-label{font-size:11px;font-weight:1000;color:#8f8aa3;letter-spacing:.7px}.info-value{font-size:16px;font-weight:1000;color:#fff;line-height:1.35}.capture-btn{width:100%;height:46px;margin-top:16px;border-radius:14px;border:1px solid rgba(201,168,255,.34);background:linear-gradient(180deg,rgba(155,92,255,.42),rgba(73,36,148,.58));color:#fff;font-size:15px;font-weight:1000;box-shadow:0 12px 28px rgba(0,0,0,.32),0 0 18px rgba(155,92,255,.12),inset 0 1px 0 rgba(255,255,255,.13);}
+.capture-btn:hover{filter:brightness(1.12);border-color:rgba(201,168,255,.58);}
+.capture-toast{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(139,231,255,.20);background:rgba(139,231,255,.075);color:rgba(248,247,255,.78);font-size:12px;font-weight:800;line-height:1.45;word-break:keep-all;}
+.capture-toast.show{display:block;}
+.capture-mode #pklCommonHeader,.capture-mode 
+.capture-mode .result-page{width:min(1480px,calc(100vw - 40px));}
+.capture-mode .result-layout{display:block;}
+
+@media (max-width:1300px){
+  .result-layout{grid-template-columns:1fr}.team-grid{grid-template-columns:repeat(2,1fr);grid-template-rows:none}.result-board{min-height:auto}.team-card{min-height:220px}.team-select-list{grid-template-columns:repeat(5,1fr)}
+}
+@media (max-width:760px){
+  .result-page{width:calc(100vw - 24px);padding-top:10px}.team-grid{grid-template-columns:1fr}.team-card{min-height:230px}.board-head{height:auto;min-height:54px;align-items:flex-start;flex-direction:column;padding:12px 14px;gap:5px}.member-row{font-size:20px}.card-score-main{font-size:23px}.team-select-list{grid-template-columns:1fr 1fr}
+}
+</style>
+<style id="pkl-header-font-restore">
+
+</style>
+<style id="pkl-result-final-layout-fix">
+/* 팀스코어보드: 저장된 회차가 없을 때 불필요한 하단 여백 제거 */
+.result-board{
+  min-height:0 !important;
+  height:auto !important;
+}
+.result-board .team-grid{
+  flex:0 0 auto !important;
+  height:auto !important;
+  min-height:0 !important;
+  align-content:start !important;
+}
+
+/* 결과표 스코어 게이지: 시트지와 동일하게 퍼센트만큼 차오르게 표시 */
+.team-card .card-score-main{
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.045)),
+    rgba(35,35,46,.92) !important;
+}
+.team-card .card-score-main::before{
+  display:block !important;
+  content:"" !important;
+  position:absolute !important;
+  left:0 !important;
+  top:0 !important;
+  bottom:0 !important;
+  width:var(--gauge,0%) !important;
+  max-width:100% !important;
+  background:linear-gradient(90deg,rgba(155,92,255,.78),rgba(56,217,255,.42)) !important;
+  z-index:0 !important;
+  opacity:.9 !important;
+  pointer-events:none !important;
+  transition:width .32s ease !important;
+}
+.team-card .score-gauge-text{
+  display:block !important;
+  width:100% !important;
+  text-align:center !important;
+  color:#fff !important;
+}
+
+/* 카드 안 닉네임/점수 줄: 이름 없으면 점수만 완전 중앙, 이름 있으면 2열 묶음 자체가 중앙 */
+.team-card .member-list{
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+  align-items:center !important;
+  gap:8px !important;
+  width:100% !important;
+  padding:4px 8px !important;
+  text-align:center !important;
+}
+
+.team-card .member-row{
+  width:100% !important;
+  min-height:28px !important;
+  margin:0 !important;
+  padding:0 !important;
+  line-height:1.05 !important;
+  font-size:22px !important;
+  font-weight:1000 !important;
+  color:#fff !important;
+  white-space:nowrap !important;
+  text-align:center !important;
+}
+
+.team-card .member-row.has-name{
+  display:grid !important;
+  grid-template-columns:76px 116px !important;
+  column-gap:10px !important;
+  justify-content:center !important;
+  align-items:center !important;
+}
+
+.team-card .member-row.no-name{
+  display:flex !important;
+  justify-content:center !important;
+  align-items:center !important;
+}
+
+.team-card .member-name{
+  display:block !important;
+  width:76px !important;
+  min-width:76px !important;
+  max-width:76px !important;
+  text-align:right !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+  color:#fff !important;
+}
+
+.team-card .member-kd{
+  display:block !important;
+  color:#fff !important;
+  font-weight:1000 !important;
+  white-space:nowrap !important;
+  overflow:visible !important;
+}
+
+.team-card .member-row.has-name .member-kd{
+  width:116px !important;
+  min-width:116px !important;
+  max-width:116px !important;
+  text-align:left !important;
+}
+
+.team-card .member-row.no-name .member-kd{
+  width:auto !important;
+  min-width:0 !important;
+  max-width:none !important;
+  text-align:center !important;
+}
+
+/* 하단 아이콘 줄 중앙 고정 */
+.team-card .team-foot{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:18px !important;
+  width:100% !important;
+  height:42px !important;
+  margin:0 !important;
+  padding:0 !important;
+  text-align:center !important;
+}
+
+.team-card .foot-stat{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:5px !important;
+  min-width:42px !important;
+  color:#fff !important;
+  font-size:20px !important;
+  font-weight:1000 !important;
+}
+</style>
+<style id="pkl-selected-card-white-neon">
+/* 선택된 팀 카드 - 하늘색 대신 화이트 네온 */
+.team-card.active,
+.team-card.selected,
+.team-card.is-active,
+.team-card.current{
+  border-color:rgba(255,255,255,.92) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.95),
+    0 0 10px rgba(255,255,255,.75),
+    0 0 24px rgba(255,255,255,.42),
+    inset 0 0 18px rgba(255,255,255,.08) !important;
+}
+
+/* 내부 글로우도 화이트 */
+.team-card.active::before,
+.team-card.selected::before,
+.team-card.is-active::before,
+.team-card.current::before{
+  border-color:rgba(255,255,255,.75) !important;
+  box-shadow:
+    0 0 18px rgba(255,255,255,.38),
+    inset 0 0 12px rgba(255,255,255,.08) !important;
+}
+
+/* hover도 자연스럽게 */
+.team-card:hover{
+  border-color:rgba(255,255,255,.55) !important;
+}
+</style>
+<style id="pkl-scoreboard-capture-polish">
+.capture-toast{
+  margin-top:10px !important;
+  border-color:rgba(255,255,255,.22) !important;
+  background:rgba(255,255,255,.07) !important;
+  color:rgba(255,255,255,.86) !important;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style id="pkl-custom-match-dropdown-style">
+/* 기본 브라우저 select는 숨기고 PKL 커스텀 회차 드롭다운 사용 */
+.native-match-select{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+.pkl-match-dropdown{
+  position:relative;
+  width:100%;
+  z-index:20;
+}
+
+.pkl-match-trigger{
+  width:100%;
+  height:48px;
+  border-radius:14px;
+  border:1px solid rgba(216,180,254,.30);
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.018)),
+    radial-gradient(circle at 0% 0%,rgba(155,92,255,.20),transparent 56%),
+    rgba(7,7,16,.94);
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 12px 0 15px;
+  font-size:15px;
+  font-weight:1000;
+  letter-spacing:-.2px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 10px 24px rgba(0,0,0,.24),
+    0 0 18px rgba(155,92,255,.08);
+}
+
+.pkl-match-trigger i{
+  width:26px;
+  height:26px;
+  border-radius:8px;
+  display:grid;
+  place-items:center;
+  font-style:normal;
+  color:#fff;
+  background:linear-gradient(180deg,rgba(155,92,255,.34),rgba(65,37,118,.42));
+  border:1px solid rgba(216,180,254,.22);
+  box-shadow:0 0 12px rgba(155,92,255,.18);
+  transition:transform .16s ease;
+}
+
+.pkl-match-dropdown.open .pkl-match-trigger{
+  border-color:rgba(255,255,255,.70);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.16),
+    0 0 20px rgba(255,255,255,.16),
+    inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+.pkl-match-dropdown.open .pkl-match-trigger i{
+  transform:rotate(180deg);
+}
+
+.pkl-match-menu{
+  position:absolute;
+  left:0;
+  right:0;
+  top:calc(100% + 8px);
+  display:none;
+  padding:7px;
+  border-radius:15px;
+  border:1px solid rgba(216,180,254,.28);
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015)),
+    rgba(8,8,18,.98);
+  box-shadow:
+    0 20px 40px rgba(0,0,0,.55),
+    0 0 24px rgba(155,92,255,.16),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter:blur(14px);
+  overflow:hidden;
+}
+
+.pkl-match-dropdown.open .pkl-match-menu{
+  display:grid;
+  gap:6px;
+}
+
+.pkl-match-option{
+  height:42px;
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:11px;
+  background:rgba(255,255,255,.025);
+  color:rgba(255,255,255,.78);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:0 11px;
+  font-size:14px;
+  font-weight:1000;
+  text-align:left;
+}
+
+.pkl-match-option small{
+  color:rgba(201,168,255,.62);
+  font-size:11px;
+  font-weight:900;
+}
+
+.pkl-match-option:hover{
+  color:#fff;
+  border-color:rgba(255,255,255,.34);
+  background:
+    radial-gradient(circle at 0% 50%,rgba(155,92,255,.18),transparent 58%),
+    rgba(255,255,255,.055);
+}
+
+.pkl-match-option.active{
+  color:#fff;
+  border-color:rgba(255,255,255,.75);
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.16),rgba(155,92,255,.18)),
+    rgba(255,255,255,.055);
+  box-shadow:
+    0 0 14px rgba(255,255,255,.14),
+    inset 0 0 0 1px rgba(255,255,255,.06);
+}
+</style>
+<style id="pkl-top-toast-style">
+/* 이미지 캡쳐 버튼 위 말풍선 토스트 */
+.capture-toast{
+  position:absolute !important;
+  left:18px !important;
+  right:18px !important;
+  bottom: 72px !important;
+  top:auto !important;
+  transform:translateY(10px) scale(.98) !important;
+  padding:14px 16px !important;
+  border-radius:16px !important;
+  border:1px solid rgba(255,255,255,.20) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.11),rgba(255,255,255,.035)),
+    rgba(10,10,20,.96) !important;
+  color:#fff !important;
+  font-size:13px !important;
+  font-weight:900 !important;
+  line-height:1.45 !important;
+  letter-spacing:-.2px !important;
+  box-shadow:
+    0 16px 36px rgba(0,0,0,.42),
+    0 0 22px rgba(155,92,255,.16),
+    inset 0 1px 0 rgba(255,255,255,.08) !important;
+  backdrop-filter:blur(12px) !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+  z-index:9999 !important;
+  transition:
+    opacity .22s ease,
+    transform .22s ease !important;
+}
+
+/* 말풍선 꼬리 */
+.capture-toast::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  bottom:-8px;
+  width:16px;
+  height:16px;
+  transform:translateX(-50%) rotate(45deg);
+  background:rgba(10,10,20,.96);
+  border-right:1px solid rgba(255,255,255,.16);
+  border-bottom:1px solid rgba(255,255,255,.16);
+}
+
+.capture-toast.show{
+  opacity:1 !important;
+  transform:translateY(0) scale(1) !important;
+}
+</style>
+<style id="pkl-result-admin-modal-style">
+.pkl-result-admin-modal{
+  position:fixed;
+  inset:0;
+  z-index:2147483000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:28px;
+  background:
+    radial-gradient(circle at 50% 0%,rgba(155,92,255,.22),transparent 36%),
+    rgba(0,0,0,.72);
+  backdrop-filter:blur(14px);
+}
+.pkl-result-admin-modal.open{display:flex;}
+.pkl-result-admin-panel{
+  position:relative;
+  z-index:2147483001;
+  width:min(920px,calc(100vw - 42px));
+  max-height:calc(100vh - 58px);
+  overflow:auto;
+  border-radius:24px;
+  border:1px solid rgba(216,180,254,.30);
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.025) 25%,transparent 45%),
+    radial-gradient(circle at 50% 0%,rgba(155,92,255,.22),transparent 50%),
+    rgba(8,8,18,.96);
+  box-shadow:
+    0 34px 100px rgba(0,0,0,.78),
+    0 0 0 1px rgba(255,255,255,.05) inset,
+    0 0 48px rgba(155,92,255,.20);
+  padding:28px;
+  color:#fff;
+}
+.pkl-result-admin-close{
+  position:absolute;
+  z-index:2147483002;
+  cursor:pointer;
+  top:18px;
+  right:18px;
+  width:38px;
+  height:38px;
+  border-radius:13px;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.06);
+  color:#fff;
+  font-size:25px;
+  font-weight:1000;
+}
+.admin-kicker{
+  color:#c9a8ff;
+  font-size:11px;
+  font-weight:1000;
+  letter-spacing:2.8px;
+}
+.pkl-result-admin-panel h2{
+  margin:8px 0 8px;
+  font-size:28px;
+  font-weight:1000;
+}
+.admin-desc{
+  margin:0 0 20px;
+  color:rgba(255,255,255,.62);
+  font-size:13px;
+  font-weight:800;
+}
+.admin-grid{
+  display:grid;
+  grid-template-columns:260px 1fr;
+  gap:16px;
+}
+.admin-list-box,.admin-edit-box{
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:18px;
+  background:rgba(255,255,255,.035);
+  padding:16px;
+}
+.admin-section-title{
+  margin-bottom:12px;
+  color:#f1e8ff;
+  font-size:14px;
+  font-weight:1000;
+  letter-spacing:.3px;
+}
+.admin-match-list{
+  display:grid;
+  gap:8px;
+  max-height:365px;
+  overflow:auto;
+  padding-right:3px;
+}
+.admin-match-item{
+  min-height:48px;
+  border-radius:13px;
+  border:1px solid rgba(255,255,255,.09);
+  background:rgba(255,255,255,.035);
+  color:rgba(255,255,255,.72);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:3px;
+  padding:8px 12px;
+  text-align:left;
+  font-weight:1000;
+}
+.admin-match-item small{
+  color:rgba(201,168,255,.62);
+  font-size:11px;
+}
+.admin-match-item.active{
+  color:#fff;
+  border-color:rgba(255,255,255,.72);
+  box-shadow:0 0 16px rgba(255,255,255,.14), inset 0 0 0 1px rgba(255,255,255,.04);
+}
+.admin-add-btn,.admin-save-btn,.admin-delete-btn,.admin-toggle-kind-btn{
+  height:46px;
+  border-radius:14px;
+  font-size:14px;
+  font-weight:1000;
+  color:#fff;
+}
+.admin-add-btn{
+  border:1px solid rgba(56,217,255,.34);
+  background:linear-gradient(180deg,rgba(56,217,255,.30),rgba(26,82,145,.54));
+  box-shadow:0 0 18px rgba(56,217,255,.10);
+}
+.admin-toggle-kind-btn{
+  border:1px solid rgba(255,216,92,.38);
+  background:linear-gradient(180deg,rgba(255,216,92,.30),rgba(124,82,18,.58));
+  box-shadow:0 0 18px rgba(255,216,92,.10);
+}
+.admin-toggle-kind-btn.is-free{
+  border-color:rgba(78,235,167,.42);
+  background:linear-gradient(180deg,rgba(78,235,167,.28),rgba(24,105,76,.58));
+  box-shadow:0 0 18px rgba(78,235,167,.12);
+}
+.admin-toggle-kind-btn.is-paid{
+  border-color:rgba(255,216,92,.42);
+  background:linear-gradient(180deg,rgba(255,216,92,.30),rgba(124,82,18,.58));
+  box-shadow:0 0 18px rgba(255,216,92,.12);
+}
+.admin-form{
+  display:grid;
+  gap:12px;
+}
+.admin-form label{
+  display:grid;
+  gap:7px;
+  color:rgba(255,255,255,.64);
+  font-size:12px;
+  font-weight:1000;
+}
+.admin-form input{
+  height:42px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(5,6,14,.84);
+  color:#fff;
+  padding:0 12px;
+  font-size:14px;
+  font-weight:900;
+  outline:none;
+}
+.admin-form input:focus{
+  border-color:rgba(255,255,255,.56);
+  box-shadow:0 0 16px rgba(255,255,255,.12);
+}
+.admin-two{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.admin-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:16px;
+}
+.admin-actions button{cursor:pointer;transition:transform .12s ease,filter .12s ease,box-shadow .12s ease;}
+.admin-actions button:hover{filter:brightness(1.08);transform:translateY(-1px);}
+.admin-save-btn{
+  border:1px solid rgba(216,180,254,.32);
+  background:linear-gradient(180deg,rgba(155,92,255,.48),rgba(75,39,160,.60));
+}
+.admin-delete-btn{
+  border:1px solid rgba(255,100,120,.38);
+  background:linear-gradient(180deg,rgba(255,77,100,.34),rgba(110,22,42,.62));
+}
+@media (max-width:760px){
+  .admin-grid{grid-template-columns:1fr}
+  .admin-two{grid-template-columns:1fr}
+}
+</style>
+<style id="pkl-result-side-control-clean">
+/* RESULT CONTROL: side-field/info-row/card/button 단일 규격 */
+.result-layout{
+  align-items:start !important;
+}
+
+.result-side .side-panel{
+  padding:16px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:8px !important;
+  box-sizing:border-box !important;
+}
+
+.result-side .side-kicker,
+.result-side .side-title-main{
+  margin:0 !important;
+}
+
+.result-side .side-kicker{
+  line-height:1 !important;
+}
+
+.result-side .side-title-main{
+  line-height:1.06 !important;
+}
+
+.result-side .match-info{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:8px !important;
+  margin:0 !important;
+}
+
+.result-side .match-select-card,
+.result-side .match-info > .info-row{
+  width:100% !important;
+  min-height:68px !important;
+  margin:0 !important;
+  padding:10px 12px !important;
+  border-radius:14px !important;
+  border:1px solid rgba(255,255,255,.09) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.020)),
+    rgba(255,255,255,.030) !important;
+  box-sizing:border-box !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+  gap:7px !important;
+}
+
+.result-side .match-select-card .info-label,
+.result-side .match-info > .info-row .info-label{
+  margin:0 !important;
+  padding:0 !important;
+  color:#8f8aa3 !important;
+  font-size:11px !important;
+  font-weight:1000 !important;
+  letter-spacing:.7px !important;
+  line-height:1 !important;
+}
+
+.result-side .match-select-card .info-value,
+.result-side .match-info > .info-row .info-value{
+  margin:0 !important;
+  padding:0 !important;
+  min-height:36px !important;
+  display:flex !important;
+  align-items:center !important;
+  color:#fff !important;
+  font-size:16px !important;
+  font-weight:1000 !important;
+  line-height:1.25 !important;
+}
+
+.result-side .match-select-value,
+.result-side .pkl-match-dropdown,
+.result-side .pkl-match-trigger{
+  width:100% !important;
+  box-sizing:border-box !important;
+}
+
+.result-side .native-match-select{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+.result-side .pkl-match-dropdown{
+  position:relative !important;
+  z-index:30 !important;
+}
+
+.result-side .pkl-match-trigger{
+  height:38px !important;
+  min-height:38px !important;
+  padding:0 10px 0 12px !important;
+  border-radius:12px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+}
+
+.result-side .pkl-match-trigger span{
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+  font-size:14px !important;
+  line-height:1 !important;
+}
+
+.result-side .pkl-match-trigger i{
+  flex:0 0 24px !important;
+  width:24px !important;
+  height:24px !important;
+  border-radius:8px !important;
+  font-size:14px !important;
+}
+
+.result-side .pkl-match-menu{
+  top:calc(100% + 8px) !important;
+  padding:6px !important;
+  border-radius:14px !important;
+}
+
+.result-side .pkl-match-option{
+  height:40px !important;
+  min-height:40px !important;
+  padding:0 10px !important;
+  border-radius:10px !important;
+}
+
+.result-side .admin-panel-btn,
+.result-side .capture-btn{
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  width:100% !important;
+  height:46px !important;
+  min-height:46px !important;
+  margin:0 !important;
+  padding:0 14px !important;
+  border-radius:14px !important;
+  box-sizing:border-box !important;
+  cursor:pointer !important;
+  font-family:'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR','Segoe UI',sans-serif !important;
+  font-size:15px !important;
+  font-weight:1000 !important;
+  letter-spacing:-.2px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  transition:transform .16s ease, filter .16s ease, border-color .16s ease, box-shadow .16s ease !important;
+}
+
+.result-side .admin-panel-btn{
+  margin-top:2px !important;
+  border:1px solid rgba(255,255,255,.24) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.055)),
+    rgba(18,17,28,.94) !important;
+  color:#ffffff !important;
+  text-shadow:0 0 10px rgba(255,255,255,.22) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.18),
+    0 10px 24px rgba(0,0,0,.28),
+    0 0 16px rgba(255,255,255,.05) !important;
+}
+
+.result-side .capture-btn{
+  border:1px solid rgba(201,168,255,.38) !important;
+  background:
+    linear-gradient(180deg,rgba(157,92,255,.58),rgba(77,35,154,.76)),
+    rgba(54,25,112,.95) !important;
+  color:#ffffff !important;
+  text-shadow:0 0 12px rgba(255,255,255,.20) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.18),
+    0 12px 28px rgba(0,0,0,.32),
+    0 0 22px rgba(155,92,255,.18) !important;
+}
+
+.result-side .admin-panel-btn:hover,
+.result-side .capture-btn:hover{
+  transform:translateY(-1px) !important;
+  filter:brightness(1.08) !important;
+}
+
+.result-side .admin-panel-btn:active,
+.result-side .capture-btn:active{
+  transform:translateY(0) scale(.99) !important;
+}
+
+.result-side .capture-toast{
+  margin-top:0 !important;
+}
+
+</style>
+<style id="pkl-result-sheet-history-status-style">
+.record-table tr.is-fire-used-row td{
+  background:linear-gradient(90deg,rgba(255,139,42,.20),rgba(105,54,21,.28)),rgba(12,9,17,.88) !important;
+  box-shadow:inset 0 0 0 1px rgba(255,180,92,.08) !important;
+}
+.record-table tr.is-surrender-row td{
+  background:linear-gradient(90deg,rgba(255,77,100,.18),rgba(65,15,28,.30)),rgba(12,9,17,.88) !important;
+}
+.result-status-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:74px;
+  height:28px;
+  padding:0 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.16);
+  font-size:12px;
+  font-weight:1000;
+  color:#fff;
+  white-space:nowrap;
+}
+.result-status-pill.fire{
+  border-color:rgba(255,180,92,.42);
+  background:rgba(255,139,42,.22);
+  color:#ffd7a2;
+}
+.result-status-pill.surrender{
+  border-color:rgba(255,100,120,.46);
+  background:rgba(255,77,100,.22);
+  color:#ffc6cf;
+}
+.result-event-summary{
+  margin:0 12px 12px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  background:rgba(255,255,255,.035);
+  overflow:hidden;
+}
+.result-event-summary-title{
+  padding:10px 12px;
+  font-size:12px;
+  font-weight:1000;
+  color:#c9a8ff;
+  letter-spacing:1.4px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.result-event-summary-list{
+  display:grid;
+  gap:6px;
+  padding:10px 12px;
+}
+.result-event-summary-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  min-height:28px;
+  font-size:13px;
+  font-weight:900;
+  color:rgba(255,255,255,.82);
+}
+.result-event-summary-item b{
+  color:#fff;
+  font-size:13px;
+}
+.pkl-match-option small{display:none !important;}
+</style>
+<style id="pkl-result-empty-state-fix">
+.pkl-result-empty-state{
+  grid-column:1 / -1;
+  min-height:82px;
+  height:82px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  background:rgba(255,255,255,.025);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:rgba(255,255,255,.68);
+  font-size:22px;
+  font-weight:1000;
+  text-align:center;
+}
+.pkl-result-empty-sheet{
+  height:90px !important;
+  color:rgba(255,255,255,.66) !important;
+  font-size:18px !important;
+  font-weight:1000 !important;
+  text-align:center !important;
+}
+.admin-empty-match{
+  min-height:88px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  background:rgba(255,255,255,.035);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:rgba(255,255,255,.62);
+  font-size:14px;
+  font-weight:1000;
+  text-align:center;
+}
+</style>
+<style id="pkl-result-delete-confirm-style">
+.pkl-delete-confirm-modal{
+  position:fixed;
+  inset:0;
+  z-index:2147483646 !important;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:
+    radial-gradient(circle at 50% 0%,rgba(155,92,255,.20),transparent 38%),
+    rgba(0,0,0,.74);
+  backdrop-filter:blur(14px);
+}
+.pkl-delete-confirm-modal.open{display:flex; pointer-events:auto !important;}
+.pkl-delete-confirm-box{
+  position:relative;
+  z-index:2147483647 !important;
+  pointer-events:auto;
+  width:min(430px,calc(100vw - 40px));
+  border-radius:22px;
+  border:1px solid rgba(216,180,254,.34);
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.11),rgba(255,255,255,.026) 34%,transparent 60%),
+    radial-gradient(circle at 50% 0%,rgba(155,92,255,.20),transparent 54%),
+    rgba(8,8,18,.98);
+  box-shadow:
+    0 30px 90px rgba(0,0,0,.78),
+    0 0 0 1px rgba(255,255,255,.05) inset,
+    0 0 42px rgba(155,92,255,.18);
+  padding:24px;
+  text-align:center;
+  color:#fff;
+}
+.pkl-delete-confirm-kicker{
+  color:#ffd45a;
+  font-size:11px;
+  font-weight:1000;
+  letter-spacing:2.5px;
+  margin-bottom:8px;
+}
+.pkl-delete-confirm-title{
+  font-size:23px;
+  font-weight:1000;
+  line-height:1.25;
+  margin:0 0 10px;
+}
+.pkl-delete-confirm-desc{
+  margin:0;
+  color:rgba(255,255,255,.68);
+  font-size:14px;
+  font-weight:850;
+  line-height:1.55;
+  word-break:keep-all;
+}
+.pkl-delete-confirm-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:20px;
+}
+.pkl-delete-confirm-actions button{
+  height:44px;
+  border-radius:14px;
+  color:#fff;
+  font-size:14px;
+  font-weight:1000;
+}
+.pkl-delete-confirm-no{
+  border:1px solid rgba(255,255,255,.18);
+  background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.045));
+}
+.pkl-delete-confirm-yes{
+  border:1px solid rgba(255,77,100,.42);
+  background:linear-gradient(180deg,rgba(255,77,100,.42),rgba(110,22,42,.68));
+}
+.pkl-delete-confirm-actions button:hover{filter:brightness(1.10);}
+</style>
+<style id="pkl-result-sheet-view-edit-mode">
+#sheetPanel:not(.result-sheet-editing) .record-table td{
+  background:rgba(255,255,255,.018);
+}
+.result-sheet-number{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:30px;
+  min-height:28px;
+  color:#fff;
+  font-weight:900;
+  font-size:16px;
+  text-shadow:0 0 10px rgba(255,255,255,.22);
+}
+.result-sheet-number small{
+  margin-left:3px;
+  color:rgba(255,255,255,.62);
+  font-size:12px;
+  font-weight:800;
+}
+.result-sheet-editing .result-sheet-map,
+.result-sheet-editing .result-sheet-stop{
+  width:72px;
+  height:34px;
+  border-radius:10px;
+  border:1px solid rgba(190,154,255,.36);
+  background:rgba(13,8,28,.92);
+  color:#fff;
+  text-align:center;
+  font-weight:900;
+  outline:none;
+}
+.result-sheet-editing .result-sheet-stop{
+  width:56px;
+}
+.result-sheet-editing .kill-box input{
+  pointer-events:auto;
+}
+.result-sheet-editing .death-check{
+  cursor:pointer;
+  pointer-events:auto;
+}
+#sheetPanel:not(.result-sheet-editing) .kill-box,
+#sheetPanel:not(.result-sheet-editing) input,
+#sheetPanel:not(.result-sheet-editing) select{
+  display:none!important;
+}
+.result-view-killbox{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.result-view-kill{
+  min-width:22px;
+  color:#fff;
+  font-weight:1000;
+  font-size:17px;
+  text-shadow:0 0 10px rgba(255,255,255,.22);
+}
+.result-view-check{
+  display:inline-block;
+  vertical-align:middle;
+  pointer-events:none;
+}
+.result-sheet-edit-done{
+  display:none;
+  margin:18px 0 0 0;
+  width:100%;
+  height:40px;
+  padding:0 18px;
+  border-radius:13px;
+  border:1px solid rgba(255,214,91,.42);
+  background:linear-gradient(180deg,rgba(255,214,91,.28),rgba(132,78,255,.24));
+  color:#fff;
+  font-weight:1000;
+  letter-spacing:-.02em;
+  box-shadow:0 0 18px rgba(255,214,91,.16), inset 0 1px 0 rgba(255,255,255,.16);
+  cursor:pointer;
+}
+.result-sheet-global-editing .result-sheet-edit-done{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.result-sheet-edit-done:hover{filter:brightness(1.12);}
+@media (max-width:768px){
+  .result-sheet-edit-done{width:100%;}
+}
+</style>
+
+<style id="pkl-dynamic-scoreboard-height">
+.result-board,
+.result-board.compact-board{
+  min-height:0 !important;
+  height:auto !important;
+}
+.result-board .team-grid,
+.result-board.compact-board .team-grid{
+  flex:0 0 auto !important;
+  min-height:0 !important;
+  height:auto !important;
+  align-content:start !important;
+}
+.pkl-result-empty-state{
+  min-height:82px !important;
+  height:82px !important;
+  padding:0 16px !important;
+}
+</style>
+
+<style id="pkl-delete-confirm-front-hotfix">
+#resultDeleteConfirmModal{z-index:2147483646 !important;pointer-events:auto !important;}
+#resultDeleteConfirmModal.open{display:flex !important;}
+#resultDeleteConfirmModal .pkl-delete-confirm-box{position:relative !important;z-index:2147483647 !important;pointer-events:auto !important;}
+#resultDeleteConfirmModal button{position:relative !important;z-index:2147483647 !important;pointer-events:auto !important;cursor:pointer !important;}
+</style>
+
+<style id="pkl-result-admin-modal-layer-final">
+/* PKL: 회차관리 내부 확인/삭제/하위 모달이 뒤로 깔리지 않게 최상단 고정 */
+.pkl-result-admin-modal{z-index:2147483000 !important;}
+.pkl-result-admin-panel{position:relative !important;z-index:2147483001 !important;}
+.pkl-delete-confirm-modal,
+#resultDeleteConfirmModal,
+.pkl-confirm-modal,
+.pkl-round-delete-modal,
+.pkl-admin-child-modal{
+  z-index:2147483600 !important;
+  pointer-events:auto !important;
+}
+.pkl-delete-confirm-modal.open,
+#resultDeleteConfirmModal.open,
+.pkl-delete-confirm-modal.show,
+#resultDeleteConfirmModal.show{
+  display:flex !important;
+}
+.pkl-delete-confirm-box,
+#resultDeleteConfirmModal .pkl-delete-confirm-box,
+.pkl-confirm-box{
+  position:relative !important;
+  z-index:2147483601 !important;
+  pointer-events:auto !important;
+}
+#resultDeleteConfirmModal button,
+.pkl-delete-confirm-modal button{
+  position:relative !important;
+  z-index:2147483602 !important;
+  pointer-events:auto !important;
+}
+</style>
+
+
+<style id="pkl-result-score-add-button-style">
+.result-score-add-wrap{
+  display:none;
+  padding:10px 12px 14px;
+  border-top:1px solid rgba(255,255,255,.07);
+}
+.result-sheet-editing .result-score-add-wrap,
+.result-sheet-global-editing .result-score-add-wrap{
+  display:flex;
+  justify-content:center;
+}
+.result-score-add-btn{
+  min-width:220px;
+  height:38px;
+  border-radius:12px;
+  border:1px solid rgba(255,214,91,.42);
+  background:linear-gradient(180deg,rgba(255,214,91,.25),rgba(155,92,255,.22));
+  color:#fff;
+  font-weight:1000;
+  cursor:pointer;
+  box-shadow:0 0 16px rgba(255,214,91,.14), inset 0 1px 0 rgba(255,255,255,.14);
+}
+.result-score-add-btn:hover{filter:brightness(1.12);}
+</style>
+
+
+<style id="pkl-result-cumulative-final-ui-fix">
+#resultAdminModal.pkl-result-admin-modal{z-index:2147483000!important;}
+#resultAdminModal .pkl-result-admin-panel{z-index:2147483001!important;overflow:visible!important;}
+#resultDeleteConfirmModal.pkl-delete-confirm-modal,#resultUsageHistoryModal.pkl-usage-modal{position:fixed!important;inset:0!important;z-index:2147483640!important;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);pointer-events:auto!important;}
+#resultDeleteConfirmModal.open,#resultUsageHistoryModal.open{display:flex!important;}
+#resultDeleteConfirmModal .pkl-delete-confirm-box,#resultUsageHistoryModal .pkl-usage-box{position:relative!important;z-index:2147483641!important;pointer-events:auto!important;}
+.result-usage-btn{width:100%;height:42px;margin-top:10px;border-radius:13px;border:1px solid rgba(255,214,91,.38);background:linear-gradient(180deg,rgba(255,214,91,.22),rgba(155,92,255,.18));color:#fff;font-weight:1000;box-shadow:0 0 14px rgba(255,214,91,.14), inset 0 1px 0 rgba(255,255,255,.12);cursor:pointer;}
+.result-usage-btn:hover{filter:brightness(1.12);}
+.pkl-usage-box{width:min(720px,calc(100vw - 36px));max-height:min(760px,calc(100vh - 36px));overflow:auto;border:1px solid rgba(201,168,255,.52);border-radius:22px;background:linear-gradient(180deg,rgba(24,16,48,.98),rgba(7,8,18,.98));box-shadow:0 0 40px rgba(155,92,255,.28);padding:22px;}
+.pkl-usage-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}.pkl-usage-kicker{font-size:11px;letter-spacing:2px;color:#c9a8ff;font-weight:1000;}.pkl-usage-title{font-size:24px;font-weight:1000;color:#fff;margin:2px 0 0;}.pkl-usage-close{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;font-size:24px;cursor:pointer;}.pkl-usage-list{display:grid;gap:9px;}.pkl-usage-item{border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(255,255,255,.045);padding:11px 12px;display:grid;grid-template-columns:82px 1fr 90px;gap:10px;align-items:center;}.pkl-usage-type{font-weight:1000;color:#ffd65b;}.pkl-usage-text{font-weight:900;color:#fff;line-height:1.45;}.pkl-usage-time{text-align:right;color:#b8aacd;font-size:12px;font-weight:900;}.pkl-usage-empty{border:1px dashed rgba(201,168,255,.25);border-radius:16px;padding:34px;text-align:center;color:#a99bbb;font-weight:900;}
+.result-score-add-wrap{display:flex!important;justify-content:center!important;}.result-score-add-btn{display:inline-flex!important;align-items:center;justify-content:center;}
+</style>
+
+</head>
+<body>
+
+<!-- PKL_COMMON_HEADER_ENABLED -->
+<div class="site">
+<div id="pklCommonHeader"></div>
+<script src="pkl-user-profile-core.js"></script>
+<script src="pkl-role-system.js"></script>
+<script src="pkl-page-permissions.js"></script>
+<script src="pkl-common-role-badge.js"></script>
+<script src="pkl-common-tier-badge.js"></script>
+<script src="pkl-users-source.js"></script>
+
+
+<div class="site">
+
+<div class="site">
+
+<main class="result-page">
+<section class="result-layout">
+<div class="result-left">
+<section aria-label="팀 스코어보드" class="result-board">
+<div class="board-head">
+<div class="board-title"><span>TEAM</span> SCOREBOARD</div>
+<div class="board-note">시트지 상단 스코어보드 기준 · 팀을 누르면 아래 점수 시트지가 해당 팀으로 바뀝니다</div>
+</div>
+<div class="team-grid" id="teamGrid"></div>
+</section>
+<section class="sheet-panel" id="sheetPanel">
+<button class="sheet-toggle" id="sheetToggle" type="button"><span>INPUT</span> SHEET <small id="sheetToggleText">점수 시트지 열기</small></button>
+<div class="sheet-content">
+<div class="table-wrap">
+<table class="record-table">
+<thead>
+<tr>
+<th style="width:72px">라운드</th>
+<th style="width:145px">맵 선택</th>
+<th id="h0"></th>
+<th id="h1"></th>
+<th id="h2"></th>
+<th id="h3"></th>
+<th style="width:82px">치킨</th>
+<th style="width:82px">정지</th>
+<th style="width:82px">점수</th>
+</tr>
+</thead>
+<tbody id="recordBody"></tbody>
+</table>
+</div>
+<div class="result-score-add-wrap"><button class="result-score-add-btn" id="resultAddScoreRoundBtn" type="button">+ 스코어칸 추가</button></div>
+</div>
+</section>
+</div>
+<aside class="result-side">
+<section class="side-panel">
+<div class="side-kicker">RESULT CONTROL</div>
+<div class="side-title-main">회차 선택</div>
+<div class="info-row match-select-card">
+<div class="info-label">PKL 회차</div>
+<div class="info-value match-select-value">
+<select aria-hidden="true" class="native-match-select" id="matchSelect" tabindex="-1"></select>
+<div class="pkl-match-dropdown" id="matchDropdown">
+<button class="pkl-match-trigger" id="matchDropdownTrigger" type="button">
+<span id="matchDropdownLabel">PKL 15회차</span>
+<i>⌄</i>
+</button>
+<div class="pkl-match-menu" id="matchDropdownMenu"></div>
+</div>
+</div>
+</div>
+<div class="match-info" id="matchInfo"></div>
+<button class="admin-panel-btn" id="adminPanelBtn" type="button">관리자패널</button>
+<button class="result-usage-btn" id="resultUsageHistoryBtn" type="button">해당 회차 이용내역</button>
+<button class="capture-btn" id="captureBtn" type="button">이미지 캡쳐</button>
+<div class="capture-toast" id="captureToast">캡쳐 모드가 켜졌습니다. 브라우저/윈도우 캡처 도구로 스코어보드 영역을 저장해주세요.</div>
+<button class="result-sheet-edit-done" id="resultSheetEditDoneBtn" type="button">수정 완료</button>
+</section>
+</aside>
+</section>
+</main>
+</div>
+
+<div aria-hidden="true" class="pkl-usage-modal" id="resultUsageHistoryModal">
+  <div aria-modal="true" class="pkl-usage-box" role="dialog">
+    <div class="pkl-usage-head">
+      <div><div class="pkl-usage-kicker">MATCH SHEET HISTORY</div><div class="pkl-usage-title">해당 회차 이용내역</div></div>
+      <button class="pkl-usage-close" id="resultUsageCloseBtn" type="button">×</button>
+    </div>
+    <div class="pkl-usage-list" id="resultUsageHistoryList"></div>
+  </div>
+</div>
+
+<div aria-hidden="true" class="pkl-result-admin-modal" id="resultAdminModal">
+<div aria-labelledby="resultAdminTitle" aria-modal="true" class="pkl-result-admin-panel" role="dialog">
+<button aria-label="닫기" class="pkl-result-admin-close" id="resultAdminClose" type="button">×</button>
+<div class="admin-kicker">RESULT ADMIN PANEL</div>
+<h2 id="resultAdminTitle">회차 관리</h2>
+<p class="admin-desc">결과표에 표시되는 회차 정보와 참가 팀 수를 수정하거나 회차를 삭제할 수 있습니다.</p>
+<div class="admin-grid">
+<section class="admin-list-box">
+<div class="admin-section-title">회차 선택</div>
+<div class="admin-match-list" id="adminMatchList"></div>
+</section>
+<section class="admin-edit-box">
+<div class="admin-section-title">회차 수정</div>
+<div class="admin-form">
+<label>회차 명<input id="adminMatchTitle" placeholder="PKL 15회차"/></label>
+<label>경기 일자<input id="adminMatchDate" placeholder="2026.05.06"/></label>
+<div class="admin-two">
+<label>시작 시간<input id="adminMatchStart" placeholder="PM 08:30"/></label>
+<label>종료 시간<input id="adminMatchEnd" placeholder="PM 11:10"/></label>
+</div>
+<label>맵 종류<input id="adminMatchMaps" placeholder="에란겔 / 미라마 / 태이고 / 론도"/></label>
+<label>경기 타입 / 메모<input id="adminMatchType" placeholder="프라임 킬내기 리그"/></label>
+<label>참가 팀 수<input id="adminMatchTeamCount" max="20" min="1" placeholder="10" type="number"/></label>
+</div>
+<div class="admin-actions">
+<button class="admin-save-btn" id="adminSaveMatchBtn" type="button">회차 수정 저장</button>
+<button class="admin-toggle-kind-btn" id="adminToggleMatchKindBtn" type="button">무료/유료 전환</button>
+<button class="admin-add-btn" id="adminAddMatchBtn" type="button">+ 회차 추가</button>
+<button class="admin-delete-btn" id="adminDeleteMatchBtn" type="button">회차 삭제</button>
+</div>
+<div class="admin-kind-state" id="adminMatchKindState"></div>
+</section>
+</div>
+</div>
+</div>
+<!-- /PKL_RESULT_ADMIN_MODAL -->
+<div aria-hidden="true" class="pkl-delete-confirm-modal" id="resultDeleteConfirmModal">
+<div aria-labelledby="resultDeleteConfirmTitle" aria-modal="true" class="pkl-delete-confirm-box" role="dialog">
+<div class="pkl-delete-confirm-kicker">DELETE MATCH DATA</div>
+<h3 class="pkl-delete-confirm-title" id="resultDeleteConfirmTitle">해당 회차를 삭제하시겠습니까?</h3>
+<p class="pkl-delete-confirm-desc">삭제 시 해당판의 유저 데이터 및 결과 데이터를 잃습니다.</p>
+<div class="pkl-delete-confirm-actions">
+<button class="pkl-delete-confirm-no" id="resultDeleteNoBtn" type="button">아니오</button>
+<button class="pkl-delete-confirm-yes" id="resultDeleteYesBtn" type="button">예</button>
+</div>
+</div>
+</div>
+
+
+
+
+<script>
+(function(){
+'use strict';
+const STORAGE_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
+const DEMO_NAMES=[['허리','재환','몽몽','오오'],['민혁','석이','아루','가람'],['영원','한수','시온','루키'],['도현','태민','지훈','건우'],['서준','민재','현우','준서'],['유진','하람','지우','은우'],['로한','주원','이준','하준'],['시후','지안','서아','나은'],['태오','현준','규민','재윤'],['민준','수호','도윤','이안']];
+const RESULT_MATCHES_KEY='PKL_RESULT_MATCHES_V1';
+const RESULT_MATCHES_BACKUP_KEY=RESULT_MATCHES_KEY+'_backup';
+const RESULT_STATE_BACKUP_KEY=STORAGE_KEY+'_backup';
+const USER_MATCH_STATS_KEY='PKL_USER_MATCH_STATS_V1';
+const DEFAULT_MATCHES=[];
+function pklResultLoadMatches(){
+  const raw=localStorage.getItem(RESULT_MATCHES_KEY) ?? localStorage.getItem(RESULT_MATCHES_BACKUP_KEY);
+  if(raw!==null){
+    try{
+      const saved=JSON.parse(raw);
+      if(Array.isArray(saved)) return saved.map(m=>({...m}));
+    }catch(e){}
+  }
+  return [];
+}
+function pklResultSharedSet(key,value){
+  const text=typeof value==='string'?value:JSON.stringify(value);
+  try{
+    localStorage.setItem(key,text);
+    if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.setShared==='function'){
+      window.PKLFirebaseDataSync.setShared(key,text);
+    }else if(typeof window.saveSharedData==='function'){
+      window.saveSharedData(key,text);
+    }
+  }catch(e){
+    try{localStorage.setItem(key,text);}catch(_e){}
+  }
+}
+function pklResultSaveMatches(){
+  const text=JSON.stringify(Array.isArray(MATCHES)?MATCHES:[]);
+  pklResultSharedSet(RESULT_MATCHES_KEY,text);
+  localStorage.setItem(RESULT_MATCHES_BACKUP_KEY,text);
+}
+function pklResultRefreshMatchesFromStorage(){
+  const before=selectedMatchId;
+  MATCHES=pklResultLoadMatches();
+  if(!MATCHES.find(m=>String(m.id)===String(before))){
+    selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
+  }else{
+    selectedMatchId=before;
+  }
+  pklResultApplySelectedMatchState();
+  renderAll();
+  renderResultAdminModal();
+}
+let MATCHES=pklResultLoadMatches();
+let selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
+let state=loadState();
+let resultSheetEditMode=false;
+let selectedTeamId=state.selectedTeamId || (state.teams[0] && state.teams[0].id) || '';
+pklResultApplySelectedMatchState();
+
+function makeDemo(){
+  const teams=DEMO_NAMES.map((names,idx)=>({id:'team'+(idx+1),target:0,members:names.map(name=>({name,tier:''}))}));
+  const rounds=Array.from({length:8},(_,ri)=>({no:ri+1,map:['에','미','태','론','사','에','미','태'][ri],teams:{}}));
+  teams.forEach((team,ti)=>{
+    rounds.forEach((r,ri)=>{
+      const kills=team.members.map((_,mi)=> Math.max(0, ((ti+2)*(mi+1)+ri*2) % 8));
+      const deaths=team.members.map((_,mi)=> ((ti+ri+mi)%4===0)?1:0);
+      r.teams[team.id]={kills,deaths,chicken:(ti===ri%10 && ri<4)?1:0,stop:0};
+    });
+  });
+  return {mode:'squad',selectedTeamId:'team1',teams,rounds,feeds:[],surrenders:{},fires:{},colds:{},startTime:'PM 08:30',endTime:'PM 11:10'};
+}
+function makeEmptyState(){
+  return {mode:'squad',selectedTeamId:'',teams:[],rounds:[],feeds:[],sideBets:[],surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''};
+}
+function loadState(){
+  const raw=localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(RESULT_STATE_BACKUP_KEY);
+  if(raw!==null){
+    try{
+      const saved=JSON.parse(raw);
+      if(saved && typeof saved==='object' && Array.isArray(saved.teams) && Array.isArray(saved.rounds)){
+        return Object.assign(makeEmptyState(), saved, {rounds:saved.rounds});
+      }
+    }catch(e){}
+  }
+  return makeEmptyState();
+}
+function pklResultStateForMatch(match){
+  if(!match) return makeEmptyState();
+  if(match.snapshot && Array.isArray(match.snapshot.teams) && Array.isArray(match.snapshot.rounds)){
+    return Object.assign(makeDemo(), JSON.parse(JSON.stringify(match.snapshot)));
+  }
+  return loadState();
+}
+function pklResultApplySelectedMatchState(){
+  const match=MATCHES.find(x=>x.id===selectedMatchId)||MATCHES[0];
+  state=pklResultStateForMatch(match);
+  const teams=(state.teams||[]).filter(t=>{
+    const members=Array.isArray(t.members)?t.members:[];
+    return members.some(m=>String(m && (m.name || m.nickname || m.nick || m.displayName || m.pubgId) || '').trim() && String(m && (m.name || m.nickname || m.nick || m.displayName || m.pubgId) || '').trim() !== '-');
+  });
+  if(!teams.some(t=>String(t.id||'')===String(state.selectedTeamId||''))){
+    state.selectedTeamId=(teams[0]&&teams[0].id)||'';
+    selectedTeamId=state.selectedTeamId;
+  }
+}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function pklResultReadJSON(key,fb){try{const raw=localStorage.getItem(key)||sessionStorage.getItem(key);return raw?JSON.parse(raw):fb;}catch(e){return fb;}}
+function pklResultCurrentUserRaw(){
+  const keys=['pklCurrentUser','PKL_CURRENT_USER','pklLoginUser','PKL_로그인_USER','pklUser','pklLoggedInUser','discordUser','authUser','currentUser','user'];
+  for(const key of keys){const obj=pklResultReadJSON(key,null); if(obj&&typeof obj==='object') return obj;}
+  return null;
+}
+function pklResultReadUsers(){
+  const out=[];
+  function add(v){ if(Array.isArray(v)) v.forEach(x=>x&&typeof x==='object'&&out.push(x)); else if(v&&Array.isArray(v.users)) v.users.forEach(x=>x&&typeof x==='object'&&out.push(x)); }
+  ['pklUsers','PKL_USERS','pklAdminUsers','PKL_ADMIN_USERS','pklAdminState_v3','pklAdminState'].forEach(k=>add(pklResultReadJSON(k,null)));
+  return out;
+}
+function pklResultNorm(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}
+function pklResultUserKeys(u){return [u&&u.uid,u&&u.id,u&&u.userId,u&&u.memberId,u&&u.loginId,u&&u.discordId,u&&u.nickname,u&&u.nick,u&&u.name,u&&u.displayName,u&&u.pubgId,u&&u.gameId,u&&u.username].map(pklResultNorm).filter(Boolean);}
+function pklResultRoleIsStaff(u){
+  const roles=[u&&u.role,u&&u.memberRole,u&&u.adminRole,u&&u.userRole,u&&u.authRole,u&&u.position,u&&u.permission].flat().map(x=>String(x||'').trim().toLowerCase());
+  return roles.some(r=>['관리자','운영자','manager','operator','admin','administrator','owner','master','총관리자','운영진','staff','moderator'].includes(r));
+}
+function pklResultCurrentUser(){
+  const cur=pklResultCurrentUserRaw(); if(!cur) return null;
+  const keys=pklResultUserKeys(cur);
+  return pklResultReadUsers().find(u=>pklResultUserKeys(u).some(k=>keys.includes(k))) || cur;
+}
+function pklResultIsStaff(){return pklResultRoleIsStaff(pklResultCurrentUser());}
+function pklResultPermissionToast(msg){
+  const toast=document.getElementById('captureToast');
+  if(toast){toast.textContent=msg||'접근 제한: 관리자/운영자만 사용 가능합니다.';toast.classList.add('show');clearTimeout(window.__pklResultPermToast);window.__pklResultPermToast=setTimeout(()=>toast.classList.remove('show'),1800);}
+  else alert(msg||'접근 제한: 관리자/운영자만 사용 가능합니다.');
+}
+function teamData(round,teamId){return (round.teams && round.teams[teamId]) || {kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};}
+function resultMemberHasName(member){
+  const name=String(member && (member.name || member.nickname || member.nick || member.displayName || member.pubgId) || '').trim();
+  return !!name && name !== '-';
+}
+function resultNormalizeMembers(members){
+  return (Array.isArray(members)?members:[]).slice(0,4).filter(resultMemberHasName);
+}
+function resultTeamHasMembers(team){
+  return resultNormalizeMembers(team && team.members).length > 0;
+}
+function visibleTeams(){
+  return (state.teams||[])
+    .slice(0,10)
+    .filter(resultTeamHasMembers)
+    .map((t,i)=>({
+      id:t.id||'team'+(i+1),
+      viewId:t.id||'team'+(i+1),
+      target:Number(t.target||0),
+      members:resultNormalizeMembers(t.members)
+    }));
+}
+
+function resultFireStore(){return state && state.fires && typeof state.fires==='object' ? state.fires : {};}
+function resultFireCancelStore(){return state && state.fireCancels && typeof state.fireCancels==='object' ? state.fireCancels : {};}
+function resultSurrenderStore(){return state && state.surrenders && typeof state.surrenders==='object' ? state.surrenders : {};}
+function resultNormalizeFireRecord(viewId){
+  const key=String(viewId||'');
+  const item=resultFireStore()[key];
+  if(!item) return {sessions:[]};
+  if(Array.isArray(item.sessions)) return item;
+  const sessions=[];
+  const done=!!item.done;
+  const checked=item.checked&&typeof item.checked==='object'?item.checked:{};
+  const roundIndex=Number(item.roundIndex ?? -1);
+  if(done || Object.keys(checked).length) sessions.push({done,checked,time:Number(item.time||0),roundIndex});
+  return {sessions};
+}
+function resultLatestFireRound(viewId){
+  const rounds=resultNormalizeFireRecord(viewId).sessions.filter(s=>s&&s.done).map(s=>Number(s.roundIndex)).filter(Number.isFinite);
+  return rounds.length ? Math.max(...rounds) : -1;
+}
+function resultIsFireCancelled(viewId, roundIndex){
+  const key=String(viewId||'');
+  const teamCancels=resultFireCancelStore()[key]&&typeof resultFireCancelStore()[key]==='object'?resultFireCancelStore()[key]:{};
+  return !!teamCancels[String(roundIndex)];
+}
+function resultIsFireActive(viewId, roundIndex){
+  const latest=resultLatestFireRound(viewId);
+  return latest>=0 && Number(roundIndex)<=latest && !resultIsFireCancelled(viewId, roundIndex);
+}
+function resultIsSurrendered(viewId){
+  const item=resultSurrenderStore()[String(viewId||'')];
+  return !!(item && item.done);
+}
+function resultTeamEventSummary(team){
+  return '';
+}
+
+/* PKL RESULT ↔ SHEET SCORE SYNC
+   시트지의 티어별 목표점수/다이 감점 설정을 결과표 스코어보드에도 동일하게 적용 */
+function pklTierScoreRoleFromText(text){
+  const raw=String(text||"").trim();
+  const compact=raw.replace(/\s+/g,"");
+  const map={
+    "0티어상":"tier0_high","0상":"tier0_high",
+    "0티어중":"tier0_mid","0중":"tier0_mid",
+    "0티어하":"tier0_low","0하":"tier0_low",
+    "1티어상":"tier1_high","1상":"tier1_high",
+    "1티어중":"tier1_mid","1중":"tier1_mid",
+    "1티어하":"tier1_low","1하":"tier1_low",
+    "2티어상":"tier2_high","2상":"tier2_high",
+    "2티어중":"tier2_mid","2중":"tier2_mid",
+    "2티어하":"tier2_low","2하":"tier2_low",
+    "3티어상":"tier3_high","3상":"tier3_high",
+    "3티어중":"tier3_mid","3중":"tier3_mid",
+    "3티어하":"tier3_low","3하":"tier3_low",
+    "4티어상":"tier4_high","4상":"tier4_high",
+    "4티어중":"tier4_mid","4중":"tier4_mid",
+    "4티어하":"tier4_low","4하":"tier4_low",
+    "짐승":"beast",
+    "beast":"beast"
+  };
+  if(map[compact]) return map[compact];
+  if(/^tier[0-4]_(high|mid|low)$/.test(raw) || raw==="beast") return raw;
+  return "";
+}
+function pklTierScoreLaneFromRole(role){
+  const map={
+    tier0_high:"0상", tier0_mid:"0중", tier0_low:"0하",
+    tier1_high:"1상", tier1_mid:"1중", tier1_low:"1하",
+    tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
+    tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
+    tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
+    beast:"짐승"
+  };
+  return map[role] || "";
+}
+function pklTierScoreDefaults(){
+  return {
+    "0상":{target:85,death:-3},"0중":{target:75,death:-3},"0하":{target:65,death:-3},
+    "1상":{target:55,death:-3},"1중":{target:50,death:-3},"1하":{target:45,death:-3},
+    "2상":{target:40,death:-3},"2중":{target:35,death:-2},"2하":{target:30,death:-2},
+    "3상":{target:25,death:-2},"3중":{target:20,death:-2},"3하":{target:15,death:-1},
+    "4상":{target:10,death:-1},"4중":{target:5,death:-1},"4하":{target:0,death:-1},
+    "짐승":{target:0,death:-1}
+  };
+}
+function pklReadTierScoreConfig(){
+  const base=pklTierScoreDefaults();
+  try{
+    const saved=JSON.parse(localStorage.getItem("pklTierScoreConfig")||"null");
+    if(saved && typeof saved==="object"){
+      Object.keys(saved).forEach(key=>{
+        const value=saved[key];
+        if(!value || typeof value!=="object") return;
+        const target=Number(value.target);
+        const death=Number(value.death);
+        const lane=pklTierScoreLaneFromRole(key) || key;
+        base[lane]={
+          target:Number.isFinite(target)?target:Number(base[lane]?.target||0),
+          death:Number.isFinite(death)?death:Number(base[lane]?.death||0)
+        };
+      });
+    }
+  }catch(e){}
+  Object.keys(base).forEach(lane=>{
+    const role=pklTierScoreRoleFromText(lane);
+    if(role) base[role]={...base[lane], lane};
+  });
+  return base;
+}
+function pklNormUserKey(v){
+  return String(v||"").trim().replace(/\s+/g,"").toLowerCase();
+}
+function pklReadTierUsers(){
+  if(window.PKLUserProfile && typeof window.PKLUserProfile.users === "function") return window.PKLUserProfile.users();
+  const users=[];
+  const pushState=(state)=>{
+    if(!state) return;
+    if(Array.isArray(state)) state.forEach(u=>u&&typeof u==="object"&&users.push(u));
+    else if(state && Array.isArray(state.users)) state.users.forEach(u=>u&&typeof u==="object"&&users.push(u));
+  };
+  ["pklUsers","PKL_USERS","pklAdminUsers","PKL_ADMIN_USERS","pklUserList","pklAdminState_v3"].forEach(key=>{
+    try{ pushState(JSON.parse(localStorage.getItem(key)||"null")); }catch(e){}
+  });
+  return users;
+}
+function pklTierUserNames(user){
+  return [
+    user?.uid,user?.id,user?.userId,user?.memberId,user?.loginId,
+    user?.nickname,user?.nick,user?.name,user?.displayName,
+    user?.pubgId,user?.pubgID,user?.pubgName,user?.gameId,user?.username
+  ].map(pklNormUserKey).filter(Boolean);
+}
+function pklFindTierUserByMember(member){
+  const keys=[
+    member?.uid,member?.id,member?.userId,member?.memberId,member?.loginId,
+    member?.name,member?.nickname,member?.nick,member?.pubgId,member?.gameId
+  ].map(pklNormUserKey).filter(Boolean);
+  if(!keys.length) return null;
+  return pklReadTierUsers().find(user=>{
+    const names=pklTierUserNames(user);
+    return keys.some(key=>names.includes(key));
+  }) || null;
+}
+function pklTierRoleOfMember(member){
+  const user=pklFindTierUserByMember(member);
+  const direct=[
+    user?.memberTier,
+    user?.tier,
+    user?.grade,
+    user?.memberGrade,
+    member?.memberTier,
+    member?.tier,
+    member?.grade,
+    member?.memberGrade
+  ].map(pklTierScoreRoleFromText).find(Boolean);
+  return direct || "";
+}
+function pklMemberTierScore(member){
+  const role=pklTierRoleOfMember(member);
+  const config=pklReadTierScoreConfig();
+  const lane=pklTierScoreLaneFromRole(role);
+  const score=config[role] || config[lane] || {target:0,death:0};
+  return {
+    role,
+    lane,
+    target:Number(score.target||0),
+    death:Number(score.death||0)
+  };
+}
+function pklMemberDeathPenalty(member, deathCount){
+  const count=Number(deathCount||0);
+  if(!count) return 0;
+  return count * Number(pklMemberTierScore(member).death||0);
+}
+function pklViewTargetScore(view){
+  if(!view || !Array.isArray(view.members)) return Number(view?.target||0) || 0;
+  const tierTarget=view.members.reduce((sum,member)=>sum + Number(pklMemberTierScore(member).target||0), 0);
+  return tierTarget || Number(view.target||0) || 0;
+}
+
+function chickenScore(round,data){return Number(data.chicken||0) ? (String(round.map||'')==='사'?5:8) : 0;}
+function deathPenalty(member,death){return pklMemberDeathPenalty(member,death);}
+function calcTeam(team){
+  const kills=[0,0,0,0], deaths=[0,0,0,0]; let chicken=0, stop=0;
+  (state.rounds||[]).forEach(r=>{
+    const d=teamData(r,team.id);
+    [0,1,2,3].forEach(i=>{
+      kills[i]+=Number(d.kills && d.kills[i] || 0);
+      deaths[i]+=Number(d.deaths && d.deaths[i] || 0);
+    });
+    chicken+=chickenScore(r,d);
+    stop+=Number(d.stop||0);
+  });
+  const memberScores=team.members.map((m,i)=>Number(kills[i]||0)+deathPenalty(m,deaths[i]));
+  const pureKills=kills.reduce((a,b)=>a+b,0);
+  const totalDeaths=deaths.reduce((a,b)=>a+b,0);
+  const score=memberScores.reduce((a,b)=>a+b,0)+chicken+stop;
+  const target=pklViewTargetScore(team);
+  const rawPercent=target>0 ? Math.round(score/target*100) : (score<0 ? -100 : (score>0 ? 100 : 0));
+  const percent=Number.isFinite(rawPercent) ? rawPercent : 0;
+  return {kills,deaths,memberScores,pureKills,totalDeaths,chicken,stop,score,target,percent};
+}
+function sortedTeams(){return visibleTeams().map((team,idx)=>({team,st:calcTeam(team),idx})).sort((a,b)=>b.st.percent-a.st.percent||b.st.score-a.st.score||a.idx-b.idx);}
+function renderBoard(){
+  const grid=document.getElementById('teamGrid');
+  if(!MATCHES.length){
+    grid.innerHTML='<div class="pkl-result-empty-state">저장된 회차가 없습니다.</div>';
+    return;
+  }
+  grid.innerHTML=sortedTeams().map(({team,st})=>{
+    const gauge=st.percent < 0 ? 0 : Math.max(0,Math.min(100,st.percent));
+    return `<article class="team-card ${team.viewId===selectedTeamId?'active':''}" data-team="${esc(team.viewId)}">
+      <div class="card-score-main" style="--gauge:${gauge}%"><span class="score-gauge-text">${st.score} / ${st.target} (${st.percent}%)</span></div>
+      <div class="member-list">
+        ${team.members.map((m,i)=>{
+          const cleanName = String(m && (m.name || m.nickname || m.nick || m.displayName || m.pubgId) || '').trim();
+          if(!cleanName || cleanName === '-') return '';
+          const scoreText = `${st.memberScores[i]||0} (${st.kills[i]||0}/${st.deaths[i]||0})`;
+          const nameHtml = `<span class="member-name">${esc(cleanName)}</span>`;
+          return `<div class="member-row has-name">${nameHtml}<span class="member-kd">${scoreText}</span></div>`;
+        }).join('')}
+      </div>
+      <div class="team-foot"><span class="foot-stat chicken"><b>${st.chicken}</b></span><span class="foot-stat stop"><b>${st.stop}</b></span><span class="foot-stat cold"><b>0</b></span></div>
+    </article>`;
+  }).join('');
+}
+function resultCurrentMatch(){
+  return MATCHES.find(x=>x.id===selectedMatchId)||MATCHES[0];
+}
+function resultEnsureRoundTeamData(round, teamId){
+  if(!round.teams || typeof round.teams!=='object') round.teams={};
+  if(!round.teams[teamId]) round.teams[teamId]={kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};
+  const d=round.teams[teamId];
+  if(!Array.isArray(d.kills)) d.kills=[0,0,0,0];
+  if(!Array.isArray(d.deaths)) d.deaths=[0,0,0,0];
+  return d;
+}
+function resultSaveSheetSnapshot(){
+  const m=resultCurrentMatch();
+  if(!m) return;
+  m.snapshot=JSON.parse(JSON.stringify(state));
+  pklResultSaveMatches();
+  try{var __pklResultStateText=JSON.stringify(state);localStorage.setItem(STORAGE_KEY,__pklResultStateText);localStorage.setItem(RESULT_STATE_BACKUP_KEY,__pklResultStateText);}catch(e){}
+}
+function resultMapOptions(selected){
+  const maps=['에','미','태','론','사'];
+  return maps.map(v=>`<option value="${esc(v)}" ${String(selected||'')===v?'selected':''}>${esc(v)}</option>`).join('');
+}
+function renderSheet(){
+  const team=visibleTeams().find(t=>t.viewId===selectedTeamId)||visibleTeams()[0];
+  if(!team){
+    [0,1,2,3].forEach(i=>{const h=document.getElementById('h'+i); if(h) h.textContent='';});
+    const body=document.getElementById('recordBody');
+    if(body) body.innerHTML='<tr><td colspan="9" class="pkl-result-empty-sheet">표시할 회차 데이터가 없습니다.</td></tr>';
+    return;
+  }
+  [0,1,2,3].forEach(i=>{document.getElementById('h'+i).textContent=(team.members[i]&&String(team.members[i].name||'').trim()!=='-'?team.members[i].name:'');});
+  const surrendered=resultIsSurrendered(team.viewId);
+  const rows=(state.rounds||[]).slice(0,30).map((r,ri)=>{
+    const d=teamData(r,team.id);
+    const rowKills=[0,1,2,3].map(i=>Number(d.kills && d.kills[i] || 0));
+    const rowDeaths=[0,1,2,3].map(i=>Number(d.deaths && d.deaths[i] || 0));
+    const total=rowKills.reduce((a,b)=>a+b,0)+chickenScore(r,d)+Number(d.stop||0)-rowDeaths.reduce((a,b)=>a+b,0);
+    const fireUsed=resultIsFireActive(team.viewId, ri);
+    const status=fireUsed ? '<span class="result-status-pill fire">불판</span>' : (surrendered ? '<span class="result-status-pill surrender">서렌</span>' : `<span class="stop-pill">${Number(d.stop||0)||''}</span>`);
+    if(resultSheetEditMode){
+      return `<tr class="result-edit-row ${fireUsed?'is-fire-used-row':''} ${surrendered?'is-surrender-row':''}" data-round="${ri}" data-team="${esc(team.id)}">
+        <td><b>${esc(r.no||ri+1)}</b></td>
+        <td><select class="result-sheet-map" data-field="map">${resultMapOptions(r.map||'')}</select></td>
+        ${[0,1,2,3].map(i=>`<td><div class="kill-box"><input type="number" inputmode="numeric" value="${rowKills[i]||''}" data-field="kill" data-player="${i}"><i class="death-check ${rowDeaths[i]?'checked':''}" data-field="death" data-player="${i}"></i></div></td>`).join('')}
+        <td><i class="death-check ${Number(d.chicken||0)?'checked':''}" data-field="chicken"></i></td>
+        <td><input class="result-sheet-stop" type="number" inputmode="numeric" value="${Number(d.stop||0)||''}" data-field="stop"></td>
+        <td class="total-cell">${total}</td>
+      </tr>`;
+    }
+    return `<tr class="result-view-row ${fireUsed?'is-fire-used-row':''} ${surrendered?'is-surrender-row':''}">
+      <td><b>${esc(r.no||ri+1)}</b></td>
+      <td><span class="map-pill">${esc(r.map||'')}</span></td>
+      ${[0,1,2,3].map(i=>`<td><span class="result-view-killbox"><span class="result-view-kill">${rowKills[i]||0}</span><i class="death-check result-view-check ${rowDeaths[i]?'checked':''}" aria-hidden="true"></i></span></td>`).join('')}
+      <td><i class="death-check result-view-check ${Number(d.chicken||0)?'checked':''}" aria-hidden="true"></i></td>
+      <td>${status}</td>
+      <td class="total-cell">${total}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('recordBody').innerHTML=rows;
+  const panel=document.getElementById('sheetPanel');
+  if(panel) panel.classList.toggle('result-sheet-editing', !!resultSheetEditMode);
+  document.body.classList.toggle('result-sheet-global-editing', !!resultSheetEditMode);
+  const wrap=document.querySelector('#sheetPanel .sheet-content');
+  if(wrap){
+    let summary=wrap.querySelector('.result-event-summary');
+    const html=resultTeamEventSummary(team);
+    if(html){
+      if(!summary){
+        const temp=document.createElement('div');
+        temp.innerHTML=html;
+        wrap.appendChild(temp.firstElementChild);
+      }else{
+        summary.outerHTML=html;
+      }
+    }else if(summary){
+      summary.remove();
+    }
+  }
+}
+function resultEnableSheetEdit(){
+  if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 수정 가능합니다.'); return; }
+  saveResultAdminForm();
+  resultSheetEditMode=true;
+  document.body.classList.add('result-sheet-global-editing');
+  closeResultAdminModal();
+  const panel=document.getElementById('sheetPanel');
+  if(panel) panel.classList.add('open');
+  const text=document.getElementById('sheetToggleText');
+  if(text) text.textContent='';
+  renderAll();
+}
+function resultCompleteSheetEdit(){
+  if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 수정 가능합니다.'); return; }
+  resultSaveSheetSnapshot();
+  resultSheetEditMode=false;
+  document.body.classList.remove('result-sheet-global-editing');
+  const panel=document.getElementById('sheetPanel');
+  if(panel) panel.classList.remove('result-sheet-editing');
+  const text=document.getElementById('sheetToggleText');
+  if(text) text.textContent=(panel && panel.classList.contains('open'))?'점수 시트지 접기':'점수 시트지 열기';
+  renderAll();
+}
+function resultHandleSheetInput(e){
+  if(!resultSheetEditMode || !pklResultIsStaff()) return;
+  const row=e.target.closest('tr[data-round][data-team]');
+  if(!row) return;
+  const ri=Number(row.getAttribute('data-round'));
+  const teamId=row.getAttribute('data-team');
+  const round=(state.rounds||[])[ri];
+  if(!round || !teamId) return;
+  const field=e.target.getAttribute('data-field');
+  const d=resultEnsureRoundTeamData(round, teamId);
+  if(field==='map'){
+    round.map=e.target.value;
+  }else if(field==='kill'){
+    const i=Number(e.target.getAttribute('data-player'));
+    d.kills[i]=Number(e.target.value||0);
+  }else if(field==='stop'){
+    d.stop=Number(e.target.value||0);
+  }
+  resultSaveSheetSnapshot();
+  renderBoard();
+  renderSide();
+}
+function resultHandleSheetClick(e){
+  if(!resultSheetEditMode || !pklResultIsStaff()) return;
+  const target=e.target.closest('[data-field="death"],[data-field="chicken"]');
+  if(!target) return;
+  const row=target.closest('tr[data-round][data-team]');
+  if(!row) return;
+  const ri=Number(row.getAttribute('data-round'));
+  const teamId=row.getAttribute('data-team');
+  const round=(state.rounds||[])[ri];
+  if(!round || !teamId) return;
+  const d=resultEnsureRoundTeamData(round, teamId);
+  const field=target.getAttribute('data-field');
+  if(field==='death'){
+    const i=Number(target.getAttribute('data-player'));
+    d.deaths[i]=Number(d.deaths[i]||0)?0:1;
+  }else if(field==='chicken'){
+    d.chicken=Number(d.chicken||0)?0:1;
+  }
+  resultSaveSheetSnapshot();
+  renderSheet();
+  renderBoard();
+  renderSide();
+}
+
+function pklResultFormatTime(value){
+  const raw=String(value||'').trim();
+  if(!raw || raw==='-') return '-';
+  let m=raw.match(/^(AM|PM)\s*(\d{1,2}):(\d{2})(?::(\d{2}))?$/i);
+  if(m){
+    return m[1].toUpperCase()+' '+String(m[2]).padStart(2,'0')+':'+m[3];
+  }
+  m=raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(m){
+    const hour=Number(m[1]);
+    const ap=hour>=12?'PM':'AM';
+    const hh=String((hour%12)||12).padStart(2,'0');
+    return ap+' '+hh+':'+m[2];
+  }
+  return raw;
+}
+function pklResultTimeRange(start,end){
+  const s=pklResultFormatTime(start);
+  const e=pklResultFormatTime(end);
+  return `${s} ~ ${e}`;
+}
+
+function renderMatchDropdown(){
+  const label=document.getElementById('matchDropdownLabel');
+  const menu=document.getElementById('matchDropdownMenu');
+  if(!label || !menu) return;
+  const current=MATCHES.find(m=>m.id===selectedMatchId) || MATCHES[0];
+  label.textContent=current ? current.title : '회차 선택';
+  menu.innerHTML=MATCHES.map(m=>`
+    <button type="button" class="pkl-match-option ${m.id===selectedMatchId?'active':''}" data-match="${esc(m.id)}">
+      <span>${esc(m.title)}</span>
+      <small></small>
+    </button>
+  `).join('');
+}
+function closeMatchDropdown(){
+  const drop=document.getElementById('matchDropdown');
+  if(drop) drop.classList.remove('open');
+}
+
+function renderSide(){
+  pklResultApplySelectedMatchState();
+  const __adminBtn=document.getElementById('adminPanelBtn');
+  if(__adminBtn){ __adminBtn.style.display=pklResultIsStaff()?'inline-flex':'none'; }
+  selectedTeamId=state.selectedTeamId || (state.teams[0] && state.teams[0].id) || '';
+  const sel=document.getElementById('matchSelect');
+  if(sel) sel.innerHTML=MATCHES.map(m=>`<option value="${m.id}" ${m.id===selectedMatchId?'selected':''}>${esc(m.title)}</option>`).join('');
+  renderMatchDropdown();
+  const info=document.getElementById('matchInfo');
+  const m=MATCHES.find(x=>x.id===selectedMatchId)||MATCHES[0];
+  if(!info) return;
+  if(!m){
+    info.innerHTML=`<div class="info-row"><div class="info-label">회차 상태</div><div class="info-value">저장된 회차 없음</div></div>`;
+    return;
+  }
+  info.innerHTML=`
+    <div class="info-row"><div class="info-label">회차 이름</div><div class="info-value">${esc(m.title)}</div></div>
+    <div class="info-row"><div class="info-label">맵 종류</div><div class="info-value">${esc(m.maps||'-')}</div></div>
+    <div class="info-row team-count-row"><div class="info-label">참가 팀</div><div class="info-value">${Number(m.teamCount||visibleTeams().length)||visibleTeams().length}팀</div></div>`;
+}
+
+async function captureScoreboardImage(){
+  const board=document.querySelector('.result-board');
+  const toast=document.getElementById('captureToast');
+  const btn=document.getElementById('captureBtn');
+  if(!board || typeof html2canvas==='undefined'){
+    if(toast){
+      toast.textContent='캡쳐 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.';
+      toast.classList.add('show');
+      clearTimeout(window.__pklCaptureToastTimer);
+      window.__pklCaptureToastTimer=setTimeout(()=>{
+        toast.classList.remove('show');
+      },2600);
+    }
+    return;
+  }
+
+  const oldText=btn ? btn.textContent : '';
+  if(btn) btn.textContent='캡쳐 중...';
+
+  try{
+    const canvas=await html2canvas(board,{
+      backgroundColor:null,
+      scale:2,
+      useCORS:true,
+      logging:false
+    });
+
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png',1));
+    if(!blob) throw new Error('blob failed');
+
+    let copied=false;
+
+    try{
+      if(navigator.clipboard && window.ClipboardItem){
+        await navigator.clipboard.write([
+          new ClipboardItem({'image/png':blob})
+        ]);
+        copied=true;
+      }
+    }catch(e){
+      copied=false;
+    }
+
+    
+
+    if(toast){
+      toast.textContent = copied
+        ? '팀스코어보드가 복사되었습니다. Ctrl+V로 바로 붙여넣기 가능해요.'
+        : '브라우저에서 클립보드 복사를 허용하지 않았습니다.';
+      toast.classList.add('show');
+      clearTimeout(window.__pklCaptureToastTimer);
+      window.__pklCaptureToastTimer=setTimeout(()=>{
+        toast.classList.remove('show');
+      },2600);
+    }
+
+  }catch(err){
+    console.error(err);
+    if(toast){
+      toast.textContent='캡쳐 중 오류가 발생했습니다.';
+      toast.classList.add('show');
+      clearTimeout(window.__pklCaptureToastTimer);
+      window.__pklCaptureToastTimer=setTimeout(()=>{
+        toast.classList.remove('show');
+      },2600);
+    }
+  }finally{
+    if(btn) btn.textContent=oldText || '이미지 캡쳐';
+  }
+}
+
+let adminEditingMatchId=null;
+
+function openResultAdminModal(){
+  if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
+  const modal=document.getElementById('resultAdminModal');
+  if(!modal) return;
+  adminEditingMatchId=selectedMatchId || (MATCHES[0]&&MATCHES[0].id);
+  renderResultAdminModal();
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+}
+function closeResultAdminModal(){
+  const modal=document.getElementById('resultAdminModal');
+  if(!modal) return;
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden','true');
+}
+function renderResultAdminModal(){
+  const list=document.getElementById('adminMatchList');
+  if(!list) return;
+  if(!MATCHES.length){
+    adminEditingMatchId=null;
+    list.innerHTML='<div class="admin-empty-match">저장된 회차가 없습니다.</div>';
+    fillResultAdminForm();
+    return;
+  }
+  if(!MATCHES.find(m=>m.id===adminEditingMatchId)) adminEditingMatchId=MATCHES[0].id;
+  list.innerHTML=MATCHES.map(m=>`
+    <button type="button" class="admin-match-item ${m.id===adminEditingMatchId?'active':''}" data-admin-match="${esc(m.id)}">
+      <span>${esc(m.title||'PKL 회차')}</span>
+      <small>${esc(m.maps||'맵 정보 없음')}</small>
+    </button>
+  `).join('');
+  fillResultAdminForm();
+}
+function fillResultAdminForm(){
+  const m=MATCHES.find(x=>x.id===adminEditingMatchId) || MATCHES[0];
+  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.value=v||'';};
+  if(!m){['adminMatchTitle','adminMatchDate','adminMatchStart','adminMatchEnd','adminMatchMaps','adminMatchType','adminMatchTeamCount'].forEach(id=>set(id,'')); return;}
+  set('adminMatchTitle',m.title);
+  set('adminMatchDate',m.date);
+  set('adminMatchStart',m.time);
+  set('adminMatchEnd',m.endTime);
+  set('adminMatchMaps',m.maps);
+  set('adminMatchType',m.type);
+  set('adminMatchTeamCount',m.teamCount || visibleTeams().length || 10);
+  const stateEl=document.getElementById('adminMatchKindState');
+  const toggleBtn=document.getElementById('adminToggleMatchKindBtn');
+  const isNormal=String(m.kind||'')==='normal'||/무료|일반/.test(String(m.title||''))||/무료|일반/.test(String(m.type||''));
+  if(stateEl) stateEl.textContent=isNormal?'현재 무료 회차: 결과표에는 표시, 전적검색 점수 제외':'현재 유료 회차: 결과표 표시 + 전적검색 점수 반영';
+  if(toggleBtn){ toggleBtn.textContent=isNormal?'유료 회차로 전환':'무료 회차로 전환'; toggleBtn.classList.toggle('is-free', isNormal); toggleBtn.classList.toggle('is-paid', !isNormal); }
+}
+function saveResultAdminForm(){
+  if(!pklResultIsStaff()) return;
+  const m=MATCHES.find(x=>x.id===adminEditingMatchId);
+  if(!m) return;
+  const val=id=>(document.getElementById(id)?.value||'').trim();
+  m.title=val('adminMatchTitle') || m.title;
+  m.date=val('adminMatchDate');
+  m.time=val('adminMatchStart');
+  m.endTime=val('adminMatchEnd');
+  m.maps=val('adminMatchMaps');
+  m.type=val('adminMatchType');
+  m.teamCount=Math.max(1,Math.min(20,Number(val('adminMatchTeamCount')||10)));
+  selectedMatchId=m.id;
+  const isNormal=String(m.kind||'')==='normal'||/무료|일반/.test(String(m.title||''))||/무료|일반/.test(String(m.type||''));
+  if(isNormal) pklResultRemoveMatchStats(m.id); else pklResultUpsertMatchStats(m);
+  pklResultSaveMatches();
+  renderAll();
+  renderResultAdminModal();
+}
+function pklResultNextRoundNumber(){
+  const nums=(Array.isArray(MATCHES)?MATCHES:[]).map(m=>{
+    const title=String((m&&m.title)||'');
+    const match=title.match(/(\d+)\s*회차/);
+    return match ? Number(match[1]) : 0;
+  }).filter(n=>Number.isFinite(n)&&n>0);
+  return (nums.length ? Math.max(...nums) : 0) + 1;
+}
+function addResultAdminMatch(){
+  if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
+  const nums=(Array.isArray(MATCHES)?MATCHES:[]).map(function(m){
+    const mm=String((m&&m.title)||'').match(/(\d+)\s*회차/);
+    return mm?Number(mm[1]):0;
+  }).filter(function(n){return Number.isFinite(n)&&n>0;});
+  let last=0;
+  try{ last=Number(localStorage.getItem('PKL_RESULT_LAST_ROUND_NO')||0)||0; }catch(e){}
+  const no=Math.max(last, nums.length?Math.max.apply(null,nums):0)+1;
+  try{ localStorage.setItem('PKL_RESULT_LAST_ROUND_NO', String(no)); }catch(e){}
+  const id='match_'+Date.now();
+  MATCHES.unshift({
+    id:id,
+    title:'PKL '+no+'회차',
+    date:'',time:'',endTime:'',maps:'',type:'프라임 킬내기 리그',teamCount:10,
+    snapshot:{mode:'squad',selectedTeamId:'',teams:[],rounds:[],feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''},
+    savedAt:new Date().toISOString()
+  });
+  adminEditingMatchId=id;
+  selectedMatchId=id;
+  pklResultSaveMatches();
+  renderAll();
+  renderResultAdminModal();
+  pklResultPermissionToast('PKL '+no+'회차가 추가되었습니다.');
+}
+
+function pklResultNormKey(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}
+function pklResultViewList(st){
+  const mode=(st&&st.mode)||'squad';
+  const teams=Array.isArray(st&&st.teams)?st.teams:[];
+  if(mode==='duo'){
+    const out=[];
+    teams.forEach((t,i)=>{
+      const mem=Array.isArray(t.members)?t.members:[];
+      const realId=t.id||('team'+(i+1));
+      out.push({viewId:realId+'a',realId,name:(mem[0]&&mem[0].name?mem[0].name:(i+1)+'팀')+' A',offset:0,len:2});
+      out.push({viewId:realId+'b',realId,name:(mem[2]&&mem[2].name?mem[2].name:(i+1)+'팀')+' B',offset:2,len:2});
+    });
+    return out;
+  }
+  return teams.map((t,i)=>{const mem=Array.isArray(t.members)?t.members:[];const realId=t.id||('team'+(i+1));return {viewId:realId,realId,name:(mem[0]&&mem[0].name?mem[0].name:(i+1)+'팀'),offset:0,len:4};});
+}
+function pklResultBuildMatchUserStats(matchId,title,st){
+  const views=pklResultViewList(st||{});
+  const rounds=Array.isArray(st&&st.rounds)?st.rounds:[];
+  const fires=st&&st.fires&&typeof st.fires==='object'?st.fires:{};
+  const cancels=st&&st.fireCancels&&typeof st.fireCancels==='object'?st.fireCancels:{};
+  const surr=st&&st.surrenders&&typeof st.surrenders==='object'?st.surrenders:{};
+  const cold=st&&st.colds&&typeof st.colds==='object'?st.colds:{};
+  const out=[];
+  views.forEach(v=>{
+    const team=(Array.isArray(st&&st.teams)?st.teams:[]).find(t=>String(t.id)===String(v.realId))||{};
+    const members=Array.isArray(team.members)?team.members:[];
+    let teamKills=0,teamDeaths=0,teamChicken=0,teamStop=0;
+    rounds.forEach(r=>{
+      const d=(r&&r.teams&&r.teams[v.realId])||{};
+      const kills=Array.isArray(d.kills)?d.kills:[];
+      const deaths=Array.isArray(d.deaths)?d.deaths:[];
+      for(let i=v.offset;i<v.offset+v.len;i++){teamKills+=Number(kills[i]||0);teamDeaths+=Number(deaths[i]||0);}
+      teamChicken+=Number(d.chicken||0);teamStop+=Number(d.stop||0);
+    });
+    const fireRec=fires[v.viewId]||fires[v.realId]||{};
+    const fireSessions=Array.isArray(fireRec.sessions)?fireRec.sessions:[];
+    let fireCount=0; fireSessions.forEach(fs=>{if(fs&&fs.done)fireCount++;});
+    if(!fireCount&&(fireRec.done||fireRec.checked))fireCount=1;
+    const cancelRec=cancels[v.viewId]||{};
+    const fireCancelCount=cancelRec&&typeof cancelRec==='object'?Object.keys(cancelRec).filter(k=>cancelRec[k]).length:0;
+    let surrenderCount=0; Object.keys(surr).forEach(k=>{const rec=surr[k]; if(String(k).includes(v.viewId)||String(k).includes(v.realId)||String(rec&&rec.teamId)===String(v.viewId)||String(rec&&rec.teamId)===String(v.realId)) surrenderCount++;});
+    let coldCount=0; Object.keys(cold).forEach(k=>{const rec=cold[k]; if(String(k).includes(v.viewId)||String(k).includes(v.realId)||String(rec&&rec.teamId)===String(v.viewId)||String(rec&&rec.teamId)===String(v.realId)) coldCount++;});
+    members.slice(v.offset,v.offset+v.len).forEach((m,idx)=>{
+      const name=String(m&&m.name||'').trim(); if(!name||name==='-') return;
+      const memberIndex=v.offset+idx; let kills=0,deaths=0;
+      rounds.forEach(r=>{const d=(r&&r.teams&&r.teams[v.realId])||{};kills+=Number((Array.isArray(d.kills)?d.kills:[])[memberIndex]||0);deaths+=Number((Array.isArray(d.deaths)?d.deaths:[])[memberIndex]||0);});
+      out.push({matchId,matchTitle:title,userKey:pklResultNormKey(name),name,teamId:v.realId,teamName:v.name,kills,deaths,teamKills,teamDeaths,chicken:teamChicken,stop:teamStop,fire:fireCount,fireCancel:fireCancelCount,surrender:surrenderCount,cold:coldCount,savedAt:new Date().toISOString()});
+    });
+  });
+  return out;
+}
+function pklResultUpsertMatchStats(match){
+  if(!match) return;
+  let saved=[]; try{saved=JSON.parse(localStorage.getItem(USER_MATCH_STATS_KEY)||'[]');}catch(e){}
+  if(!Array.isArray(saved)) saved=[];
+  saved=saved.filter(x=>String(x&&x.matchId)!==String(match.id));
+  const snap=match.snapshot&&Array.isArray(match.snapshot.teams)&&Array.isArray(match.snapshot.rounds)?match.snapshot:pklResultStateForMatch(match);
+  saved=saved.concat(pklResultBuildMatchUserStats(match.id,match.title||'PKL 회차',snap));
+  pklResultSharedSet(USER_MATCH_STATS_KEY, JSON.stringify(saved));
+}
+function pklResultRemoveMatchStats(matchId){
+  let saved=[]; try{saved=JSON.parse(localStorage.getItem(USER_MATCH_STATS_KEY)||'[]');}catch(e){}
+  if(Array.isArray(saved)) pklResultSharedSet(USER_MATCH_STATS_KEY, JSON.stringify(saved.filter(x=>String(x&&x.matchId)!==String(matchId))));
+}
+function pklResultSetMatchKind(match,kind){
+  if(!match) return;
+  const normal=kind==='normal';
+  match.kind=normal?'normal':'league';
+  match.type=normal?'무료경기':'프라임 킬내기 리그';
+  let title=String(match.title||'PKL 회차 경기').replace(/\s*-\s*(일반|무료|유료)\s*$/g,'');
+  match.title=normal?(title+' - 일반'):title.replace(/\s*-\s*(일반|무료)\s*$/,'');
+  if(normal) pklResultRemoveMatchStats(match.id); else pklResultUpsertMatchStats(match);
+  pklResultSaveMatches();
+}
+function toggleResultAdminMatchKind(){
+  if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
+  const m=MATCHES.find(x=>x.id===adminEditingMatchId); if(!m) return;
+  const isNormal=String(m.kind||'')==='normal'||/무료|일반/.test(String(m.title||''))||/무료|일반/.test(String(m.type||''));
+  pklResultSetMatchKind(m,isNormal?'league':'normal');
+  selectedMatchId=m.id;
+  renderAll();
+  renderResultAdminModal();
+  pklResultPermissionToast(isNormal?'유료 회차로 전환되어 전적검색에 반영됩니다.':'무료 회차로 전환되어 전적검색에서 제외됩니다.');
+}
+
+function pklDeleteMatchLinkedData(matchId){
+  if(!matchId) return;
+  try{
+    const raw=JSON.parse(localStorage.getItem(USER_MATCH_STATS_KEY)||'[]');
+    if(Array.isArray(raw)){
+      pklResultSharedSet(USER_MATCH_STATS_KEY, JSON.stringify(raw.filter(x=>String(x&&x.matchId)!==String(matchId))));
+    }else if(raw && typeof raw==='object'){
+      Object.keys(raw).forEach(key=>{
+        if(String(key)===String(matchId)) delete raw[key];
+        else if(Array.isArray(raw[key])) raw[key]=raw[key].filter(x=>String(x&&x.matchId)!==String(matchId));
+      });
+      pklResultSharedSet(USER_MATCH_STATS_KEY, JSON.stringify(raw));
+    }
+  }catch(e){}
+}
+let pendingDeleteMatchId=null;
+
+function openResultDeleteConfirm(){
+  if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
+  if(!adminEditingMatchId) return;
+  pendingDeleteMatchId=adminEditingMatchId;
+  const modal=document.getElementById('resultDeleteConfirmModal');
+  if(!modal) return;
+  try{ document.body.appendChild(modal); }catch(e){}
+  modal.style.zIndex='2147483646';
+  modal.style.pointerEvents='auto';
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+}
+function closeResultDeleteConfirm(){
+  pendingDeleteMatchId=null;
+  const modal=document.getElementById('resultDeleteConfirmModal');
+  if(!modal) return;
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden','true');
+}
+function deleteResultAdminMatch(){
+  if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
+  const deletedId=pendingDeleteMatchId;
+  if(!deletedId) return;
+  MATCHES=MATCHES.filter(x=>String(x.id)!==String(deletedId));
+  pklDeleteMatchLinkedData(deletedId);
+  adminEditingMatchId=(MATCHES[0]&&MATCHES[0].id)||null;
+  selectedMatchId=adminEditingMatchId || '';
+  pendingDeleteMatchId=null;
+  pklResultSaveMatches();
+  closeResultDeleteConfirm();
+  renderAll();
+  renderResultAdminModal();
+}
+
+function resultAddScoreRound(){
+  if(!pklResultIsStaff()){
+    pklResultPermissionToast('접근 제한: 관리자/운영자만 수정 가능합니다.');
+    return;
+  }
+  if(!resultSheetEditMode){ resultSheetEditMode=true; document.body.classList.add('result-sheet-global-editing'); }
+  if(!state || typeof state!=='object') state=makeEmptyState();
+  if(!Array.isArray(state.rounds)) state.rounds=[];
+  const no=state.rounds.length+1;
+  const round={no:no,map:'',teams:{}};
+  (state.teams||[]).forEach(t=>{
+    if(t && t.id){
+      round.teams[t.id]={kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};
+    }
+  });
+  state.rounds.push(round);
+  resultSaveSheetSnapshot();
+  renderAll();
+}
+
+function bindResultAdminModal(){
+  const modal=document.getElementById('resultAdminModal');
+  if(!modal || modal.dataset.bound) return;
+  modal.dataset.bound='1';
+  document.getElementById('resultAdminClose')?.addEventListener('click',closeResultAdminModal);
+  modal.addEventListener('click',e=>{if(e.target===modal) closeResultAdminModal();});
+  document.getElementById('adminMatchList')?.addEventListener('click',e=>{
+    const item=e.target.closest('[data-admin-match]');
+    if(!item) return;
+    adminEditingMatchId=item.getAttribute('data-admin-match');
+    renderResultAdminModal();
+  });
+  document.getElementById('adminAddMatchBtn')?.addEventListener('click',addResultAdminMatch);
+  document.getElementById('adminSaveMatchBtn')?.addEventListener('click',resultEnableSheetEdit);
+  document.getElementById('adminToggleMatchKindBtn')?.addEventListener('click',toggleResultAdminMatchKind);
+  document.getElementById('adminDeleteMatchBtn')?.addEventListener('click',openResultDeleteConfirm);
+  document.getElementById('resultDeleteNoBtn')?.addEventListener('click',closeResultDeleteConfirm);
+  document.getElementById('resultDeleteYesBtn')?.addEventListener('click',deleteResultAdminMatch);
+  document.getElementById('resultDeleteConfirmModal')?.addEventListener('click',e=>{if(e.target && e.target.id==='resultDeleteConfirmModal') closeResultDeleteConfirm();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeResultDeleteConfirm();closeResultAdminModal();}});
+}
+
+function bind(){
+  bindResultAdminModal();
+  document.addEventListener('click',e=>{
+    const card=e.target.closest('[data-team]'); if(card){selectedTeamId=card.getAttribute('data-team'); renderAll(); return;}
+  });
+  document.getElementById('matchSelect').addEventListener('change',e=>{selectedMatchId=e.target.value; pklResultApplySelectedMatchState(); renderAll();});
+
+  const matchDrop=document.getElementById('matchDropdown');
+  const matchTrigger=document.getElementById('matchDropdownTrigger');
+  const matchMenu=document.getElementById('matchDropdownMenu');
+  if(matchTrigger && matchDrop && !matchTrigger.dataset.bound){
+    matchTrigger.dataset.bound='1';
+    matchTrigger.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      matchDrop.classList.toggle('open');
+    });
+  }
+  if(matchMenu && !matchMenu.dataset.bound){
+    matchMenu.dataset.bound='1';
+    matchMenu.addEventListener('click',(e)=>{
+      const opt=e.target.closest('[data-match]');
+      if(!opt) return;
+      selectedMatchId=opt.getAttribute('data-match');
+      const native=document.getElementById('matchSelect');
+      if(native) native.value=selectedMatchId;
+      pklResultApplySelectedMatchState();
+      closeMatchDropdown();
+      renderAll();
+    });
+  }
+  document.addEventListener('click',closeMatchDropdown);
+
+  const adminBtn=document.getElementById('adminPanelBtn');
+  if(adminBtn && !adminBtn.dataset.bound){
+    adminBtn.dataset.bound='1';
+    adminBtn.addEventListener('click',openResultAdminModal);
+  }
+
+  const captureBtn=document.getElementById('captureBtn');
+  if(captureBtn && !captureBtn.dataset.bound){
+    captureBtn.dataset.bound='1';
+    captureBtn.addEventListener('click',captureScoreboardImage);
+  }
+  document.getElementById('recordBody')?.addEventListener('input',resultHandleSheetInput);
+  document.getElementById('recordBody')?.addEventListener('change',resultHandleSheetInput);
+  document.getElementById('recordBody')?.addEventListener('click',resultHandleSheetClick);
+  document.getElementById('resultSheetEditDoneBtn')?.addEventListener('click',resultCompleteSheetEdit);
+  document.getElementById('resultAddScoreRoundBtn')?.addEventListener('click',resultAddScoreRound);
+  document.getElementById('sheetToggle').addEventListener('click',()=>{
+    const panel=document.getElementById('sheetPanel'); panel.classList.toggle('open');
+    document.getElementById('sheetToggleText').textContent=resultSheetEditMode?'':(panel.classList.contains('open')?'점수 시트지 접기':'점수 시트지 열기');
+  });
+}
+function renderAll(){renderBoard();renderSheet();renderSide();}
+bind();renderAll();
+window.addEventListener('storage',function(e){
+  if(e && e.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
+});
+window.addEventListener('pkl-firebase-data-updated',function(e){
+  if(e && e.detail && e.detail.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
+});
+window.addEventListener('pkl-users-updated',function(){ renderSide(); });
+window.addEventListener('pkl-role-data-updated',function(){ renderSide(); });
+window.addEventListener('pkl-firebase-sync-ready',function(){
+  if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.refresh==='function'){
+    window.PKLFirebaseDataSync.refresh();
+  }
+  setTimeout(pklResultRefreshMatchesFromStorage,350);
+});
+})();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const sheetModifyBtn = document.querySelector('#sheetModifyButton'); // 시트지 수정 버튼 ID
+    const matchSelect = document.querySelector('select.native-match-select');
+    if (!sheetModifyBtn || !matchSelect) return;
+
+    sheetModifyBtn.addEventListener('click', () => {
+        // 기존 버튼 제거
+        let existingBtn = document.querySelector('#completeButtonDynamic');
+        if (existingBtn) existingBtn.remove();
+
+        // 버튼 생성
+        const btn = document.createElement('button');
+        btn.id = 'completeButtonDynamic';
+        btn.textContent = '수정 완료';
+        btn.className = 'capture-btn';
+        // 스타일
+        btn.style.width = '200px';
+        btn.style.height = '46px';
+        btn.style.borderRadius = '14px';
+        btn.style.background = 'linear-gradient(180deg, rgba(155,92,255,.42), rgba(73,36,148,.58))';
+        btn.style.color = '#fff';
+        btn.style.fontSize = '15px';
+        btn.style.fontWeight = '1000';
+        btn.style.border = '1px solid rgba(201,168,255,.34)';
+        btn.style.display = 'block';
+        btn.style.marginTop = '12px';
+
+        // 클릭 시 제거
+        btn.addEventListener('click', () => { btn.remove(); });
+
+        // 회차 선택 박스 최상위 컨테이너 찾기
+        const container = matchSelect.closest('.result-page') || document.body;
+        container.appendChild(btn); // 최상위 컨테이너 바로 아래, 박스 바깥 영역
+    });
+});
+</script>
+<script id="pkl-persistent-auth">
+(function(){
+
+const AUTH_KEYS = [
+'discordUser',
+'discord_user',
+'pklUser',
+'authUser',
+'auth',
+'user'
+];
+
+function getSavedUser(){
+
+  for(const key of AUTH_KEYS){
+
+    try{
+      const raw = localStorage.getItem(key);
+
+      if(!raw) continue;
+
+      const parsed = JSON.parse(raw);
+
+      if(parsed){
+        return parsed;
+      }
+
+    }catch(e){}
+  }
+
+  return null;
+}
+
+window.addEventListener('load', ()=>{
+
+  const savedUser = getSavedUser();
+
+  if(savedUser){
+
+    document.body.classList.add('pkl-authenticated');
+
+    const modal =
+      document.getElementById('authModal') ||
+      document.getElementById('loginModal') ||
+      document.getElementById('discordLoginModal');
+
+    if(modal){
+      modal.style.display='none';
+      modal.classList.remove('open');
+    }
+  }
+
+});
+
+})();
+</script>
+
+
+<script id="pkl-safe-persist-login">
+(function(){
+
+function restoreDiscordSession(){
+
+  try{
+
+    const keys = [
+      'discordUser',
+      'discord_user',
+      'pklUser',
+      'authUser'
+    ];
+
+    let found = false;
+
+    for(const key of keys){
+
+      const raw = localStorage.getItem(key);
+
+      if(raw){
+        found = true;
+        break;
+      }
+
+    }
+
+    if(!found) return;
+
+    const modal =
+      document.getElementById('authModal') ||
+      document.getElementById('loginModal') ||
+      document.getElementById('discordLoginModal');
+
+    if(modal){
+      modal.style.display = 'none';
+      modal.classList.remove('open');
+    }
+
+    document.body.classList.add('pkl-authenticated');
+
+  }catch(e){}
+
+}
+
+window.addEventListener('load', restoreDiscordSession);
+
+})();
+</script>
+
+
+
+
+<script src="pkl-common-header.js"></script>
+
+<script>
+(function(){
+  function updateDynamicBoardHeight(){
+    const board=document.querySelector('.result-board');
+    const grid=document.getElementById('teamGrid');
+    if(!board||!grid) return;
+    const cards=grid.querySelectorAll('.team-card').length;
+    board.classList.add('compact-board');
+    if(cards<=5){
+      grid.style.gridTemplateColumns='repeat(5,minmax(0,1fr))';
+    }else{
+      grid.style.gridTemplateColumns='repeat(5,minmax(0,1fr))';
+    }
+  }
+  const observer=new MutationObserver(updateDynamicBoardHeight);
+  window.addEventListener('load',()=>{
+    updateDynamicBoardHeight();
+    const grid=document.getElementById('teamGrid');
+    if(grid) observer.observe(grid,{childList:true,subtree:true});
+  });
+})();
+</script>
+
+<style id="pkl-result-admin-modal-layer-hotfix-final">
+#resultAdminModal.pkl-result-admin-modal,
+.pkl-result-admin-modal.open{
+  z-index:2147483000 !important;
+  pointer-events:auto !important;
+}
+#resultAdminModal .pkl-result-admin-panel{
+  position:relative !important;
+  z-index:2147483001 !important;
+  pointer-events:auto !important;
+}
+#resultAdminClose.pkl-result-admin-close{
+  position:absolute !important;
+  z-index:2147483002 !important;
+  pointer-events:auto !important;
+  cursor:pointer !important;
+}
+#resultDeleteConfirmModal.pkl-delete-confirm-modal{
+  z-index:2147482990 !important;
+  pointer-events:auto !important;
+}
+#resultDeleteConfirmModal .pkl-delete-confirm-box{
+  position:relative !important;
+  z-index:2147482991 !important;
+}
+</style>
+<script id="pkl-result-normal-title-hotfix-final">
+(function(){
+  'use strict';
+  function isNormalMatch(m){
+    return !!m && (String(m.kind||'')==='normal' || /무료|일반/.test(String(m.title||'')) || /무료|일반/.test(String(m.type||'')));
+  }
+  function normalizeNormalTitle(m){
+    if(!isNormalMatch(m)) return false;
+    var base=String(m.title||'PKL 회차 경기').replace(/\s*-\s*(일반|무료|유료)\s*$/g,'').trim();
+    var next=base+' - 일반';
+    var changed=false;
+    if(m.title!==next){ m.title=next; changed=true; }
+    if(m.kind!=='normal'){ m.kind='normal'; changed=true; }
+    if(m.type!=='무료경기'){ m.type='무료경기'; changed=true; }
+    return changed;
+  }
+  function normalizeAll(){
+    try{
+      if(!Array.isArray(window.MATCHES)) return false;
+      var changed=false;
+      window.MATCHES.forEach(function(m){ if(normalizeNormalTitle(m)) changed=true; });
+      if(changed && typeof window.pklResultSaveMatches==='function') window.pklResultSaveMatches();
+      return changed;
+    }catch(e){ return false; }
+  }
+  window.pklNormalizeResultNormalTitles=normalizeAll;
+  document.addEventListener('click',function(e){
+    var t=e.target;
+    if(t && (t.id==='adminToggleMatchKindBtn' || t.id==='adminSaveMatchBtn' || t.id==='adminAddMatchBtn')){
+      setTimeout(function(){ normalizeAll(); if(typeof window.renderAll==='function') window.renderAll(); if(typeof window.renderResultAdminModal==='function') window.renderResultAdminModal(); },80);
+    }
+    if(t && t.id==='resultAdminClose'){
+      e.preventDefault();
+      e.stopPropagation();
+      var m=document.getElementById('resultAdminModal');
+      if(m){ m.classList.remove('open'); m.setAttribute('aria-hidden','true'); }
+    }
+  }, true);
+  setTimeout(normalizeAll, 250);
+})();
+</script>
+
+
+
+<style id="pkl-result-admin-modal-layer-ui-final-fix">
+#resultAdminModal.pkl-result-admin-modal,
+#resultAdminModal.pkl-result-admin-modal.open{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:2147483600 !important;
+  pointer-events:auto !important;
+  isolation:isolate !important;
+}
+#resultAdminModal .pkl-result-admin-panel{
+  position:relative !important;
+  z-index:2147483601 !important;
+  overflow:visible !important;
+}
+#resultAdminClose.pkl-result-admin-close{
+  position:absolute !important;
+  top:16px !important;
+  right:16px !important;
+  left:auto !important;
+  transform:none !important;
+  z-index:2147483602 !important;
+  pointer-events:auto !important;
+  cursor:pointer !important;
+}
+#adminMatchKindState{display:none !important;}
+#adminMatchType{font-weight:1000 !important;color:#fff !important;}
+</style>
+
+<script id="pkl-result-kind-type-field-final-fix">
+(function(){
+  'use strict';
+  function isNormal(m){return !!m && (String(m.kind||'')==='normal'||/무료|일반/.test(String(m.title||''))||/무료|일반/.test(String(m.type||'')));}
+  function paidText(){return '유료게임: 결과표 표시 + 전적검색 점수 반영';}
+  function freeText(){return '무료게임: 결과표 표시 / 전적검색 점수 제외';}
+  function normalizeTitleAndType(m){
+    if(!m) return false;
+    var normal=isNormal(m), changed=false;
+    var base=String(m.title||'PKL 회차 경기').replace(/\s*-\s*(일반|무료|유료)\s*$/g,'').trim();
+    var nextTitle=normal ? (base+' - 일반') : base;
+    var nextType=normal ? freeText() : paidText();
+    if(m.title!==nextTitle){m.title=nextTitle;changed=true;}
+    if(m.kind!==(normal?'normal':'league')){m.kind=normal?'normal':'league';changed=true;}
+    if(m.type!==nextType){m.type=nextType;changed=true;}
+    return changed;
+  }
+  function selected(){
+    try{
+      var id=window.adminEditingMatchId || window.selectedMatchId;
+      if(Array.isArray(window.MATCHES)) return window.MATCHES.find(function(x){return String(x.id)===String(id);}) || window.MATCHES[0];
+    }catch(e){}
+    return null;
+  }
+  function syncForm(){
+    var m=selected();
+    if(!m) return;
+    normalizeTitleAndType(m);
+    var input=document.getElementById('adminMatchType');
+    if(input) input.value=isNormal(m)?freeText():paidText();
+    var state=document.getElementById('adminMatchKindState');
+    if(state) state.textContent='';
+    var btn=document.getElementById('adminToggleMatchKindBtn');
+    if(btn) btn.textContent=isNormal(m)?'유료 회차로 전환':'무료 회차로 전환';
+  }
+  function normalizeAll(){
+    var changed=false;
+    try{ if(Array.isArray(window.MATCHES)) window.MATCHES.forEach(function(m){if(normalizeTitleAndType(m)) changed=true;}); }catch(e){}
+    if(changed && typeof window.pklResultSaveMatches==='function') window.pklResultSaveMatches();
+    return changed;
+  }
+  var oldRender=window.renderResultAdminModal;
+  if(typeof oldRender==='function'){
+    window.renderResultAdminModal=function(){var r=oldRender.apply(this,arguments); setTimeout(syncForm,0); return r;};
+  }
+  document.addEventListener('click',function(e){
+    var close=e.target && e.target.closest && e.target.closest('#resultAdminClose');
+    if(close){
+      e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+      var modal=document.getElementById('resultAdminModal');
+      if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}
+      return;
+    }
+    var btn=e.target && e.target.closest && e.target.closest('#adminToggleMatchKindBtn,#adminSaveMatchBtn,#adminAddMatchBtn,[data-admin-match]');
+    if(btn) setTimeout(function(){normalizeAll();syncForm();try{if(typeof window.renderAll==='function')window.renderAll();}catch(_e){}},80);
+  },true);
+  document.addEventListener('input',function(e){
+    if(e.target && e.target.id==='adminMatchType'){
+      var m=selected(); if(!m) return;
+      var v=String(e.target.value||'');
+      if(/무료|일반/.test(v)){m.kind='normal';m.type=freeText();}
+      else if(/유료|전적검색/.test(v)){m.kind='league';m.type=paidText();}
+    }
+  },true);
+  setTimeout(function(){normalizeAll();syncForm();},250);
+})();
+</script>
+
+
+
+<!-- PKL result admin modal safe layer fix: no MutationObserver / no interval -->
+<style id="pkl-result-admin-safe-layer-fix">
+  #resultAdminModal.pkl-result-admin-modal{
+    position:fixed !important;
+    inset:0 !important;
+    z-index:2147483000 !important;
+    pointer-events:auto !important;
+  }
+  #resultAdminModal.pkl-result-admin-modal.open{display:flex !important;}
+  #resultAdminModal .pkl-result-admin-panel{
+    position:relative !important;
+    z-index:2147483001 !important;
+    pointer-events:auto !important;
+  }
+  #resultDeleteConfirmModal.pkl-delete-confirm-modal.open{
+    position:fixed !important;
+    z-index:2147483010 !important;
+    pointer-events:auto !important;
+  }
+  #resultDeleteConfirmModal .pkl-delete-confirm-box{
+    position:relative !important;
+    z-index:2147483011 !important;
+    pointer-events:auto !important;
+  }
+</style>
+<script id="pkl-result-admin-safe-layer-fix-script">
+(function(){
+  'use strict';
+  function moveToBody(id){
+    var el=document.getElementById(id);
+    if(el && el.parentNode!==document.body){
+      try{document.body.appendChild(el);}catch(e){}
+    }
+    return el;
+  }
+  function showAdmin(){
+    var modal=moveToBody('resultAdminModal');
+    if(!modal) return;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden','false');
+    modal.style.removeProperty('display');
+    if(typeof window.renderResultAdminModal==='function'){
+      try{window.renderResultAdminModal();}catch(e){console.warn('[PKL] result admin render failed',e);}
+    }
+  }
+  function hideAdmin(){
+    var modal=document.getElementById('resultAdminModal');
+    if(!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden','true');
+    modal.style.removeProperty('display');
+  }
+  document.addEventListener('click',function(e){
+    var openBtn=e.target && e.target.closest && e.target.closest('#adminPanelBtn');
+    if(openBtn){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      showAdmin();
+      return;
+    }
+    var closeBtn=e.target && e.target.closest && e.target.closest('#resultAdminClose');
+    if(closeBtn){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      hideAdmin();
+    }
+  },true);
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){moveToBody('resultAdminModal');moveToBody('resultDeleteConfirmModal');});
+  }else{
+    moveToBody('resultAdminModal');
+    moveToBody('resultDeleteConfirmModal');
+  }
+})();
+</script>
+
+  <script src="./pkl-responsive-scale.js"></script>
+
+<script id="pkl-result-cumulative-final-script">
+(function(){
+  'use strict';
+  var MATCH_KEY='PKL_RESULT_MATCHES_V1';
+  var DELETED_KEY='PKL_RESULT_DELETED_IDS_V1';
+  function readJSON(k,fb){try{var raw=localStorage.getItem(k);return raw?JSON.parse(raw):fb;}catch(e){return fb;}}
+  function writeJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+  function deletedIds(){var v=readJSON(DELETED_KEY,[]);return Array.isArray(v)?v:[];}
+  function markDeleted(id){if(!id)return;var arr=deletedIds().filter(Boolean);if(arr.indexOf(String(id))<0)arr.push(String(id));writeJSON(DELETED_KEY,arr.slice(-80));}
+  function filterDeletedMatches(){var ids=deletedIds();if(!ids.length)return false;var list=readJSON(MATCH_KEY,[]);if(!Array.isArray(list))return false;var next=list.filter(function(m){return ids.indexOf(String(m&&m.id))<0;});if(next.length!==list.length){writeJSON(MATCH_KEY,next);return true;}return false;}
+  document.addEventListener('click',function(e){var yes=e.target&&e.target.closest&&e.target.closest('#resultDeleteYesBtn');if(yes){var active=document.querySelector('#adminMatchList .admin-match-item.active');var id=active&&active.getAttribute('data-admin-match');markDeleted(id);setTimeout(filterDeletedMatches,60);setTimeout(filterDeletedMatches,420);}},true);
+  window.addEventListener('pkl-firebase-data-updated',function(e){if(e&&e.detail&&e.detail.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
+  window.addEventListener('storage',function(e){if(e&&e.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
+  function getMatches(){return readJSON(MATCH_KEY,[]);} function currentMatch(){var id=(document.getElementById('matchSelect')||{}).value||'';var list=getMatches();return list.find(function(m){return String(m&&m.id)===String(id);})||list[0]||null;}
+  function fmtTime(t){if(!t)return '-';var d=new Date(Number(t)||t);if(String(d)==='Invalid Date')return String(t);return d.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+  function feedRows(snap){var rows=[];var feeds=Array.isArray(snap&&snap.feeds)?snap.feeds:[];feeds.forEach(function(f){var type=String(f&&f.type||'이용');if(type==='치킨'||type==='올다이'||type==='사이드') return;rows.push({type:type||'이용', text:String(f&&f.text||''), time:f&&f.time});});return rows;}
+  function openUsage(){var m=currentMatch();var modal=document.getElementById('resultUsageHistoryModal');var list=document.getElementById('resultUsageHistoryList');if(!modal||!list)return;var snap=(m&&m.snapshot)||{};var rows=feedRows(snap);if(!rows.length){list.innerHTML='<div class="pkl-usage-empty">이 회차에 저장된 불판/서렌 이용내역이 없습니다.</div>';}else{list.innerHTML=rows.map(function(r){return '<div class="pkl-usage-item"><div class="pkl-usage-type">'+esc(r.type)+'</div><div class="pkl-usage-text">'+esc(r.text)+'</div><div class="pkl-usage-time">'+esc(fmtTime(r.time))+'</div></div>';}).join('');}try{document.body.appendChild(modal);}catch(e){}modal.classList.add('open');modal.setAttribute('aria-hidden','false');}
+  function closeUsage(){var modal=document.getElementById('resultUsageHistoryModal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}}
+  document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('#resultUsageHistoryBtn')){e.preventDefault();openUsage();}if(e.target&&e.target.closest&&e.target.closest('#resultUsageCloseBtn')){e.preventDefault();closeUsage();}if(e.target&&e.target.id==='resultUsageHistoryModal'){closeUsage();}},true);
+})();
+</script>
+
+</body>
+</html>
+
+<script>
+window.PKL_RESULT_DELETE_FIX=true;
+(function(){
+ const oldFetch=window.fetch;
+})();
+</script>
+
+
+<style>
+.pkl-admin-modal,
+.pkl-delete-modal,
+.pkl-round-modal,
+.pkl-confirm-modal{
+  z-index:999999 !important;
+}
+</style>
+
+<script>
+// PKL_NEXT_ROUND_SEQUENCE
+window.PKL_USE_SEQUENTIAL_ROUND_NAME = true;
+</script>

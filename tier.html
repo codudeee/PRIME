@@ -1,0 +1,3332 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script src="./pkl-supabase-config.js"></script>
+  
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PKL 티어표</title>
+<style>
+*{box-sizing:border-box}html{background:#05050a}body{margin:0;min-height:100vh;background:#05050a;color:#f8fafc;font-family:'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR','Segoe UI',sans-serif;overflow-x:hidden}a{text-decoration:none;color:inherit}button{font-family:inherit}.site{position:relative;min-height:100vh;isolation:isolate;overflow:hidden}.site::before{content:"";position:fixed;inset:0;background:url('pkl_index_bg.webp') center/cover no-repeat;z-index:-3;transform:scale(1.01)}.site::after{content:"";position:fixed;inset:0;background:radial-gradient(circle at 50% 18%,rgba(143,72,255,.12),transparent 24%),linear-gradient(180deg,rgba(0,0,0,.36),rgba(0,0,0,.12) 42%,rgba(0,0,0,.72));z-index:-2}.topbar{position:sticky;top:0;z-index:50;height:82px;background:rgba(4,5,10,.70);border-bottom:1px solid rgba(156,95,255,.14);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}.topbar-inner{max-width:1580px;height:100%;margin:0 auto;padding:0 40px;display:grid;grid-template-columns:260px 1fr 260px;align-items:center;gap:28px}.brand{display:flex;align-items:center;gap:15px;min-width:0}.brand-mark{position:relative;font-size:34px;line-height:1;font-weight:1000;letter-spacing:-2px;font-style:italic;color:#f5f3ff;text-shadow:0 0 12px rgba(255,255,255,.34),0 0 22px rgba(132,75,255,.28)}.brand-mark::before{content:'♛';position:absolute;left:21px;top:-22px;font-size:16px;color:#b784ff;text-shadow:0 0 12px rgba(168,85,247,.72)}.brand-mark::after{content:"";position:absolute;left:2px;right:-8px;bottom:-7px;height:2px;background:linear-gradient(90deg,transparent,#7c3cff 35%,#d9c7ff 50%,#7c3cff 65%,transparent);box-shadow:0 0 14px rgba(124,60,255,.85)}.brand-name{font-size:12px;font-weight:900;letter-spacing:2.5px;color:rgba(255,255,255,.78);white-space:nowrap}.main-nav{display:flex;justify-content:center;align-items:center;gap:40px;height:100%}.main-nav a{position:relative;font-size:13px;font-weight:900;letter-spacing:.4px;color:rgba(255,255,255,.70);white-space:nowrap;transition:.18s}.user-box{position:static;display:flex;justify-content:flex-end;gap:10px;align-items:center}.top-btn{height:38px;min-width:94px;padding:0 16px;border-radius:8px;border:1px solid rgba(168,85,247,.28);background:rgba(17,17,27,.58);color:#e9d5ff;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:inset 0 0 14px rgba(168,85,247,.05);transition:.18s}.manager-btn{display:none}.account-wrap{position:relative}.account-menu{display:none;position:absolute;top:48px;right:0;width:170px;padding:8px;border-radius:12px;border:1px solid rgba(168,85,247,.35);background:rgba(7,7,14,.94);box-shadow:0 18px 34px rgba(0,0,0,.45);backdrop-filter:blur(16px)}.account-menu.open{display:block}.account-menu button{width:100%;height:38px;border:0;border-radius:9px;background:transparent;color:#f8fafc;font-size:13px;font-weight:800;cursor:pointer;text-align:left;padding:0 12px}.account-menu button:hover{background:rgba(168,85,247,.18)}.hero{max-width:1100px;margin:0 auto;padding:300px 20px 20px;min-height:calc(100vh - 82px);display:flex;flex-direction:column;justify-content:flex-start}.hero-logo{margin:0 auto 44px;text-align:center;user-select:none}.logo-crown{font-size:44px;line-height:1;color:#a673ff;text-shadow:0 0 18px rgba(168,85,247,.72);margin-bottom:-10px}.logo-main{position:relative;display:inline-block;font-size:clamp(74px,8vw,132px);line-height:.82;font-weight:1000;font-style:italic;letter-spacing:-8px;color:#f7f5ff;text-shadow:0 2px 0 #8e8b98,0 12px 26px rgba(0,0,0,.72),0 0 34px rgba(128,77,255,.42)}.logo-main::after{content:"";position:absolute;left:6%;right:2%;bottom:-18px;height:3px;background:linear-gradient(90deg,transparent,#7a3cff 18%,#eee8ff 50%,#7a3cff 82%,transparent);box-shadow:0 0 22px rgba(132,75,255,.92),0 0 46px rgba(132,75,255,.35)}.logo-sub{margin-top:26px;font-size:15px;font-weight:900;letter-spacing:12px;color:rgba(255,255,255,.78)}.primary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.feature-card{min-height:180px;padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(10,6,20,.65);backdrop-filter:blur(10px);text-align:center}.feature-card:hover{transform:translateY(-6px);border-color:rgba(168,85,247,.58);box-shadow:0 20px 60px rgba(0,0,0,.38),0 0 34px rgba(126,68,255,.16)}.feature-icon{font-size:32px;margin-bottom:12px}.feature-card h2{margin:0 0 8px;font-size:18px}.feature-card p{margin:0 auto 12px;font-size:12px;line-height:1.4;color:rgba(255,255,255,.65)}.card-btn{width:130px;height:30px;font-size:12px;border-radius:6px}.feature-card:hover .card-btn{width:130px;height:30px;font-size:12px;border-radius:6px}.quickbar{margin-top:12px;border:1px solid rgba(255,255,255,.08)}.quickbar a{height:50px;display:flex;align-items:center;justify-content:center;gap:10px;color:rgba(255,255,255,.82);font-size:14px;font-weight:900;white-space:nowrap;border-right:1px solid rgba(190,160,255,.16);transition:.18s}.quickbar a:last-child{border-right:0}.quickbar a:hover{background:rgba(168,85,247,.12);color:#fff}.info-grid{margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}.info-card{min-height:110px;padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,.08)}.info-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.info-card h3{margin:0;font-size:16px}.more{font-size:13px;font-weight:900;color:#c084fc}.notice-list,.rank-list{display:grid;gap:10px}.notice-row,.rank-row{display:flex;align-items:center;justify-content:space-between;gap:12px;color:rgba(255,255,255,.72);font-size:13px}.dot{width:5px;height:5px;border-radius:50%;background:#a855f7;box-shadow:0 0 10px rgba(168,85,247,.8);flex:0 0 auto}.notice-row span:first-child{display:flex;align-items:center;gap:9px}.date{color:rgba(255,255,255,.45)}.rank-name{color:#c084fc;font-weight:900}.discord-card{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center}.discord-icon{font-size:52px;color:#c4b5fd;filter:drop-shadow(0 0 18px rgba(168,85,247,.30))}.discord-text{font-size:14px;line-height:1.7;color:rgba(255,255,255,.72);margin:0 0 12px}.discord-btn{display:inline-flex;height:34px;padding:0 22px;align-items:center;border-radius:6px;border:1px solid rgba(168,85,247,.55);color:#e9d5ff;font-size:13px;font-weight:900}.footer{padding:20px 20px 30px;text-align:center;color:rgba(255,255,255,.42);font-size:12px}.footer a{margin:0 10px;color:rgba(255,255,255,.48)}.pkl-x-close{background:rgba(20,14,31,.9)!important;border:1px solid rgba(168,85,247,.55)!important;color:#e9d5ff!important;border-radius:9px!important}.modal,.profile-edit,.join-modal,.reason-modal{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.72);align-items:center;justify-content:center;padding:24px}.modal.open,.profile-edit.open,.join-modal.open,.reason-modal.open{display:flex}.panel,.profile-box,.join-panel,.reason-box{width:min(1120px,94vw);max-height:88vh;overflow:auto;border-radius:18px;border:1px solid rgba(168,85,247,.35);background:linear-gradient(180deg,rgba(12,12,22,.96),rgba(5,5,10,.98));box-shadow:0 24px 80px rgba(0,0,0,.65),0 0 38px rgba(168,85,247,.20);padding:26px;color:#fff}.panel-head,.join-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.panel h1,.join-title,.profile-box h2,.reason-box h2{margin:0;font-size:26px}.panel h1 span,.join-title span,.profile-box h2 span,.reason-box h2 span{color:#c084fc}.close,.join-close{width:42px;height:42px;cursor:pointer}.notice,.empty,.join-help{color:rgba(255,255,255,.68);line-height:1.6}.section-title{margin:22px 0 12px;font-size:18px;font-weight:900;color:#e9d5ff}.table-wrap{overflow:auto;border-radius:12px;border:1px solid rgba(168,85,247,.22)}table{width:100%;min-width:780px;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid rgba(168,85,247,.14);text-align:left;font-size:14px}th{color:#e9d5ff;background:rgba(168,85,247,.12)}.btn,.join-manager-btn,.reason-submit,.reason-close,.profile-actions button{height:40px;border:1px solid rgba(168,85,247,.38);border-radius:9px;background:rgba(168,85,247,.14);color:#fff;font-weight:900;cursor:pointer;padding:0 16px}.bootstrap input,.profile-box input,.reason-box textarea{width:100%;border-radius:10px;border:1px solid rgba(168,85,247,.32);background:rgba(0,0,0,.35);color:#fff;padding:12px;outline:none}.reason-box textarea{min-height:120px;resize:vertical}.profile-box{max-width:480px}.profile-box label{display:block;margin:14px 0 7px;color:#e9d5ff;font-weight:900;font-size:13px}.profile-actions,.reason-actions,.join-actions,.join-manager-controls{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}.join-panel{width:min(1180px,94vw)}.join-main{display:grid;grid-template-columns:320px 1fr;gap:18px}.join-status,.roster-box,.cancel-box,.join-open-box,.join-user-card,.tier-summary{border:1px solid rgba(168,85,247,.18);border-radius:12px;background:rgba(255,255,255,.025);padding:16px}.join-open-status,.roster-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.join-kicker,.join-user-label,.tier-summary-title{font-size:12px;font-weight:900;letter-spacing:1.2px;color:#c084fc}.join-user-name,.wait-count strong{font-size:22px;font-weight:1000}.wait-count{margin:16px 0}.join-action-btn{flex:1;min-width:130px;height:42px;border-radius:9px;border:1px solid rgba(168,85,247,.42);background:rgba(168,85,247,.16);color:#fff;font-weight:900;cursor:pointer}.join-action-btn:disabled{opacity:.45;cursor:not-allowed}.tier-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.tier-chip{display:flex;gap:6px;padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.06);font-size:12px}.tier-chip.active{background:rgba(168,85,247,.20)}.roster-list{display:grid;gap:8px;max-height:430px;overflow:auto}.player-pill{padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.045);display:flex;gap:8px;align-items:center;flex-wrap:wrap}.player-num,.roster-badge,.join-state-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:999px;background:rgba(168,85,247,.20);font-weight:900;color:#e9d5ff}.tier-badge{color:#c084fc;font-weight:900}.player-name{font-weight:900}.player-pubg,.cancel-time,.cancel-reason{color:rgba(255,255,255,.58);font-size:13px}.cancel-admin-area{display:none}.cancel-admin-area.manager-visible,.join-manager-controls.manager-visible{display:block}.empty-list{color:rgba(255,255,255,.55);padding:14px}.join-closed-msg.show::before{content:'현재 모집이 마감되었습니다.';display:block;margin-top:10px;color:#fca5a5;font-weight:900}@media (max-width:1180px){.main-nav{display:flex;justify-content:center;align-items:center;gap:48px;height:100%}}@media (max-width:820px){.topbar{height:auto}.quickbar a{border-bottom:1px solid rgba(190,160,255,.14)}.logo-sub{letter-spacing:6px}.join-main{grid-template-columns:1fr}}@media (min-width:1921px){.site::before{background-size:cover}}
+
+/* =========================================================
+   PKL INDEX - reference image precision layout adjustment
+   요청 기준: 기존 구조 유지 + UI 크기/간격/위치만 정밀 조정
+   ========================================================= */
+.topbar{
+  height:96px;
+  background:rgba(4,5,10,.76);
+  border-bottom:1px solid rgba(156,95,255,.15);
+}
+.topbar-inner{
+  max-width:1740px;
+  padding:0 54px;
+  grid-template-columns:300px minmax(0,1fr) 300px;
+  gap:22px;
+}
+.brand-mark{font-size:36px;letter-spacing:-2.5px}
+.brand-name{font-size:12px;letter-spacing:2.25px;color:rgba(255,255,255,.74)}
+.main-nav{gap:34px;min-width:0}
+.main-nav a{font-size:13px;letter-spacing:.25px;color:rgba(255,255,255,.66)}
+
+.user-box{gap:12px}.top-btn{height:40px;min-width:100px;background:transparent;border-color:transparent;box-shadow:none;color:rgba(255,255,255,.72);font-size:15px;letter-spacing:.25px}
+
+.hero{
+  max-width:1238px;
+  padding:260px 20px 0;
+  min-height:calc(100vh - 96px);
+}
+.primary-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:22px;
+}
+.feature-card{
+  min-height:287px;
+  padding:34px 32px 24px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.14);
+  background:linear-gradient(180deg,rgba(11,12,20,.72),rgba(6,6,12,.76));
+  box-shadow:inset 0 0 32px rgba(255,255,255,.025),0 18px 38px rgba(0,0,0,.22);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+}
+.feature-card:hover{transform:translateY(-4px);box-shadow:0 20px 54px rgba(0,0,0,.42),0 0 30px rgba(126,68,255,.16)}
+.feature-icon{
+  font-size:56px;
+  line-height:1;
+  margin:0 0 24px;
+  color:#c4b5fd;
+  text-shadow:0 0 18px rgba(168,85,247,.68),0 0 34px rgba(168,85,247,.22);
+}
+.feature-card h2{margin:0 0 20px;font-size:20px;font-weight:1000;letter-spacing:-.45px;color:#fff}
+.feature-card p{min-height:48px;margin:0 auto 22px;font-size:13px;line-height:1.72;color:rgba(255,255,255,.66);word-break:keep-all}
+.card-btn,.feature-card:hover .card-btn{
+  width:198px;
+  height:40px;
+  border-radius:6px;
+  border:1px solid rgba(191,148,255,.43);
+  background:rgba(7,6,14,.42);
+  color:#e9d5ff;
+  font-size:13px;
+  font-weight:1000;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:inset 0 0 16px rgba(168,85,247,.055);
+}
+.quickbar{
+  margin-top:-8px;
+  height:68px;
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  border-radius:8px;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(180deg,rgba(9,9,16,.78),rgba(4,4,9,.82));
+  box-shadow:0 14px 30px rgba(0,0,0,.22);
+}
+.quickbar a{height:100%;font-size:15px;gap:14px;color:rgba(255,255,255,.82)}
+.quickbar a span{font-size:23px;color:#c4b5fd;text-shadow:0 0 14px rgba(168,85,247,.48)}
+.info-grid{
+  margin-top:-6px;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:22px;
+}
+.info-card{
+  min-height:205px;
+  padding:25px 28px 22px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(180deg,rgba(9,10,18,.76),rgba(5,5,11,.82));
+  box-shadow:inset 0 0 28px rgba(255,255,255,.018),0 16px 34px rgba(0,0,0,.2);
+}
+.info-head{margin-bottom:24px}.info-card h3{font-size:16px;font-weight:1000}.more{font-size:13px;color:#c084fc}
+.notice-list,.rank-list{gap:13px}.notice-row,.rank-row{font-size:14px}.dot{width:6px;height:6px}.discord-text{font-size:14px;line-height:1.75;margin-bottom:18px}.discord-btn{height:40px;padding:0 26px;border-radius:6px}.discord-icon{font-size:66px;opacity:.9}
+.footer{padding:26px 20px 32px;font-size:13px;color:rgba(255,255,255,.40)}
+@media (max-width:1280px){
+  .topbar-inner{padding:0 28px;grid-template-columns:245px minmax(0,1fr) 180px}.main-nav{gap:20px}.hero{max-width:1120px;padding-top:310px}.feature-card{min-height:250px;padding:26px 22px 20px}.card-btn,.feature-card:hover .card-btn{width:170px}.quickbar{margin-top:22px}.info-grid{gap:16px}
+}
+@media (max-width:900px){.topbar-inner{display:flex;flex-direction:column;padding:18px 18px;gap:16px}.main-nav{flex-wrap:wrap;gap:18px}.user-box{justify-content:center}.hero{padding:230px 16px 0}.primary-grid,.info-grid{grid-template-columns:1fr}.quickbar{grid-template-columns:1fr;height:auto}.quickbar a{height:52px;border-right:0;border-bottom:1px solid rgba(190,160,255,.14)}.feature-card{min-height:235px}
+}
+@media (min-width:1921px){
+  .topbar-inner{max-width:1740px;padding:0 54px;grid-template-columns:300px minmax(0,1fr) 300px}.hero{max-width:1238px;padding:340px 20px 0;min-height:calc(100vh - 96px)}
+}
+
+/* =========================================================
+   PKL INDEX - final tight layout correction
+   목적: 전체 UI 위로 이동 + quickbar/info 겹침 제거 + 다닥다닥 정렬
+   ========================================================= */
+.hero{
+  max-width:1238px !important;
+  padding:225px 20px 0 !important;
+  min-height:calc(100vh - 96px) !important;
+}
+.primary-grid{
+  gap:22px !important;
+  margin-top:0 !important;
+}
+.quickbar{
+  margin-top:8px !important;
+  height:68px !important;
+  position:relative !important;
+  z-index:2 !important;
+}
+.info-grid{
+  margin-top:10px !important;
+  gap:22px !important;
+  position:relative !important;
+  z-index:1 !important;
+}
+.feature-card,
+.quickbar,
+.info-card{
+  transform:none;
+}
+.main-nav{gap:38px !important}
+.main-nav a{font-size:15px !important}
+.brand-name{font-size:13px !important}
+.top-btn{font-size:14px !important}
+
+@media (max-width:1280px){
+  .hero{padding-top:230px !important}
+  .quickbar{margin-top:8px !important}
+  .info-grid{margin-top:10px !important}
+}
+@media (max-width:900px){
+  .hero{padding:220px 16px 0 !important}
+  .quickbar{margin-top:10px !important}
+  .info-grid{margin-top:12px !important}
+}
+@media (min-width:1921px){
+  .hero{
+    max-width:1238px !important;
+    padding:225px 20px 0 !important;
+    min-height:calc(100vh - 96px) !important;
+  }
+}
+
+/* =========================================================
+   PKL MY HOVER DROPDOWN - working final
+   ========================================================= */
+.account-wrap{
+  position:relative !important;
+  display:flex !important;
+  align-items:center !important;
+}
+
+.account-trigger{
+  position:relative !important;
+  cursor:pointer !important;
+}
+
+.account-menu{
+  display:block !important;
+  position:absolute !important;
+  top:52px !important;
+  right:0 !important;
+  width:184px !important;
+  padding:9px !important;
+  border-radius:12px !important;
+  border:1px solid rgba(213,184,255,.34) !important;
+  background:
+    radial-gradient(circle at 50% 0%,rgba(168,85,247,.20),transparent 42%),
+    linear-gradient(180deg,rgba(12,10,24,.96),rgba(5,5,12,.98)) !important;
+  box-shadow:
+    0 24px 60px rgba(0,0,0,.58),
+    0 0 32px rgba(168,85,247,.24),
+    inset 0 0 28px rgba(255,255,255,.025) !important;
+  backdrop-filter:blur(16px) !important;
+  -webkit-backdrop-filter:blur(16px) !important;
+  opacity:0 !important;
+  visibility:hidden !important;
+  transform:translateY(10px) scale(.96) !important;
+  transform-origin:top right !important;
+  pointer-events:none !important;
+  transition:opacity .22s ease, transform .22s ease, visibility .22s ease !important;
+  z-index:9999 !important;
+}
+
+.account-wrap.is-logged-in:hover .account-menu,
+.account-menu.open{
+  opacity:1 !important;
+  visibility:visible !important;
+  transform:translateY(0) scale(1) !important;
+  pointer-events:auto !important;
+}
+
+.account-menu::before{
+  content:"";
+  position:absolute;
+  left:20px;
+  right:20px;
+  top:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,#a855f7,#f2eaff,#a855f7,transparent);
+  box-shadow:0 0 16px rgba(168,85,247,.9);
+}
+
+.account-menu button{
+  width:100% !important;
+  height:42px !important;
+  border:0 !important;
+  border-radius:8px !important;
+  background:transparent !important;
+  color:rgba(255,255,255,.78) !important;
+  font-size:14px !important;
+  font-weight:1000 !important;
+  text-align:left !important;
+  padding:0 14px !important;
+  cursor:pointer !important;
+  display:flex !important;
+  align-items:center !important;
+  transition:.18s ease !important;
+}
+
+.account-menu button + button{
+  margin-top:6px !important;
+}
+
+.account-menu button:hover{
+  color:#fff !important;
+  background:linear-gradient(90deg,rgba(168,85,247,.22),rgba(168,85,247,.06),transparent) !important;
+  padding-left:20px !important;
+  text-shadow:0 0 14px rgba(168,85,247,.85) !important;
+}
+
+/* FIX: center align + hover gap */
+.account-menu{
+  left:50% !important;
+  right:auto !important;
+  transform:translateX(-50%) translateY(10px) scale(.96) !important;
+}
+
+.account-wrap.is-logged-in:hover .account-menu{
+  transform:translateX(-50%) translateY(0) scale(1) !important;
+}
+
+/* hover bridge (prevents flicker) */
+.account-wrap::after{
+  content:"";
+  position:absolute;
+  left:-20px;
+  right:-20px;
+  top:100%;
+  height:20px;
+}
+
+
+/* ===== PKL MY MAILBOX NOTIFICATION ===== */
+.account-trigger{
+  position:relative !important;
+}
+.mail-badge{
+  position:absolute;
+  top:-7px;
+  right:-9px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:999px;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:linear-gradient(180deg,#ff4d7d,#b91c1c);
+  color:#fff;
+  font-size:11px;
+  font-weight:1000;
+  line-height:18px;
+  box-shadow:0 0 14px rgba(244,63,94,.72),0 0 0 1px rgba(255,255,255,.18);
+  pointer-events:none;
+}
+.mail-badge.show{
+  display:flex;
+}
+.account-menu button.mailbox-btn{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:10px !important;
+}
+.mailbox-menu-count{
+  min-width:20px;
+  height:20px;
+  padding:0 6px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(244,63,94,.18);
+  border:1px solid rgba(244,63,94,.42);
+  color:#fecdd3;
+  font-size:11px;
+  font-weight:1000;
+  box-shadow:0 0 12px rgba(244,63,94,.25);
+}
+
+/* ===== PKL MAILBOX MODAL ===== */
+.mailbox-modal{
+  position:fixed;
+  inset:0;
+  z-index:20000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:28px;
+  background:rgba(0,0,0,.68);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.mailbox-modal.open{
+  display:flex;
+}
+.mailbox-card{
+  position:relative;
+  width:min(620px,94vw);
+  border-radius:22px;
+  border:1px solid rgba(216,180,254,.32);
+  background:
+    radial-gradient(circle at 50% 0%,rgba(168,85,247,.20),transparent 38%),
+    linear-gradient(180deg,rgba(13,9,30,.98),rgba(5,5,12,.98));
+  box-shadow:
+    0 34px 110px rgba(0,0,0,.72),
+    0 0 48px rgba(168,85,247,.24),
+    inset 0 0 34px rgba(255,255,255,.024);
+  overflow:hidden;
+}
+.mailbox-card::before{
+  content:"";
+  position:absolute;
+  left:58px;
+  right:58px;
+  top:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,#8b5cf6,#fff,#d946ef,transparent);
+  box-shadow:0 0 18px rgba(168,85,247,.9);
+}
+.mailbox-head{
+  height:76px;
+  padding:0 22px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid rgba(216,180,254,.13);
+}
+.mailbox-head h2{
+  margin:0;
+  font-size:22px;
+  font-weight:1000;
+  letter-spacing:-.4px;
+  text-shadow:0 0 18px rgba(168,85,247,.45);
+}
+.mailbox-head h2 span{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:24px;
+  height:24px;
+  margin-left:8px;
+  padding:0 8px;
+  border-radius:999px;
+  background:rgba(244,63,94,.20);
+  border:1px solid rgba(244,63,94,.46);
+  color:#fecdd3;
+  font-size:12px;
+  box-shadow:0 0 14px rgba(244,63,94,.28);
+}
+.mailbox-close{
+  width:38px;
+  height:38px;
+  border-radius:11px;
+  border:1px solid rgba(248,113,113,.36);
+  background:rgba(127,29,29,.22);
+  color:#fecaca;
+  font-size:22px;
+  font-weight:1000;
+  cursor:pointer;
+}
+.mailbox-body{
+  padding:18px;
+}
+.mail-item{
+  display:grid;
+  grid-template-columns:58px minmax(0,1fr);
+  gap:14px;
+  padding:16px;
+  border-radius:17px;
+  border:1px solid rgba(216,180,254,.16);
+  background:linear-gradient(135deg,rgba(255,255,255,.055),rgba(168,85,247,.07));
+  box-shadow:inset 0 0 20px rgba(255,255,255,.014);
+}
+.mail-icon{
+  width:58px;
+  height:58px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.24),rgba(245,158,11,.28) 42%,rgba(4,4,12,.96));
+  border:1px solid rgba(245,158,11,.34);
+  box-shadow:0 0 24px rgba(245,158,11,.16);
+  font-size:26px;
+}
+.mail-content h3{
+  margin:0;
+  font-size:17px;
+  font-weight:1000;
+}
+.mail-content p{
+  margin:8px 0 0;
+  color:rgba(248,245,255,.72);
+  font-size:14px;
+  line-height:1.65;
+  font-weight:800;
+}
+.mail-meta{
+  margin-top:10px;
+  color:rgba(248,245,255,.44);
+  font-size:12px;
+  font-weight:900;
+}
+.mailbox-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  padding:0 18px 18px;
+}
+.mailbox-actions button{
+  height:40px;
+  padding:0 15px;
+  border-radius:11px;
+  border:1px solid rgba(216,180,254,.20);
+  background:rgba(255,255,255,.05);
+  color:#fff;
+  font-weight:1000;
+  cursor:pointer;
+}
+.mailbox-actions button.primary{
+  border-color:rgba(168,85,247,.38);
+  background:linear-gradient(90deg,rgba(124,58,237,.55),rgba(217,70,239,.20));
+}
+
+/* ===== PKL MAILBOX MODAL DETAIL UPDATE ===== */
+.mailbox-close{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  line-height:1 !important;
+  padding:0 0 3px 0 !important;
+}
+.mailbox-list{
+  display:grid;
+  gap:10px;
+}
+.mail-row{
+  width:100%;
+  min-height:68px;
+  border:1px solid rgba(216,180,254,.14);
+  border-radius:15px;
+  background:linear-gradient(135deg,rgba(255,255,255,.052),rgba(168,85,247,.065));
+  color:#fff;
+  padding:13px 14px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  text-align:left;
+  cursor:pointer;
+  transition:.16s ease;
+}
+.mail-row:hover{
+  transform:translateY(-1px);
+  border-color:rgba(216,180,254,.36);
+  box-shadow:0 0 24px rgba(168,85,247,.16);
+}
+.mail-row.read{
+  opacity:.62;
+}
+.mail-row-title{
+  font-size:15px;
+  font-weight:1000;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.mail-row-date{
+  margin-top:6px;
+  color:rgba(248,245,255,.48);
+  font-size:12px;
+  font-weight:900;
+}
+.mail-row-badge{
+  align-self:center;
+  min-width:44px;
+  height:24px;
+  padding:0 9px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid rgba(244,63,94,.38);
+  background:rgba(244,63,94,.14);
+  color:#fecdd3;
+  font-size:11px;
+  font-weight:1000;
+}
+.mail-row.read .mail-row-badge{
+  border-color:rgba(216,180,254,.18);
+  background:rgba(255,255,255,.04);
+  color:rgba(248,245,255,.46);
+}
+.mail-detail{
+  display:none;
+  border:1px solid rgba(216,180,254,.16);
+  border-radius:17px;
+  background:linear-gradient(135deg,rgba(255,255,255,.055),rgba(168,85,247,.07));
+  padding:17px;
+}
+.mail-detail.open{
+  display:block;
+}
+.mail-detail-top{
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  border-bottom:1px solid rgba(216,180,254,.10);
+  padding-bottom:13px;
+  margin-bottom:13px;
+}
+.mail-detail h3{
+  margin:0;
+  font-size:18px;
+  font-weight:1000;
+}
+.mail-detail-date{
+  color:rgba(248,245,255,.48);
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.mail-detail p{
+  margin:0;
+  color:rgba(248,245,255,.76);
+  font-size:14px;
+  line-height:1.72;
+  font-weight:800;
+}
+.mail-detail-meta{
+  margin-top:13px;
+  padding-top:13px;
+  border-top:1px solid rgba(216,180,254,.10);
+  color:#d8b4fe;
+  font-size:13px;
+  font-weight:1000;
+}
+
+.mail-empty{
+  min-height:150px;
+  border:1px solid rgba(216,180,254,.14);
+  border-radius:16px;
+  background:rgba(255,255,255,.035);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:rgba(248,245,255,.56);
+  font-size:15px;
+  font-weight:900;
+}
+.mail-detail-actions{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:14px;
+}
+.mail-delete{
+  height:36px;
+  padding:0 13px;
+  border-radius:10px;
+  border:1px solid rgba(239,68,68,.34);
+  background:rgba(127,29,29,.22);
+  color:#fecaca;
+  font-weight:1000;
+  cursor:pointer;
+}
+
+.mail-back{
+  height:36px;
+  margin-top:14px;
+  padding:0 13px;
+  border-radius:10px;
+  border:1px solid rgba(216,180,254,.20);
+  background:rgba(255,255,255,.05);
+  color:#fff;
+  font-weight:1000;
+  cursor:pointer;
+}
+.mailbox-actions{
+  justify-content:flex-end !important;
+}
+.mailbox-actions .mailbox-close-btn{
+  display:none !important;
+}
+.mail-confirm{
+  position:fixed;
+  inset:0;
+  z-index:21000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(0,0,0,.62);
+  backdrop-filter:blur(10px);
+}
+.mail-confirm.open{
+  display:flex;
+}
+.mail-confirm-card{
+  width:min(420px,92vw);
+  border-radius:18px;
+  border:1px solid rgba(216,180,254,.30);
+  background:linear-gradient(180deg,rgba(13,9,30,.98),rgba(5,5,12,.98));
+  box-shadow:0 30px 90px rgba(0,0,0,.70),0 0 42px rgba(168,85,247,.22);
+  padding:22px;
+}
+.mail-confirm-card h3{
+  margin:0 0 10px;
+  font-size:20px;
+}
+.mail-confirm-card p{
+  margin:0;
+  color:rgba(248,245,255,.74);
+  font-weight:800;
+  line-height:1.6;
+}
+.mail-confirm-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:9px;
+  margin-top:18px;
+}
+.mail-confirm-actions button{
+  height:38px;
+  padding:0 15px;
+  border-radius:10px;
+  border:1px solid rgba(216,180,254,.20);
+  background:rgba(255,255,255,.05);
+  color:#fff;
+  font-weight:1000;
+  cursor:pointer;
+}
+.mail-confirm-actions .yes{
+  border-color:rgba(34,197,94,.34);
+  background:rgba(22,101,52,.24);
+  color:#bbf7d0;
+}
+.mail-confirm-actions .no{
+  border-color:rgba(239,68,68,.34);
+  background:rgba(127,29,29,.22);
+  color:#fecaca;
+}
+
+/* ===== MAILBOX POSITION / NEW BADGE FIX ===== */
+.mail-badge{
+  top:-11px !important;
+  right:-13px !important;
+  transform:translateY(-1px) !important;
+}
+.mailbox-close{
+  transform:translate(3px,-3px) !important;
+}
+.mailbox-menu-count{
+  min-width:auto !important;
+  height:19px !important;
+  padding:0 7px !important;
+  border-radius:999px !important;
+  background:rgba(168,85,247,.18) !important;
+  border:1px solid rgba(216,180,254,.38) !important;
+  color:#e9d5ff !important;
+  font-size:10px !important;
+  letter-spacing:.4px !important;
+  box-shadow:0 0 12px rgba(168,85,247,.28) !important;
+}
+
+/* ===== FORCE MY NOTIFICATION BADGE VISIBLE ===== */
+#mailBadge,
+.mail-badge{
+  display:inline-flex !important;
+  position:absolute !important;
+  top:-10px !important;
+  right:-14px !important;
+  min-width:18px !important;
+  height:18px !important;
+  padding:0 5px !important;
+  border-radius:999px !important;
+  align-items:center !important;
+  justify-content:center !important;
+  background:linear-gradient(180deg,#ff4d7d,#b91c1c) !important;
+  color:#fff !important;
+  font-size:11px !important;
+  font-weight:1000 !important;
+  line-height:18px !important;
+  box-shadow:0 0 14px rgba(244,63,94,.72),0 0 0 1px rgba(255,255,255,.18) !important;
+  pointer-events:none !important;
+  z-index:20 !important;
+}
+.account-trigger,
+#myBtn,
+.top-btn{
+  position:relative !important;
+  overflow:visible !important;
+}
+
+/* ===== BADGE CLOSER TO MY ===== */
+#mailBadge,
+.mail-badge{
+  top:-6px !important;
+  right:-8px !important;
+}
+
+/* ===== BADGE NUMBER NUDGE UP INSIDE ===== */
+#mailBadge,
+.mail-badge{
+  align-items:flex-start !important;
+  padding-top:1px !important;
+  line-height:16px !important;
+}
+
+/* ===== BADGE TIGHTER & NUMBER HIGHER ===== */
+#mailBadge,
+.mail-badge{
+  top:-5px !important;      /* closer vertically to MY */
+  right:-5px !important;    /* closer horizontally to MY */
+  align-items:flex-start !important;
+  padding-top:0px !important;
+  line-height:14px !important;
+  transform:translateY(-1px) !important;
+}
+
+/* ===== FINAL BADGE CENTER + ULTRA CLOSE ===== */
+#mailBadge,
+.mail-badge{
+  top:-4px !important;
+  right:-2px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:0 !important;
+  line-height:1 !important;
+  font-size:10px !important;
+}
+
+/* ===== TRUE CENTER FIX (GRID) ===== */
+#mailBadge,
+.mail-badge{
+  top:-5px !important;
+  right:-1px !important;
+  display:grid !important;
+  place-items:center !important;
+  height:18px !important;
+  min-width:18px !important;
+  line-height:18px !important;
+  font-size:10px !important;
+  padding:0 !important;
+}
+
+/* ===== DROPDOWN HOVER FIX ===== */
+.account-wrap{
+  position:relative !important;
+}
+.account-menu{
+  position:absolute !important;
+  top:100% !important;
+  left:50% !important;
+  transform:translateX(-50%) translateY(8px) !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+  transition:.18s ease !important;
+}
+.account-wrap:hover .account-menu{
+  opacity:1 !important;
+  pointer-events:auto !important;
+  transform:translateX(-50%) translateY(4px) !important;
+}
+
+/* ===== ACCOUNT DROPDOWN: HOVER RESTORE + CENTER UNDER MY ===== */
+.account-wrap{
+  position:relative !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+
+.account-menu{
+  display:block !important;
+  position:absolute !important;
+  top:calc(100% + 12px) !important;
+  left:50% !important;
+  right:auto !important;
+  transform:translateX(-50%) translateY(8px) scale(.96) !important;
+  opacity:0 !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+  transition:opacity .18s ease, transform .18s ease, visibility .18s ease !important;
+  z-index:9999 !important;
+}
+
+.account-wrap:hover .account-menu,
+.account-menu:hover,
+.account-menu.open{
+  opacity:1 !important;
+  visibility:visible !important;
+  pointer-events:auto !important;
+  transform:translateX(-50%) translateY(0) scale(1) !important;
+}
+
+/* keep a small invisible bridge so moving mouse down doesn't close it */
+.account-wrap::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:100%;
+  transform:translateX(-50%);
+  width:190px;
+  height:16px;
+  pointer-events:auto;
+}
+
+/* unread badge appears only when unread count > 0 */
+#mailBadge.mail-badge{
+  display:none !important;
+}
+#mailBadge.mail-badge.show{
+  display:grid !important;
+  place-items:center !important;
+}
+
+/* PKL 로그인 전 드롭다운 노출 방지 */
+body.pkl-logged-out .tier-account-menu,
+body.pkl-logged-out .account-menu,
+body.pkl-logged-out .my-menu,
+body.pkl-logged-out .user-dropdown,
+body.pkl-logged-out .profile-dropdown{
+  display:none !important;
+  opacity:0 !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
+
+.tier-page-area{.tier-page-area{
+  width:100vw !important;
+  max-width:none !important;
+  min-height:calc(100vh - 112px) !important;
+  margin:0 !important;
+  padding:0 8px 12px !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  color:#fff !important;
+  font-size:14px !important;
+  font-weight:900 !important;
+}
+
+.pkl-tier-cinema{
+  position:relative;
+  width:100% !important;
+  min-height:calc(100vh - 118px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:8px 0 0 !important;
+}
+
+.pkl-tier-spot{
+  position:absolute;
+  top:-50px;
+  left:50%;
+  width:920px;
+  height:360px;
+  transform:translateX(-50%);
+  background:radial-gradient(ellipse at center,rgba(216,180,254,.28),rgba(168,85,247,.13) 34%,transparent 70%);
+  filter:blur(12px);
+  pointer-events:none;
+}
+
+.pkl-tier-shell{
+  position:relative;
+  width:100% !important;
+  max-width:none !important;
+  height:auto !important;
+  min-height:auto !important;
+  padding:6px 12px 20px !important;
+  border:1px solid rgba(216,180,254,.22);
+  border-radius:24px;
+  background:
+    linear-gradient(135deg,transparent 0 4%,rgba(168,85,247,.18) 4.08% 4.22%,transparent 4.45% 95.55%,rgba(168,85,247,.18) 95.78% 95.92%,transparent 96%),
+    radial-gradient(circle at 50% 0%,rgba(168,85,247,.16),transparent 31%),
+    linear-gradient(180deg,rgba(8,8,18,.76),rgba(3,3,8,.93));
+  box-shadow:0 34px 95px rgba(0,0,0,.58),0 0 46px rgba(168,85,247,.14),inset 0 0 42px rgba(255,255,255,.025);
+  overflow:hidden;
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+.pkl-tier-shell::before{
+  content:"";
+  position:absolute;
+  left:90px;
+  right:90px;
+  top:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,#8b5cf6,#fff,#8b5cf6,transparent);
+  box-shadow:0 0 22px rgba(168,85,247,.95);
+}
+
+.pkl-tier-board-title{
+  height:54px;
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  gap:24px;
+  align-items:center;
+  text-align:center;
+  margin-bottom:4px !important;
+}
+
+.pkl-tier-board-title span{
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(168,85,247,.56),transparent);
+  box-shadow:0 0 18px rgba(168,85,247,.35);
+}
+
+.pkl-tier-board-title strong{
+  display:block;
+  font-size:28px;
+  letter-spacing:10px;
+  font-weight:1000;
+  color:#f5f3ff;
+  text-shadow:0 0 18px rgba(168,85,247,.72);
+}
+
+.pkl-tier-board-title em{
+  display:block;
+  margin-top:6px;
+  font-style:normal;
+  font-size:10px;
+  letter-spacing:5px;
+  color:rgba(216,180,254,.72);
+}
+
+.pkl-tier-content{
+  width:100% !important;
+  height:auto !important;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 190px !important;
+  gap:14px;
+  align-items:stretch !important;
+  flex:1 !important;
+}
+
+.pkl-tier-cards{
+  width:100% !important;
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  gap:10px;
+  align-items:stretch !important;
+}
+
+.pkl-tier-card,
+.pkl-beast-card{
+  --tier:#a855f7;
+  position:relative;
+  width:100% !important;
+  height:auto !important;
+  min-height:0;
+  border:1px solid color-mix(in srgb,var(--tier) 68%,transparent);
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--tier) 18%,transparent),transparent 38%),
+    linear-gradient(180deg,color-mix(in srgb,var(--tier) 10%,transparent),rgba(5,5,12,.82) 42%,rgba(3,3,8,.94));
+  box-shadow:0 0 24px color-mix(in srgb,var(--tier) 16%,transparent),inset 0 0 28px rgba(255,255,255,.025);
+  overflow:hidden;
+  display:flex !important;
+  flex-direction:column !important;
+  padding-top:0 !important;
+}
+
+.pkl-tier-card::before,
+.pkl-beast-card::before{
+  content:"";
+  position:absolute;
+  left:24px;
+  right:24px;
+  top:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--tier) 75%,#fff),transparent);
+  box-shadow:0 0 16px color-mix(in srgb,var(--tier) 55%,transparent);
+}
+
+.tier-red{--tier:#ff244d}
+.tier-yellow{--tier:#ffd43b}
+.tier-green{--tier:#48d958}
+.tier-blue{--tier:#4389ff}
+.tier-purple{--tier:#a855f7}
+.tier-brown{--tier:#b46b35}
+
+.pkl-tier-head,
+.pkl-beast-head{
+  height:130px !important;
+  margin-bottom:0 !important;
+  padding-top:4px !important;
+  border-bottom:none !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  overflow:hidden !important;
+  box-sizing:border-box !important;
+}
+
+.pkl-tier-head img,
+.pkl-beast-head img{
+  width:100% !important;
+  height:100% !important;
+  object-fit:contain !important;
+  display:block !important;
+  margin:0 !important;
+  transform:scale(2) !important;
+  transform-origin:center center !important;
+  filter:drop-shadow(0 0 10px color-mix(in srgb,var(--tier) 64%,transparent)) drop-shadow(0 0 22px color-mix(in srgb,var(--tier) 22%,transparent));
+}
+
+.tier-yellow .pkl-tier-head img{
+  transform:scale(2.2) !important;
+}
+
+.tier-blue .pkl-tier-head img{
+  transform:scale(2.35) translateY(6px) !important;
+}
+
+.tier-purple .pkl-tier-head img{
+  transform:scale(2.25) translateY(2px) !important;
+}
+
+.pkl-tier-title,
+.pkl-tier-title strong,
+.pkl-tier-title span,
+.pkl-tier-name,
+.pkl-beast-head div,
+.pkl-beast-head strong,
+.pkl-beast-head span{
+  display:none !important;
+}
+
+.pkl-tier-lanes{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:8px;
+  padding:0 10px 10px !important;
+  margin-top:0 !important;
+  flex:1 1 auto !important;
+  align-items:stretch !important;
+}
+
+.pkl-tier-lane,
+.pkl-beast-line{
+  width:100% !important;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:13px;
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(0,0,0,.20));
+  box-shadow:inset 0 0 18px rgba(255,255,255,.016);
+  overflow:hidden;
+}
+
+.pkl-tier-lane{
+  min-height:560px !important;
+  height:100% !important;
+  display:flex !important;
+  flex-direction:column !important;
+  flex:1 1 auto !important;
+}
+
+.pkl-lane-rank{
+  height:34px;
+  margin-top:4px !important;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:color-mix(in srgb,var(--tier) 72%,#fff);
+  font-size:15px;
+  font-weight:1000;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--tier) 15%,transparent),transparent);
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+
+.pkl-lane-score{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  padding:8px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+
+.pkl-lane-score input{
+  width:100%;
+  height:30px;
+  padding:0 !important;
+  margin:0 !important;
+  border-radius:8px;
+  border:1px solid color-mix(in srgb,var(--tier) 34%,rgba(255,255,255,.12));
+  background:rgba(0,0,0,.34);
+  color:#fff;
+  text-align:center !important;
+  font-size:13px;
+  font-weight:1000;
+  line-height:30px !important;
+  outline:none;
+  font-family:inherit;
+  box-shadow:inset 0 0 10px rgba(0,0,0,.34);
+  appearance:textfield !important;
+  -moz-appearance:textfield !important;
+}
+
+.pkl-lane-score input::-webkit-outer-spin-button,
+.pkl-lane-score input::-webkit-inner-spin-button{
+  -webkit-appearance:none !important;
+  margin:0 !important;
+}
+
+.pkl-lane-score input:last-child{
+  color:#ff7a8d;
+}
+
+.pkl-lane-score input:focus{
+  border-color:color-mix(in srgb,var(--tier) 82%,#fff);
+  box-shadow:0 0 13px color-mix(in srgb,var(--tier) 24%,transparent),inset 0 0 10px rgba(0,0,0,.34);
+}
+
+.pkl-lane-list{
+  height:auto !important;
+  min-height:420px !important;
+  padding:9px 8px;
+  display:flex;
+  flex:1 0 auto !important;
+  flex-direction:column;
+  gap:6px;
+  overflow:visible !important;
+}
+
+.pkl-side-zone{
+  width:190px !important;
+  height:100% !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-self:stretch !important;
+}
+
+.pkl-beast-card{
+  height:100% !important;
+  min-height:0 !important;
+  align-self:stretch !important;
+  padding:12px;
+}
+
+.pkl-beast-head{
+  flex:0 0 130px !important;
+  height:130px !important;
+  margin-bottom:0 !important;
+}
+
+.pkl-beast-line{
+  margin-top:0 !important;
+  display:flex !important;
+  flex:1 1 auto !important;
+  flex-direction:column !important;
+  min-height:560px !important;
+  height:auto !important;
+}
+
+.pkl-beast-line .pkl-lane-list{
+  flex:1 0 auto !important;
+  height:auto !important;
+  min-height:420px !important;
+  max-height:none !important;
+  padding:9px 8px;
+  overflow:visible !important;
+}
+
+.pkl-temp-card{
+  display:none !important;
+}
+
+/* PKL TIER ADMIN STATE SYNC */
+.pkl-tier-member{
+  width:100%;
+  min-height:28px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:5px 7px;
+  border-radius:8px;
+  border:1px solid color-mix(in srgb,var(--tier) 34%,rgba(255,255,255,.10));
+  background:linear-gradient(180deg,color-mix(in srgb,var(--tier) 15%,rgba(0,0,0,.42)),rgba(0,0,0,.38));
+  color:#f8f4ff;
+  font-size:12px;
+  font-weight:900;
+  line-height:1.15;
+  letter-spacing:-.2px;
+  text-align:center;
+  text-shadow:0 0 10px color-mix(in srgb,var(--tier) 36%,transparent);
+  box-shadow:inset 0 0 10px rgba(255,255,255,.025),0 0 12px color-mix(in srgb,var(--tier) 10%,transparent);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  flex:0 0 auto;
+  cursor:grab;
+  user-select:none;
+}
+
+.pkl-tier-member:active{
+  cursor:grabbing;
+}
+
+.pkl-tier-member.pkl-dragging{
+  opacity:.55;
+  transform:scale(.98);
+}
+
+.pkl-lane-list.pkl-drop-ready{
+  outline:1px solid color-mix(in srgb,var(--tier) 72%,#fff);
+  outline-offset:-2px;
+  box-shadow:inset 0 0 22px color-mix(in srgb,var(--tier) 18%,transparent);
+}
+
+/* PKL TIER CLICK GUARD */
+.pkl-tier-shell,
+.pkl-tier-content,
+.pkl-tier-cards,
+.pkl-tier-card,
+.pkl-beast-card,
+.pkl-tier-lane,
+.pkl-beast-line,
+.pkl-lane-rank,
+.pkl-lane-list,
+.pkl-tier-member{
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-touch-callout:none !important;
+  caret-color:transparent !important;
+}
+
+.pkl-lane-score,
+.pkl-lane-score input{
+  -webkit-user-select:text !important;
+  user-select:text !important;
+  caret-color:auto !important;
+}
+
+/* Responsive */
+@media (max-width:1480px){
+  html,
+  body{
+    overflow:auto !important;
+  }
+
+  .pkl-tier-content{
+    grid-template-columns:1fr !important;
+  }
+
+  .pkl-side-zone{
+    width:100% !important;
+    display:grid !important;
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+@media (max-width:1240px){
+  .pkl-tier-cards{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+
+  .pkl-side-zone{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:900px){
+  .topbar{
+    height:auto;
+  }
+
+  .topbar-inner{
+    display:flex;
+    flex-direction:column;
+    padding:18px;
+    gap:16px;
+  }
+
+  .main-nav{
+    flex-wrap:wrap;
+    gap:18px;
+  }
+
+  
+
+  .user-box{
+    justify-content:center;
+  }
+}
+
+@media (max-width:740px){
+  .pkl-tier-cards{
+    grid-template-columns:1fr !important;
+  }
+
+  .pkl-tier-lanes{
+    grid-template-columns:1fr !important;
+  }
+
+  .pkl-tier-board-title strong{
+    font-size:22px;
+    letter-spacing:5px;
+  }
+}
+
+
+/* ===== TIER MAIL RENDER ROBUST FIX ===== */
+.mail-detail p{
+  white-space:normal !important;
+}
+.mailbox-actions{
+  display:flex;
+  justify-content:flex-end;
+}
+
+
+.mailbox-actions .danger{
+  border:1px solid rgba(248,113,113,.6);
+  background:rgba(127,29,29,.35);
+  color:#fff;
+}
+.mailbox-actions .danger:hover{
+  background:rgba(185,28,28,.6);
+  box-shadow:0 0 12px rgba(248,113,113,.35);
+}
+
+/* ===== MAILBOX 5 ROW SCROLL FIX ===== */
+.mailbox-list{
+  max-height:390px !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  padding-right:4px !important;
+  align-content:start !important;
+}
+
+.mailbox-list::-webkit-scrollbar{
+  width:8px;
+}
+
+.mailbox-list::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.035);
+  border-radius:999px;
+}
+
+.mailbox-list::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg,rgba(168,85,247,.55),rgba(124,58,237,.30));
+  border-radius:999px;
+  border:1px solid rgba(216,180,254,.12);
+}
+
+.mailbox-list::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(180deg,rgba(216,180,254,.65),rgba(168,85,247,.38));
+}
+
+.mailbox-body{
+  min-height:0 !important;
+}
+
+.mailbox-card{
+  max-height:86vh !important;
+}
+
+
+/* ===== MAIL DELETE ALL CONFIRM STYLE ===== */
+.mailbox-actions .danger{
+  border:1px solid rgba(248,113,113,.6);
+  background:rgba(127,29,29,.35);
+  color:#fff;
+}
+.mail-confirm-actions .danger{
+  border-color:rgba(248,113,113,.55) !important;
+  background:linear-gradient(135deg,rgba(127,29,29,.72),rgba(69,10,10,.92)) !important;
+  color:#fff !important;
+  box-shadow:0 0 14px rgba(248,113,113,.20) !important;
+}
+.mail-confirm-actions .danger:hover{
+  border-color:rgba(248,113,113,.82) !important;
+  background:linear-gradient(135deg,rgba(153,27,27,.88),rgba(69,10,10,.98)) !important;
+  box-shadow:0 0 18px rgba(248,113,113,.32) !important;
+}
+
+
+/* ===== MAIL CONFIRM YES YELLOW ===== */
+.mail-confirm-actions .warning{
+  border-color:rgba(250,204,21,.6) !important;
+  background:linear-gradient(135deg,rgba(202,138,4,.7),rgba(45,23,3,.95)) !important;
+  color:#fef3c7 !important;
+  box-shadow:0 0 14px rgba(250,204,21,.25) !important;
+}
+.mail-confirm-actions .warning:hover{
+  border-color:rgba(250,204,21,.9) !important;
+  background:linear-gradient(135deg,rgba(202,138,4,.9),rgba(45,23,3,.98)) !important;
+  box-shadow:0 0 18px rgba(250,204,21,.35) !important;
+}
+
+
+/* ===== MAIL CONFIRM YES PURPLE ===== */
+.mail-confirm-actions .purple{
+  border-color:rgba(168,85,247,.6) !important;
+  background:linear-gradient(135deg,rgba(124,58,237,.7),rgba(30,10,60,.95)) !important;
+  color:#ede9fe !important;
+  box-shadow:0 0 14px rgba(168,85,247,.25) !important;
+}
+.mail-confirm-actions .purple:hover{
+  border-color:rgba(168,85,247,.9) !important;
+  background:linear-gradient(135deg,rgba(124,58,237,.9),rgba(30,10,60,.98)) !important;
+  box-shadow:0 0 18px rgba(168,85,247,.35) !important;
+}
+
+
+
+/* ===== PKL HEADER HOVER CLEAN FINAL ===== */
+.main-nav a,
+.top-btn,
+.account-trigger,
+#loginBtn,
+#myBtn,
+#adminBtn,
+.manager-btn{
+  position:relative !important;
+  overflow:visible !important;
+  border-color:transparent !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  outline:none !important;
+  transition:color .22s ease, transform .22s ease, text-shadow .22s ease !important;
+}
+
+.main-nav a::before,
+.top-btn::before,
+.account-trigger::before,
+#loginBtn::before,
+#myBtn::before,
+#adminBtn::before,
+.manager-btn::before{
+  content:"" !important;
+  position:absolute !important;
+  left:50% !important;
+  top:-14px !important;
+  width:0 !important;
+  height:3px !important;
+  border-radius:999px !important;
+  transform:translateX(-50%) !important;
+  pointer-events:none !important;
+  opacity:0 !important;
+  background:linear-gradient(90deg, transparent, #a855f7, #ffffff, #a855f7, transparent) !important;
+  box-shadow:0 0 10px rgba(192,132,252,.95),0 0 22px rgba(168,85,247,.72),0 0 34px rgba(168,85,247,.38) !important;
+  transition:width .24s ease, opacity .24s ease !important;
+}
+
+.main-nav a::after,
+.top-btn::after,
+.account-trigger::after,
+#loginBtn::after,
+#myBtn::after,
+#adminBtn::after,
+.manager-btn::after{
+  content:none !important;
+  display:none !important;
+}
+
+.main-nav a:hover,
+.main-nav a.active,
+.top-btn:hover,
+.account-trigger:hover,
+#loginBtn:hover,
+#myBtn:hover,
+#adminBtn:hover,
+.manager-btn:hover{
+  color:#ffffff !important;
+  transform:translateY(-2px) !important;
+  text-shadow:0 0 10px rgba(181,108,255,.75) !important;
+  border-color:transparent !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+.main-nav a:hover::before,
+.main-nav a.active::before,
+.top-btn:hover::before,
+.account-trigger:hover::before,
+#loginBtn:hover::before,
+#myBtn:hover::before,
+#adminBtn:hover::before,
+.manager-btn:hover::before{
+  width:100% !important;
+  opacity:1 !important;
+}
+
+</style>
+<link rel="stylesheet" href="pkl-main-common.css">
+
+<style>
+.pkl-ratio-grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+margin-top:6px;
+}
+.pkl-ratio-grid input{
+height:36px;
+text-align:center;
+border-radius:10px;
+border:1px solid rgba(216,180,254,.25);
+background:rgba(20,16,40,.7);
+color:#fff;
+font-weight:700;
+}
+</style>
+
+<style id="force-spacing-fix">
+#pklSideCreateModal .pkl-side-create-body{
+  padding-bottom:48px !important;
+}
+
+#pklSideCreateModal .pkl-side-create-actions{
+  margin-top:20px !important;
+}
+
+#pklSideCreateModal .pkl-side-check-row{
+  margin-top:18px !important;
+  margin-bottom:20px !important;
+}
+
+#pklSideCreateModal .pkl-side-field{
+  margin-bottom:18px !important;
+}
+</style>
+<script src="pkl-common-modal.js"></script>
+
+
+<style id="pklTierShinePassDragLayerFix">
+/* 기존 티어표 유지 + hover 시 빛이 한 번만 스윽 지나가는 효과 */
+.pkl-tier-card,
+.pkl-beast-card{
+  transition:transform .18s ease, filter .18s ease !important;
+}
+.pkl-tier-card:hover,
+.pkl-beast-card:hover{
+  transform:translateY(-2px) !important;
+  filter:brightness(1.025) !important;
+}
+
+/* 라인 자체는 평소와 동일, hover 때 스윕만 보이게 */
+.pkl-tier-lane,
+.pkl-beast-line{
+  position:relative !important;
+  overflow:hidden !important;
+  isolation:isolate !important;
+}
+
+/* 뿌연 안개/잔광 없이 얇은 유리 반사광만 지나감 */
+.pkl-tier-lane::after,
+.pkl-beast-line::after{
+  content:"";
+  position:absolute;
+  top:-22%;
+  left:-65%;
+  width:34%;
+  height:144%;
+  background:linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255,255,255,0.00) 24%,
+    rgba(255,255,255,0.16) 44%,
+    rgba(255,255,255,0.42) 50%,
+    rgba(255,255,255,0.14) 56%,
+    rgba(255,255,255,0.00) 76%,
+    transparent 100%
+  );
+  transform:skewX(-23deg);
+  opacity:0;
+  pointer-events:none;
+  z-index:2;
+}
+.pkl-tier-lane:hover::after,
+.pkl-beast-line:hover::after{
+  animation:pklTierShinePass .58s ease-out forwards;
+}
+@keyframes pklTierShinePass{
+  0%{left:-65%;opacity:0;}
+  12%{opacity:.82;}
+  72%{opacity:.62;}
+  100%{left:130%;opacity:0;}
+}
+
+/* hover 중 라인 배경/박스는 거의 유지해서 뿌연 느낌 제거 */
+.pkl-tier-lane:hover,
+.pkl-beast-line:hover{
+  filter:brightness(1.025) !important;
+}
+.pkl-tier-lane:hover .pkl-lane-rank,
+.pkl-beast-line:hover .pkl-lane-rank{
+  color:#fff !important;
+}
+
+/* 이름칸이 뒤 박스에 박힌 느낌 제거: pill이 항상 위에 떠 있게 */
+.pkl-lane-list{
+  position:relative !important;
+  overflow:visible !important;
+  z-index:5 !important;
+}
+.pkl-tier-member{
+  position:relative !important;
+  z-index:10 !important;
+  cursor:grab !important;
+  user-select:none !important;
+  transition:transform .14s ease, box-shadow .14s ease, filter .14s ease, border-color .14s ease !important;
+}
+.pkl-tier-member:hover{
+  z-index:20 !important;
+  transform:translateY(-1px) !important;
+  filter:brightness(1.08) !important;
+}
+.pkl-tier-member[draggable="false"]{
+  cursor:default !important;
+}
+.pkl-tier-member.pkl-dragging{
+  z-index:99999 !important;
+  opacity:.88 !important;
+  transform:scale(1.04) rotate(-1deg) !important;
+  box-shadow:
+    0 14px 32px rgba(0,0,0,.48),
+    0 0 22px rgba(168,85,247,.42) !important;
+  pointer-events:none !important;
+}
+
+/* 드롭 가능한 칸은 보라 안개가 아니라 얇은 테두리 느낌만 */
+.pkl-lane-list.pkl-drop-ready{
+  outline:1px solid rgba(255,255,255,.24) !important;
+  outline-offset:-3px !important;
+  box-shadow:inset 0 0 0 1px rgba(168,85,247,.20) !important;
+}
+
+/* 드래그 중 카드/라인 clipping 최소화 */
+.pkl-tier-lanes,
+.pkl-tier-card,
+.pkl-beast-card,
+.pkl-beast-line{
+  overflow:visible !important;
+}
+</style>
+
+
+<style id="pklTierDragActualFix">
+.pkl-tier-member{
+  pointer-events:auto !important;
+  cursor:grab !important;
+  -webkit-user-drag:element !important;
+  user-select:none !important;
+  touch-action:none !important;
+}
+.pkl-tier-member[data-can-drag="0"]{
+  cursor:default !important;
+}
+.pkl-tier-member.pkl-dragging{
+  cursor:grabbing !important;
+  opacity:.86 !important;
+  transform:scale(1.05) !important;
+  z-index:99999 !important;
+}
+.pkl-lane-list[data-tier]{
+  pointer-events:auto !important;
+}
+</style>
+
+
+<style id="pklTierManualDragStyle">
+.pkl-tier-member{
+  cursor:grab !important;
+  user-select:none !important;
+}
+.pkl-tier-member.pkl-manual-drag-source{
+  opacity:.35 !important;
+}
+.pkl-manual-drag-ghost{
+  cursor:grabbing !important;
+  box-shadow:
+    0 18px 42px rgba(0,0,0,.58),
+    0 0 28px rgba(168,85,247,.45) !important;
+}
+body.pkl-manual-dragging{
+  cursor:grabbing !important;
+}
+body.pkl-manual-dragging *{
+  user-select:none !important;
+}
+.pkl-lane-list.pkl-drop-ready{
+  outline:1px solid rgba(255,255,255,.32) !important;
+  outline-offset:-3px !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(168,85,247,.22),
+    inset 0 0 18px rgba(168,85,247,.10) !important;
+}
+</style>
+
+
+<style id="pklFinalTier0Clean">
+/* 🔴 0티어 최종 - 깔끔 + 상위티어 강조 */
+.tier-mark.role-tier0,
+.grade-role-tier0,
+.member-role-badge[data-pkl-grade^="0티어"]{
+  background: rgba(50,0,0,.9) !important;
+
+  /* 핵심: 색만 살짝 고급스럽게 */
+  color: #ffb3a3 !important;
+
+  /* 거의 안보이는 정도로만 또렷하게 */
+  text-shadow: 0 0 1px rgba(255,255,255,.4);
+
+  /* 미세 강조 */
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+</style>
+
+
+<style id="pklPremiumBadgeB">
+/* PKL 등급배지 풀개편 - 깔끔 프리미엄 B */
+/* 공통: 어두운 유리 배지 + 티어별 포인트 컬러 */
+.tier-mark,
+.grade-role-badge,
+.member-role-badge[data-pkl-grade],
+.member-role-badge[class*="grade-role-tier"],
+.member-role-badge.grade-role-beast{
+  min-height:24px !important;
+  min-width:62px !important;
+  padding:0 10px !important;
+  border-radius:999px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:11px !important;
+  font-weight:1000 !important;
+  letter-spacing:.25px !important;
+  line-height:24px !important;
+  white-space:nowrap !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    rgba(10,10,18,.82) !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 0 7px rgba(0,0,0,.34) !important;
+  text-shadow:none !important;
+  backdrop-filter:blur(8px) !important;
+  -webkit-backdrop-filter:blur(8px) !important;
+}
+
+/* 🔴 0티어: 빨강 */
+.tier-mark.role-tier0,
+.grade-role-tier0,
+.member-role-badge[data-pkl-grade^="0티어"]{
+  color:#ff8a8a !important;
+  border-color:rgba(255,95,95,.42) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(95,15,20,.78),rgba(18,8,12,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(255,70,70,.18) !important;
+}
+
+/* 🟡 1티어: 노랑 */
+.tier-mark.role-tier1,
+.grade-role-tier1,
+.member-role-badge[data-pkl-grade^="1티어"]{
+  color:#ffe680 !important;
+  border-color:rgba(255,220,90,.42) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(90,70,12,.78),rgba(22,17,7,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(255,216,80,.16) !important;
+}
+
+/* 🟢 2티어: 초록 */
+.tier-mark.role-tier2,
+.grade-role-tier2,
+.member-role-badge[data-pkl-grade^="2티어"]{
+  color:#8df7a8 !important;
+  border-color:rgba(90,230,130,.40) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(16,78,42,.78),rgba(7,20,13,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(90,230,130,.15) !important;
+}
+
+/* 🔵 3티어: 파랑 */
+.tier-mark.role-tier3,
+.grade-role-tier3,
+.member-role-badge[data-pkl-grade^="3티어"]{
+  color:#8fd3ff !important;
+  border-color:rgba(110,190,255,.40) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(18,52,105,.78),rgba(7,13,28,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(110,190,255,.15) !important;
+}
+
+/* 🟣 4티어: 보라 */
+.tier-mark.role-tier4,
+.grade-role-tier4,
+.member-role-badge[data-pkl-grade^="4티어"]{
+  color:#d8b4fe !important;
+  border-color:rgba(200,150,255,.40) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(64,30,110,.78),rgba(16,9,28,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(200,150,255,.15) !important;
+}
+
+/* 🟤 짐승: 갈색 */
+.tier-mark.role-beast,
+.grade-role-beast,
+.member-role-badge[data-pkl-grade="짐승"]{
+  color:#d9a36c !important;
+  border-color:rgba(210,150,95,.38) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(78,47,24,.78),rgba(20,12,7,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(210,150,95,.14) !important;
+}
+
+/* hover: 적당히 강조 */
+.tier-mark:hover,
+.grade-role-badge:hover,
+.member-role-badge[data-pkl-grade]:hover{
+  filter:brightness(1.12) !important;
+  transform:translateY(-1px) !important;
+  transition:filter .15s ease, transform .15s ease, box-shadow .15s ease !important;
+}
+</style>
+
+
+<style id="pklRoleCleanRedWhiteFinal">
+/* 역할배지 완전 정리: 관리자=레드 / 운영자=화이트 */
+/* 기존 보라 glow, rainbow, filter 섞임 방지 */
+
+.member-role-manager,
+.user-card .member-role-manager,
+.profile-head .member-role-manager,
+.badges .member-role-manager,
+.name-role-line .member-role-manager,
+.user-role-line .member-role-manager,
+.tier-mark.role-manager,
+.badge.role-manager,
+.activity-role-icon.role-manager,
+.welcome-role.member-role-manager,
+[data-pkl-role="관리자"],
+[data-pkl-role="admin"],
+[data-pkl-role="manager"]{
+  background:rgba(20,0,0,.96) !important;
+  background-image:none !important;
+  color:#ff4d4d !important;
+  border:2px solid #ff4d4d !important;
+  box-shadow:
+    0 0 6px rgba(255,0,0,.55),
+    0 0 15px rgba(255,0,0,.34),
+    inset 0 0 6px rgba(255,0,0,.26) !important;
+  text-shadow:none !important;
+  filter:none !important;
+  outline:none !important;
+}
+
+.member-role-operator,
+.user-card .member-role-operator,
+.profile-head .member-role-operator,
+.badges .member-role-operator,
+.name-role-line .member-role-operator,
+.user-role-line .member-role-operator,
+.tier-mark.role-operator,
+.badge.role-operator,
+.activity-role-icon.role-operator,
+.welcome-role.member-role-operator,
+[data-pkl-role="운영자"],
+[data-pkl-role="운영진"],
+[data-pkl-role="operator"],
+[data-pkl-role="staff"]{
+  background:rgba(10,10,10,.96) !important;
+  background-image:none !important;
+  color:#ffffff !important;
+  border:2px solid #ffffff !important;
+  box-shadow:
+    0 0 6px rgba(255,255,255,.55),
+    0 0 15px rgba(255,255,255,.34),
+    inset 0 0 6px rgba(255,255,255,.24) !important;
+  text-shadow:none !important;
+  filter:none !important;
+  outline:none !important;
+}
+
+/* admin 내부에서 예전 role-rainbow로 남는 경우도 무지개/보라 제거 */
+.tier-mark.role-rainbow,
+.badge.role-rainbow{
+  background:rgba(18,18,24,.96) !important;
+  background-image:none !important;
+  border:2px solid rgba(255,255,255,.55) !important;
+  color:#fff !important;
+  box-shadow:
+    0 0 6px rgba(255,255,255,.32),
+    inset 0 0 6px rgba(255,255,255,.16) !important;
+  text-shadow:none !important;
+  filter:none !important;
+}
+
+/* hover도 색 섞임 없이 약하게만 */
+.member-role-manager:hover,
+.tier-mark.role-manager:hover,
+.badge.role-manager:hover,
+[data-pkl-role="관리자"]:hover,
+[data-pkl-role="manager"]:hover{
+  filter:none !important;
+  box-shadow:
+    0 0 7px rgba(255,0,0,.65),
+    0 0 18px rgba(255,0,0,.42),
+    inset 0 0 7px rgba(255,0,0,.32) !important;
+}
+
+.member-role-operator:hover,
+.tier-mark.role-operator:hover,
+.badge.role-operator:hover,
+[data-pkl-role="운영자"]:hover,
+[data-pkl-role="operator"]:hover{
+  filter:none !important;
+  box-shadow:
+    0 0 7px rgba(255,255,255,.65),
+    0 0 18px rgba(255,255,255,.42),
+    inset 0 0 7px rgba(255,255,255,.28) !important;
+}
+</style>
+<script src="pkl-user-profile-core.js"></script>
+<script src="pkl-role-system.js"></script>
+<script src="pkl-page-permissions.js"></script>
+<script src="pkl-common-role-badge.js"></script>
+<script src="pkl-common-tier-badge.js"></script>
+<script src="pkl-users-source.js"></script>
+
+<style id="pkl-tier-view-drag-final-fix">
+.pkl-tier-member{pointer-events:auto!important;user-select:none!important;-webkit-user-select:none!important;}
+.pkl-tier-member[data-can-drag="0"]{cursor:default!important;opacity:.92!important;}
+.pkl-tier-member[data-can-drag="1"]{cursor:grab!important;}
+body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
+.pkl-manual-drag-ghost{pointer-events:none!important;filter:drop-shadow(0 18px 28px rgba(0,0,0,.55));}
+</style>
+</head>
+<body>
+
+<!-- PKL_COMMON_HEADER_ENABLED -->
+<div class="site">
+<div id="pklCommonHeader"></div>
+
+<!-- PKL_COMMON_HEADER_ENABLED -->
+<div class="site">
+
+<main class="tier-page-area">
+
+<div class="pkl-tier-cinema">
+  <div class="pkl-tier-spot"></div>
+
+  <section class="pkl-tier-shell" aria-label="PKL 티어표">
+    <div class="pkl-tier-board-title">
+      <span></span>
+      <div>
+        <strong>PKL TIER BOARD</strong>
+        <em>PRIME KILL LEAGUE</em>
+      </div>
+      <span></span>
+    </div>
+
+    <div class="pkl-tier-content">
+      <div class="pkl-tier-cards">
+
+        <article class="pkl-tier-card tier-red">
+          <header class="pkl-tier-head">
+            <img src="emblems/emblem_0.webp" alt="0티어 엠블럼">
+          </header>
+          <div class="pkl-tier-lanes">
+
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">상</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="85" aria-label="0티어 상 목표">
+              <input type="number" value="-3" aria-label="0티어 상 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="0상"></div>
+          </section>
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">중</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="75" aria-label="0티어 중 목표">
+              <input type="number" value="-3" aria-label="0티어 중 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="0중"></div>
+          </section>
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">하</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="65" aria-label="0티어 하 목표">
+              <input type="number" value="-3" aria-label="0티어 하 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="0하"></div>
+          </section>
+          </div>
+        </article>
+
+        <article class="pkl-tier-card tier-yellow">
+          <header class="pkl-tier-head">
+            <img src="emblems/emblem_1.webp" alt="1티어 엠블럼">
+          </header>
+          <div class="pkl-tier-lanes">
+
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">상</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="55" aria-label="1티어 상 목표">
+              <input type="number" value="-3" aria-label="1티어 상 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="1상"></div>
+          </section>
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">중</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="50" aria-label="1티어 중 목표">
+              <input type="number" value="-3" aria-label="1티어 중 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="1중"></div>
+          </section>
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">하</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="45" aria-label="1티어 하 목표">
+              <input type="number" value="-3" aria-label="1티어 하 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="1하"></div>
+          </section>
+          </div>
+        </article>
+
+        <article class="pkl-tier-card tier-green">
+          <header class="pkl-tier-head">
+            <img src="emblems/emblem_2.webp" alt="2티어 엠블럼">
+          </header>
+          <div class="pkl-tier-lanes">
+
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">상</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="40" aria-label="2티어 상 목표">
+              <input type="number" value="-3" aria-label="2티어 상 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="2상"></div>
+          </section>
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">중</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="35" aria-label="2티어 중 목표">
+              <input type="number" value="-2" aria-label="2티어 중 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="2중"></div>
+          </section>
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">하</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="30" aria-label="2티어 하 목표">
+              <input type="number" value="-2" aria-label="2티어 하 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="2하"></div>
+          </section>
+          </div>
+        </article>
+
+        <article class="pkl-tier-card tier-blue">
+          <header class="pkl-tier-head">
+            <img src="emblems/emblem_3.webp" alt="3티어 엠블럼">
+          </header>
+          <div class="pkl-tier-lanes">
+
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">상</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="25" aria-label="3티어 상 목표">
+              <input type="number" value="-2" aria-label="3티어 상 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="3상"></div>
+          </section>
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">중</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="20" aria-label="3티어 중 목표">
+              <input type="number" value="-2" aria-label="3티어 중 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="3중"></div>
+          </section>
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">하</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="15" aria-label="3티어 하 목표">
+              <input type="number" value="-2" aria-label="3티어 하 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="3하"></div>
+          </section>
+          </div>
+        </article>
+
+        <article class="pkl-tier-card tier-purple">
+          <header class="pkl-tier-head">
+            <img src="emblems/emblem_4.webp" alt="4티어 엠블럼">
+          </header>
+          <div class="pkl-tier-lanes">
+
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">상</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="10" aria-label="4티어 상 목표">
+              <input type="number" value="-2" aria-label="4티어 상 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="4상"></div>
+          </section>
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">중</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="10" aria-label="4티어 중 목표">
+              <input type="number" value="-2" aria-label="4티어 중 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="4중"></div>
+          </section>
+          <section class="pkl-tier-lane">
+            <div class="pkl-lane-rank">하</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="5" aria-label="4티어 하 목표">
+              <input type="number" value="-1" aria-label="4티어 하 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="4하"></div>
+          </section>
+          </div>
+        </article>
+      </div>
+
+      <aside class="pkl-side-zone">
+        <article class="pkl-beast-card tier-brown">
+          <header class="pkl-beast-head">
+            <img src="emblems/emblem_5.webp" alt="짐승 엠블럼">
+          </header>
+          <section class="pkl-beast-line">
+            <div class="pkl-lane-rank">짐승</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="0" aria-label="짐승 목표">
+              <input type="number" value="-1" aria-label="짐승 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="짐승"></div>
+          </section>
+        </article>
+</aside>
+    </div>
+  </section>
+</div>
+
+</main>
+</div>
+
+<script>
+/* PKL TIER MY + MAILBOX SYNC WITH INDEX */
+(function(){
+  const MAIL_KEYS = ["pklMailbox","pklMails","pklUserMails","pklMailList"];
+
+  function getLoginUser(){
+    try{
+      return JSON.parse(localStorage.getItem("pklLoginUser") || sessionStorage.getItem("pklLoginUser") || "null");
+    }catch(e){
+      return null;
+    }
+  }
+
+  function normalizeMail(mail, index){
+    return {
+      id: mail.id || mail.mailId || ("mail-" + index + "-" + (mail.date || mail.createdAt || "")),
+      title: mail.title || mail.subject || "PKL 우편",
+      body: mail.body || mail.content || mail.message || "내용이 없습니다.",
+      date: mail.date || mail.createdAt || mail.time || "",
+      to: mail.to || mail.receiver || mail.nickname || mail.target || "all",
+      read: !!(mail.read || mail.isRead || mail.readAt),
+      deleted: !!mail.deleted,
+      raw: mail
+    };
+  }
+
+  function readAllMails(){
+    for(const key of MAIL_KEYS){
+      try{
+        const data = JSON.parse(localStorage.getItem(key) || "null");
+        if(Array.isArray(data)) return data.map(normalizeMail);
+      }catch(e){}
+    }
+    return [];
+  }
+
+  function saveAllMails(mails){
+    const clean = mails.map(m => {
+      const raw = m.raw && typeof m.raw === "object" ? {...m.raw} : {};
+      return {
+        ...raw,
+        id: m.id,
+        title: m.title,
+        body: m.body,
+        date: m.date,
+        to: m.to,
+        read: !!m.read,
+        isRead: !!m.read,
+        deleted: !!m.deleted,
+        readAt: m.read ? (raw.readAt || new Date().toISOString()) : raw.readAt
+      };
+    });
+
+    // index에서 어떤 key를 보든 같이 반영되게 주요 key에 동시 저장
+    localStorage.setItem("pklMailbox", JSON.stringify(clean));
+    localStorage.setItem("pklMails", JSON.stringify(clean));
+  }
+
+  function belongsToUser(mail, user){
+    if(!user) return false;
+    const nick = user.nickname || user.nick || user.name || "";
+    const pubg = user.pubgId || "";
+    const to = mail.to || "all";
+    return !to || to === "all" || to === nick || to === pubg;
+  }
+
+  function userMails(){
+    const user = getLoginUser();
+    return readAllMails().filter(m => !m.deleted && belongsToUser(m, user));
+  }
+
+  function unreadCount(){
+    return userMails().filter(m => !m.read).length;
+  }
+
+  function setButtonText(button, text){
+    if(!button) return;
+    let done = false;
+    for(const node of button.childNodes){
+      if(node.nodeType === Node.TEXT_NODE){
+        node.nodeValue = text;
+        done = true;
+        break;
+      }
+    }
+    if(!done) button.insertBefore(document.createTextNode(text), button.firstChild);
+  }
+
+  function syncTop(){
+    const user = getLoginUser();
+    const loginBtn = document.getElementById("loginBtn");
+    const managerBtn = document.getElementById("managerBtn");
+    const accountWrap = document.querySelector(".account-wrap");
+    const accountMenu = document.getElementById("accountMenu");
+    const mailBadge = document.getElementById("mailBadge");
+    const mailboxMenuCount = document.getElementById("mailboxMenuCount");
+
+    if(user){
+      setButtonText(loginBtn, "MY");
+      if(accountWrap) accountWrap.classList.add("is-logged-in");
+      if(accountMenu){
+        accountMenu.classList.remove("logged-out");
+        accountMenu.style.display = "";
+      }
+      if(managerBtn){
+        managerBtn.style.display = (user.role === "manager" || user.role === "operator") ? "flex" : "none";
+      }
+
+      const count = unreadCount();
+      if(mailBadge){
+        if(count > 0){
+          mailBadge.textContent = String(count);
+          mailBadge.classList.add("show");
+        }else{
+          mailBadge.textContent = "";
+          mailBadge.classList.remove("show");
+        }
+      }
+      if(mailboxMenuCount){
+        if(count > 0){
+          mailboxMenuCount.textContent = String(count);
+          mailboxMenuCount.style.display = "inline-flex";
+        }else{
+          mailboxMenuCount.textContent = "";
+          mailboxMenuCount.style.display = "none";
+        }
+      }
+      const modalCount = document.getElementById("mailboxUnreadCount");
+      if(modalCount){
+        modalCount.textContent = String(count);
+        modalCount.style.display = count > 0 ? "inline-flex" : "none";
+      }
+    }else{
+      setButtonText(loginBtn, "로그인");
+      if(accountWrap) accountWrap.classList.remove("is-logged-in");
+      if(managerBtn) managerBtn.style.display = "none";
+      if(accountMenu){
+        accountMenu.classList.add("logged-out");
+        accountMenu.classList.remove("open");
+        accountMenu.style.display = "none";
+      }
+      if(mailBadge){
+        mailBadge.textContent = "";
+        mailBadge.classList.remove("show");
+      }
+      if(mailboxMenuCount){
+        mailboxMenuCount.textContent = "";
+        mailboxMenuCount.style.display = "none";
+      }
+    }
+  }
+
+  window.goUserPage = function(){
+    location.href = getLoginUser() ? "myinfo.html" : "login.html";
+  };
+
+  window.openMyInfo = function(){
+    location.href = getLoginUser() ? "myinfo.html" : "login.html";
+  };
+
+  window.logout = function(){
+    localStorage.removeItem("pklLoginUser");
+    sessionStorage.removeItem("pklLoginUser");
+    location.href='register.html';
+  };
+
+  window.openMailboxModal = function(){
+    if(!getLoginUser()){
+      location.href='register.html';
+      return;
+    }
+    const modal = document.getElementById("mailboxModal");
+    if(!modal) return;
+    modal.classList.add("open");
+    renderMailboxList();
+    syncTop();
+  };
+
+  window.closeMailboxModal = function(){
+    const modal = document.getElementById("mailboxModal");
+    if(modal) modal.classList.remove("open");
+  };
+
+  window.renderMailboxList = function(){
+    const listEl = document.getElementById("mailboxList");
+    const detailEl = document.getElementById("mailDetail");
+    if(!listEl) return;
+    if(detailEl){
+      detailEl.classList.remove("open");
+      detailEl.innerHTML = "";
+    }
+
+    const mails = userMails().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+    if(!mails.length){
+      listEl.innerHTML = '<div class="mail-empty">우편함이 비어있습니다.</div>';
+      return;
+    }
+
+    listEl.innerHTML = mails.map(m => `
+      <button class="mail-row ${m.read ? 'read' : ''}" onclick="openMailDetail('${String(m.id).replace(/'/g,"&#39;")}')">
+        <div>
+          <div class="mail-row-title">${escapeHtml(m.title)}</div>
+          <div class="mail-row-date">${escapeHtml(m.date || "-")}</div>
+        </div>
+        <span class="mail-row-badge">${m.read ? "읽음" : "NEW"}</span>
+      </button>
+    `).join("");
+  };
+
+  window.openMailDetail = function(id){
+    const all = readAllMails();
+    const idx = all.findIndex(m => String(m.id) === String(id));
+    if(idx < 0) return;
+
+    all[idx].read = true;
+    saveAllMails(all);
+
+    const mail = all[idx];
+    const listEl = document.getElementById("mailboxList");
+    const detailEl = document.getElementById("mailDetail");
+    if(listEl) listEl.innerHTML = "";
+    if(detailEl){
+      detailEl.classList.add("open");
+      detailEl.innerHTML = `
+        <div class="mail-detail-top">
+          <h3>${escapeHtml(mail.title)}</h3>
+          <div class="mail-detail-date">${escapeHtml(mail.date || "-")}</div>
+        </div>
+        <p>${escapeHtml(mail.body || "내용이 없습니다.").replace(/\\n/g,"<br>").replace(/\n/g,"<br>")}</p>
+        <div class="mail-detail-actions">
+          <button class="mail-back" onclick="renderMailboxList();syncPklTierTop();">목록</button>
+          <button class="mail-delete" onclick="confirmDeleteMail('${String(mail.id).replace(/'/g,"&#39;")}')">삭제</button>
+        </div>
+      `;
+    }
+    syncTop();
+  };
+
+
+  window.askDeleteAllMails = function(){
+    const confirm = document.getElementById("mailDeleteAllConfirm");
+    if(confirm) confirm.classList.add("open");
+  };
+
+  window.closeDeleteAllConfirm = function(){
+    const confirm = document.getElementById("mailDeleteAllConfirm");
+    if(confirm) confirm.classList.remove("open");
+  };
+
+  window.deleteAllMails = function(){
+    const all = readAllMails();
+    const user = getLoginUser();
+    all.forEach(m => {
+      if(belongsToUser(m, user)) m.deleted = true;
+    });
+    saveAllMails(all);
+    closeDeleteAllConfirm();
+    renderMailboxList();
+    syncTop();
+  };
+
+  window.markAllMailsRead = function(){
+    const all = readAllMails();
+    const user = getLoginUser();
+    all.forEach(m => {
+      if(!m.deleted && belongsToUser(m, user)) m.read = true;
+    });
+    saveAllMails(all);
+    renderMailboxList();
+    syncTop();
+  };
+
+  window.confirmDeleteMail = function(id){
+    const confirm = document.getElementById("mailConfirm");
+    const yes = document.getElementById("mailConfirmYes");
+    if(!confirm || !yes){
+      deleteMail(id);
+      return;
+    }
+    confirm.classList.add("open");
+    yes.onclick = function(){
+      deleteMail(id);
+      closeMailConfirm();
+    };
+  };
+
+  window.closeMailConfirm = function(){
+    const confirm = document.getElementById("mailConfirm");
+    if(confirm) confirm.classList.remove("open");
+  };
+
+  window.deleteMail = function(id){
+    const all = readAllMails();
+    all.forEach(m => {
+      if(String(m.id) === String(id)) m.deleted = true;
+    });
+    saveAllMails(all);
+    renderMailboxList();
+    syncTop();
+  };
+
+  window.syncPklTierTop = syncTop;
+
+  function escapeHtml(v){
+    return String(v ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+  }
+
+  /* PKL TIER ADMIN STATE SYNC */
+  const PKL_TIER_DATA_KEY = "pklAdminState_v3";
+
+  const PKL_TIER_ROLE_TO_LANE = {
+    tier0_high:"0상", tier0_mid:"0중", tier0_low:"0하",
+    tier1_high:"1상", tier1_mid:"1중", tier1_low:"1하",
+    tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
+    tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
+    tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
+    beast:"짐승"
+  };
+
+  const PKL_TIER_LANE_TO_ROLE = {
+    "0상":"tier0_high", "0중":"tier0_mid", "0하":"tier0_low",
+    "1상":"tier1_high", "1중":"tier1_mid", "1하":"tier1_low",
+    "2상":"tier2_high", "2중":"tier2_mid", "2하":"tier2_low",
+    "3상":"tier3_high", "3중":"tier3_mid", "3하":"tier3_low",
+    "4상":"tier4_high", "4중":"tier4_mid", "4하":"tier4_low",
+    "짐승":"beast"
+  };
+
+  const PKL_TIER_ROLE_LABELS = {
+    none:"없음",
+    tier0_high:"0티어 상", tier0_mid:"0티어 중", tier0_low:"0티어 하",
+    tier1_high:"1티어 상", tier1_mid:"1티어 중", tier1_low:"1티어 하",
+    tier2_high:"2티어 상", tier2_mid:"2티어 중", tier2_low:"2티어 하",
+    tier3_high:"3티어 상", tier3_mid:"3티어 중", tier3_low:"3티어 하",
+    tier4_high:"4티어 상", tier4_mid:"4티어 중", tier4_low:"4티어 하",
+    beast:"짐승"
+  };
+
+  function pklTierReadAdminState(){
+    function readJson(key, fallback){
+      try{
+        const v = JSON.parse(localStorage.getItem(key) || "null");
+        return v == null ? fallback : v;
+      }catch(e){ return fallback; }
+    }
+    function normalizeStateUsers(v){
+      if(Array.isArray(v)) return v;
+      if(v && typeof v === "object" && Array.isArray(v.users)) return v.users;
+      return [];
+    }
+    try{
+      if(window.PKLUserProfile && typeof window.PKLUserProfile.users === "function"){
+        const users = window.PKLUserProfile.users();
+        if(Array.isArray(users) && users.length) return { users, pending:[], bans:[], warningRecords:[] };
+      }
+      const state = readJson(PKL_TIER_DATA_KEY, null);
+      if(state && Array.isArray(state.users) && state.users.length) return state;
+
+      /* 게스트/일반유저도 티어표는 구경 가능해야 하므로,
+         관리자 전용 state가 비어 있으면 공통 유저 저장소에서 읽는다. */
+      const fallbackUsers = []
+        .concat(normalizeStateUsers(readJson("pklUsers", [])))
+        .concat(normalizeStateUsers(readJson("PKL_USERS", [])))
+        .concat(normalizeStateUsers(readJson("pklAdminState_v3", {})))
+        .concat(normalizeStateUsers(readJson("pklAdminUsers", [])))
+        .concat(normalizeStateUsers(readJson("PKL_ADMIN_USERS", [])));
+      if(fallbackUsers.length) return { users:fallbackUsers, pending:[], bans:[], warningRecords:[] };
+      if(state && Array.isArray(state.users)) return state;
+    }catch(e){}
+    return { users:[], pending:[], bans:[], warningRecords:[] };
+  }
+
+  function pklTierSaveAdminState(state){
+    localStorage.setItem(PKL_TIER_DATA_KEY, JSON.stringify(state));
+    if(window.PKLUserProfile && typeof window.PKLUserProfile.setUsers === "function"){
+      window.PKLUserProfile.setUsers(Array.isArray(state.users)?state.users:[], true);
+    }else{
+      pklTierSyncUsersToAccountStorage(state);
+    }
+    localStorage.setItem("pklTierLastSync", JSON.stringify({ at:new Date().toISOString() }));
+  }
+
+  function pklTierUserKey(user, index){
+    return String(
+      user?.uid ||
+      user?.id ||
+      user?.userId ||
+      user?.account ||
+      user?.loginId ||
+      user?.email ||
+      user?.pubgId ||
+      user?.nickname ||
+      index
+    ).trim();
+  }
+
+  function pklTierUserName(user){
+    return String(user?.nickname || user?.nick || user?.name || user?.pubgId || user?.pubgID || "").trim();
+  }
+
+  function pklTierNormalizeRole(role){
+    role = String(role || "").trim();
+    if(PKL_TIER_ROLE_TO_LANE[role]) return role;
+
+    const legacy = {
+      tier0:"tier0_mid", tier1:"tier1_mid", tier2:"tier2_mid", tier3:"tier3_mid", tier4:"tier4_mid"
+    };
+    if(legacy[role]) return legacy[role];
+
+    return "";
+  }
+
+  function pklTierRoleFromText(text){
+    text = String(text || "").trim().replace(/\s+/g,"");
+    const map = {
+      "0티어상":"tier0_high", "0상":"tier0_high",
+      "0티어중":"tier0_mid", "0중":"tier0_mid",
+      "0티어하":"tier0_low", "0하":"tier0_low",
+      "1티어상":"tier1_high", "1상":"tier1_high",
+      "1티어중":"tier1_mid", "1중":"tier1_mid",
+      "1티어하":"tier1_low", "1하":"tier1_low",
+      "2티어상":"tier2_high", "2상":"tier2_high",
+      "2티어중":"tier2_mid", "2중":"tier2_mid",
+      "2티어하":"tier2_low", "2하":"tier2_low",
+      "3티어상":"tier3_high", "3상":"tier3_high",
+      "3티어중":"tier3_mid", "3중":"tier3_mid",
+      "3티어하":"tier3_low", "3하":"tier3_low",
+      "4티어상":"tier4_high", "4상":"tier4_high",
+      "4티어중":"tier4_mid", "4중":"tier4_mid",
+      "4티어하":"tier4_low", "4하":"tier4_low",
+      "짐승":"beast"
+    };
+    return map[text] || "";
+  }
+
+  function pklTierGradeRole(user){
+    if(window.PKLUserProfile && typeof window.PKLUserProfile.tierFrom === "function"){
+      const t = window.PKLUserProfile.tierFrom(user);
+      if(t && t !== "none") return t;
+    }
+    const fields = [user?.memberTier,user?.gradeRole,user?.tierRole,user?.baseRole,user?.role,user?.tier,user?.memberTierName,user?.tierName,user?.roleName];
+    for(const field of fields){
+      const direct = pklTierNormalizeRole(field) || pklTierRoleFromText(field);
+      if(direct) return direct;
+    }
+    return "";
+  }
+
+  function pklTierCurrentUserForEdit(){
+    const keys = ["discordUser", "pklLoginUser", "pklCurrentUser", "pklUser", "pklLoggedInUser", "pkl_current_user", "PKL_로그인_USER", "currentUser"];
+    for(const key of keys){
+      try{
+        const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if(!raw) continue;
+        const user = JSON.parse(raw);
+        if(user && typeof user === "object") return user;
+      }catch(e){}
+    }
+    return null;
+  }
+
+  function pklTierIsAdminUser(user){
+    if(!user || typeof user !== "object") return false;
+
+    if(user.isAdmin === true || user.admin === true || user.isManager === true || user.isOperator === true) return true;
+
+    const values = [
+      user.role,
+      user.memberRole,
+      user.permission,
+      user.grade,
+      user.auth,
+      user.type,
+      user.position,
+      user.level,
+      user.accountType
+    ].map(v => String(v || "").trim().toLowerCase());
+
+    if(values.some(role =>
+      role === "manager" ||
+      role === "operator" ||
+      role === "admin" ||
+      role === "administrator" ||
+      role === "owner" ||
+      role === "master" ||
+      role === "총관리자" ||
+      role === "관리자" ||
+      role === "운영자" ||
+      role === "운영진" ||
+      role.includes("관리자") ||
+      role.includes("운영")
+    )) return true;
+
+    return false;
+  }
+
+  function pklTierCanEdit(){
+    return pklTierIsAdminUser(pklTierCurrentUserForEdit());
+  }
+  window.pklTierCanEdit = pklTierCanEdit;
+
+  function pklTierVisibleUsers(){
+    const state = pklTierReadAdminState();
+    const seen = new Set();
+
+    return state.users
+      .map((user, index) => {
+        const key = pklTierUserKey(user, index);
+        const name = pklTierUserName(user);
+        const role = pklTierGradeRole(user);
+        const lane = PKL_TIER_ROLE_TO_LANE[role] || "";
+        return { key, index, name, role, lane, user };
+      })
+      .filter(item => {
+        if(!item.key || !item.name || !item.lane) return false;
+        if(seen.has(item.key)) return false;
+        seen.add(item.key);
+        return true;
+      });
+  }
+
+  function pklTierSyncUsersToAccountStorage(state){
+    try{
+      state.users = Array.isArray(state.users) ? state.users : [];
+      const base = JSON.parse(localStorage.getItem("pklUsers") || "[]");
+      const existingList = Array.isArray(base) ? base : [];
+      const merged = state.users.map(user => {
+        const old = existingList.find(x =>
+          (user.uid && (x.uid === user.uid || x.id === user.uid)) ||
+          (user.pubgId && (x.pubgId === user.pubgId || x.gameId === user.pubgId || x.ref === user.pubgId)) ||
+          (user.nickname && (x.nickname === user.nickname || x.nick === user.nickname || x.name === user.nickname))
+        ) || {};
+
+        const grade = pklTierGradeRole(user);
+        const memberRole = user.memberRole || old.memberRole || ((old.role === "admin" || old.role === "operator" || old.role === "user" || old.role === "guest") ? old.role : "user");
+        const savedPubg = user.pubgId || user.gameId || user.ref || old.pubgId || old.gameId || old.ref || "";
+
+        return {
+          ...old,
+          nickname:user.nickname || user.nick || user.name || old.nickname || old.nick || old.name || "",
+          nick:user.nickname || user.nick || user.name || old.nickname || old.nick || old.name || "",
+          name:user.nickname || user.nick || user.name || old.nickname || old.nick || old.name || "",
+          pubgId:savedPubg,
+          gameId:savedPubg || old.gameId || "",
+          ref:savedPubg || old.ref || "",
+          password:user.password || old.password || "",
+          role:grade || old.role || memberRole,
+          memberRole:memberRole,
+          memberTier:grade || old.memberTier || old.gradeRole || old.tierRole || "none",
+          memberTierName:PKL_TIER_ROLE_LABELS[grade] || old.memberTierName || "없음",
+          gradeRole:grade || old.gradeRole || old.memberTier || old.tierRole || "none",
+          tierRole:grade || old.tierRole || old.memberTier || old.gradeRole || "none",
+          tier:PKL_TIER_ROLE_LABELS[grade] || old.tier || "없음",
+          warnings:user.warnings || old.warnings || 0,
+          isBanned:false,
+          isPrisoner:!!user.isPrisoner,
+          penalty:user.penalty || old.penalty || null,
+          uid:user.uid || old.uid || old.id || ""
+        };
+      });
+
+      localStorage.setItem("pklUsers", JSON.stringify(merged));
+
+      ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser"].forEach(key => {
+        try{
+          const cur = JSON.parse(localStorage.getItem(key) || sessionStorage.getItem(key) || "null");
+          if(!cur) return;
+          const matched = merged.find(user =>
+            (cur.uid && user.uid === cur.uid) ||
+            (cur.pubgId && (user.pubgId === cur.pubgId || user.gameId === cur.pubgId || user.ref === cur.pubgId)) ||
+            (cur.nickname && (user.nickname === cur.nickname || user.nick === cur.nickname || user.name === cur.nickname))
+          );
+          if(!matched) return;
+          const next = { ...cur, ...matched, pubgId:matched.pubgId || cur.pubgId || cur.gameId || cur.ref || "" };
+          localStorage.setItem(key, JSON.stringify(next));
+          sessionStorage.setItem(key, JSON.stringify(next));
+        }catch(e){}
+      });
+    }catch(e){}
+  }
+
+  function pklTierSetUserRole(userKey, targetLane){
+    const targetRole = PKL_TIER_LANE_TO_ROLE[targetLane];
+    if(!targetRole) return false;
+
+    const state = pklTierReadAdminState();
+    let changed = false;
+
+    state.users = state.users.map((user, index) => {
+      if(pklTierUserKey(user, index) !== userKey) return user;
+
+      changed = true;
+      const nextTierLabel = PKL_TIER_ROLE_LABELS[targetRole] || "없음";
+      return {
+        ...user,
+        memberTier:targetRole,
+        memberTierName:nextTierLabel,
+        tier:nextTierLabel,
+        updatedAt:new Date().toISOString()
+      };
+    });
+
+    if(changed) pklTierSaveAdminState(state);
+    return changed;
+  }
+
+  function renderPklTierMembers(){
+    const lists = document.querySelectorAll(".pkl-lane-list[data-tier]");
+    if(!lists.length) return;
+
+    lists.forEach(list => {
+      list.querySelectorAll(".pkl-tier-member").forEach(node => node.remove());
+      list.classList.remove("pkl-drop-ready");
+    });
+
+    pklTierVisibleUsers().forEach(item => {
+      const list = document.querySelector('.pkl-lane-list[data-tier="' + item.lane + '"]');
+      if(!list) return;
+
+      const badge = document.createElement("div");
+      badge.className = "pkl-tier-member";
+      badge.textContent = item.name;
+      badge.dataset.userKey = item.key;
+      badge.dataset.lane = item.lane;
+      badge.setAttribute("draggable", pklTierCanEdit() ? "true" : "false");
+      list.appendChild(badge);
+    });
+
+    pklTierBindDrag();
+  }
+
+  function pklTierBindDrag(){
+    const lists = Array.from(document.querySelectorAll(".pkl-lane-list[data-tier]"));
+    document.querySelectorAll(".pkl-tier-member").forEach(badge => {
+      badge.setAttribute("draggable", pklTierCanEdit() ? "true" : "false");
+      badge.dataset.canDrag = pklTierCanEdit() ? "1" : "0";
+
+      badge.ondragstart = function(e){
+        if(!pklTierCanEdit()){
+          e.preventDefault();
+          return false;
+        }
+
+        badge.classList.add("pkl-dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", JSON.stringify({
+          userKey:badge.dataset.userKey,
+          from:badge.dataset.lane
+        }));
+
+        try{
+          const ghost = badge.cloneNode(true);
+          ghost.style.position = "fixed";
+          ghost.style.top = "-1000px";
+          ghost.style.left = "-1000px";
+          ghost.style.zIndex = "999999";
+          ghost.style.pointerEvents = "none";
+          ghost.style.opacity = "0.96";
+          ghost.style.transform = "scale(1.08)";
+          ghost.style.boxShadow = "0 14px 34px rgba(0,0,0,.52), 0 0 24px rgba(168,85,247,.46)";
+          document.body.appendChild(ghost);
+          e.dataTransfer.setDragImage(ghost, Math.max(10, Math.floor(ghost.offsetWidth / 2)), Math.max(10, Math.floor(ghost.offsetHeight / 2)));
+          setTimeout(function(){ ghost.remove(); }, 0);
+        }catch(err){}
+      };
+
+      badge.ondragend = function(){
+        badge.classList.remove("pkl-dragging");
+        lists.forEach(list => list.classList.remove("pkl-drop-ready"));
+      };
+    });
+
+    lists.forEach(list => {
+      list.ondragenter = function(e){
+        if(!pklTierCanEdit()) return;
+        e.preventDefault();
+        list.classList.add("pkl-drop-ready");
+      };
+
+      list.ondragover = function(e){
+        if(!pklTierCanEdit()) return;
+        e.preventDefault();
+        if(e.dataTransfer) e.dataTransfer.dropEffect = "move";
+        list.classList.add("pkl-drop-ready");
+      };
+
+      list.ondragleave = function(e){
+        if(!list.contains(e.relatedTarget)) list.classList.remove("pkl-drop-ready");
+      };
+
+      list.ondrop = function(e){
+        if(!pklTierCanEdit()) return;
+        e.preventDefault();
+        e.stopPropagation();
+        list.classList.remove("pkl-drop-ready");
+
+        let payload = {};
+        try{
+          payload = JSON.parse(e.dataTransfer.getData("text/plain") || "{}");
+        }catch(err){}
+
+        const targetLane = list.dataset.tier;
+        if(!payload.userKey || !targetLane || payload.from === targetLane) return;
+
+        if(pklTierSetUserRole(payload.userKey, targetLane)){
+          renderPklTierMembers();
+        }
+      };
+    });
+  }
+
+  window.renderPklTierMembers = renderPklTierMembers;
+  window.pklTierSetUserRole = pklTierSetUserRole;
+
+  /* PKL TIER CLICK GUARD */
+  function pklTierIsScoreInput(target){
+    return !!(target && target.closest && target.closest(".pkl-lane-score input"));
+  }
+
+  function pklTierBlockNonInputSelection(e){
+    return;
+  }
+
+  document.addEventListener("contextmenu", function(e){
+    if(pklTierIsScoreInput(e.target)) return;
+    if(e.target && e.target.closest && e.target.closest(".pkl-tier-shell")){
+      e.preventDefault();
+    }
+  });
+
+  document.addEventListener("selectstart", pklTierBlockNonInputSelection);
+
+  document.addEventListener("mousedown", function(e){
+    return;
+  });
+
+  window.pklTierClickGuardReady = true;
+
+document.addEventListener("DOMContentLoaded", function(){
+    syncTop();
+    renderPklTierMembers();
+    const modal = document.getElementById("mailboxModal");
+    if(modal){
+      modal.addEventListener("click", e => {
+        if(e.target === modal) closeMailboxModal();
+      });
+    }
+  });
+  window.addEventListener("storage", function(){
+    syncTop();
+    renderPklTierMembers();
+  });
+})();
+</script>
+
+
+
+<script id="pklTierScoreSyncScript">
+(function(){
+  const SCORE_KEY = "pklTierScoreConfig";
+  const ROLE_TO_LANE = {
+    tier0_high:"0상", tier0_mid:"0중", tier0_low:"0하",
+    tier1_high:"1상", tier1_mid:"1중", tier1_low:"1하",
+    tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
+    tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
+    tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
+    beast:"짐승"
+  };
+  function readConfig(){
+    try{
+      const data = JSON.parse(localStorage.getItem(SCORE_KEY) || "null");
+      if(data && typeof data === "object") return data;
+    }catch(e){}
+    return {};
+  }
+  function normalizeNumber(value, fallback){
+    const n = Number(String(value ?? "").replace(/[^0-9-]/g,""));
+    return Number.isFinite(n) ? n : fallback;
+  }
+  function collectConfig(){
+    const config = readConfig();
+    document.querySelectorAll(".pkl-tier-lane").forEach(laneEl => {
+      const list = laneEl.querySelector(".pkl-lane-list[data-tier]");
+      const inputs = laneEl.querySelectorAll(".pkl-lane-score input");
+      if(!list || inputs.length < 2) return;
+      const lane = String(list.dataset.tier || "").trim();
+      if(!lane) return;
+      const target = normalizeNumber(inputs[0].value, normalizeNumber(inputs[0].getAttribute("value"), 0));
+      const death = normalizeNumber(inputs[1].value, normalizeNumber(inputs[1].getAttribute("value"), 0));
+      config[lane] = { target, death };
+      const role = Object.keys(ROLE_TO_LANE).find(key => ROLE_TO_LANE[key] === lane);
+      if(role) config[role] = { target, death, lane };
+    });
+    localStorage.setItem(SCORE_KEY, JSON.stringify(config));
+    localStorage.setItem("pklTierScoreLastSync", JSON.stringify({ at:new Date().toISOString() }));
+  }
+  function applyConfig(){
+    const config = readConfig();
+    document.querySelectorAll(".pkl-tier-lane").forEach(laneEl => {
+      const list = laneEl.querySelector(".pkl-lane-list[data-tier]");
+      const inputs = laneEl.querySelectorAll(".pkl-lane-score input");
+      if(!list || inputs.length < 2) return;
+      const lane = String(list.dataset.tier || "").trim();
+      const saved = config[lane];
+      if(!saved) return;
+      if(saved.target !== undefined && saved.target !== null && String(saved.target) !== "") inputs[0].value = saved.target;
+      if(saved.death !== undefined && saved.death !== null && String(saved.death) !== "") inputs[1].value = saved.death;
+    });
+  }
+  function bind(){
+    applyConfig();
+    collectConfig();
+    document.querySelectorAll(".pkl-lane-score input").forEach(input => {
+      if(input.dataset.pklTierScoreSync === "1") return;
+      input.dataset.pklTierScoreSync = "1";
+      input.addEventListener("input", collectConfig);
+      input.addEventListener("change", collectConfig);
+    });
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", bind);
+  }else{
+    bind();
+  }
+  window.pklTierCollectScoreConfig = collectConfig;
+})();
+</script>
+
+
+<script id="pklTierManualDragFix">
+(function(){
+  let drag = null;
+
+  function canEdit(){
+    return typeof pklTierCanEdit === "function" && pklTierCanEdit();
+  }
+
+  function clearDropReady(){
+    document.querySelectorAll(".pkl-lane-list.pkl-drop-ready").forEach(el => {
+      el.classList.remove("pkl-drop-ready");
+    });
+  }
+
+  function getLaneUnderPoint(x, y){
+    const prev = drag && drag.ghost ? drag.ghost.style.pointerEvents : "";
+    if(drag && drag.ghost) drag.ghost.style.pointerEvents = "none";
+    const el = document.elementFromPoint(x, y);
+    if(drag && drag.ghost) drag.ghost.style.pointerEvents = prev;
+    return el ? el.closest(".pkl-lane-list[data-tier]") : null;
+  }
+
+  function startManualDrag(e){
+    const badge = e.target.closest(".pkl-tier-member");
+    if(!badge) return;
+    if(!canEdit()){
+      badge.setAttribute("draggable", "false");
+      badge.dataset.canDrag = "0";
+      return;
+    }
+    if(e.button !== 0) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = badge.getBoundingClientRect();
+    const ghost = badge.cloneNode(true);
+
+    ghost.classList.add("pkl-manual-drag-ghost");
+    ghost.style.position = "fixed";
+    ghost.style.left = rect.left + "px";
+    ghost.style.top = rect.top + "px";
+    ghost.style.width = rect.width + "px";
+    ghost.style.height = rect.height + "px";
+    ghost.style.zIndex = "999999";
+    ghost.style.pointerEvents = "none";
+    ghost.style.margin = "0";
+    ghost.style.transform = "scale(1.06)";
+    ghost.style.opacity = "0.96";
+
+    document.body.appendChild(ghost);
+
+    badge.classList.add("pkl-manual-drag-source");
+
+    drag = {
+      badge,
+      ghost,
+      offsetX:e.clientX - rect.left,
+      offsetY:e.clientY - rect.top,
+      userKey:badge.dataset.userKey,
+      from:badge.dataset.lane
+    };
+
+    document.body.classList.add("pkl-manual-dragging");
+    moveManualDrag(e);
+  }
+
+  function moveManualDrag(e){
+    if(!drag) return;
+
+    const x = e.clientX;
+    const y = e.clientY;
+
+    drag.ghost.style.left = (x - drag.offsetX) + "px";
+    drag.ghost.style.top = (y - drag.offsetY) + "px";
+
+    clearDropReady();
+    const lane = getLaneUnderPoint(x, y);
+    if(lane) lane.classList.add("pkl-drop-ready");
+  }
+
+  function endManualDrag(e){
+    if(!drag) return;
+
+    const targetLaneEl = getLaneUnderPoint(e.clientX, e.clientY);
+    const targetLane = targetLaneEl ? targetLaneEl.dataset.tier : "";
+
+    const userKey = drag.userKey;
+    const from = drag.from;
+
+    drag.badge.classList.remove("pkl-manual-drag-source");
+    drag.ghost.remove();
+    document.body.classList.remove("pkl-manual-dragging");
+    clearDropReady();
+
+    drag = null;
+
+    if(!targetLane || !userKey || targetLane === from) return;
+
+    try{
+      if(typeof pklTierSetUserRole === "function" && pklTierSetUserRole(userKey, targetLane)){
+        if(typeof renderPklTierMembers === "function") renderPklTierMembers();
+      }
+    }catch(err){
+      console.error("PKL tier manual drag failed", err);
+    }
+  }
+
+  document.addEventListener("mousedown", startManualDrag, true);
+  document.addEventListener("mousemove", function(e){
+    if(drag){
+      e.preventDefault();
+      moveManualDrag(e);
+    }
+  }, true);
+  document.addEventListener("mouseup", function(e){
+    if(drag){
+      e.preventDefault();
+      endManualDrag(e);
+    }
+  }, true);
+
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && drag){
+      drag.badge.classList.remove("pkl-manual-drag-source");
+      drag.ghost.remove();
+      document.body.classList.remove("pkl-manual-dragging");
+      clearDropReady();
+      drag = null;
+    }
+  });
+})();
+</script>
+
+
+<script src="pkl-common-header.js"></script>
+
+<script id="pklTierPklUsersFinalReadFix">
+(function(){
+  if(window.__PKL_TIER_PKLUSERS_FINAL_READ_FIX__) return;
+  window.__PKL_TIER_PKLUSERS_FINAL_READ_FIX__ = true;
+  function parse(raw,fallback){try{return JSON.parse(raw) ?? fallback;}catch(e){return fallback;}}
+  function clean(v){return String(v == null ? "" : v).trim();}
+  function tierOf(u){return clean(u.memberTier || u.gradeRole || u.tierRole || u.tier);}
+  function same(a,b){
+    const aid=clean(a.discordId||a.uid||a.id||a.userId||a.key), bid=clean(b.discordId||b.uid||b.id||b.userId||b.key);
+    if(aid&&bid&&aid===bid) return true;
+    const ap=clean(a.pubgId||a.gameId||a.ref).toLowerCase(), bp=clean(b.pubgId||b.gameId||b.ref).toLowerCase();
+    if(ap&&bp&&ap===bp) return true;
+    const an=clean(a.nickname||a.nick||a.name).toLowerCase(), bn=clean(b.nickname||b.nick||b.name).toLowerCase();
+    return !!(an&&bn&&an===bn);
+  }
+  function merge(list){
+    const out=[];
+    (Array.isArray(list)?list:[]).forEach(u=>{
+      if(!u||typeof u!=="object") return;
+      const i=out.findIndex(x=>same(x,u));
+      if(i>=0){
+        const old=out[i];
+        out[i]={...old,...u};
+        const t=tierOf(u)||tierOf(old); if(t){out[i].memberTier=t;out[i].gradeRole=t;out[i].tierRole=t;out[i].tier=t;}
+        const p=clean(u.pubgId||u.gameId||u.ref)||clean(old.pubgId||old.gameId||old.ref); if(p){out[i].pubgId=p;out[i].gameId=p;out[i].ref=p;}
+      }else out.push(u);
+    });
+    return out;
+  }
+  function getUnifiedUsers(){
+    if(window.PKLUserProfile && typeof window.PKLUserProfile.users === "function") return window.PKLUserProfile.users();
+    const a=parse(localStorage.getItem("pklUsers"),[]);
+    const b=parse(localStorage.getItem("PKL_USERS"),[]);
+    const st=parse(localStorage.getItem("pklAdminState_v3"),null);
+    return merge([...(Array.isArray(a)?a:[]),...(Array.isArray(b)?b:[]),...((st&&Array.isArray(st.users))?st.users:[])]);
+  }
+  window.PKLGetUnifiedTierUsers = getUnifiedUsers;
+  setTimeout(function(){
+    try{ if(window.PKLUserProfile&&window.PKLUserProfile.setUsers) window.PKLUserProfile.setUsers(getUnifiedUsers(), false); else localStorage.setItem("pklUsers", JSON.stringify(getUnifiedUsers())); }catch(e){}
+    try{ window.dispatchEvent(new CustomEvent("pkl-users-updated")); }catch(e){}
+  }, 1000);
+})();
+</script>
+
+
+<!-- PKL global stacked modal layer manager -->
+<style id="pkl-global-stacked-modal-layer-style">
+  .pkl-layer-managed-modal{
+    position:fixed !important;
+    pointer-events:auto !important;
+  }
+  .pkl-layer-managed-modal > *,
+  .pkl-layer-managed-modal [role="dialog"],
+  .pkl-layer-managed-modal .modal-box,
+  .pkl-layer-managed-modal .modal-card,
+  .pkl-layer-managed-modal .pkl-result-admin-panel,
+  .pkl-layer-managed-modal .pkl-delete-confirm-box,
+  .pkl-layer-managed-modal .pkl-notice-card,
+  .pkl-layer-managed-modal .temp-edit-box{
+    position:relative !important;
+    pointer-events:auto !important;
+  }
+</style>
+<script id="pkl-global-stacked-modal-layer-script">
+(function(){
+  if(window.__PKL_STACKED_MODAL_LAYER_FINAL__) return;
+  window.__PKL_STACKED_MODAL_LAYER_FINAL__=true;
+  var BASE=2147481000;
+  var step=0;
+  var modalSelector=[
+    '.modal',
+    '.edit-modal',
+    '.member-edit-modal',
+    '.temp-edit-modal',
+    '.pkl-notice-layer',
+    '.pkl-result-admin-modal',
+    '.pkl-delete-confirm-modal',
+    '#resultAdminModal',
+    '#resultDeleteConfirmModal'
+  ].join(',');
+  function isOpen(el){
+    if(!el || !el.classList) return false;
+    var cs;
+    try{cs=getComputedStyle(el);}catch(e){cs=null;}
+    return el.classList.contains('open') ||
+      el.getAttribute('aria-hidden')==='false' ||
+      (cs && cs.position==='fixed' && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0');
+  }
+  function setLayer(el,z){
+    if(!el || !el.style) return;
+    el.classList.add('pkl-layer-managed-modal');
+    el.style.setProperty('z-index', String(z), 'important');
+    el.style.setProperty('pointer-events', 'auto', 'important');
+    var kids=el.querySelectorAll(':scope > *, [role="dialog"], .modal-box, .modal-card, .pkl-result-admin-panel, .pkl-delete-confirm-box, .pkl-notice-card, .temp-edit-box');
+    kids.forEach(function(k){
+      k.style.setProperty('z-index', String(z+1), 'important');
+      k.style.setProperty('pointer-events','auto','important');
+      if(getComputedStyle(k).position==='static') k.style.setProperty('position','relative','important');
+    });
+  }
+  function bring(el){
+    if(!el) return;
+    step+=10;
+    setLayer(el,BASE+step);
+  }
+  function scan(){
+    Array.prototype.forEach.call(document.querySelectorAll(modalSelector),function(el){
+      if(isOpen(el) && !el.dataset.pklLayerNoAuto){
+        if(!el.dataset.pklLayerOrder){
+          el.dataset.pklLayerOrder=String(++step);
+        }
+        setLayer(el,BASE+Number(el.dataset.pklLayerOrder));
+      }else if(el && el.dataset){
+        delete el.dataset.pklLayerOrder;
+      }
+    });
+  }
+  window.PKLBringModalToFront=function(el){
+    if(typeof el==='string') el=document.querySelector(el);
+    if(el){ delete el.dataset.pklLayerOrder; bring(el); }
+  };
+  document.addEventListener('click',function(e){
+    var el=e.target && e.target.closest && e.target.closest(modalSelector);
+    if(el) window.PKLBringModalToFront(el);
+    setTimeout(scan,0);
+    setTimeout(scan,80);
+  },true);
+  var mo=new MutationObserver(function(list){
+    list.forEach(function(m){
+      var el=m.target;
+      if(el && el.matches && el.matches(modalSelector) && isOpen(el)) window.PKLBringModalToFront(el);
+    });
+    setTimeout(scan,0);
+  });
+  function boot(){
+    try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
+    scan();
+    
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
+  <script src="./pkl-responsive-scale.js"></script>
+</body>
+</html>

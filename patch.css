@@ -1,0 +1,1072 @@
+:root{
+  --patch-bg:#06050c;
+  --patch-panel:#0d0c18;
+  --patch-line:rgba(188,145,255,.18);
+  --patch-line-strong:rgba(200,160,255,.46);
+  --patch-purple:#b076ff;
+  --patch-text:#f5f4ff;
+  --patch-muted:#9f98b7;
+  --patch-danger:#ff5b78;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 0%,rgba(176,118,255,.12),transparent 34%),
+    linear-gradient(180deg,#05040a,#090712 48%,#06050b);
+  color:var(--patch-text);
+  font-family:Pretendard,"Noto Sans KR",system-ui,sans-serif;
+}
+.patch-page{
+  width:min(1540px,calc(100vw - 34px));
+  height:calc(100vh - 94px);
+  margin:8px auto 0;
+  display:grid;
+  grid-template-rows:156px minmax(0,1fr);
+  gap:10px;
+}
+.patch-hero-row{
+  display:grid;
+  grid-template-columns:370px minmax(0,1fr);
+  gap:14px;
+  min-height:0;
+}
+.patch-title-card,.patch-feature-card,.patch-sidebar,.patch-main-panel{
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.042),rgba(255,255,255,.012)),
+    rgba(10,10,18,.92);
+  border:1px solid var(--patch-line);
+  border-radius:24px;
+  box-shadow:0 20px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.patch-title-card{
+  padding:22px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+.patch-kicker{
+  font-size:11px;
+  letter-spacing:3px;
+  color:#cfb2ff;
+  font-weight:1000;
+}
+.patch-title-card h1{
+  margin:10px 0;
+  font-size:48px;
+  line-height:.98;
+  letter-spacing:-2px;
+}
+.patch-title-card p{margin:0;color:var(--patch-muted);font-size:14px}
+.patch-feature-card{
+  position:relative;
+  overflow:hidden;
+  padding:20px 28px;
+  display:flex;
+  align-items:center;
+  gap:30px;
+}
+.patch-feature-card:before{
+  content:"";
+  position:absolute;
+  right:-100px;
+  top:-100px;
+  width:320px;
+  height:320px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(176,118,255,.20),transparent 70%);
+}
+.patch-live-badge{
+  position:absolute;
+  left:24px;
+  top:17px;
+  color:#ff6d86;
+  font-size:11px;
+  font-weight:1000;
+}
+.patch-feature-version{
+  position:relative;
+  font-size:80px;
+  font-weight:1000;
+  line-height:1;
+  letter-spacing:-4px;
+}
+.patch-feature-info{position:relative;min-width:0}
+.patch-feature-info span{font-size:13px;color:#aaa1c5}
+.patch-feature-info h2{margin:10px 0 8px;font-size:34px;line-height:1.08}
+.patch-feature-info p{margin:0;color:#b8b2ca;font-size:15px}
+.patch-workspace{
+  display:grid;
+  grid-template-columns:250px minmax(0,1fr);
+  gap:14px;
+  min-height:0;
+}
+.patch-sidebar{
+  padding:14px;
+  min-height:0;
+  overflow:hidden;
+}
+.patch-side-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:12px;
+  font-size:11px;
+  letter-spacing:2px;
+  color:#cfb2ff;
+  font-weight:1000;
+}
+.patch-write-mini{
+  width:30px;
+  height:26px;
+  border:1px solid rgba(216,180,254,.32);
+  border-radius:10px;
+  background:rgba(176,118,255,.14);
+  color:#fff;
+  font-weight:1000;
+  cursor:pointer;
+}
+.patch-version-list{
+  height:calc(100% - 38px);
+  display:grid;
+  grid-auto-rows:minmax(86px,1fr);
+  gap:10px;
+}
+.patch-version-card{
+  width:100%;
+  text-align:left;
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:18px;
+  background:rgba(255,255,255,.022);
+  color:#fff;
+  padding:14px 16px;
+  cursor:pointer;
+  transition:.18s ease;
+}
+.patch-version-card:hover{
+  border-color:rgba(200,160,255,.34);
+  transform:translateY(-1px);
+  box-shadow:0 0 18px rgba(176,118,255,.10);
+}
+.patch-version-card.active{
+  border-color:var(--patch-line-strong);
+  box-shadow:0 0 24px rgba(176,118,255,.16), inset 0 0 18px rgba(176,118,255,.04);
+}
+.patch-version-card-top{display:flex;align-items:center;gap:8px}
+.patch-version-card h3{margin:0;font-size:28px;line-height:1}
+.patch-version-card b{
+  background:#ff4564;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:10px;
+}
+.patch-version-card p{margin:8px 0 6px;font-size:13px;font-weight:900}
+.patch-version-card span{font-size:11px;color:#938cab}
+.patch-main-panel{
+  padding:18px 22px;
+  min-height:0;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  overflow:hidden;
+}
+.patch-main-top{
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  align-items:flex-end;
+  padding-bottom:12px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.patch-current-version{font-size:46px;font-weight:1000;line-height:1;letter-spacing:-2px}
+.patch-current-title{margin-top:6px;font-size:18px;font-weight:1000}
+.patch-main-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.patch-current-date{font-size:13px;color:#a59dbd;margin-right:8px}
+.patch-action-btn{
+  min-width:64px;
+  height:34px;
+  border:1px solid rgba(216,180,254,.24);
+  border-radius:11px;
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+  color:#fff;
+  font-weight:1000;
+  cursor:pointer;
+}
+.patch-action-btn.primary{
+  border-color:rgba(176,118,255,.58);
+  background:linear-gradient(135deg,rgba(124,58,237,.72),rgba(31,16,60,.95));
+  box-shadow:0 0 16px rgba(176,118,255,.20);
+}
+.patch-action-btn.danger{
+  border-color:rgba(255,91,118,.48);
+  background:linear-gradient(135deg,rgba(127,29,45,.70),rgba(38,10,17,.94));
+  color:#ffe3e8;
+}
+.patch-detail-list{
+  min-height:0;
+  display:grid;
+  grid-template-rows:repeat(3,minmax(88px,1fr));
+  gap:0;
+}
+.patch-item{
+  display:grid;
+  grid-template-columns:86px minmax(0,1fr);
+  gap:18px;
+  align-items:center;
+  padding:12px 0;
+  border-bottom:1px solid rgba(255,255,255,.055);
+  min-height:0;
+}
+.patch-tag{
+  min-width:82px;
+  height:32px;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:10px;
+  font-weight:1000;
+}
+.patch-tag.NEW{background:rgba(176,118,255,.16);color:#d3b7ff}
+.patch-tag.IMPROVE{background:rgba(255,211,92,.12);color:#ffd45a}
+.patch-tag.FIX{background:rgba(255,91,118,.12);color:#ff7f96}
+.patch-info h4{margin:0 0 7px;font-size:21px;line-height:1.18}
+.patch-info ul{margin:0;padding-left:18px;color:#a8a1c0;line-height:1.55;font-size:13px}
+.patch-empty{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:180px;
+  color:#9f98b7;
+  font-weight:900;
+}
+.pkl-patch-modal{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:blur(14px);
+}
+.pkl-patch-modal.open{display:flex}
+.pkl-patch-modal-card,.pkl-patch-confirm-card{
+  width:min(760px,calc(100vw - 34px));
+  border:1px solid rgba(216,180,254,.34);
+  border-radius:24px;
+  background:linear-gradient(180deg,rgba(28,18,54,.98),rgba(7,6,16,.98));
+  box-shadow:0 30px 90px rgba(0,0,0,.65),0 0 38px rgba(176,118,255,.20);
+  color:#fff;
+  padding:24px;
+}
+.pkl-patch-confirm-card{width:min(420px,calc(100vw - 34px));text-align:center}
+.pkl-patch-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}
+.pkl-patch-modal-head span{font-size:11px;letter-spacing:2.6px;color:#cfb2ff;font-weight:1000}
+.pkl-patch-modal-head h3{margin:6px 0 0;font-size:25px}
+.patch-modal-close{
+  width:38px;
+  height:38px;
+  border-radius:13px;
+  border:1px solid rgba(216,180,254,.26);
+  background:rgba(255,255,255,.06);
+  color:#fff;
+  font-size:24px;
+  cursor:pointer;
+}
+.patch-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.patch-form-grid label{display:flex;flex-direction:column;gap:8px;color:#cfc8e8;font-size:12px;font-weight:1000;letter-spacing:.6px}
+.patch-form-grid label.wide{grid-column:1 / -1}
+.patch-form-grid input,.patch-form-grid textarea{
+  width:100%;
+  border:1px solid rgba(216,180,254,.20);
+  border-radius:13px;
+  background:rgba(4,4,12,.62);
+  color:#fff;
+  padding:12px 13px;
+  outline:none;
+  resize:none;
+  font-family:Pretendard,"Noto Sans KR",system-ui,sans-serif;
+  font-size:14px;
+  line-height:1.55;
+  font-weight:800;
+}
+.patch-form-grid input:focus,.patch-form-grid textarea:focus{border-color:rgba(176,118,255,.65);box-shadow:0 0 16px rgba(176,118,255,.12)}
+.patch-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+@media(max-width:1100px){
+  html,body{overflow:auto}
+  .patch-page{height:auto;grid-template-rows:auto auto}
+  .patch-hero-row,.patch-workspace{grid-template-columns:1fr}
+  .patch-title-card h1{font-size:38px}
+  .patch-feature-version{font-size:58px}
+  .patch-feature-info h2{font-size:26px}
+  .patch-version-list{height:auto;grid-auto-rows:auto}
+  .patch-detail-list{grid-template-rows:none}
+}
+
+
+/* =========================================================
+   PATCH CENTER VIEW FIT FIX
+   - 기존 헤더/기능 유지
+   - 1번 화면 느낌 유지하면서 한 화면 안에 들어가도록 크기만 조정
+   - 버전 카드/본문 클릭 및 버튼 영역 방해 없음
+========================================================= */
+html,body{
+  overflow:hidden !important;
+}
+.patch-page{
+  width:min(1400px,calc(100vw - 340px)) !important;
+  min-width:1180px !important;
+  height:calc(100vh - 108px) !important;
+  margin:8px auto 0 !important;
+  display:grid !important;
+  grid-template-rows:154px minmax(0,1fr) !important;
+  gap:12px !important;
+  overflow:hidden !important;
+}
+.patch-hero-row{
+  height:154px !important;
+  min-height:0 !important;
+  display:grid !important;
+  grid-template-columns:330px minmax(0,1fr) !important;
+  gap:14px !important;
+}
+.patch-title-card,
+.patch-feature-card{
+  height:154px !important;
+  min-height:0 !important;
+  border-radius:20px !important;
+}
+.patch-title-card{
+  padding:18px 22px !important;
+}
+.patch-kicker{
+  font-size:10px !important;
+  letter-spacing:2.8px !important;
+}
+.patch-title-card h1{
+  margin:8px 0 !important;
+  font-size:41px !important;
+  line-height:.98 !important;
+}
+.patch-title-card p{
+  font-size:13px !important;
+}
+.patch-feature-card{
+  padding:18px 26px !important;
+  gap:26px !important;
+}
+.patch-feature-version{
+  font-size:72px !important;
+  letter-spacing:-3.5px !important;
+}
+.patch-feature-info h2{
+  margin:8px 0 7px !important;
+  font-size:30px !important;
+}
+.patch-feature-info p{
+  font-size:14px !important;
+}
+.patch-workspace{
+  min-height:0 !important;
+  height:100% !important;
+  display:grid !important;
+  grid-template-columns:230px minmax(0,1fr) !important;
+  gap:14px !important;
+  margin:0 !important;
+  transform:none !important;
+  overflow:hidden !important;
+}
+.patch-sidebar,
+.patch-main-panel{
+  min-height:0 !important;
+  height:100% !important;
+  border-radius:20px !important;
+  overflow:hidden !important;
+}
+.patch-sidebar{
+  padding:12px !important;
+}
+.patch-side-head{
+  margin-bottom:10px !important;
+  font-size:10px !important;
+}
+.patch-write-mini{
+  width:28px !important;
+  height:24px !important;
+}
+.patch-version-list{
+  height:calc(100% - 34px) !important;
+  display:grid !important;
+  grid-template-rows:repeat(3,minmax(0,1fr)) !important;
+  grid-auto-rows:minmax(0,1fr) !important;
+  gap:10px !important;
+  overflow:hidden !important;
+}
+.patch-version-card{
+  min-height:0 !important;
+  height:100% !important;
+  padding:12px 14px !important;
+  border-radius:16px !important;
+}
+.patch-version-card h3{
+  font-size:25px !important;
+}
+.patch-version-card p{
+  margin:7px 0 5px !important;
+  font-size:12px !important;
+}
+.patch-version-card span{
+  font-size:11px !important;
+}
+.patch-main-panel{
+  padding:16px 20px !important;
+  display:grid !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+}
+.patch-main-top{
+  padding-bottom:10px !important;
+  align-items:flex-end !important;
+}
+.patch-current-version{
+  font-size:42px !important;
+}
+.patch-current-title{
+  margin-top:5px !important;
+  font-size:17px !important;
+}
+.patch-main-actions{
+  gap:7px !important;
+}
+.patch-current-date{
+  font-size:12px !important;
+}
+.patch-action-btn{
+  min-width:58px !important;
+  height:31px !important;
+  border-radius:10px !important;
+  font-size:12px !important;
+}
+.patch-detail-list{
+  min-height:0 !important;
+  height:100% !important;
+  display:grid !important;
+  grid-template-rows:repeat(3,minmax(0,1fr)) !important;
+  gap:0 !important;
+  overflow:hidden !important;
+}
+.patch-item{
+  min-height:0 !important;
+  padding:9px 0 !important;
+  grid-template-columns:74px minmax(0,1fr) !important;
+  gap:14px !important;
+}
+.patch-tag{
+  min-width:70px !important;
+  height:29px !important;
+  border-radius:9px !important;
+  font-size:11px !important;
+}
+.patch-info h4{
+  margin:0 0 6px !important;
+  font-size:19px !important;
+  line-height:1.15 !important;
+}
+.patch-info ul{
+  padding-left:17px !important;
+  font-size:12px !important;
+  line-height:1.42 !important;
+}
+@media(max-width:1500px){
+  .patch-page{width:min(1320px,calc(100vw - 220px)) !important;min-width:1080px !important;}
+  .patch-hero-row{grid-template-columns:310px minmax(0,1fr) !important;}
+  .patch-workspace{grid-template-columns:220px minmax(0,1fr) !important;}
+}
+@media(max-height:820px){
+  .patch-page{height:calc(100vh - 104px) !important;grid-template-rows:136px minmax(0,1fr) !important;gap:10px !important;}
+  .patch-hero-row{height:136px !important;}
+  .patch-title-card,.patch-feature-card{height:136px !important;}
+  .patch-title-card h1{font-size:36px !important;}
+  .patch-feature-version{font-size:62px !important;}
+  .patch-feature-info h2{font-size:26px !important;}
+  .patch-main-panel{padding:14px 18px !important;}
+  .patch-current-version{font-size:36px !important;}
+  .patch-info h4{font-size:17px !important;}
+  .patch-info ul{font-size:11px !important;line-height:1.35 !important;}
+}
+
+/* =========================================================
+   PATCH CENTER BOTTOM SAFE FIT
+   - 하단 잘림 방지
+   - 헤더는 건드리지 않고 patch 영역만 더 자연스럽게 축소
+========================================================= */
+html,body{
+  overflow:hidden !important;
+}
+.site{
+  min-height:100vh !important;
+  overflow:hidden !important;
+}
+.patch-page{
+  height:calc(100vh - 122px) !important;
+  margin:6px auto 0 !important;
+  grid-template-rows:128px minmax(0,1fr) !important;
+  gap:8px !important;
+  overflow:hidden !important;
+}
+.patch-hero-row{
+  height:128px !important;
+  grid-template-columns:300px minmax(0,1fr) !important;
+  gap:12px !important;
+}
+.patch-title-card,
+.patch-feature-card{
+  height:128px !important;
+  border-radius:18px !important;
+}
+.patch-title-card{
+  padding:16px 20px !important;
+}
+.patch-title-card h1{
+  font-size:34px !important;
+  margin:7px 0 !important;
+  line-height:.98 !important;
+}
+.patch-kicker{
+  font-size:9.5px !important;
+  letter-spacing:2.5px !important;
+}
+.patch-title-card p{
+  font-size:12px !important;
+}
+.patch-feature-card{
+  padding:16px 24px !important;
+  gap:22px !important;
+}
+.patch-live-badge{
+  left:22px !important;
+  top:14px !important;
+  font-size:10px !important;
+}
+.patch-feature-version{
+  font-size:58px !important;
+  letter-spacing:-3px !important;
+}
+.patch-feature-info span{
+  font-size:12px !important;
+}
+.patch-feature-info h2{
+  font-size:24px !important;
+  margin:6px 0 5px !important;
+}
+.patch-feature-info p{
+  font-size:12.5px !important;
+}
+.patch-workspace{
+  grid-template-columns:210px minmax(0,1fr) !important;
+  gap:12px !important;
+  height:100% !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+}
+.patch-sidebar,
+.patch-main-panel{
+  height:100% !important;
+  min-height:0 !important;
+  border-radius:18px !important;
+  overflow:hidden !important;
+}
+.patch-sidebar{
+  padding:11px !important;
+}
+.patch-side-head{
+  margin-bottom:8px !important;
+  font-size:9.5px !important;
+}
+.patch-write-mini{
+  width:26px !important;
+  height:22px !important;
+  border-radius:8px !important;
+}
+.patch-version-list{
+  height:calc(100% - 30px) !important;
+  grid-template-rows:repeat(3,minmax(0,1fr)) !important;
+  gap:8px !important;
+  overflow:hidden !important;
+}
+.patch-version-card{
+  padding:10px 13px !important;
+  border-radius:15px !important;
+}
+.patch-version-card h3{
+  font-size:22px !important;
+}
+.patch-version-card b{
+  padding:2px 7px !important;
+  font-size:11px !important;
+}
+.patch-version-card p{
+  margin:6px 0 4px !important;
+  font-size:11px !important;
+}
+.patch-version-card span{
+  font-size:10px !important;
+}
+.patch-main-panel{
+  padding:13px 18px !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+}
+.patch-main-top{
+  padding-bottom:8px !important;
+}
+.patch-current-version{
+  font-size:34px !important;
+  letter-spacing:-1.5px !important;
+}
+.patch-current-title{
+  margin-top:4px !important;
+  font-size:15px !important;
+}
+.patch-main-actions{
+  gap:6px !important;
+  align-items:center !important;
+}
+.patch-current-date{
+  font-size:11px !important;
+  margin-right:4px !important;
+}
+.patch-action-btn{
+  min-width:54px !important;
+  height:28px !important;
+  border-radius:9px !important;
+  font-size:11px !important;
+}
+.patch-detail-list{
+  height:100% !important;
+  min-height:0 !important;
+  grid-template-rows:repeat(3,minmax(0,1fr)) !important;
+  overflow:hidden !important;
+}
+.patch-item{
+  padding:6px 0 !important;
+  grid-template-columns:66px minmax(0,1fr) !important;
+  gap:12px !important;
+  align-items:center !important;
+}
+.patch-tag{
+  min-width:62px !important;
+  height:26px !important;
+  border-radius:8px !important;
+  font-size:8.5px !important;
+}
+.patch-info h4{
+  margin:0 0 4px !important;
+  font-size:15.5px !important;
+  line-height:1.12 !important;
+}
+.patch-info ul{
+  padding-left:15px !important;
+  font-size:10.5px !important;
+  line-height:1.28 !important;
+}
+
+@media(max-height:820px){
+  .patch-page{
+    height:calc(100vh - 116px) !important;
+    grid-template-rows:112px minmax(0,1fr) !important;
+    gap:7px !important;
+  }
+  .patch-hero-row,
+  .patch-title-card,
+  .patch-feature-card{
+    height:112px !important;
+  }
+  .patch-title-card h1{font-size:30px !important;}
+  .patch-title-card p{font-size:11px !important;}
+  .patch-feature-version{font-size:50px !important;}
+  .patch-feature-info h2{font-size:21px !important;}
+  .patch-feature-info p{font-size:11px !important;}
+  .patch-main-panel{padding:11px 16px !important;}
+  .patch-current-version{font-size:30px !important;}
+  .patch-current-title{font-size:14px !important;}
+  .patch-item{padding:5px 0 !important;}
+  .patch-info h4{font-size:14.5px !important;}
+  .patch-info ul{font-size:10px !important;line-height:1.22 !important;}
+}
+
+/* =========================================================
+   PATCH CENTER NATURAL NO-CUT LAYOUT FIX
+   - 하단 잘림 방지
+   - 본문 항목을 억지로 3등분하지 않고 위쪽에 자연스럽게 배치
+   - 남는 공간은 패널 배경으로 유지
+========================================================= */
+html,body{
+  overflow:hidden !important;
+}
+.patch-page{
+  height:calc(100vh - 92px) !important;
+  max-height:calc(100vh - 92px) !important;
+  margin:6px auto 0 !important;
+  overflow:hidden !important;
+  grid-template-rows:124px minmax(0,1fr) !important;
+  gap:8px !important;
+}
+.patch-hero-row,
+.patch-title-card,
+.patch-feature-card{
+  height:124px !important;
+  min-height:0 !important;
+}
+.patch-title-card h1{
+  font-size:32px !important;
+  line-height:1 !important;
+  margin:6px 0 !important;
+}
+.patch-title-card p{font-size:11.5px !important;}
+.patch-feature-version{font-size:54px !important;}
+.patch-feature-info h2{font-size:23px !important;margin:5px 0 4px !important;}
+.patch-feature-info p{font-size:12px !important;}
+.patch-workspace{
+  min-height:0 !important;
+  height:100% !important;
+  overflow:hidden !important;
+}
+.patch-sidebar,
+.patch-main-panel{
+  min-height:0 !important;
+  height:100% !important;
+  overflow:hidden !important;
+}
+.patch-main-panel{
+  padding:13px 18px 16px !important;
+}
+.patch-main-top{
+  padding-bottom:8px !important;
+}
+.patch-current-version{font-size:32px !important;}
+.patch-current-title{font-size:14.5px !important;}
+
+/* 핵심: 본문 항목을 패널 높이에 강제로 늘리지 않음 */
+.patch-detail-list{
+  display:flex !important;
+  flex-direction:column !important;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:visible !important;
+  padding-top:8px !important;
+  padding-bottom:18px !important;
+}
+.patch-item{
+  flex:0 0 auto !important;
+  min-height:84px !important;
+  padding:10px 0 !important;
+  grid-template-columns:70px minmax(0,1fr) !important;
+  gap:14px !important;
+  align-items:center !important;
+}
+.patch-item:last-child{
+  border-bottom:1px solid rgba(255,255,255,.055) !important;
+}
+.patch-tag{
+  min-width:66px !important;
+  height:27px !important;
+  font-size:8.5px !important;
+}
+.patch-info h4{
+  font-size:16.5px !important;
+  margin:0 0 5px !important;
+  line-height:1.16 !important;
+}
+.patch-info ul{
+  font-size:10.8px !important;
+  line-height:1.34 !important;
+  padding-left:15px !important;
+}
+
+/* 사이드바도 아래 잘림 없이 카드가 자연스럽게 보이도록 고정 축소 */
+.patch-version-list{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:8px !important;
+  height:auto !important;
+  overflow:visible !important;
+}
+.patch-version-card{
+  flex:0 0 auto !important;
+  min-height:104px !important;
+  height:auto !important;
+  padding:11px 13px !important;
+}
+
+@media(max-height:820px){
+  .patch-page{
+    height:calc(100vh - 88px) !important;
+    max-height:calc(100vh - 88px) !important;
+    grid-template-rows:106px minmax(0,1fr) !important;
+    gap:7px !important;
+  }
+  .patch-hero-row,
+  .patch-title-card,
+  .patch-feature-card{height:106px !important;}
+  .patch-title-card h1{font-size:28px !important;}
+  .patch-feature-version{font-size:46px !important;}
+  .patch-feature-info h2{font-size:20px !important;}
+  .patch-main-panel{padding:10px 16px 14px !important;}
+  .patch-current-version{font-size:28px !important;}
+  .patch-item{min-height:74px !important;padding:7px 0 !important;}
+  .patch-info h4{font-size:14.5px !important;}
+  .patch-info ul{font-size:9.8px !important;line-height:1.25 !important;}
+  .patch-version-card{min-height:88px !important;}
+}
+
+/* =========================================================
+   PATCH OUTER FRAME LIFT FIX
+   - 사용자가 말한 '겉테두리 큰 박스' 하단만 위로 올림
+   - 내부 패치카드/본문카드는 억지로 더 작게 만들지 않음
+   - 좌측 PATCH VERSION 박스와 우측 본문 큰 박스가 화면 하단에 붙어 잘려보이지 않게 여백 확보
+========================================================= */
+.patch-page{
+  /* 페이지 전체는 유지하되 하단에 숨 쉴 공간을 확보 */
+  height:calc(100vh - 96px) !important;
+  max-height:calc(100vh - 96px) !important;
+  margin:6px auto 0 !important;
+  overflow:visible !important;
+}
+.patch-workspace{
+  /* 핵심: 내부 카드 크기가 아니라 좌/우 큰 외곽 박스 자체의 하단을 위로 올림 */
+  align-self:start !important;
+  height:calc(100% - 34px) !important;
+  max-height:calc(100% - 34px) !important;
+  overflow:visible !important;
+}
+.patch-sidebar,
+.patch-main-panel{
+  height:100% !important;
+  max-height:100% !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+  border-radius:22px !important;
+}
+.patch-version-list,
+.patch-detail-list{
+  /* 컨텐츠는 위쪽에 자연스럽게 배치 */
+  align-content:start !important;
+}
+.patch-detail-list{
+  padding-bottom:10px !important;
+}
+.patch-version-card{
+  /* 이전처럼 안쪽 카드가 과하게 쪼그라들지 않게 자연 높이 유지 */
+  min-height:96px !important;
+}
+.patch-item{
+  min-height:78px !important;
+}
+@media(max-height:820px){
+  .patch-page{
+    height:calc(100vh - 92px) !important;
+    max-height:calc(100vh - 92px) !important;
+  }
+  .patch-workspace{
+    height:calc(100% - 30px) !important;
+    max-height:calc(100% - 30px) !important;
+  }
+  .patch-version-card{min-height:82px !important;}
+  .patch-item{min-height:70px !important;}
+}
+
+/* =========================================================
+   PATCH 1-2 / 3-4 COLUMN ALIGN BALANCE FIX
+   - 3번/4번 큰 박스의 좌우 칸을 1번/2번 상단 박스와 동일 기준으로 맞춤
+   - 내부 버전 카드와 본문 글씨를 다시 키워서 작아 보이지 않게 조정
+   - 기존 헤더/기능/하단 들뜸 수정은 유지
+========================================================= */
+.patch-hero-row,
+.patch-workspace{
+  grid-template-columns:300px minmax(0,1fr) !important;
+  gap:12px !important;
+}
+
+.patch-workspace{
+  align-self:start !important;
+  width:100% !important;
+}
+
+.patch-sidebar{
+  padding:14px 16px !important;
+}
+
+.patch-side-head{
+  margin-bottom:12px !important;
+  font-size:11px !important;
+  letter-spacing:2.2px !important;
+}
+
+.patch-write-mini{
+  width:30px !important;
+  height:26px !important;
+  border-radius:10px !important;
+  font-size:16px !important;
+}
+
+.patch-version-list{
+  height:auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:10px !important;
+  overflow:visible !important;
+}
+
+.patch-version-card{
+  width:100% !important;
+  min-height:116px !important;
+  padding:17px 18px !important;
+  border-radius:18px !important;
+}
+
+.patch-version-card h3{
+  font-size:30px !important;
+  line-height:1 !important;
+}
+
+.patch-version-card b{
+  padding:3px 8px !important;
+  font-size:10px !important;
+}
+
+.patch-version-card p{
+  margin:9px 0 7px !important;
+  font-size:13px !important;
+  line-height:1.2 !important;
+}
+
+.patch-version-card span{
+  font-size:11px !important;
+}
+
+.patch-main-panel{
+  padding:18px 22px 18px !important;
+}
+
+.patch-current-version{
+  font-size:40px !important;
+  line-height:1 !important;
+}
+
+.patch-current-title{
+  margin-top:6px !important;
+  font-size:17px !important;
+}
+
+.patch-main-top{
+  padding-bottom:11px !important;
+}
+
+.patch-action-btn{
+  min-width:60px !important;
+  height:31px !important;
+  font-size:12px !important;
+}
+
+.patch-detail-list{
+  padding-top:10px !important;
+  padding-bottom:12px !important;
+}
+
+.patch-item{
+  min-height:82px !important;
+  padding:10px 0 !important;
+  grid-template-columns:78px minmax(0,1fr) !important;
+  gap:16px !important;
+}
+
+.patch-tag{
+  min-width:74px !important;
+  height:29px !important;
+  border-radius:9px !important;
+  font-size:11px !important;
+}
+
+.patch-info h4{
+  font-size:19px !important;
+  line-height:1.18 !important;
+  margin:0 0 6px !important;
+}
+
+.patch-info ul{
+  font-size:14px !important;
+  line-height:1.55 !important;
+  padding-left:16px !important;
+}
+
+@media(max-height:820px){
+  .patch-hero-row,
+  .patch-workspace{
+    grid-template-columns:300px minmax(0,1fr) !important;
+    gap:12px !important;
+  }
+  .patch-sidebar{
+    padding:13px 15px !important;
+  }
+  .patch-version-card{
+    min-height:106px !important;
+    padding:15px 17px !important;
+  }
+  .patch-version-card h3{
+    font-size:28px !important;
+  }
+  .patch-version-card p{
+    font-size:12.5px !important;
+  }
+  .patch-main-panel{
+    padding:16px 20px 17px !important;
+  }
+  .patch-current-version{
+    font-size:38px !important;
+  }
+  .patch-info h4{
+    font-size:18px !important;
+  }
+  .patch-info ul{
+    font-size:13.5px !important;
+  }
+}
+
+
+/* =========================================================
+   PATCH NOTE READABILITY TYPOGRAPHY ONLY FIX
+   - 칸/박스 크기는 변경하지 않고 패치 내용 글씨만 가독성 조정
+   - 작성/수정 모달 패치내용 입력 글꼴을 페이지 기본 글꼴로 통일
+========================================================= */
+.patch-info ul{
+  color:#c8c1dc !important;
+  font-size:14px !important;
+  line-height:1.58 !important;
+  font-weight:800 !important;
+  letter-spacing:-.1px !important;
+}
+.patch-info li + li{
+  margin-top:3px !important;
+}
+.patch-tag{
+  font-size:11px !important;
+  font-weight:1000 !important;
+}
+.patch-form-grid textarea{
+  font-family:Pretendard,"Noto Sans KR",system-ui,sans-serif !important;
+  font-size:14px !important;
+  line-height:1.58 !important;
+  font-weight:800 !important;
+}
+@media(max-height:820px){
+  .patch-info ul{
+    font-size:13.5px !important;
+    line-height:1.5 !important;
+  }
+  .patch-tag{
+    font-size:10.5px !important;
+  }
+}

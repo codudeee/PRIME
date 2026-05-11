@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script src="./pkl-supabase-config.js"></script>
+  
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PKL 킬내기룰</title>
+<link rel="stylesheet" href="pkl-main-common.css" />
+<style>
+:root{
+  --pkl-bg:#05040c;
+  --pkl-panel:rgba(8,8,18,.88);
+  --pkl-line:rgba(216,180,254,.24);
+  --pkl-line-strong:rgba(216,180,254,.48);
+  --pkl-purple:#9b5cff;
+  --pkl-purple-soft:#c4b5fd;
+  --pkl-white:#f8f4ff;
+  --pkl-muted:rgba(248,244,255,.62);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--pkl-bg);color:var(--pkl-white);font-family:Pretendard,"Noto Sans KR","Malgun Gothic",system-ui,sans-serif;}
+body{
+  background:
+    radial-gradient(ellipse at 50% 0%,rgba(155,92,255,.24),transparent 38%),
+    radial-gradient(ellipse at 14% 18%,rgba(88,28,135,.20),transparent 34%),
+    radial-gradient(ellipse at 86% 14%,rgba(216,180,254,.08),transparent 30%),
+    linear-gradient(180deg,#05040c 0%,#090717 52%,#04040a 100%);
+  overflow-x:hidden;
+}
+body:before{
+  content:"RULE";
+  position:fixed;
+  left:50%;top:76px;
+  transform:translateX(-50%);
+  color:rgba(255,255,255,.035);
+  font-size:150px;
+  font-style:italic;
+  font-weight:1000;
+  letter-spacing:-10px;
+  text-shadow:0 0 60px rgba(155,92,255,.18);
+  pointer-events:none;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+.site{position:relative;z-index:1;min-height:100vh;}
+#pklCommonHeader{min-height:70px;}
+.rule-page{width:min(1380px,calc(100vw - 40px));margin:0 auto;padding:24px 0 54px;}
+.rule-hero{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(216,180,254,.28);
+  border-radius:26px;
+  padding:30px 34px;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.020) 34%,transparent 58%),
+    radial-gradient(circle at 64% 0%,rgba(155,92,255,.24),transparent 48%),
+    rgba(7,7,16,.86);
+  box-shadow:0 30px 80px rgba(0,0,0,.52),0 0 42px rgba(155,92,255,.13),inset 0 1px 0 rgba(255,255,255,.11);
+}
+.rule-hero:before{content:"";position:absolute;left:52px;right:52px;top:0;height:2px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.84),rgba(216,180,254,.90),rgba(155,92,255,.72),transparent);box-shadow:0 0 24px rgba(216,180,254,.52)}
+.rule-kicker{color:var(--pkl-purple-soft);font-size:11px;font-weight:1000;letter-spacing:3px;text-shadow:0 0 18px rgba(155,92,255,.58)}
+.rule-hero h1{margin:9px 0 8px;font-size:34px;font-weight:1000;font-style:italic;letter-spacing:-1px;text-shadow:0 0 28px rgba(155,92,255,.34)}
+.rule-hero h1 span{color:#d8b4fe;}
+.rule-hero p{margin:0;max-width:760px;color:var(--pkl-muted);font-size:14px;font-weight:800;line-height:1.7;word-break:keep-all;}
+.rule-layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px;margin-top:18px;align-items:start;}
+.rule-sidebar,.rule-detail{
+  border:1px solid var(--pkl-line);
+  border-radius:24px;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.060),rgba(255,255,255,.014)),
+    radial-gradient(circle at 50% -20%,rgba(155,92,255,.17),transparent 52%),
+    rgba(6,6,15,.86);
+  box-shadow:0 24px 58px rgba(0,0,0,.40),0 0 28px rgba(155,92,255,.10),inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.rule-sidebar{position:sticky;top:88px;padding:18px;}
+.rule-sidebar-head{padding:4px 4px 14px;border-bottom:1px solid rgba(216,180,254,.14);margin-bottom:14px;}
+.rule-sidebar-head span{display:block;color:#a78bfa;font-size:10px;font-weight:1000;letter-spacing:2.4px;text-shadow:0 0 15px rgba(155,92,255,.52)}
+.rule-sidebar-head strong{display:block;margin-top:6px;font-size:21px;font-weight:1000;letter-spacing:-.4px;}
+.rule-nav{display:grid;gap:9px;}
+.rule-add-category-btn{display:none;width:100%;height:42px;margin-top:12px;border-radius:14px;border:1px solid rgba(216,180,254,.30);background:linear-gradient(180deg,rgba(155,92,255,.30),rgba(155,92,255,.10));color:#fff;font-size:13px;font-weight:1000;letter-spacing:-.2px;box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 12px 24px rgba(0,0,0,.24);}
+body.rule-admin .rule-add-category-btn{display:flex;align-items:center;justify-content:center;}
+.rule-add-category-btn:hover{filter:brightness(1.10);border-color:rgba(216,180,254,.56);box-shadow:0 0 20px rgba(155,92,255,.22),inset 0 1px 0 rgba(255,255,255,.14);transform:translateY(-1px);}
+.rule-tab{
+  width:100%;min-height:54px;padding:10px 13px;border-radius:16px;border:1px solid rgba(255,255,255,.075);
+  background:linear-gradient(135deg,rgba(255,255,255,.055),rgba(255,255,255,.012));
+  color:rgba(248,244,255,.72);display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;
+  font-size:14px;font-weight:1000;letter-spacing:-.2px;transition:transform .17s ease,border-color .17s ease,box-shadow .17s ease,background .17s ease,color .17s ease;
+}
+.rule-tab small{color:rgba(196,181,253,.58);font-size:10px;font-weight:1000;letter-spacing:1.6px;white-space:nowrap;}
+.rule-tab:hover,.rule-tab.active{color:#fff;transform:translateX(2px);border-color:rgba(216,180,254,.50);background:radial-gradient(circle at 0% 0%,rgba(155,92,255,.22),transparent 60%),linear-gradient(135deg,rgba(255,255,255,.080),rgba(255,255,255,.016));box-shadow:0 0 24px rgba(155,92,255,.15),inset 0 1px 0 rgba(255,255,255,.10);}
+.rule-detail{min-height:650px;display:flex;flex-direction:column;overflow:hidden;}
+.rule-detail-head{padding:28px 32px 20px;border-bottom:1px solid rgba(216,180,254,.16);background:linear-gradient(90deg,rgba(155,92,255,.14),rgba(255,255,255,.012),transparent);}
+.rule-detail-kicker{color:#c4b5fd;font-size:10px;font-weight:1000;letter-spacing:2.8px;text-shadow:0 0 15px rgba(155,92,255,.55)}
+.rule-detail-title{margin:8px 0 8px;font-size:29px;font-weight:1000;letter-spacing:-.8px;text-shadow:0 0 22px rgba(216,180,254,.25);}
+.rule-detail-desc{margin:0;color:rgba(248,244,255,.60);font-size:13px;font-weight:850;line-height:1.65;word-break:keep-all;}
+.rule-content{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:26px 34px 34px;scrollbar-width:thin;scrollbar-color:rgba(196,181,253,.72) rgba(255,255,255,.045);}
+.rule-content::-webkit-scrollbar{width:8px}.rule-content::-webkit-scrollbar-track{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(155,92,255,.035));border-radius:999px}.rule-content::-webkit-scrollbar-thumb{border-radius:999px;background:linear-gradient(180deg,rgba(233,213,255,.88),rgba(155,92,255,.64));border:1px solid rgba(255,255,255,.12);box-shadow:0 0 12px rgba(155,92,255,.34),inset 0 1px 0 rgba(255,255,255,.32)}.rule-content::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(196,181,253,.82));box-shadow:0 0 16px rgba(216,180,254,.46)}
+.rule-section{display:none;animation:ruleFade .18s ease;}.rule-section.active{display:block}@keyframes ruleFade{from{opacity:.35;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.rule-block{position:relative;margin:0 0 18px;padding:19px 20px;border-radius:20px;border:1px solid rgba(216,180,254,.16);background:linear-gradient(135deg,rgba(255,255,255,.060),rgba(255,255,255,.014));box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 14px 30px rgba(0,0,0,.18);overflow:hidden;}
+.rule-block:before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:2px;background:linear-gradient(180deg,rgba(216,180,254,.85),rgba(155,92,255,.34));box-shadow:0 0 16px rgba(155,92,255,.45)}
+.rule-block h3{margin:0 0 12px;font-size:18px;font-weight:1000;letter-spacing:-.4px;color:#fff;}
+.rule-block p{margin:0 0 10px;color:rgba(248,244,255,.76);font-size:15px;font-weight:780;line-height:1.85;word-break:keep-all;}
+.rule-block ul{margin:0;padding-left:18px;color:rgba(248,244,255,.75);font-size:15px;font-weight:780;line-height:1.85;word-break:keep-all;}
+.rule-block li{margin:4px 0;}
+.rule-badge-row,.rule-badge{display:none !important;}
+.rule-back{display:inline-flex;align-items:center;justify-content:center;margin-top:16px;height:42px;padding:0 18px;border-radius:14px;border:1px solid rgba(216,180,254,.28);background:linear-gradient(180deg,rgba(155,92,255,.28),rgba(155,92,255,.10));color:#fff;font-size:13px;font-weight:1000;box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 12px 24px rgba(0,0,0,.24);}
+.rule-back:hover{filter:brightness(1.10);border-color:rgba(216,180,254,.55);box-shadow:0 0 20px rgba(155,92,255,.22),inset 0 1px 0 rgba(255,255,255,.14);}
+
+.rule-detail-head{position:relative;}
+.rule-admin-actions{position:absolute;right:30px;top:26px;display:none;gap:8px;align-items:center;}
+body.rule-admin .rule-admin-actions{display:flex;}
+.rule-edit-btn,.rule-save-btn,.rule-cancel-btn{appearance:none;height:34px;padding:0 14px;border-radius:12px;border:1px solid rgba(216,180,254,.30);background:linear-gradient(180deg,rgba(155,92,255,.28),rgba(155,92,255,.10));color:#fff;font-size:12px;font-weight:1000;letter-spacing:-.2px;box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 12px 24px rgba(0,0,0,.24);transition:filter .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;}
+.rule-save-btn{border-color:rgba(255,214,90,.40);background:linear-gradient(180deg,rgba(255,214,90,.34),rgba(155,92,255,.18));}
+.rule-cancel-btn{background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.025));color:rgba(255,255,255,.82);}
+.rule-edit-btn:hover,.rule-save-btn:hover,.rule-cancel-btn:hover{filter:brightness(1.10);border-color:rgba(216,180,254,.58);box-shadow:0 0 20px rgba(155,92,255,.22),inset 0 1px 0 rgba(255,255,255,.14);transform:translateY(-1px);}
+.rule-edit-form{display:none;margin:0 0 18px;padding:16px;border-radius:18px;border:1px solid rgba(216,180,254,.22);background:linear-gradient(135deg,rgba(255,255,255,.065),rgba(255,255,255,.018)),rgba(8,8,18,.78);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 14px 30px rgba(0,0,0,.20);}
+.rule-detail.editing .rule-edit-form{display:grid;grid-template-columns:1fr;gap:10px;}
+.rule-edit-form label{display:grid;gap:7px;color:#c4b5fd;font-size:11px;font-weight:1000;letter-spacing:1.5px;}
+.rule-edit-form input,.rule-edit-form textarea{width:100%;border-radius:13px;border:1px solid rgba(216,180,254,.22);background:rgba(10,8,22,.76);color:#fff;font:inherit;font-size:14px;font-weight:850;outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);}
+.rule-edit-form input{height:40px;padding:0 13px;}
+.rule-edit-form textarea{min-height:70px;resize:vertical;padding:12px;line-height:1.65;}
+.rule-edit-form input:focus,.rule-edit-form textarea:focus{border-color:rgba(216,180,254,.58);box-shadow:0 0 18px rgba(155,92,255,.16),inset 0 1px 0 rgba(255,255,255,.08);}
+.rule-detail.editing .rule-section.active{outline:1px solid rgba(255,214,90,.34);outline-offset:6px;border-radius:18px;}
+.rule-detail.editing .rule-section.active .rule-block,.rule-detail.editing .rule-section.active .rule-badge-row{cursor:text;}
+.rule-detail.editing .rule-section.active [contenteditable="true"]{caret-color:#ffd45a;}
+.rule-detail.editing .rule-section.active [contenteditable="true"]:focus{outline:1px solid rgba(255,214,90,.45);outline-offset:4px;border-radius:12px;}
+.rule-edit-hint{display:none;margin:0 0 14px;color:rgba(255,244,214,.72);font-size:12px;font-weight:900;line-height:1.6;}
+.rule-detail.editing .rule-edit-hint{display:block;}
+@media (max-width:900px){.rule-admin-actions{position:static;margin-top:16px}.rule-detail-head{display:block}.rule-detail.editing .rule-section.active{outline-offset:3px}}
+
+@media (max-width:900px){.rule-page{width:calc(100vw - 24px);padding-top:14px}.rule-hero{padding:26px 20px}.rule-hero h1{font-size:28px}.rule-layout{grid-template-columns:1fr}.rule-sidebar{position:relative;top:auto}.rule-nav{grid-template-columns:1fr 1fr}.rule-detail{min-height:620px}.rule-detail-head{padding:24px 20px 18px}.rule-content{padding:22px 20px 28px}}
+
+.rule-add-block-btn{
+display:none;
+width:100%;
+height:44px;
+margin-top:14px;
+border-radius:14px;
+border:1px solid rgba(216,180,254,.30);
+background:linear-gradient(180deg,rgba(155,92,255,.28),rgba(155,92,255,.10));
+color:#fff;
+font-size:13px;
+font-weight:1000;
+letter-spacing:-.2px;
+box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 12px 24px rgba(0,0,0,.24);
+}
+.rule-add-block-btn{display:none !important;}
+body.rule-admin .rule-detail.editing .rule-section.active .rule-add-block-btn{display:flex !important;align-items:center;justify-content:center;}
+.rule-add-block-btn:hover{
+filter:brightness(1.10);
+border-color:rgba(216,180,254,.56);
+box-shadow:0 0 20px rgba(155,92,255,.22),inset 0 1px 0 rgba(255,255,255,.14);
+transform:translateY(-1px);
+}
+
+.rule-block-delete-btn{
+display:none;
+position:absolute;
+right:14px;
+top:14px;
+height:30px;
+padding:0 11px;
+border-radius:11px;
+border:1px solid rgba(255,78,104,.40);
+background:linear-gradient(180deg,rgba(255,78,104,.24),rgba(255,78,104,.08));
+color:#ffd7de;
+font-size:11px;
+font-weight:1000;
+letter-spacing:-.2px;
+box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 10px 20px rgba(0,0,0,.22);
+z-index:3;
+}
+body.rule-admin .rule-detail.editing .rule-section.active .rule-block-delete-btn{
+display:inline-flex;
+align-items:center;
+justify-content:center;
+}
+.rule-block-delete-btn:hover{
+filter:brightness(1.12);
+border-color:rgba(255,120,140,.62);
+box-shadow:0 0 18px rgba(255,78,104,.18),inset 0 1px 0 rgba(255,255,255,.14);
+transform:translateY(-1px);
+}
+.rule-detail.editing .rule-section.active .rule-block h3{
+padding-right:66px;
+}
+
+
+@media (max-width:560px){.rule-nav{grid-template-columns:1fr}.rule-tab{min-height:50px}.rule-detail-title{font-size:23px}.rule-block{padding:17px 16px}.rule-block p,.rule-block ul{font-size:14px}}
+</style>
+<script src="pkl-role-system.js"></script>
+<script src="pkl-page-permissions.js"></script>
+<script src="pkl-common-role-badge.js"></script>
+<script src="pkl-common-tier-badge.js"></script>
+</head>
+<body>
+<div class="site">
+  <div id="pklCommonHeader"></div>
+  <main class="rule-page">
+    <section class="rule-hero">
+      <div class="rule-kicker">PKL OFFICIAL RULE SYSTEM</div>
+      <h1><span>킬내기</span> 룰 안내</h1>
+      <a class="rule-back" href="index.html">← 메인으로 돌아가기</a>
+    </section>
+
+    <section class="rule-layout" aria-label="PKL 룰 안내 영역">
+      <aside class="rule-sidebar">
+        <div class="rule-sidebar-head">
+          <span>RULE INDEX</span>
+          <strong>룰 카테고리</strong>
+        </div>
+        <nav class="rule-nav" aria-label="룰 카테고리 선택">
+          <button type="button" class="rule-tab active" data-rule-tab="basic">기본 진행 규칙 <small>01</small></button>
+          <button type="button" class="rule-tab" data-rule-tab="score">점수 / 정산 규칙 <small>02</small></button>
+          <button type="button" class="rule-tab" data-rule-tab="surrender">서렌 / 콜드 규칙 <small>03</small></button>
+          <button type="button" class="rule-tab" data-rule-tab="fire">불판 규칙 <small>04</small></button>
+          <button type="button" class="rule-tab" data-rule-tab="penalty">경고 / 제재 규칙 <small>05</small></button>
+          <button type="button" class="rule-tab" data-rule-tab="admin">운영 안내 <small>06</small></button>
+        </nav>
+        <button type="button" class="rule-add-category-btn" id="ruleAddCategoryBtn" data-min-role="admin">+ 카테고리 추가</button>
+      </aside>
+
+      <article class="rule-detail">
+        <div class="rule-detail-head">
+          <div class="rule-detail-kicker" id="ruleDetailKicker">RULE 01</div>
+          <h2 class="rule-detail-title" id="ruleDetailTitle">기본 진행 규칙</h2>
+          <p class="rule-detail-desc" id="ruleDetailDesc">경기 시작 전 확인해야 하는 기본 진행 안내입니다.</p>
+          <div class="rule-admin-actions" aria-label="룰 관리자 편집">
+            <button type="button" class="rule-edit-btn" id="ruleEditBtn" data-min-role="admin">수정</button>
+            <button type="button" class="rule-save-btn" id="ruleSaveBtn" hidden>저장</button>
+            <button type="button" class="rule-cancel-btn" id="ruleCancelBtn" hidden>취소</button>
+          </div>
+        </div>
+        <div class="rule-content" id="ruleContent">
+          <div class="rule-edit-form" id="ruleEditForm">
+            <label>카테고리 제목<input id="ruleEditTitle" type="text" maxlength="60" autocomplete="off"></label>
+            <label>상단 설명<textarea id="ruleEditDesc" maxlength="300"></textarea></label>
+          </div>
+          <div class="rule-edit-hint">수정할 본문을 직접 클릭해서 편집한 뒤 저장하세요. 저장된 룰은 이 브라우저에 유지됩니다.</div>
+          <section class="rule-section active" data-rule-panel="basic" data-title="기본 진행 규칙" data-kicker="RULE 01" data-desc="경기 시작 전 확인해야 하는 기본 진행 안내입니다.">
+            <div class="rule-block">
+              <h3>기본 안내</h3>
+              <p>여기에 기본 진행 규칙을 작성하세요.</p>
+              <ul>
+                <li>참가 조건, 대기 순서, 시작 기준 등을 정리하세요.</li>
+                <li>경기 전 확인해야 할 내용을 적으면 됩니다.</li>
+              </ul>
+            </div>
+            <div class="rule-block">
+              <h3>진행 방식</h3>
+              <p>방송/디스코드/시트지 기준으로 어떤 순서로 경기가 진행되는지 작성하세요.</p>
+            </div>
+          </section>
+
+          <section class="rule-section" data-rule-panel="score" data-title="점수 / 정산 규칙" data-kicker="RULE 02" data-desc="점수 산정, 킬/다이/치킨/정지 처리 기준을 정리하는 영역입니다.">
+            <div class="rule-block">
+              <h3>점수 기준</h3>
+              <p>여기에 점수 계산 규칙을 작성하세요.</p>
+              <ul>
+                <li>킬 점수, 다이 감점, 치킨 점수 등을 정리하세요.</li>
+                <li>회원 티어별 목표점수나 감점 기준을 적으면 됩니다.</li>
+              </ul>
+            </div>
+            <div class="rule-block">
+              <h3>정산 안내</h3>
+              <p>정산 타이밍, 확인 방식, 이의제기 기준 등을 작성하세요.</p>
+            </div>
+          </section>
+
+          <section class="rule-section" data-rule-panel="surrender" data-title="서렌 / 콜드 규칙" data-kicker="RULE 03" data-desc="서렌과 콜드 상태 처리 기준을 안내하는 영역입니다.">
+            <div class="rule-block">
+              <h3>서렌 기준</h3>
+              <p>여기에 서렌 가능 조건과 처리 방식을 작성하세요.</p>
+            </div>
+            <div class="rule-block">
+              <h3>콜드 기준</h3>
+              <p>점수 차이, 콜드 상태 안내, 불판 사용 또는 서렌 선택 기준 등을 작성하세요.</p>
+            </div>
+          </section>
+
+          <section class="rule-section" data-rule-panel="fire" data-title="불판 규칙" data-kicker="RULE 04" data-desc="불판 사용 조건과 재개 기준을 정리하는 영역입니다.">
+            <div class="rule-block">
+              <h3>불판 사용</h3>
+              <p>여기에 불판 사용 조건을 작성하세요.</p>
+              <ul>
+                <li>불판 사용 가능 상황을 정리하세요.</li>
+                <li>불판 이후 점수/라운드 처리 기준을 작성하세요.</li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="rule-section" data-rule-panel="penalty" data-title="경고 / 제재 규칙" data-kicker="RULE 05" data-desc="비매너, 규정 위반, 경고 및 제재 기준을 안내하는 영역입니다.">
+            <div class="rule-block">
+              <h3>경고 기준</h3>
+              <p>여기에 경고 사유와 누적 처리 기준을 작성하세요.</p>
+            </div>
+            <div class="rule-block">
+              <h3>제재 기준</h3>
+              <p>핵, 대리, 티어 속임수, 고의 트롤 등 제재 대상을 정리하세요.</p>
+            </div>
+          </section>
+
+          <section class="rule-section" data-rule-panel="admin" data-title="운영 안내" data-kicker="RULE 06" data-desc="운영진 확인 사항과 문의/처리 기준을 정리하는 영역입니다.">
+            <div class="rule-block">
+              <h3>운영 기준</h3>
+              <p>여기에 운영진 판단 기준과 예외 처리 기준을 작성하세요.</p>
+            </div>
+            <div class="rule-block">
+              <h3>문의 안내</h3>
+              <p>문의 채널, 처리 순서, 디스코드 안내 등을 작성하세요.</p>
+            </div>
+          </section>
+        </div>
+      </article>
+    </section>
+  </main>
+</div>
+<script>
+(function(){
+  "use strict";
+  var STORAGE_KEY="PKL_RULE_PAGE_CONTENT_V1";
+  var BACKUP_KEY=STORAGE_KEY+"_backup";
+  var tabs=[];
+  var panels=[];
+  var nav=document.querySelector(".rule-nav");
+  var detail=document.querySelector(".rule-detail");
+  var title=document.getElementById("ruleDetailTitle");
+  var kicker=document.getElementById("ruleDetailKicker");
+  var desc=document.getElementById("ruleDetailDesc");
+  var content=document.getElementById("ruleContent");
+  var editBtn=document.getElementById("ruleEditBtn");
+  var saveBtn=document.getElementById("ruleSaveBtn");
+  var cancelBtn=document.getElementById("ruleCancelBtn");
+  var editTitle=document.getElementById("ruleEditTitle");
+  var editDesc=document.getElementById("ruleEditDesc");
+  var addCategoryBtn=document.getElementById("ruleAddCategoryBtn");
+  function addRuleBlock(){
+    if(!isRuleAdmin()) return;
+    var panel=panelOf(activeId);
+    if(!panel) return;
+    var addBtn=ensureAddBlockButton(panel);
+    var block=document.createElement("div");
+    block.className="rule-block";
+    block.innerHTML='<h3>새 내용</h3><p>여기에 내용을 작성하세요.</p>';
+    panel.insertBefore(block, addBtn);
+    if(detail.classList.contains("editing")){
+      ensureBlockDeleteButtons(panel);
+      Array.prototype.slice.call(block.children).forEach(function(el){
+        if(el.classList && el.classList.contains("rule-block-delete-btn")) return;
+        el.contentEditable="true";
+      });
+    }
+    content.scrollTop=content.scrollHeight;
+  }
+
+  var activeId="basic";
+  var beforeEdit=null;
+
+  function readJson(key){try{return JSON.parse(localStorage.getItem(key)||sessionStorage.getItem(key)||"null");}catch(e){return null;}}
+  function roleValue(v){return String(v||"").trim().toLowerCase();}
+  function hasAdminRole(user){
+    if(!user || typeof user!=="object") return false;
+    if(user.isAdmin===true || user.admin===true) return true;
+    var fields=[user.role,user.userRole,user.memberRole,user.auth,user.authority,user.position,user.grade,user.type];
+    return fields.some(function(v){var r=roleValue(v);return r==="관리자"||r==="manager"||r==="admin"||r==="administrator";});
+  }
+  function currentUserKeys(){return ["pklCurrentUser","PKL_CURRENT_USER","currentUser","loginUser","loggedInUser","pklLoginUser","pklUser","PKL_USER","authUser","userInfo"];}
+  function userListKeys(){return ["pklUsers","PKL_USERS","users","members","pklMembers","memberList","pklMemberList","approvedUsers","pklAdminState_v3","pklAdminState"];}
+  function userNameOf(user){return String((user&&(user.nickname||user.nick||user.name||user.username||user.id||user.userId||user.email))||"").trim();}
+  function isRuleAdmin(){
+    if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentAccessRole === "function"){
+      return window.PKLRoleSystem.currentAccessRole() === "admin";
+    }
+    var current=null;
+    for(var i=0;i<currentUserKeys().length;i++){var v=readJson(currentUserKeys()[i]);if(v){current=v;break;}}
+    return hasAdminRole(current);
+  }
+  function syncAdmin(){document.body.classList.toggle("rule-admin",isRuleAdmin());}
+  function loadSaved(){
+    var raw=localStorage.getItem(STORAGE_KEY);
+    if(raw===null) raw=localStorage.getItem(BACKUP_KEY);
+    if(!raw) return {};
+    try{
+      var parsed=JSON.parse(raw);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    }catch(e){return {};}
+  }
+  function saveAll(data){
+    var safe=data && typeof data === "object" && !Array.isArray(data) ? data : {};
+    var text=JSON.stringify(safe);
+    localStorage.setItem(STORAGE_KEY,text);
+    localStorage.setItem(BACKUP_KEY,text);
+  }
+
+  function refreshNodes(){
+    tabs=Array.prototype.slice.call(document.querySelectorAll("[data-rule-tab]"));
+    panels=Array.prototype.slice.call(document.querySelectorAll("[data-rule-panel]"));
+  }
+  function stripBadges(root){
+    Array.prototype.slice.call((root||document).querySelectorAll(".rule-badge-row,.rule-badge")).forEach(function(el){el.remove();});
+  }
+  function nextRuleNo(){
+    refreshNodes();
+    return String(panels.length+1).padStart(2,"0");
+  }
+  function makeCategoryId(){return "custom_"+Date.now()+"_"+Math.random().toString(16).slice(2);}
+  function tabSmallText(kicker){
+    return String(kicker||"RULE").replace(/^RULE\s*/i,"").trim();
+  }
+  function setTabLabel(id,title,kicker){
+    var tab=document.querySelector('[data-rule-tab="'+id+'"]');
+    if(!tab) return;
+    tab.innerHTML=escapeHtml(title||"새 룰 카테고리")+' <small>'+escapeHtml(tabSmallText(kicker))+'</small>';
+  }
+  function ensureAddBlockButton(panel){
+    if(!panel) return null;
+    var btn=panel.querySelector(":scope > .rule-add-block-btn");
+    if(!btn){
+      btn=document.createElement("button");
+      btn.type="button";
+      btn.className="rule-add-block-btn";
+      btn.textContent="+ 내용 칸 추가";
+      btn.addEventListener("click",addRuleBlock);
+      panel.appendChild(btn);
+    }
+    return btn;
+  }
+  function removeBlockDeleteButtons(panel){
+    Array.prototype.slice.call((panel||document).querySelectorAll(".rule-block-delete-btn")).forEach(function(btn){btn.remove();});
+  }
+  function ensureBlockDeleteButtons(panel){
+    if(!panel) return;
+    Array.prototype.slice.call(panel.querySelectorAll(".rule-block")).forEach(function(block){
+      if(block.querySelector(":scope > .rule-block-delete-btn")) return;
+      var btn=document.createElement("button");
+      btn.type="button";
+      btn.className="rule-block-delete-btn";
+      btn.textContent="삭제";
+      btn.contentEditable="false";
+      btn.addEventListener("click",function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        if(!isRuleAdmin() || !detail.classList.contains("editing")) return;
+        block.remove();
+      });
+      block.appendChild(btn);
+    });
+  }
+  function createTab(id,title,kicker){
+    if(!nav || document.querySelector('[data-rule-tab="'+id+'"]')) return;
+    var btn=document.createElement("button");
+    btn.type="button";
+    btn.className="rule-tab";
+    btn.setAttribute("data-rule-tab",id);
+    btn.innerHTML=escapeHtml(title)+' <small>'+escapeHtml(tabSmallText(kicker))+'</small>';
+    btn.addEventListener("click",function(){setRule(id);});
+    nav.appendChild(btn);
+  }
+  function createPanel(id,title,kicker,desc,html){
+    if(document.querySelector('[data-rule-panel="'+id+'"]')) return;
+    var panel=document.createElement("section");
+    panel.className="rule-section";
+    panel.setAttribute("data-rule-panel",id);
+    panel.setAttribute("data-title",title);
+    panel.setAttribute("data-kicker",kicker);
+    panel.setAttribute("data-desc",desc||"");
+    panel.innerHTML=html || '<div class="rule-block"><h3>새 룰</h3><p>여기에 룰 내용을 작성하세요.</p></div>';
+    content.appendChild(panel);
+  }
+  function escapeHtml(v){return String(v||"").replace(/[&<>\"]/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch];});}
+  function panelOf(id){return panels.find(function(panel){return panel.getAttribute("data-rule-panel")===id;})||null;}
+  function applySaved(){
+    refreshNodes();
+    stripBadges(document);
+    var saved=loadSaved();
+    var categories=Array.isArray(saved.__categories)?saved.__categories:[];
+    categories.forEach(function(cat){
+      createTab(cat.id,cat.title||"새 룰",cat.kicker||("RULE "+nextRuleNo()));
+      createPanel(cat.id,cat.title||"새 룰",cat.kicker||("RULE "+nextRuleNo()),cat.desc||"",cat.html||"");
+    });
+    refreshNodes();
+    panels.forEach(function(panel){
+      var id=panel.getAttribute("data-rule-panel");
+      if(saved[id]){
+        if(saved[id].title) panel.setAttribute("data-title",saved[id].title);
+        if(saved[id].desc!=null) panel.setAttribute("data-desc",saved[id].desc);
+        if(saved[id].html) panel.innerHTML=saved[id].html;
+      }
+      Array.prototype.slice.call(panel.querySelectorAll(".rule-add-block-btn,.rule-block-delete-btn")).forEach(function(btn){btn.remove();});
+      setTabLabel(id,panel.getAttribute("data-title")||"",panel.getAttribute("data-kicker")||"");
+      stripBadges(panel);
+    });
+    refreshNodes();
+  }
+  function setEditable(on){
+    var panel=panelOf(activeId);
+    if(!panel) return;
+    if(on){
+      ensureAddBlockButton(panel);
+      ensureBlockDeleteButtons(panel);
+    }else{
+      removeBlockDeleteButtons(panel);
+    }
+    Array.prototype.slice.call(panel.children).forEach(function(el){
+      if(el.classList && el.classList.contains("rule-add-block-btn")) return;
+      el.contentEditable=on?"true":"false";
+      Array.prototype.slice.call(el.querySelectorAll(".rule-block-delete-btn")).forEach(function(btn){btn.contentEditable="false";});
+    });
+  }
+  function stopEdit(restore){
+    var panel=panelOf(activeId);
+    if(restore && beforeEdit && panel){
+      panel.innerHTML=beforeEdit.html;
+      panel.setAttribute("data-title",beforeEdit.title);
+      panel.setAttribute("data-desc",beforeEdit.desc);
+    }
+    setEditable(false);
+    beforeEdit=null;
+    detail.classList.remove("editing");
+    editBtn.hidden=false;
+    saveBtn.hidden=true;
+    cancelBtn.hidden=true;
+    setRule(activeId,true);
+  }
+  function startEdit(){
+    if(!isRuleAdmin()) return;
+    var panel=panelOf(activeId);
+    if(!panel) return;
+    beforeEdit={html:panel.innerHTML,title:panel.getAttribute("data-title")||"",desc:panel.getAttribute("data-desc")||""};
+    editTitle.value=beforeEdit.title;
+    editDesc.value=beforeEdit.desc;
+    detail.classList.add("editing");
+    editBtn.hidden=true;
+    saveBtn.hidden=false;
+    cancelBtn.hidden=false;
+    setEditable(true);
+    editTitle.focus({preventScroll:true});
+  }
+  function saveEdit(){
+    if(!isRuleAdmin()) return;
+    var panel=panelOf(activeId);
+    if(!panel) return;
+    panel.setAttribute("data-title",editTitle.value.trim()||"킬내기룰");
+    panel.setAttribute("data-desc",editDesc.value.trim());
+    stripBadges(panel);
+    Array.prototype.slice.call(panel.querySelectorAll(".rule-add-block-btn,.rule-block-delete-btn")).forEach(function(btn){btn.remove();});
+    setTabLabel(activeId,panel.getAttribute("data-title"),panel.getAttribute("data-kicker"));
+    setEditable(false);
+    var saved=loadSaved();
+    saved[activeId]={title:panel.getAttribute("data-title"),desc:panel.getAttribute("data-desc"),html:panel.innerHTML};
+    if(Array.isArray(saved.__categories)){
+      saved.__categories=saved.__categories.map(function(cat){
+        return cat.id===activeId?{id:cat.id,title:panel.getAttribute("data-title"),kicker:panel.getAttribute("data-kicker"),desc:panel.getAttribute("data-desc"),html:panel.innerHTML}:cat;
+      });
+    }
+    saveAll(saved);
+    beforeEdit=null;
+    detail.classList.remove("editing");
+    editBtn.hidden=false;
+    saveBtn.hidden=true;
+    cancelBtn.hidden=true;
+    setRule(activeId,true);
+  }
+  function setRule(id,skipCancel){
+    refreshNodes();
+    if(detail.classList.contains("editing") && !skipCancel) stopEdit(false);
+    activeId=id;
+    tabs.forEach(function(tab){tab.classList.toggle("active",tab.getAttribute("data-rule-tab")===id);});
+    panels.forEach(function(panel){
+      var active=panel.getAttribute("data-rule-panel")===id;
+      panel.classList.toggle("active",active);
+      if(active){
+        title.textContent=panel.getAttribute("data-title")||"킬내기룰";
+        kicker.textContent=panel.getAttribute("data-kicker")||"PKL RULE";
+        desc.textContent=panel.getAttribute("data-desc")||"";
+        setTabLabel(id,panel.getAttribute("data-title")||"킬내기룰",panel.getAttribute("data-kicker")||"PKL RULE");
+        if(detail.classList.contains("editing")) ensureAddBlockButton(panel);
+      }
+    });
+    if(content) content.scrollTop=0;
+  }
+
+  function addCategory(){
+    if(!isRuleAdmin()) return;
+    if(detail.classList.contains("editing")) stopEdit(false);
+    var no=nextRuleNo();
+    var id=makeCategoryId();
+    var title="새 룰 카테고리";
+    var kicker="RULE "+no;
+    var desc="새 룰 내용을 작성하세요.";
+    var html='<div class="rule-block"><h3>새 룰</h3><p>여기에 룰 내용을 작성하세요.</p></div>';
+    createTab(id,title,kicker);
+    createPanel(id,title,kicker,desc,html);
+    var saved=loadSaved();
+    var categories=Array.isArray(saved.__categories)?saved.__categories:[];
+    categories.push({id:id,title:title,kicker:kicker,desc:desc,html:html});
+    saved.__categories=categories;
+    saved[id]={title:title,desc:desc,html:html};
+    saveAll(saved);
+    refreshNodes();
+    setRule(id,true);
+    startEdit();
+  }
+  applySaved();
+  syncAdmin();
+  tabs.forEach(function(tab){tab.addEventListener("click",function(){setRule(tab.getAttribute("data-rule-tab"));});});
+  if(addCategoryBtn) addCategoryBtn.addEventListener("click",addCategory);
+  if(editBtn) editBtn.addEventListener("click",startEdit);
+  if(saveBtn) saveBtn.addEventListener("click",saveEdit);
+  if(cancelBtn) cancelBtn.addEventListener("click",function(){stopEdit(true);});
+  window.addEventListener("storage",function(e){if(e.key===STORAGE_KEY){applySaved();setRule(activeId,true);}});
+  setRule(activeId,true);
+})();
+</script>
+<script src="pkl-common-header.js"></script>
+
+<!-- PKL global stacked modal layer manager -->
+<style id="pkl-global-stacked-modal-layer-style">
+  .pkl-layer-managed-modal{
+    position:fixed !important;
+    pointer-events:auto !important;
+  }
+  .pkl-layer-managed-modal > *,
+  .pkl-layer-managed-modal [role="dialog"],
+  .pkl-layer-managed-modal .modal-box,
+  .pkl-layer-managed-modal .modal-card,
+  .pkl-layer-managed-modal .pkl-result-admin-panel,
+  .pkl-layer-managed-modal .pkl-delete-confirm-box,
+  .pkl-layer-managed-modal .pkl-notice-card,
+  .pkl-layer-managed-modal .temp-edit-box{
+    position:relative !important;
+    pointer-events:auto !important;
+  }
+</style>
+<script id="pkl-global-stacked-modal-layer-script">
+(function(){
+  if(window.__PKL_STACKED_MODAL_LAYER_FINAL__) return;
+  window.__PKL_STACKED_MODAL_LAYER_FINAL__=true;
+  var BASE=2147481000;
+  var step=0;
+  var modalSelector=[
+    '.modal',
+    '.edit-modal',
+    '.member-edit-modal',
+    '.temp-edit-modal',
+    '.pkl-notice-layer',
+    '.pkl-result-admin-modal',
+    '.pkl-delete-confirm-modal',
+    '#resultAdminModal',
+    '#resultDeleteConfirmModal'
+  ].join(',');
+  function isOpen(el){
+    if(!el || !el.classList) return false;
+    var cs;
+    try{cs=getComputedStyle(el);}catch(e){cs=null;}
+    return el.classList.contains('open') ||
+      el.getAttribute('aria-hidden')==='false' ||
+      (cs && cs.position==='fixed' && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0');
+  }
+  function setLayer(el,z){
+    if(!el || !el.style) return;
+    el.classList.add('pkl-layer-managed-modal');
+    el.style.setProperty('z-index', String(z), 'important');
+    el.style.setProperty('pointer-events', 'auto', 'important');
+    var kids=el.querySelectorAll(':scope > *, [role="dialog"], .modal-box, .modal-card, .pkl-result-admin-panel, .pkl-delete-confirm-box, .pkl-notice-card, .temp-edit-box');
+    kids.forEach(function(k){
+      k.style.setProperty('z-index', String(z+1), 'important');
+      k.style.setProperty('pointer-events','auto','important');
+      if(getComputedStyle(k).position==='static') k.style.setProperty('position','relative','important');
+    });
+  }
+  function bring(el){
+    if(!el) return;
+    step+=10;
+    setLayer(el,BASE+step);
+  }
+  function scan(){
+    Array.prototype.forEach.call(document.querySelectorAll(modalSelector),function(el){
+      if(isOpen(el) && !el.dataset.pklLayerNoAuto){
+        if(!el.dataset.pklLayerOrder){
+          el.dataset.pklLayerOrder=String(++step);
+        }
+        setLayer(el,BASE+Number(el.dataset.pklLayerOrder));
+      }else if(el && el.dataset){
+        delete el.dataset.pklLayerOrder;
+      }
+    });
+  }
+  window.PKLBringModalToFront=function(el){
+    if(typeof el==='string') el=document.querySelector(el);
+    if(el){ delete el.dataset.pklLayerOrder; bring(el); }
+  };
+  document.addEventListener('click',function(e){
+    var el=e.target && e.target.closest && e.target.closest(modalSelector);
+    if(el) window.PKLBringModalToFront(el);
+    setTimeout(scan,0);
+    setTimeout(scan,80);
+  },true);
+  var mo=new MutationObserver(function(list){
+    list.forEach(function(m){
+      var el=m.target;
+      if(el && el.matches && el.matches(modalSelector) && isOpen(el)) window.PKLBringModalToFront(el);
+    });
+    setTimeout(scan,0);
+  });
+  function boot(){
+    try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
+    scan();
+    
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
+  <script src="./pkl-responsive-scale.js"></script>
+</body>
+</html>

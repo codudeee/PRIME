@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script src="./pkl-supabase-config.js"></script>
+  
+  <script src="./pkl-join-realtime.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PKL 팀편성</title>
+  <link rel="stylesheet" href="./team.css" />
+<script src="pkl-user-profile-core.js"></script>
+<script src="pkl-role-system.js"></script>
+<script src="pkl-page-permissions.js"></script>
+<script src="pkl-common-role-badge.js"></script>
+<script src="pkl-common-tier-badge.js"></script>
+<script src="pkl-users-source.js"></script>
+
+<style id="pkl-reroll-memo-notepad-style">
+/* PKL 리스트 모달 메모장 - 독립 플로팅 메모장 */
+.pkl-reroll-memo-button{
+  appearance:none;
+  width:38px;
+  height:38px;
+  padding:0;
+  margin-right:8px;
+  border-radius:12px;
+  border:1px solid rgba(216,180,254,.30);
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.025)),
+    radial-gradient(circle at 50% 0%,rgba(155,92,255,.22),transparent 70%),
+    rgba(12,9,26,.88);
+  color:#f8f4ff;
+  font-size:18px;
+  font-weight:1000;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 10px 22px rgba(0,0,0,.24),0 0 16px rgba(155,92,255,.10);
+  transition:filter .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;
+}
+.pkl-reroll-memo-button:hover,.pkl-reroll-memo-button:focus-visible{
+  filter:brightness(1.10);
+  transform:translateY(-1px);
+  border-color:rgba(216,180,254,.62);
+  box-shadow:0 0 22px rgba(155,92,255,.22),inset 0 1px 0 rgba(255,255,255,.15);
+  outline:none;
+}
+#memoModal.modal-layer{
+  z-index:100900 !important;
+  background:transparent !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+  pointer-events:none !important;
+}
+#memoModal.modal-layer.is-open{
+  display:block !important;
+}
+#memoModal .pkl-memo-modal-card{
+  position:fixed !important;
+  z-index:100901 !important;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:min(860px,calc(100vw - 42px));
+  height:min(560px,calc(100vh - 42px));
+  min-width:420px;
+  min-height:360px;
+  max-width:calc(100vw - 28px);
+  max-height:calc(100vh - 28px);
+  resize:both !important;
+  overflow:hidden !important;
+  pointer-events:auto !important;
+  border-color:rgba(216,180,254,.36) !important;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.105),rgba(255,255,255,.025) 24%,transparent 48%),
+    radial-gradient(circle at 50% 0%,rgba(168,85,247,.26),transparent 48%),
+    linear-gradient(180deg,rgba(16,10,34,.98),rgba(5,5,12,.99)) !important;
+  box-shadow:0 36px 110px rgba(0,0,0,.82),0 0 0 1px rgba(255,255,255,.06) inset,0 0 54px rgba(168,85,247,.22) !important;
+}
+#memoModal .pkl-memo-modal-card::-webkit-resizer{background:linear-gradient(135deg,transparent 45%,rgba(216,180,254,.40) 46%,rgba(216,180,254,.40) 55%,transparent 56%,transparent 68%,rgba(168,85,247,.55) 69%);}
+.pkl-memo-resize-handle{position:absolute;right:0;bottom:0;width:34px;height:34px;cursor:nwse-resize;z-index:5;background:linear-gradient(135deg,transparent 0 58%,rgba(216,180,254,.34) 59% 63%,transparent 64% 72%,rgba(168,85,247,.48) 73% 77%,transparent 78%);border:0;box-shadow:none;}
+.pkl-memo-resize-handle:hover{filter:brightness(1.18);}
+#memoModal.is-open ~ #rerollListModal, #rerollListModal.is-open{ }
+
+.pkl-memo-modal-head{align-items:center !important;cursor:move;user-select:none;}
+.pkl-memo-kicker{display:block;color:#c4b5fd;font-size:10px;font-weight:1000;letter-spacing:2.6px;text-shadow:0 0 16px rgba(168,85,247,.54);margin-bottom:6px;}
+.pkl-memo-modal-card #memoModalTitle{margin:0 !important;font-size:24px !important;font-weight:1000 !important;letter-spacing:-.5px !important;text-shadow:0 0 20px rgba(216,180,254,.28) !important;}
+.pkl-memo-toolbar{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:10px;border-radius:16px;border:1px solid rgba(216,180,254,.16);background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.016)),rgba(6,6,15,.56);}
+.pkl-memo-toolbar label{flex:1;min-width:0;display:flex;align-items:center;gap:10px;color:rgba(248,244,255,.72);font-size:12px;font-weight:1000;white-space:nowrap;}
+.pkl-memo-toolbar input[type="range"]{flex:1;accent-color:#a855f7;min-width:110px;}
+.pkl-memo-toolbar strong{min-width:42px;text-align:right;color:#fff;font-size:12px;font-weight:1000;}
+.pkl-memo-area{width:100% !important;min-height:190px !important;height:calc(100% - 110px) !important;resize:none !important;overflow:auto !important;border-radius:18px !important;border:1px solid rgba(216,180,254,.25) !important;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012)),rgba(7,6,18,.88) !important;color:#f8f4ff !important;padding:16px !important;line-height:1.72 !important;font-weight:850 !important;outline:none !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 30px rgba(168,85,247,.045) !important;scrollbar-width:thin;scrollbar-color:rgba(168,85,247,.62) rgba(255,255,255,.055);}
+.pkl-memo-area:focus{border-color:rgba(216,180,254,.62) !important;box-shadow:0 0 24px rgba(168,85,247,.16),inset 0 1px 0 rgba(255,255,255,.08) !important;}
+.pkl-memo-area::-webkit-scrollbar{width:8px;height:8px}.pkl-memo-area::-webkit-scrollbar-track{background:rgba(255,255,255,.045);border-radius:999px}.pkl-memo-area::-webkit-scrollbar-thumb{border-radius:999px;background:linear-gradient(180deg,rgba(216,180,254,.76),rgba(168,85,247,.50));box-shadow:0 0 12px rgba(168,85,247,.30)}.pkl-memo-area::-webkit-resizer{background:linear-gradient(135deg,transparent 45%,rgba(216,180,254,.40) 46%,rgba(216,180,254,.40) 56%,transparent 57%)}
+@media (max-width:720px){#memoModal .pkl-memo-modal-card{min-width:0;width:calc(100vw - 28px) !important}.pkl-memo-toolbar{flex-wrap:wrap}.pkl-memo-toolbar label{width:100%;flex-basis:100%}}
+.pkl-reroll-head-actions{display:flex;align-items:center;margin-left:auto;}
+</style>
+
+<style id="pkl-memo-front-resize-final">
+#memoModal.modal-layer.is-open{z-index:100900 !important;display:block !important;}
+#memoModal.modal-layer.is-open .pkl-memo-modal-card{z-index:100901 !important;}
+</style>
+</head>
+<body>
+
+  <main class="team-page" data-page="team-builder">
+    <header class="team-header">
+      <a href="index.html" class="back-home team-back-home">← 뒤로가기</a>
+      <section class="brand-block" aria-label="PKL 팀편성">
+        <div class="brand-kicker">PRIME KILL LEAGUE</div>
+        <h1>팀구성 보드</h1>
+        <p>티어 대기열에서 팀 슬롯으로 빠르게 배치합니다.</p>
+      </section>
+
+      <section class="time-block clock-only" aria-label="현재 시간">
+        <div class="clock-card">
+          <span class="clock-label">현재 시간</span>
+          <strong id="currentTime">AM --:--:--</strong>
+        </div>
+      </section>
+    </header>
+
+    <section class="builder-layout">
+      <aside class="tier-panel" aria-label="티어별 대기칸">
+        <div class="panel-title-row">
+          <div>
+            <h2>티어 대기칸</h2>
+            <p>참여자 대기 목록</p>
+          </div>
+        </div>
+        <div id="tierPools" class="tier-pools"></div>
+      </aside>
+
+      <section class="team-board" aria-label="1팀부터 10팀까지 팀박스">
+        <div class="board-title-row">
+          <div>
+            <h2>팀 박스</h2>
+            <p>1~5팀 / 6~10팀</p>
+          </div>
+        </div>
+        <div id="teamGrid" class="team-grid"></div>
+      </section>
+
+      
+
+<aside class="control-panel">
+
+  <div class="control-title-row">
+    <h2>컨트롤</h2>
+</div>
+
+  <!-- R&R -->
+  <div class="control-section-box">
+    <div class="section-title">R&R</div>
+    <button id="rerollListButton" class="control-big-button">리스트</button>
+  </div>
+
+  <!-- 리롤 -->
+  <div class="control-section-box">
+    <div class="section-title">리롤 방식</div>
+    <div class="pkl-custom-select" id="rerollModeDropdown" data-value="selected">
+      <button class="pkl-custom-select-trigger" id="rerollModeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+        <span id="rerollModeText">지정칸 선택</span>
+        <span class="pkl-custom-select-arrow" aria-hidden="true"></span>
+      </button>
+      <div class="pkl-custom-select-list" id="rerollModeList" role="listbox" aria-label="리롤 방식 선택">
+        <button class="pkl-custom-select-option is-active" type="button" role="option" data-value="selected">지정칸 선택</button>
+        <button class="pkl-custom-select-option" type="button" role="option" data-value="line-0">첫번째 라인</button>
+        <button class="pkl-custom-select-option" type="button" role="option" data-value="line-1">두번째 라인</button>
+        <button class="pkl-custom-select-option" type="button" role="option" data-value="line-2">세번째 라인</button>
+        <button class="pkl-custom-select-option" type="button" role="option" data-value="line-3">네번째 라인</button>
+      </div>
+    </div>
+    <button id="rerollAllButton" class="control-big-button">리롤</button>
+  </div>
+
+  <!-- 운영 -->
+  <div class="control-section-box">
+    <div class="section-title">운영</div>
+    <button id="ruleButton" class="control-big-button" type="button" aria-disabled="true">룰 설정</button>
+    <button id="loadWaitingButton" class="control-big-button" type="button">불러오기</button>
+    <button id="resetButton" class="control-reset-button" type="button">초기화</button>
+  </div>
+
+  <div class="control-bottom-actions">
+    <button id="completeButton" class="control-main-button" type="button">팀구성 완료</button>
+  </div>
+
+
+</aside>
+
+
+    </section>
+  </main>
+
+  
+  
+  <div id="playerModal" class="modal-layer" aria-hidden="true">
+    <section class="modal-card pkl-add-player-modal" role="dialog" aria-modal="true" aria-labelledby="playerModalTitle">
+      <div class="modal-head">
+        <h2 id="playerModalTitle">임시 인원 추가</h2>
+        <button class="modal-close" type="button" data-close-modal="playerModal">×</button>
+      </div>
+
+      <div class="modal-body">
+        <label class="modal-field modal-field-center">
+          <span>닉네임</span>
+          <input id="newPlayerName" type="text" placeholder="닉네임을 입력하세요" autocomplete="off" />
+        </label>
+
+        <label class="modal-field modal-field-center">
+          <span>회원 티어</span>
+          <input id="newPlayerTier" type="hidden" value="tier0" />
+          <div class="pkl-tier-custom-select" id="newPlayerTierDropdown" data-value="tier0">
+            <button class="pkl-tier-custom-trigger" id="newPlayerTierTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span id="newPlayerTierText">0티어</span>
+              <span class="pkl-tier-custom-arrow" aria-hidden="true"></span>
+            </button>
+            <div class="pkl-tier-custom-list" id="newPlayerTierList" role="listbox" aria-label="회원 티어 선택">
+              <button class="pkl-tier-custom-option is-active" type="button" role="option" data-value="tier0">0티어</button>
+              <button class="pkl-tier-custom-option" type="button" role="option" data-value="tier1">1티어</button>
+              <button class="pkl-tier-custom-option" type="button" role="option" data-value="tier2">2티어</button>
+              <button class="pkl-tier-custom-option" type="button" role="option" data-value="tier3">3티어</button>
+              <button class="pkl-tier-custom-option" type="button" role="option" data-value="tier4">4티어</button>
+              <button class="pkl-tier-custom-option" type="button" role="option" data-value="beast">짐승</button>
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button id="savePlayerButton" class="primary-button pkl-add-submit-button" type="button">추가</button>
+        <button class="ghost-button pkl-add-close-button" type="button" data-close-modal="playerModal">닫기</button>
+      </div>
+    </section>
+  </div>
+
+<div id="memoModal" class="modal-layer" aria-hidden="true">
+    <section class="modal-card wide pkl-memo-modal-card" role="dialog" aria-modal="true" aria-labelledby="memoModalTitle">
+      <div class="modal-head pkl-memo-modal-head">
+        <div>
+          <span class="pkl-memo-kicker">PKL TEAM NOTE</span>
+          <h2 id="memoModalTitle">메모장</h2>
+        </div>
+        <button class="modal-close" type="button" data-close-modal="memoModal" aria-label="메모장 닫기">×</button>
+      </div>
+      <div class="pkl-memo-toolbar" aria-label="메모장 설정">
+        <label>글자 크기
+          <input id="memoFontSizeRange" type="range" min="12" max="34" step="1" value="16" />
+          <strong id="memoFontSizeValue">16px</strong>
+        </label>
+      </div>
+      <textarea id="memoText" class="memo-area pkl-memo-area" placeholder="팀편성 메모를 입력하세요.
+자유롭게 크기를 조절하고, 글자 크기도 변경할 수 있습니다."></textarea>
+      <div class="pkl-memo-resize-handle" id="memoResizeHandle" aria-hidden="true"></div>
+    </section>
+  </div>
+
+
+  <div id="matchTimeModal" class="modal-layer" aria-hidden="true">
+    <section class="modal-card pkl-time-modal" role="dialog" aria-modal="true" aria-labelledby="matchTimeModalTitle">
+      <div class="modal-head">
+        <h2 id="matchTimeModalTitle">경기 시간 설정</h2>
+      </div>
+
+      <div class="modal-body pkl-time-modal-body">
+        <div class="pkl-current-time-box" aria-label="현재 시간">
+          <span>현재 시간</span>
+          <strong id="matchCurrentTime">--:--</strong>
+        </div>
+
+        <div class="modal-field pkl-time-field pkl-time-picker" data-time-group="start" aria-label="시작 시간">
+          <span>시작 시간</span>
+          <div class="pkl-time-segment-grid">
+            <div class="pkl-time-cell" data-time-part="period"></div>
+            <div class="pkl-time-cell" data-time-part="hour"></div>
+            <div class="pkl-time-cell" data-time-part="minute"></div>
+          </div>
+        </div>
+
+        <div class="modal-field pkl-time-field pkl-time-picker" data-time-group="end" aria-label="종료 시간">
+          <span>종료 시간</span>
+          <div class="pkl-time-segment-grid">
+            <div class="pkl-time-cell" data-time-part="period"></div>
+            <div class="pkl-time-cell" data-time-part="hour"></div>
+            <div class="pkl-time-cell" data-time-part="minute"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions pkl-time-actions">
+        <button id="saveMatchTimeButton" class="primary-button pkl-time-save-button" type="button">설정</button>
+      </div>
+    </section>
+  </div>
+
+
+
+  <div id="rerollListModal" class="modal-layer" aria-hidden="true">
+    <section class="modal-card pkl-reroll-list-modal" role="dialog" aria-modal="true" aria-labelledby="rerollListModalTitle">
+      <div class="modal-head">
+        <h2 id="rerollListModalTitle">리스트</h2>
+        <div class="pkl-reroll-head-actions">
+          <button id="openRerollMemoButton" class="pkl-reroll-memo-button" type="button" aria-haspopup="dialog" title="메모장" aria-label="메모장 열기">✎</button>
+          <button class="modal-close" type="button" data-close-modal="rerollListModal" aria-label="리스트 닫기">×</button>
+        </div>
+      </div>
+
+      <div class="modal-body pkl-reroll-list-body">
+        <div class="pkl-reroll-layout">
+          <section class="pkl-reroll-list-panel" aria-label="리롤 체크 목록">
+            <div class="pkl-reroll-helper">
+              직접 추가한 유저만 리롤 횟수 / 확인 상태를 관리합니다.
+            </div>
+
+            <div class="pkl-reroll-manual-row">
+              <input id="rerollUserInput" type="text" placeholder="admin 유저 닉네임 검색" list="pklRerollUserOptions" / autocomplete="off" data-pkl-custom-autocomplete="true" >
+              <datalist id="pklRerollUserOptions"></datalist>
+              <button id="addRerollUserButton" class="pkl-reroll-add-button" type="button">추가</button>
+            </div>
+              <div id="rerollUserSuggestBox" class="pkl-reroll-suggest-box" aria-label="리롤 사용자 검색 결과"></div>
+
+            <div class="pkl-reroll-list-box">
+              <div class="pkl-reroll-list-header" aria-hidden="true">
+                <span>참가자</span>
+                <span>리롤</span>
+                <span>확인</span>
+                <span></span>
+              </div>
+              <div id="rerollListEntries" class="pkl-reroll-list-entries"></div>
+            </div>
+          </section>
+
+          <aside class="pkl-reroll-calculator-panel" aria-label="리롤 계산기">
+            <div class="pkl-reroll-calculator-head">
+              <div class="pkl-reroll-calculator-title">CALCULATOR</div>
+            </div>
+
+            <input class="pkl-calculator-display" type="text" value="0" inputmode="decimal" data-calculator-display aria-label="계산기 표시창" />
+
+            <div class="pkl-calculator-grid">
+              <button type="button" data-calculator-action="clear">C</button>
+              <button type="button" data-calculator-action="backspace">⌫</button>
+              <button type="button" data-calculator-value="%">%</button>
+              <button type="button" data-calculator-value="/">÷</button>
+              <button type="button" data-calculator-value="7">7</button>
+              <button type="button" data-calculator-value="8">8</button>
+              <button type="button" data-calculator-value="9">9</button>
+              <button type="button" data-calculator-value="*">×</button>
+              <button type="button" data-calculator-value="4">4</button>
+              <button type="button" data-calculator-value="5">5</button>
+              <button type="button" data-calculator-value="6">6</button>
+              <button type="button" data-calculator-value="-">−</button>
+              <button type="button" data-calculator-value="1">1</button>
+              <button type="button" data-calculator-value="2">2</button>
+              <button type="button" data-calculator-value="3">3</button>
+              <button type="button" data-calculator-value="+">＋</button>
+              <button class="is-wide" type="button" data-calculator-value="0">0</button>
+              <button type="button" data-calculator-value=".">.</button>
+              <button class="is-equal" type="button" data-calculator-action="calculate">=</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="pklToast" class="pkl-toast" role="status" aria-live="polite" aria-hidden="true">준비중</div>
+
+  <script src="./team.js"></script>
+<script id="pkl-reroll-memo-notepad-script">
+(function(){
+  "use strict";
+  var STORAGE_KEY="PKL_TEAM_REROLL_MEMO_V1";
+  var FONT_KEY="PKL_TEAM_REROLL_MEMO_FONT_SIZE_V1";
+  var POS_KEY="PKL_TEAM_REROLL_MEMO_POS_V1";
+  var SIZE_KEY="PKL_TEAM_REROLL_MEMO_SIZE_V1";
+  var PLACEHOLDER="팀편성 메모를 입력하세요.\n자유롭게 위치와 크기를 조절하고, 글자 크기도 변경할 수 있습니다.";
+  var openBtn=document.getElementById("openRerollMemoButton");
+  var modal=document.getElementById("memoModal");
+  var card=modal?modal.querySelector(".pkl-memo-modal-card"):null;
+  var head=modal?modal.querySelector(".pkl-memo-modal-head"):null;
+  var textarea=document.getElementById("memoText");
+  var range=document.getElementById("memoFontSizeRange");
+  var value=document.getElementById("memoFontSizeValue");
+  var resizeHandle=document.getElementById("memoResizeHandle");
+  if(!openBtn || !modal || !card || !textarea) return;
+
+  textarea.setAttribute("placeholder",PLACEHOLDER.replace(/\\n/g,"\n"));
+
+  function clampFont(n){n=Number(n)||16;return Math.max(12,Math.min(34,n));}
+  function setFontSize(n){
+    n=clampFont(n);
+    textarea.style.fontSize=n+"px";
+    if(range) range.value=String(n);
+    if(value) value.textContent=n+"px";
+    localStorage.setItem(FONT_KEY,String(n));
+  }
+  function readJson(key){try{return JSON.parse(localStorage.getItem(key)||"null");}catch(e){return null;}}
+  function saveMemo(){localStorage.setItem(STORAGE_KEY,textarea.value||"");}
+  function saveSize(){
+    var rect=card.getBoundingClientRect();
+    localStorage.setItem(SIZE_KEY,JSON.stringify({w:Math.round(rect.width),h:Math.round(rect.height)}));
+  }
+  function savePos(){
+    var rect=card.getBoundingClientRect();
+    localStorage.setItem(POS_KEY,JSON.stringify({left:Math.round(rect.left),top:Math.round(rect.top)}));
+  }
+  function applySavedGeometry(){
+    var size=readJson(SIZE_KEY);
+    if(size && size.w && size.h){
+      card.style.width=Math.max(360,Math.min(Number(size.w)||860,window.innerWidth-16))+"px";
+      card.style.height=Math.max(280,Math.min(Number(size.h)||560,window.innerHeight-16))+"px";
+    }
+    var pos=readJson(POS_KEY);
+    if(pos && Number.isFinite(pos.left) && Number.isFinite(pos.top)){
+      card.style.left=pos.left+"px";
+      card.style.top=pos.top+"px";
+      card.style.transform="none";
+    }else{
+      card.style.left="50%";
+      card.style.top="50%";
+      card.style.transform="translate(-50%,-50%)";
+    }
+  }
+  function openMemo(e){
+    if(e){e.preventDefault();e.stopPropagation();}
+    textarea.value=localStorage.getItem(STORAGE_KEY)||"";
+    setFontSize(localStorage.getItem(FONT_KEY)||16);
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden","false");
+    applySavedGeometry();
+    setTimeout(function(){textarea.focus({preventScroll:true});},30);
+  }
+  function closeMemo(){
+    saveMemo();
+    saveSize();
+    savePos();
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden","true");
+  }
+
+  openBtn.addEventListener("click",openMemo);
+  textarea.addEventListener("input",saveMemo);
+  if(range) range.addEventListener("input",function(){setFontSize(range.value);});
+  Array.prototype.slice.call(modal.querySelectorAll('[data-close-modal="memoModal"]')).forEach(function(btn){
+    btn.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();closeMemo();});
+  });
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&modal.classList.contains("is-open")) closeMemo();});
+
+  if(resizeHandle){
+    var resizing=false, startX=0, startY=0, startW=0, startH=0;
+    resizeHandle.addEventListener("pointerdown",function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      resizing=true;
+      var rect=card.getBoundingClientRect();
+      startX=e.clientX; startY=e.clientY; startW=rect.width; startH=rect.height;
+      card.style.left=rect.left+"px";
+      card.style.top=rect.top+"px";
+      card.style.transform="none";
+      resizeHandle.setPointerCapture(e.pointerId);
+    });
+    resizeHandle.addEventListener("pointermove",function(e){
+      if(!resizing) return;
+      var w=Math.max(360,Math.min(startW+(e.clientX-startX),window.innerWidth-8));
+      var h=Math.max(280,Math.min(startH+(e.clientY-startY),window.innerHeight-8));
+      card.style.width=w+"px";
+      card.style.height=h+"px";
+    });
+    function endResize(){if(!resizing) return; resizing=false; saveSize(); savePos();}
+    resizeHandle.addEventListener("pointerup",endResize);
+    resizeHandle.addEventListener("pointercancel",endResize);
+  }
+
+  if(head){
+    var dragging=false,dx=0,dy=0;
+    head.addEventListener("pointerdown",function(e){
+      if(e.target && e.target.closest("button,input,textarea")) return;
+      dragging=true;
+      var rect=card.getBoundingClientRect();
+      dx=e.clientX-rect.left;
+      dy=e.clientY-rect.top;
+      card.style.left=rect.left+"px";
+      card.style.top=rect.top+"px";
+      card.style.transform="none";
+      head.setPointerCapture(e.pointerId);
+    });
+    head.addEventListener("pointermove",function(e){
+      if(!dragging) return;
+      card.style.left=(e.clientX-dx)+"px";
+      card.style.top=(e.clientY-dy)+"px";
+    });
+    function endDrag(){if(!dragging) return; dragging=false; savePos(); saveSize();}
+    head.addEventListener("pointerup",endDrag);
+    head.addEventListener("pointercancel",endDrag);
+  }
+
+  if(window.ResizeObserver){
+    var ro=new ResizeObserver(function(){if(modal.classList.contains("is-open")) saveSize();});
+    ro.observe(card);
+  }
+  window.addEventListener("resize",function(){if(modal.classList.contains("is-open")) applySavedGeometry();});
+  setFontSize(localStorage.getItem(FONT_KEY)||16);
+})();
+</script>
+
+<datalist id="pklHourOptions"></datalist>
+<datalist id="pklMinuteOptions"></datalist>
+
+<!-- PKL global stacked modal layer manager -->
+<style id="pkl-global-stacked-modal-layer-style">
+  .pkl-layer-managed-modal{
+    position:fixed !important;
+    pointer-events:auto !important;
+  }
+  .pkl-layer-managed-modal > *,
+  .pkl-layer-managed-modal [role="dialog"],
+  .pkl-layer-managed-modal .modal-box,
+  .pkl-layer-managed-modal .modal-card,
+  .pkl-layer-managed-modal .pkl-result-admin-panel,
+  .pkl-layer-managed-modal .pkl-delete-confirm-box,
+  .pkl-layer-managed-modal .pkl-notice-card,
+  .pkl-layer-managed-modal .temp-edit-box{
+    position:relative !important;
+    pointer-events:auto !important;
+  }
+</style>
+<script id="pkl-global-stacked-modal-layer-script">
+(function(){
+  if(window.__PKL_STACKED_MODAL_LAYER_FINAL__) return;
+  window.__PKL_STACKED_MODAL_LAYER_FINAL__=true;
+  var BASE=2147481000;
+  var step=0;
+  var modalSelector=[
+    '.modal',
+    '.edit-modal',
+    '.member-edit-modal',
+    '.temp-edit-modal',
+    '.pkl-notice-layer',
+    '.pkl-result-admin-modal',
+    '.pkl-delete-confirm-modal',
+    '#resultAdminModal',
+    '#resultDeleteConfirmModal'
+  ].join(',');
+  function isOpen(el){
+    if(!el || !el.classList) return false;
+    var cs;
+    try{cs=getComputedStyle(el);}catch(e){cs=null;}
+    return el.classList.contains('open') ||
+      el.getAttribute('aria-hidden')==='false' ||
+      (cs && cs.position==='fixed' && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0');
+  }
+  function setLayer(el,z){
+    if(!el || !el.style) return;
+    el.classList.add('pkl-layer-managed-modal');
+    el.style.setProperty('z-index', String(z), 'important');
+    el.style.setProperty('pointer-events', 'auto', 'important');
+    var kids=el.querySelectorAll(':scope > *, [role="dialog"], .modal-box, .modal-card, .pkl-result-admin-panel, .pkl-delete-confirm-box, .pkl-notice-card, .temp-edit-box');
+    kids.forEach(function(k){
+      k.style.setProperty('z-index', String(z+1), 'important');
+      k.style.setProperty('pointer-events','auto','important');
+      if(getComputedStyle(k).position==='static') k.style.setProperty('position','relative','important');
+    });
+  }
+  function bring(el){
+    if(!el) return;
+    step+=10;
+    setLayer(el,BASE+step);
+  }
+  function scan(){
+    Array.prototype.forEach.call(document.querySelectorAll(modalSelector),function(el){
+      if(isOpen(el) && !el.dataset.pklLayerNoAuto){
+        if(!el.dataset.pklLayerOrder){
+          el.dataset.pklLayerOrder=String(++step);
+        }
+        setLayer(el,BASE+Number(el.dataset.pklLayerOrder));
+      }else if(el && el.dataset){
+        delete el.dataset.pklLayerOrder;
+      }
+    });
+  }
+  window.PKLBringModalToFront=function(el){
+    if(typeof el==='string') el=document.querySelector(el);
+    if(el){ delete el.dataset.pklLayerOrder; bring(el); }
+  };
+  document.addEventListener('click',function(e){
+    var el=e.target && e.target.closest && e.target.closest(modalSelector);
+    if(el) window.PKLBringModalToFront(el);
+    setTimeout(scan,0);
+    setTimeout(scan,80);
+  },true);
+  var mo=new MutationObserver(function(list){
+    list.forEach(function(m){
+      var el=m.target;
+      if(el && el.matches && el.matches(modalSelector) && isOpen(el)) window.PKLBringModalToFront(el);
+    });
+    setTimeout(scan,0);
+  });
+  function boot(){
+    try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
+    scan();
+    
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
+  <script src="./pkl-responsive-scale.js"></script>
+</body>
+</html>

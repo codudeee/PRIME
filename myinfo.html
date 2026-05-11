@@ -1,0 +1,2236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>PKL MY INFO</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#05050a;color:#f8fafc;font-family:'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR','Segoe UI',sans-serif}
+a{text-decoration:none;color:inherit}
+button,input,select{font-family:inherit}
+
+body{
+  min-height:100vh;
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+
+.my-page{
+  position:relative;
+  min-height:100vh;
+  isolation:isolate;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding:120px 24px 80px;
+}
+
+.my-page::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:url("pkl_join_bg.webp") center/cover no-repeat;
+  z-index:-3;
+  transform:scale(1.01);
+}
+
+.my-page::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(circle at 50% 52%,rgba(168,85,247,.13),transparent 30%),
+    linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.16) 38%,rgba(0,0,0,.64));
+  z-index:-2;
+}
+
+
+.my-shell{
+  width:min(620px,92vw);
+  margin-top:150px;
+  position:relative;
+}
+
+.my-shell::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:-14px;
+  width:70%;
+  height:2px;
+  transform:translateX(-50%);
+  background:linear-gradient(90deg,transparent,#9d5cff,#efe7ff,#9d5cff,transparent);
+  box-shadow:0 0 18px rgba(168,85,247,.9),0 0 42px rgba(168,85,247,.42);
+}
+
+.my-card{
+  position:relative;
+  overflow:hidden;
+  border-radius:12px;
+  border:1px solid rgba(210,183,255,.34);
+  background:
+    linear-gradient(180deg,rgba(9,9,18,.80),rgba(5,5,11,.90)),
+    rgba(8,7,15,.84);
+  box-shadow:
+    0 28px 80px rgba(0,0,0,.58),
+    0 0 38px rgba(168,85,247,.18),
+    inset 0 0 42px rgba(255,255,255,.025);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  padding:44px 52px 38px;
+}
+
+.my-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 50% 0%,rgba(168,85,247,.18),transparent 32%),
+    linear-gradient(120deg,transparent 0%,rgba(255,255,255,.045) 45%,transparent 70%);
+  pointer-events:none;
+}
+
+.my-card::after{
+  content:"";
+  position:absolute;
+  left:20%;
+  right:20%;
+  bottom:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,#a855f7,transparent);
+  box-shadow:0 0 18px rgba(168,85,247,.8);
+}
+
+.my-title{
+  position:relative;
+  margin:0 0 10px;
+  text-align:center;
+  font-size:34px;
+  line-height:1;
+  letter-spacing:7px;
+  font-weight:1000;
+  color:#f7f2ff;
+  text-shadow:0 0 16px rgba(168,85,247,.72),0 0 34px rgba(168,85,247,.24);
+}
+
+.my-sub{
+  margin:0 0 30px;
+  text-align:center;
+  font-size:13px;
+  font-weight:900;
+  letter-spacing:.6px;
+  color:rgba(233,213,255,.64);
+}
+
+.info-grid{
+  display:grid;
+  gap:14px;
+  margin-bottom:24px;
+}
+
+.info-row{
+  position:relative;
+  overflow:hidden;
+  min-height:58px;
+  display:grid;
+  grid-template-columns:138px 1fr;
+  align-items:center;
+  gap:16px;
+  padding:0 18px;
+  border-radius:8px;
+  border:1px solid rgba(196,181,253,.18);
+  background:
+    linear-gradient(135deg,rgba(220,220,220,.12),transparent 34%),
+    rgba(8,8,12,.75);
+  box-shadow:
+    inset 0 0 22px rgba(0,0,0,.34),
+    inset 0 0 18px rgba(168,85,247,.035);
+  opacity:.88;
+}
+
+.info-row::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(220,220,220,.12) 0px,
+      rgba(220,220,220,.12) 1px,
+      transparent 1px,
+      transparent 8px
+    );
+  opacity:.42;
+  pointer-events:none;
+}
+
+.info-row::after{
+  content:"수정 불가";
+  position:absolute;
+  right:16px;
+  top:50%;
+  transform:translateY(-50%);
+  height:24px;
+  padding:0 9px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  border:1px solid rgba(255,107,107,.35);
+  background:rgba(0,0,0,.28);
+  color:#ff6b6b;
+  font-size:11px;
+  font-weight:1000;
+  letter-spacing:-.2px;
+  pointer-events:none;
+}
+
+.info-label{
+  color:#c4b5fd;
+  font-size:12px;
+  font-weight:1000;
+  letter-spacing:.8px;
+}
+
+.info-value{
+  padding-right:78px;
+  color:#fff;
+  font-size:16px;
+  font-weight:1000;
+  letter-spacing:.2px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.section-line{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin:22px 0 18px;
+  color:rgba(255,255,255,.64);
+  font-size:13px;
+  font-weight:1000;
+  letter-spacing:1px;
+}
+
+.section-line::before,
+.section-line::after{
+  content:"";
+  flex:1;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(196,181,253,.34));
+}
+.section-line::after{transform:scaleX(-1)}
+
+.form{
+  display:grid;
+  gap:14px;
+}
+
+.input-wrap{
+  position:relative;
+}
+
+.input-icon{
+  position:absolute;
+  left:20px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#c4b5fd;
+  font-size:18px;
+  opacity:.92;
+  text-shadow:0 0 12px rgba(168,85,247,.48);
+  pointer-events:none;
+}
+
+
+
+.input-icon svg{
+  width:20px;
+  height:20px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  filter:drop-shadow(0 0 8px rgba(168,85,247,.42));
+}
+
+.input-wrap select{
+  width:100%;
+  height:52px;
+  border-radius:6px;
+  border:1px solid rgba(196,181,253,.32);
+  background:
+    linear-gradient(180deg,rgba(20,14,40,.78),rgba(5,5,12,.82)),
+    rgba(4,4,10,.64);
+  color:#fff;
+  outline:none;
+  padding:0 52px 0 58px;
+  font-size:15px;
+  font-weight:900;
+  letter-spacing:.3px;
+  box-shadow:inset 0 0 18px rgba(0,0,0,.24);
+  transition:.18s;
+  appearance:none;
+  -webkit-appearance:none;
+  cursor:pointer;
+}
+
+.input-wrap select:focus{
+  border-color:rgba(168,85,247,.86);
+  box-shadow:
+    0 0 0 1px rgba(168,85,247,.18),
+    0 0 22px rgba(168,85,247,.24),
+    inset 0 0 18px rgba(168,85,247,.045);
+}
+
+.input-wrap select option{
+  background:#0b0714;
+  color:#fff;
+  font-weight:800;
+}
+
+.select-wrap::after{
+  content:"";
+  position:absolute;
+  right:20px;
+  top:50%;
+  width:9px;
+  height:9px;
+  border-right:2px solid rgba(216,180,254,.92);
+  border-bottom:2px solid rgba(216,180,254,.92);
+  transform:translateY(-68%) rotate(45deg);
+  pointer-events:none;
+  filter:drop-shadow(0 0 8px rgba(168,85,247,.65));
+}
+
+.input-wrap input{
+  width:100%;
+  height:52px;
+  border-radius:6px;
+  border:1px solid rgba(196,181,253,.32);
+  background:rgba(4,4,10,.64);
+  color:#fff;
+  outline:none;
+  padding:0 18px 0 58px;
+  font-size:15px;
+  font-weight:900;
+  letter-spacing:.3px;
+  box-shadow:inset 0 0 18px rgba(0,0,0,.24);
+  transition:.18s;
+}
+
+.input-wrap input::placeholder{
+  color:rgba(255,255,255,.45);
+  font-weight:900;
+  letter-spacing:.3px;
+}
+
+.input-wrap input:focus{
+  border-color:rgba(168,85,247,.86);
+  box-shadow:
+    0 0 0 1px rgba(168,85,247,.18),
+    0 0 22px rgba(168,85,247,.24),
+    inset 0 0 18px rgba(168,85,247,.045);
+}
+
+
+.msg.error{color:#fca5a5}
+.msg.success{color:#c4b5fd}
+
+
+.btn{
+  height:58px;
+  border-radius:7px;
+  color:#fff;
+  font-size:16px;
+  font-weight:1000;
+  letter-spacing:.4px;
+  cursor:pointer;
+  transition:.18s;
+}
+
+.save-btn{
+  border:1px solid rgba(208,178,255,.58);
+  background:
+    linear-gradient(180deg,rgba(126,68,255,.34),rgba(66,31,132,.36)),
+    rgba(10,7,20,.72);
+  box-shadow:0 0 20px rgba(168,85,247,.34),inset 0 0 24px rgba(168,85,247,.12);
+}
+
+.delete-btn{
+  border:1px solid rgba(248,113,113,.44);
+  background:
+    linear-gradient(180deg,rgba(127,29,29,.30),rgba(69,10,10,.34)),
+    rgba(10,7,20,.72);
+  box-shadow:0 0 18px rgba(248,113,113,.16),inset 0 0 22px rgba(248,113,113,.07);
+  color:#fecaca;
+}
+
+.btn:hover{
+  transform:translateY(-2px);
+}
+
+.save-btn:hover{
+  border-color:rgba(233,213,255,.88);
+  box-shadow:0 0 28px rgba(168,85,247,.56),0 14px 34px rgba(0,0,0,.28),inset 0 0 26px rgba(168,85,247,.18);
+}
+
+.delete-btn:hover{
+  border-color:rgba(252,165,165,.78);
+  box-shadow:0 0 28px rgba(248,113,113,.26),0 14px 34px rgba(0,0,0,.28),inset 0 0 26px rgba(248,113,113,.10);
+}
+
+.notice{
+  margin-top:16px;
+  padding:13px 15px;
+  border:1px solid rgba(168,85,247,.22);
+  border-radius:7px;
+  background:rgba(168,85,247,.055);
+  color:rgba(255,255,255,.62);
+  font-size:12px;
+  line-height:1.6;
+  font-weight:800;
+  word-break:keep-all;
+}
+
+@media (max-width:700px){
+  .my-page{padding:86px 16px 80px}
+  .my-shell{margin-top:110px}
+  .my-card{padding:34px 24px 30px}
+  .my-title{font-size:28px;letter-spacing:5px}
+  .info-row{grid-template-columns:1fr;gap:4px;padding:14px 16px}
+  .lock-badge{justify-self:start}
+  
+
+  
+
+}
+
+
+.msg{
+  display:none;
+  margin:0;
+  text-align:center;
+  font-size:13px;
+  font-weight:900;
+}
+
+.msg.active{
+  display:block;
+  margin-top:4px;
+}
+
+.msg.error{color:#fca5a5}
+.msg.success{color:#c4b5fd}
+
+.action-row{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  margin-top:8px;
+}
+
+.action-row .btn{
+  width:100%;
+  height:50px;
+  font-size:14px;
+}
+
+/* DELETE MODAL */
+.modal-wrap{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:99999;
+  opacity:0;
+  pointer-events:none;
+  transition:.2s;
+}
+
+.modal-wrap.show{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.modal-box{
+  width:420px;
+  padding:32px;
+  border-radius:14px;
+  background:rgba(10,8,20,.95);
+  border:1px solid rgba(168,85,247,.4);
+  box-shadow:0 0 40px rgba(168,85,247,.3);
+  text-align:center;
+}
+
+.modal-title{
+  font-size:20px;
+  font-weight:1000;
+  margin-bottom:10px;
+}
+
+.modal-desc{
+  font-size:14px;
+  color:#ccc;
+  margin-bottom:24px;
+}
+
+.modal-actions{
+  display:flex;
+  gap:10px;
+}
+
+.modal-btn{
+  flex:1;
+  height:44px;
+  border-radius:8px;
+  border:none;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.modal-btn.no{
+  background:#333;
+  color:#aaa;
+}
+
+.modal-btn.yes{
+  background:linear-gradient(90deg,#ff4d4d,#ff0000);
+  color:#fff;
+}
+
+
+.back-home{
+  position:fixed;
+  left:28px;
+  top:24px;
+  z-index:99999;
+  min-width:120px;
+  height:46px;
+  padding:0 20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:14px;
+  border:1px solid rgba(168,85,247,.65);
+  background:
+    radial-gradient(circle at 50% 0%,rgba(168,85,247,.55),transparent 55%),
+    linear-gradient(180deg,rgba(22,14,48,.95),rgba(6,6,14,.98));
+  color:#ffffff;
+  font-size:14px;
+  font-weight:1000;
+  letter-spacing:.6px;
+  text-shadow:0 0 16px rgba(168,85,247,1);
+  box-shadow:
+    0 0 28px rgba(168,85,247,.6),
+    0 18px 40px rgba(0,0,0,.45),
+    inset 0 0 18px rgba(255,255,255,.06);
+  text-decoration:none;
+  cursor:pointer;
+}
+
+.back-home:hover{
+  color:#fff;
+  border-color:rgba(168,85,247,.72);
+  box-shadow:0 0 18px rgba(168,85,247,.25);
+}
+
+
+/* PKL MYINFO CLEAN EDIT FORM */
+.my-card{padding:46px 52px 38px !important;}
+.my-sub{margin-bottom:28px !important;}
+.info-grid{gap:14px !important;margin-bottom:20px !important;}
+.info-row{display:block !important;min-height:auto !important;padding:0 !important;border:none !important;background:transparent !important;box-shadow:none !important;opacity:1 !important;overflow:visible !important;}
+.info-row::before,.info-row::after{display:none !important;content:none !important;}
+.profile-field{
+  position:relative;
+  display:grid;
+  grid-template-columns:132px minmax(0,1fr) 108px;
+  align-items:center;
+  gap:10px;
+  min-height:70px;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid rgba(196,181,253,.24);
+  background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(124,58,237,.05) 42%,rgba(0,0,0,.24)),rgba(9,8,18,.74);
+  box-shadow:inset 0 0 22px rgba(0,0,0,.30),0 0 18px rgba(168,85,247,.055);
+}
+.profile-field.is-single{grid-template-columns:132px minmax(0,1fr);}
+.profile-label{
+  display:flex;align-items:center;height:48px;padding:0 8px;
+  color:#d8c8ff;font-size:12px;font-weight:1000;letter-spacing:.8px;
+  text-transform:uppercase;white-space:nowrap;
+}
+.profile-control{position:relative;min-width:0;}
+.profile-input{
+  width:100%;height:48px;border-radius:7px;border:1px solid rgba(216,180,254,.30);
+  background:linear-gradient(180deg,rgba(7,7,14,.86),rgba(3,3,8,.92));
+  color:#fff;outline:none;padding:0 16px;font-size:16px;font-weight:1000;letter-spacing:-.2px;
+  box-shadow:inset 0 0 18px rgba(0,0,0,.36);transition:.18s;
+}
+.profile-input:focus{border-color:rgba(216,180,254,.86);box-shadow:0 0 0 1px rgba(168,85,247,.22),0 0 22px rgba(168,85,247,.28),inset 0 0 18px rgba(168,85,247,.06);}
+.profile-input::placeholder{color:rgba(255,255,255,.36);font-weight:900;}
+.check-btn{
+  height:48px;border-radius:7px;border:1px solid rgba(216,180,254,.48);
+  background:linear-gradient(180deg,rgba(126,68,255,.42),rgba(56,28,112,.56));
+  color:#fff;font-size:13px;font-weight:1000;letter-spacing:.2px;cursor:pointer;
+  box-shadow:0 0 16px rgba(168,85,247,.28),inset 0 0 16px rgba(255,255,255,.045);transition:.18s;
+}
+.check-btn:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.70);box-shadow:0 0 24px rgba(168,85,247,.45),inset 0 0 18px rgba(255,255,255,.06);}
+.field-msg{grid-column:2 / -1;min-height:16px;margin:-2px 0 0;padding:0 4px;font-size:12px;font-weight:900;color:rgba(233,213,255,.62);line-height:1.25;}
+.field-msg.ok{color:#d8c8ff;text-shadow:0 0 10px rgba(168,85,247,.45);}
+.field-msg.bad{color:#fca5a5;text-shadow:0 0 10px rgba(248,113,113,.25);}
+.action-row{margin-top:22px !important;}
+.action-row .btn,.save-btn{height:54px !important;border-radius:9px !important;}
+.notice{margin-top:16px !important;padding:16px 18px !important;border-radius:9px !important;}
+@media (max-width:700px){
+  .profile-field,.profile-field.is-single{grid-template-columns:1fr;gap:8px;padding:12px;}
+  .profile-label{height:auto;padding:0 4px;}
+  .field-msg{grid-column:1 / -1;}
+  .check-btn{width:100%;}
+}
+
+
+
+.withdraw-btn{
+  background:linear-gradient(180deg,#ff4747,#c40000);
+  border:1px solid rgba(255,120,120,.45);
+  color:#fff;
+  box-shadow:
+    0 0 12px rgba(255,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+.withdraw-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    0 0 18px rgba(255,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+.withdraw-btn:active{
+  transform:scale(.98);
+}
+
+
+/* PKL 보유 프라임 표시칸 */
+.prime-field{
+  grid-template-columns:132px minmax(0,1fr) !important;
+  border-color:rgba(255,213,106,.55) !important;
+  background:
+    radial-gradient(circle at 0 0,rgba(255,213,106,.20),transparent 42%),
+    linear-gradient(135deg,rgba(255,213,106,.13),rgba(124,58,237,.06) 42%,rgba(0,0,0,.30)),
+    rgba(12,9,20,.82) !important;
+  box-shadow:
+    inset 0 0 22px rgba(0,0,0,.34),
+    0 0 22px rgba(255,213,106,.16),
+    0 0 38px rgba(168,85,247,.08) !important;
+}
+.prime-field .profile-label{
+  color:#ffe9a6 !important;
+  text-shadow:0 0 12px rgba(255,213,106,.42);
+}
+.prime-display{
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:0 16px;
+  border-radius:8px;
+  border:1px solid rgba(255,213,106,.34);
+  background:linear-gradient(180deg,rgba(22,15,6,.92),rgba(6,5,10,.94));
+  color:#fff7d6;
+  box-shadow:inset 0 0 18px rgba(0,0,0,.40),0 0 16px rgba(255,213,106,.12);
+  user-select:none;
+}
+.prime-display .prime-count{
+  font-size:22px;
+  line-height:1;
+  font-weight:1000;
+  color:#ffd45a;
+  text-shadow:0 0 10px rgba(255,213,106,.48),0 0 22px rgba(168,85,247,.20);
+}
+.prime-display .prime-unit{
+  font-size:12px;
+  font-weight:1000;
+  color:rgba(255,245,200,.78);
+  letter-spacing:.6px;
+}
+@media (max-width:700px){
+  .prime-field{grid-template-columns:1fr !important;}
+}
+</style>
+
+<style>
+.pkl-ratio-grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+margin-top:6px;
+}
+.pkl-ratio-grid input{
+height:36px;
+text-align:center;
+border-radius:10px;
+border:1px solid rgba(216,180,254,.25);
+background:rgba(20,16,40,.7);
+color:#fff;
+font-weight:700;
+}
+
+
+.withdraw-btn{
+  background:linear-gradient(180deg,#ff4747,#c40000);
+  border:1px solid rgba(255,120,120,.45);
+  color:#fff;
+  box-shadow:
+    0 0 12px rgba(255,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+.withdraw-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    0 0 18px rgba(255,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+.withdraw-btn:active{
+  transform:scale(.98);
+}
+
+</style>
+
+<style id="force-spacing-fix">
+#pklSideCreateModal .pkl-side-create-body{
+  padding-bottom:48px !important;
+}
+
+#pklSideCreateModal .pkl-side-create-actions{
+  margin-top:20px !important;
+}
+
+#pklSideCreateModal .pkl-side-check-row{
+  margin-top:18px !important;
+  margin-bottom:20px !important;
+}
+
+#pklSideCreateModal .pkl-side-field{
+  margin-bottom:18px !important;
+}
+
+
+.withdraw-btn{
+  background:linear-gradient(180deg,#ff4747,#c40000);
+  border:1px solid rgba(255,120,120,.45);
+  color:#fff;
+  box-shadow:
+    0 0 12px rgba(255,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+.withdraw-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    0 0 18px rgba(255,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+.withdraw-btn:active{
+  transform:scale(.98);
+}
+
+</style>
+
+<style id="pklFinalTier0Clean">
+/* 🔴 0티어 최종 - 깔끔 + 상위티어 강조 */
+.tier-mark.role-tier0,
+.grade-role-tier0,
+.member-role-badge[data-pkl-grade^="0티어"]{
+  background: rgba(50,0,0,.9) !important;
+
+  /* 핵심: 색만 살짝 고급스럽게 */
+  color: #ffb3a3 !important;
+
+  /* 거의 안보이는 정도로만 또렷하게 */
+  text-shadow: 0 0 1px rgba(255,255,255,.4);
+
+  /* 미세 강조 */
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+
+.withdraw-btn{
+  background:linear-gradient(180deg,#ff4747,#c40000);
+  border:1px solid rgba(255,120,120,.45);
+  color:#fff;
+  box-shadow:
+    0 0 12px rgba(255,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+.withdraw-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    0 0 18px rgba(255,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+.withdraw-btn:active{
+  transform:scale(.98);
+}
+
+</style>
+
+
+<style id="pklPremiumBadgeB">
+/* PKL 등급배지 풀개편 - 깔끔 프리미엄 B */
+/* 공통: 어두운 유리 배지 + 티어별 포인트 컬러 */
+.tier-mark,
+.grade-role-badge,
+.member-role-badge[data-pkl-grade],
+.member-role-badge[class*="grade-role-tier"],
+.member-role-badge.grade-role-beast{
+  min-height:24px !important;
+  min-width:62px !important;
+  padding:0 10px !important;
+  border-radius:999px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:11px !important;
+  font-weight:1000 !important;
+  letter-spacing:.25px !important;
+  line-height:24px !important;
+  white-space:nowrap !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    rgba(10,10,18,.82) !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 0 7px rgba(0,0,0,.34) !important;
+  text-shadow:none !important;
+  backdrop-filter:blur(8px) !important;
+  -webkit-backdrop-filter:blur(8px) !important;
+}
+
+/* 🔴 0티어: 빨강 */
+.tier-mark.role-tier0,
+.grade-role-tier0,
+.member-role-badge[data-pkl-grade^="0티어"]{
+  color:#ff8a8a !important;
+  border-color:rgba(255,95,95,.42) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(95,15,20,.78),rgba(18,8,12,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(255,70,70,.18) !important;
+}
+
+/* 🟡 1티어: 노랑 */
+.tier-mark.role-tier1,
+.grade-role-tier1,
+.member-role-badge[data-pkl-grade^="1티어"]{
+  color:#ffe680 !important;
+  border-color:rgba(255,220,90,.42) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(90,70,12,.78),rgba(22,17,7,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(255,216,80,.16) !important;
+}
+
+/* 🟢 2티어: 초록 */
+.tier-mark.role-tier2,
+.grade-role-tier2,
+.member-role-badge[data-pkl-grade^="2티어"]{
+  color:#8df7a8 !important;
+  border-color:rgba(90,230,130,.40) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(16,78,42,.78),rgba(7,20,13,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(90,230,130,.15) !important;
+}
+
+/* 🔵 3티어: 파랑 */
+.tier-mark.role-tier3,
+.grade-role-tier3,
+.member-role-badge[data-pkl-grade^="3티어"]{
+  color:#8fd3ff !important;
+  border-color:rgba(110,190,255,.40) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(18,52,105,.78),rgba(7,13,28,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(110,190,255,.15) !important;
+}
+
+/* 🟣 4티어: 보라 */
+.tier-mark.role-tier4,
+.grade-role-tier4,
+.member-role-badge[data-pkl-grade^="4티어"]{
+  color:#d8b4fe !important;
+  border-color:rgba(200,150,255,.40) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(64,30,110,.78),rgba(16,9,28,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(200,150,255,.15) !important;
+}
+
+/* 🟤 짐승: 갈색 */
+.tier-mark.role-beast,
+.grade-role-beast,
+.member-role-badge[data-pkl-grade="짐승"]{
+  color:#d9a36c !important;
+  border-color:rgba(210,150,95,.38) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(78,47,24,.78),rgba(20,12,7,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(210,150,95,.14) !important;
+}
+
+/* hover: 적당히 강조 */
+.tier-mark:hover,
+.grade-role-badge:hover,
+.member-role-badge[data-pkl-grade]:hover{
+  filter:brightness(1.12) !important;
+  transform:translateY(-1px) !important;
+  transition:filter .15s ease, transform .15s ease, box-shadow .15s ease !important;
+}
+
+
+.withdraw-btn{
+  background:linear-gradient(180deg,#ff4747,#c40000);
+  border:1px solid rgba(255,120,120,.45);
+  color:#fff;
+  box-shadow:
+    0 0 12px rgba(255,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+.withdraw-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    0 0 18px rgba(255,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+.withdraw-btn:active{
+  transform:scale(.98);
+}
+
+</style>
+
+
+<style id="pklRoleCleanRedWhiteFinal">
+/* 역할배지 완전 정리: 관리자=레드 / 운영자=화이트 */
+/* 기존 보라 glow, rainbow, filter 섞임 방지 */
+
+.member-role-manager,
+.user-card .member-role-manager,
+.profile-head .member-role-manager,
+.badges .member-role-manager,
+.name-role-line .member-role-manager,
+.user-role-line .member-role-manager,
+.tier-mark.role-manager,
+.badge.role-manager,
+.activity-role-icon.role-manager,
+.welcome-role.member-role-manager,
+[data-pkl-role="관리자"],
+[data-pkl-role="admin"],
+[data-pkl-role="manager"]{
+  background:rgba(20,0,0,.96) !important;
+  background-image:none !important;
+  color:#ff4d4d !important;
+  border:2px solid #ff4d4d !important;
+  box-shadow:
+    0 0 6px rgba(255,0,0,.55),
+    0 0 15px rgba(255,0,0,.34),
+    inset 0 0 6px rgba(255,0,0,.26) !important;
+  text-shadow:none !important;
+  filter:none !important;
+  outline:none !important;
+}
+
+.member-role-operator,
+.user-card .member-role-operator,
+.profile-head .member-role-operator,
+.badges .member-role-operator,
+.name-role-line .member-role-operator,
+.user-role-line .member-role-operator,
+.tier-mark.role-operator,
+.badge.role-operator,
+.activity-role-icon.role-operator,
+.welcome-role.member-role-operator,
+[data-pkl-role="운영자"],
+[data-pkl-role="운영진"],
+[data-pkl-role="operator"],
+[data-pkl-role="staff"]{
+  background:rgba(10,10,10,.96) !important;
+  background-image:none !important;
+  color:#ffffff !important;
+  border:2px solid #ffffff !important;
+  box-shadow:
+    0 0 6px rgba(255,255,255,.55),
+    0 0 15px rgba(255,255,255,.34),
+    inset 0 0 6px rgba(255,255,255,.24) !important;
+  text-shadow:none !important;
+  filter:none !important;
+  outline:none !important;
+}
+
+/* admin 내부에서 예전 role-rainbow로 남는 경우도 무지개/보라 제거 */
+.tier-mark.role-rainbow,
+.badge.role-rainbow{
+  background:rgba(18,18,24,.96) !important;
+  background-image:none !important;
+  border:2px solid rgba(255,255,255,.55) !important;
+  color:#fff !important;
+  box-shadow:
+    0 0 6px rgba(255,255,255,.32),
+    inset 0 0 6px rgba(255,255,255,.16) !important;
+  text-shadow:none !important;
+  filter:none !important;
+}
+
+/* hover도 색 섞임 없이 약하게만 */
+.member-role-manager:hover,
+.tier-mark.role-manager:hover,
+.badge.role-manager:hover,
+[data-pkl-role="관리자"]:hover,
+[data-pkl-role="manager"]:hover{
+  filter:none !important;
+  box-shadow:
+    0 0 7px rgba(255,0,0,.65),
+    0 0 18px rgba(255,0,0,.42),
+    inset 0 0 7px rgba(255,0,0,.32) !important;
+}
+
+.member-role-operator:hover,
+.tier-mark.role-operator:hover,
+.badge.role-operator:hover,
+[data-pkl-role="운영자"]:hover,
+[data-pkl-role="operator"]:hover{
+  filter:none !important;
+  box-shadow:
+    0 0 7px rgba(255,255,255,.65),
+    0 0 18px rgba(255,255,255,.42),
+    inset 0 0 7px rgba(255,255,255,.28) !important;
+}
+
+
+.withdraw-btn{
+  background:linear-gradient(180deg,#ff4747,#c40000);
+  border:1px solid rgba(255,120,120,.45);
+  color:#fff;
+  box-shadow:
+    0 0 12px rgba(255,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+.withdraw-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    0 0 18px rgba(255,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+.withdraw-btn:active{
+  transform:scale(.98);
+}
+
+</style>
+
+
+<script>
+
+async function withdrawAccount(){
+
+  const ok = confirm(
+    "정말 회원탈퇴 하시겠습니까?\n\n모든 정보가 삭제됩니다."
+  );
+
+  if(!ok) return;
+
+  try{
+
+    const loginKeys = [
+      "pklLoginUser",
+      "pklCurrentUser",
+      "discordUser",
+      "loginUser"
+    ];
+
+    const adminKey = "pklAdminState_v3";
+
+    const loginUser =
+      JSON.parse(localStorage.getItem("pklLoginUser") || "null") ||
+      JSON.parse(localStorage.getItem("pklCurrentUser") || "null") ||
+      JSON.parse(localStorage.getItem("discordUser") || "null");
+
+    const users =
+      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+
+    const filtered = users.filter(user=>{
+      if(!loginUser) return true;
+
+      const a = String(user?.discordId || "").trim();
+      const b = String(loginUser?.discordId || "").trim();
+
+      return a !== b;
+    });
+
+    localStorage.setItem(
+      "pklUsers",
+      JSON.stringify(filtered)
+    );
+
+    const adminState =
+      JSON.parse(localStorage.getItem(adminKey) || "{}");
+
+    if(Array.isArray(adminState.users)){
+
+      adminState.users = adminState.users.filter(user=>{
+
+        const a = String(user?.discordId || "").trim();
+        const b = String(loginUser?.discordId || "").trim();
+
+        return a !== b;
+      });
+
+      localStorage.setItem(
+        adminKey,
+        JSON.stringify(adminState)
+      );
+    }
+
+    loginKeys.forEach(key=>{
+      localStorage.removeItem(key);
+    });
+
+    alert("회원탈퇴가 완료되었습니다.");
+
+    location.href = "index.html";
+
+  }catch(error){
+
+    console.error(error);
+
+    alert("회원탈퇴 처리 중 오류가 발생했습니다.");
+  }
+}
+
+</script>
+<script src="pkl-role-system.js">
+
+async function withdrawAccount(){
+
+  const ok = confirm(
+    "정말 회원탈퇴 하시겠습니까?\n\n모든 정보가 삭제됩니다."
+  );
+
+  if(!ok) return;
+
+  try{
+
+    const loginKeys = [
+      "pklLoginUser",
+      "pklCurrentUser",
+      "discordUser",
+      "loginUser"
+    ];
+
+    const adminKey = "pklAdminState_v3";
+
+    const loginUser =
+      JSON.parse(localStorage.getItem("pklLoginUser") || "null") ||
+      JSON.parse(localStorage.getItem("pklCurrentUser") || "null") ||
+      JSON.parse(localStorage.getItem("discordUser") || "null");
+
+    const users =
+      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+
+    const filtered = users.filter(user=>{
+      if(!loginUser) return true;
+
+      const a = String(user?.discordId || "").trim();
+      const b = String(loginUser?.discordId || "").trim();
+
+      return a !== b;
+    });
+
+    localStorage.setItem(
+      "pklUsers",
+      JSON.stringify(filtered)
+    );
+
+    const adminState =
+      JSON.parse(localStorage.getItem(adminKey) || "{}");
+
+    if(Array.isArray(adminState.users)){
+
+      adminState.users = adminState.users.filter(user=>{
+
+        const a = String(user?.discordId || "").trim();
+        const b = String(loginUser?.discordId || "").trim();
+
+        return a !== b;
+      });
+
+      localStorage.setItem(
+        adminKey,
+        JSON.stringify(adminState)
+      );
+    }
+
+    loginKeys.forEach(key=>{
+      localStorage.removeItem(key);
+    });
+
+    alert("회원탈퇴가 완료되었습니다.");
+
+    location.href = "index.html";
+
+  }catch(error){
+
+    console.error(error);
+
+    alert("회원탈퇴 처리 중 오류가 발생했습니다.");
+  }
+}
+
+</script>
+<script src="pkl-common-role-badge.js">
+
+async function withdrawAccount(){
+
+  const ok = confirm(
+    "정말 회원탈퇴 하시겠습니까?\n\n모든 정보가 삭제됩니다."
+  );
+
+  if(!ok) return;
+
+  try{
+
+    const loginKeys = [
+      "pklLoginUser",
+      "pklCurrentUser",
+      "discordUser",
+      "loginUser"
+    ];
+
+    const adminKey = "pklAdminState_v3";
+
+    const loginUser =
+      JSON.parse(localStorage.getItem("pklLoginUser") || "null") ||
+      JSON.parse(localStorage.getItem("pklCurrentUser") || "null") ||
+      JSON.parse(localStorage.getItem("discordUser") || "null");
+
+    const users =
+      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+
+    const filtered = users.filter(user=>{
+      if(!loginUser) return true;
+
+      const a = String(user?.discordId || "").trim();
+      const b = String(loginUser?.discordId || "").trim();
+
+      return a !== b;
+    });
+
+    localStorage.setItem(
+      "pklUsers",
+      JSON.stringify(filtered)
+    );
+
+    const adminState =
+      JSON.parse(localStorage.getItem(adminKey) || "{}");
+
+    if(Array.isArray(adminState.users)){
+
+      adminState.users = adminState.users.filter(user=>{
+
+        const a = String(user?.discordId || "").trim();
+        const b = String(loginUser?.discordId || "").trim();
+
+        return a !== b;
+      });
+
+      localStorage.setItem(
+        adminKey,
+        JSON.stringify(adminState)
+      );
+    }
+
+    loginKeys.forEach(key=>{
+      localStorage.removeItem(key);
+    });
+
+    alert("회원탈퇴가 완료되었습니다.");
+
+    location.href = "index.html";
+
+  }catch(error){
+
+    console.error(error);
+
+    alert("회원탈퇴 처리 중 오류가 발생했습니다.");
+  }
+}
+
+</script>
+<script src="pkl-common-tier-badge.js">
+
+async function withdrawAccount(){
+
+  const ok = confirm(
+    "정말 회원탈퇴 하시겠습니까?\n\n모든 정보가 삭제됩니다."
+  );
+
+  if(!ok) return;
+
+  try{
+
+    const loginKeys = [
+      "pklLoginUser",
+      "pklCurrentUser",
+      "discordUser",
+      "loginUser"
+    ];
+
+    const adminKey = "pklAdminState_v3";
+
+    const loginUser =
+      JSON.parse(localStorage.getItem("pklLoginUser") || "null") ||
+      JSON.parse(localStorage.getItem("pklCurrentUser") || "null") ||
+      JSON.parse(localStorage.getItem("discordUser") || "null");
+
+    const users =
+      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+
+    const filtered = users.filter(user=>{
+      if(!loginUser) return true;
+
+      const a = String(user?.discordId || "").trim();
+      const b = String(loginUser?.discordId || "").trim();
+
+      return a !== b;
+    });
+
+    localStorage.setItem(
+      "pklUsers",
+      JSON.stringify(filtered)
+    );
+
+    const adminState =
+      JSON.parse(localStorage.getItem(adminKey) || "{}");
+
+    if(Array.isArray(adminState.users)){
+
+      adminState.users = adminState.users.filter(user=>{
+
+        const a = String(user?.discordId || "").trim();
+        const b = String(loginUser?.discordId || "").trim();
+
+        return a !== b;
+      });
+
+      localStorage.setItem(
+        adminKey,
+        JSON.stringify(adminState)
+      );
+    }
+
+    loginKeys.forEach(key=>{
+      localStorage.removeItem(key);
+    });
+
+    alert("회원탈퇴가 완료되었습니다.");
+
+    location.href = "index.html";
+
+  }catch(error){
+
+    console.error(error);
+
+    alert("회원탈퇴 처리 중 오류가 발생했습니다.");
+  }
+}
+
+</script>
+<script src="pkl-supabase-config.js"></script>
+
+<script src="pkl-user-profile-core.js"></script>
+
+<style id="pklBgRestoreFinal">
+html,body{background:#05050a !important;}
+.my-page::before{background:url("pkl_join_bg.webp") center/cover no-repeat !important;opacity:1 !important;display:block !important;}
+.my-page::after{background:radial-gradient(circle at 50% 52%,rgba(168,85,247,.13),transparent 30%),linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.17) 38%,rgba(0,0,0,.60)) !important;}
+</style>
+</head>
+<body>
+<button class="back-home" type="button" onclick="history.back()">← 뒤로가기</button>
+
+<main class="my-page">
+  <section class="my-shell" aria-label="PKL 내정보">
+    <div class="my-card">
+      <h1 class="my-title">MY INFO</h1>
+      <p class="my-sub">PLAYER PROFILE SETTINGS</p>
+
+      <form class="form" onsubmit="saveMyInfo(event)" autocomplete="off">
+        <div class="info-grid">
+
+          <div class="info-row">
+            <div class="profile-field prime-field is-single">
+              <div class="profile-label">보유 프라임</div>
+              <div class="profile-control">
+                <div class="prime-display" aria-label="보유 프라임">
+                  <span class="prime-count" id="primeDisplay">0</span>
+                  <span class="prime-unit">PRIME</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-row">
+            <div class="profile-field">
+              <div class="profile-label">NICKNAME</div>
+              <div class="profile-control">
+                <input class="profile-input" id="nicknameInput" type="text" maxlength="16" placeholder="닉네임을 입력하세요" />
+              </div>
+              <button class="check-btn" type="button" onclick="checkNicknameDuplicate()">중복확인</button>
+              <p class="field-msg" id="nicknameMsg">닉네임 변경 시 중복확인 후 저장할 수 있습니다.</p>
+            </div>
+          </div>
+
+          <div class="info-row">
+            <div class="profile-field is-single">
+              <div class="profile-label">PUBG ID</div>
+              <div class="profile-control">
+                <input class="profile-input" id="pubgInput" type="text" maxlength="32" placeholder="PUBG ID" inputmode="latin" autocomplete="off" />
+              </div>
+              <p class="field-msg" id="pubgMsg">영문, 숫자, 하이픈(-), 언더바(_)만 입력할 수 있습니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <p class="msg error" id="errorMsg"></p>
+        <p class="msg success" id="successMsg"></p>
+
+        <div class="action-row">
+          <button class="btn save-btn" type="submit">내 정보 저장</button>
+
+  <button
+    class="btn withdraw-btn"
+    type="button"
+    onclick="withdrawAccount()"
+  >
+    회원탈퇴
+  </button>
+        </div>
+      </form>
+
+      <div class="notice">
+        닉네임은 중복확인 후 저장할 수 있습니다.<br>
+        저장한 닉네임과 PUBG ID는 관리자 회원목록에도 함께 반영됩니다.
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const PKL_ADMIN_STATE_KEY = "pklAdminState_v3";
+const PKL_LOGIN_KEYS = ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"];
+let originalUser = null;
+let nicknameCheckedValue = "";
+
+function safeParse(raw, fallback){
+  try{return JSON.parse(raw || "");}catch(e){return fallback;}
+}
+
+function getUsers(){
+  const users = safeParse(localStorage.getItem("pklUsers"), []);
+  return Array.isArray(users) ? users : [];
+}
+
+function saveUsers(users){
+  const arr = Array.isArray(users) ? users : [];
+  localStorage.setItem("pklUsers", JSON.stringify(arr));
+  localStorage.setItem("PKL_USERS", JSON.stringify(arr));
+  try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.setUsers === "function") window.PKLUserProfile.setUsers(arr, true); }catch(e){}
+  try{ if(window.PKLFirebaseDataSync && window.PKLFirebaseDataSync.setShared) window.PKLFirebaseDataSync.setShared("pklUsers", arr); }catch(e){}
+}
+
+function getLoginUser(){
+  for(const key of PKL_LOGIN_KEYS){
+    const user = safeParse(localStorage.getItem(key), null);
+    if(user && typeof user === "object") return user;
+  }
+  return null;
+}
+
+function sameUser(a,b){
+  if(!a || !b) return false;
+  const auid = String(a.uid || a.id || "");
+  const buid = String(b.uid || b.id || "");
+  if(auid && buid && auid === buid) return true;
+  const anick = String(a.nickname || a.nick || a.name || "");
+  const bnick = String(b.nickname || b.nick || b.name || "");
+  const apubg = String(a.pubgId || a.gameId || a.ref || "");
+  const bpubg = String(b.pubgId || b.gameId || b.ref || "");
+  return !!((anick && bnick && anick === bnick) || (apubg && bpubg && apubg === bpubg));
+}
+
+function setEveryLoginUser(user){
+  PKL_LOGIN_KEYS.forEach(key=>{
+    try{
+      const cur = safeParse(localStorage.getItem(key), null);
+      if(cur && typeof cur === "object" && sameUser(cur, originalUser || user)){
+        localStorage.setItem(key, JSON.stringify({...cur, ...user, nickname:user.nickname, nick:user.nickname, name:user.nickname, pubgId:user.pubgId, gameId:user.pubgId}));
+      }
+    }catch(e){}
+  });
+  localStorage.setItem("pklLoginUser", JSON.stringify(user));
+}
+
+function cleanPubgInput(value){
+  return String(value || "").replace(/[^A-Za-z0-9_-]/g, "");
+}
+
+function setMsg(id, text, type){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = text || "";
+  el.classList.remove("ok","bad");
+  if(type) el.classList.add(type);
+}
+
+function clearMessages(){
+  ["errorMsg","successMsg"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.textContent="";
+    el.classList.remove("active");
+  });
+}
+
+function showError(text){
+  const el=document.getElementById("errorMsg");
+  if(el){el.textContent=text;el.classList.add("active");}
+}
+
+function showSuccess(text){
+  const el=document.getElementById("successMsg");
+  if(el){el.textContent=text;el.classList.add("active");}
+}
+
+function nicknameExists(nickname){
+  const target = String(nickname || "").trim();
+  if(!target) return false;
+  const users = getUsers();
+  const inUsers = users.some(u => {
+    if(sameUser(u, originalUser)) return false;
+    return String(u.nickname || u.nick || u.name || "") === target;
+  });
+  const adminState = safeParse(localStorage.getItem(PKL_ADMIN_STATE_KEY), null);
+  const adminUsers = Array.isArray(adminState?.users) ? adminState.users : [];
+  const inAdmin = adminUsers.some(u => {
+    if(sameUser(u, originalUser)) return false;
+    return String(u.nickname || u.nick || u.name || "") === target;
+  });
+  return inUsers || inAdmin;
+}
+
+function checkNicknameDuplicate(){
+  clearMessages();
+  const nickname = document.getElementById("nicknameInput").value.trim();
+  if(!nickname){setMsg("nicknameMsg","닉네임을 입력해주세요.","bad"); return false;}
+  if(originalUser && nickname === String(originalUser.nickname || originalUser.nick || originalUser.name || "")){
+    nicknameCheckedValue = nickname;
+    setMsg("nicknameMsg","현재 사용 중인 닉네임입니다.","ok");
+    return true;
+  }
+  if(nicknameExists(nickname)){
+    nicknameCheckedValue = "";
+    setMsg("nicknameMsg","이미 사용 중인 닉네임입니다.","bad");
+    return false;
+  }
+  nicknameCheckedValue = nickname;
+  setMsg("nicknameMsg","사용 가능한 닉네임입니다.","ok");
+  return true;
+}
+
+function updateAdminStorage(updatedUser){
+  /* 유저 프로필은 pklUsers 한 곳만 저장한다. pklAdminState_v3.users 복원 흐름 차단. */
+}
+
+function updateAccountStorage(updatedUser){
+  const users = getUsers();
+  let idx = users.findIndex(u => sameUser(u, originalUser));
+  if(idx < 0 && originalUser){
+    idx = users.findIndex(u => String(u.nickname || u.nick || u.name || "") === String(originalUser.nickname || originalUser.nick || originalUser.name || ""));
+  }
+  if(idx >= 0){
+    users[idx] = {
+      ...users[idx],
+      nickname: updatedUser.nickname,
+      nick: updatedUser.nickname,
+      name: updatedUser.nickname,
+      pubgId: updatedUser.pubgId,
+      gameId: updatedUser.pubgId,
+      updatedAt: new Date().toISOString(),
+      pklProfileUpdatedAt: new Date().toISOString(),
+      __pklProfileWrite: true
+    };
+    saveUsers(users);
+    return users[idx];
+  }
+  saveUsers([...users, updatedUser]);
+  return updatedUser;
+}
+
+
+function resolvePrimeValue(user){
+  const candidates = [
+    user?.prime, user?.primes, user?.primePoint, user?.primePoints,
+    user?.point, user?.points, user?.dia, user?.chicken
+  ];
+  for(const value of candidates){
+    const n = Number(value);
+    if(Number.isFinite(n)) return Math.max(0, Math.floor(n));
+  }
+  return 0;
+}
+
+function setPrimeDisplay(user){
+  const el = document.getElementById("primeDisplay");
+  if(!el) return;
+  const n = resolvePrimeValue(user || {});
+  el.textContent = n.toLocaleString("ko-KR");
+}
+
+function renderMyInfo(){
+  const user = getLoginUser();
+  if(!user){location.href='register.html';return;}
+  originalUser = {...user};
+  setPrimeDisplay(user);
+  const nickname = user.nickname || user.nick || user.name || "";
+  const pubg = user.pubgId || user.gameId || user.ref || "";
+  document.getElementById("nicknameInput").value = nickname;
+  document.getElementById("pubgInput").value = cleanPubgInput(pubg);
+  nicknameCheckedValue = nickname;
+  setMsg("nicknameMsg","현재 닉네임입니다.","ok");
+}
+
+function saveMyInfo(e){
+  e.preventDefault();
+  clearMessages();
+  const nickname = document.getElementById("nicknameInput").value.trim();
+  const pubgInput = document.getElementById("pubgInput");
+  const pubgId = cleanPubgInput(pubgInput.value.trim());
+  pubgInput.value = pubgId;
+
+  if(!nickname){showError("닉네임을 입력해주세요."); return;}
+  if(!pubgId){showError("PUBG ID를 입력해주세요."); return;}
+  if(!/^[A-Za-z0-9_-]+$/.test(pubgId)){showError("PUBG ID는 영문, 숫자, -, _ 만 사용할 수 있습니다."); return;}
+  if(nicknameCheckedValue !== nickname){
+    setMsg("nicknameMsg","닉네임 중복확인을 먼저 해주세요.","bad");
+    showError("닉네임 중복확인을 먼저 해주세요.");
+    return;
+  }
+  if(nicknameExists(nickname)){
+    setMsg("nicknameMsg","이미 사용 중인 닉네임입니다.","bad");
+    showError("이미 사용 중인 닉네임입니다.");
+    nicknameCheckedValue = "";
+    return;
+  }
+
+  const base = getLoginUser() || originalUser || {};
+  const updated = {
+    ...base,
+    nickname,
+    nick:nickname,
+    name:nickname,
+    pubgId,
+    gameId:pubgId,
+    updatedAt:new Date().toISOString()
+  };
+  const stored = updateAccountStorage(Object.assign({}, updated, {__pklProfileWrite:true,pklProfileUpdatedAt:new Date().toISOString()}));
+  updateAdminStorage(stored);
+  try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function") window.PKLUserProfile.upsert(stored, true); }catch(e){}
+  try{ if(window.PKLFirebaseDataSync && window.PKLFirebaseDataSync.setShared) window.PKLFirebaseDataSync.setShared("pklUsers", JSON.parse(localStorage.getItem("pklUsers")||"[]")); }catch(e){}
+  setEveryLoginUser(stored);
+  originalUser = {...stored};
+  nicknameCheckedValue = nickname;
+  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
+  try{window.dispatchEvent(new StorageEvent("storage",{key:PKL_ADMIN_STATE_KEY,newValue:localStorage.getItem(PKL_ADMIN_STATE_KEY)}));}catch(e){}
+  setMsg("nicknameMsg","저장된 닉네임입니다.","ok");
+  setMsg("pubgMsg","저장된 PUBG ID입니다.","ok");
+  showSuccess("내 정보가 저장되었습니다. 관리자 회원목록에도 반영되었습니다.");
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  const pubgInput = document.getElementById("pubgInput");
+  const nickInput = document.getElementById("nicknameInput");
+  if(pubgInput){
+    pubgInput.addEventListener("input",()=>{
+      const cleaned = cleanPubgInput(pubgInput.value);
+      if(pubgInput.value !== cleaned) pubgInput.value = cleaned;
+      setMsg("pubgMsg","영문, 숫자, 하이픈(-), 언더바(_)만 입력할 수 있습니다.","");
+    });
+  }
+  if(nickInput){
+    nickInput.addEventListener("input",()=>{
+      if(nickInput.value.trim() !== nicknameCheckedValue){
+        setMsg("nicknameMsg","닉네임 변경 시 중복확인이 필요합니다.","");
+      }
+    });
+  }
+  renderMyInfo();
+});
+
+
+async function withdrawAccount(){
+
+  const ok = confirm(
+    "정말 회원탈퇴 하시겠습니까?\n\n모든 정보가 삭제됩니다."
+  );
+
+  if(!ok) return;
+
+  try{
+
+    const loginKeys = [
+      "pklLoginUser",
+      "pklCurrentUser",
+      "discordUser",
+      "loginUser"
+    ];
+
+    const adminKey = "pklAdminState_v3";
+
+    const loginUser =
+      JSON.parse(localStorage.getItem("pklLoginUser") || "null") ||
+      JSON.parse(localStorage.getItem("pklCurrentUser") || "null") ||
+      JSON.parse(localStorage.getItem("discordUser") || "null");
+
+    const users =
+      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+
+    const filtered = users.filter(user=>{
+      if(!loginUser) return true;
+
+      const a = String(user?.discordId || "").trim();
+      const b = String(loginUser?.discordId || "").trim();
+
+      return a !== b;
+    });
+
+    localStorage.setItem(
+      "pklUsers",
+      JSON.stringify(filtered)
+    );
+
+    const adminState =
+      JSON.parse(localStorage.getItem(adminKey) || "{}");
+
+    if(Array.isArray(adminState.users)){
+
+      adminState.users = adminState.users.filter(user=>{
+
+        const a = String(user?.discordId || "").trim();
+        const b = String(loginUser?.discordId || "").trim();
+
+        return a !== b;
+      });
+
+      localStorage.setItem(
+        adminKey,
+        JSON.stringify(adminState)
+      );
+    }
+
+    loginKeys.forEach(key=>{
+      localStorage.removeItem(key);
+    });
+
+    alert("회원탈퇴가 완료되었습니다.");
+
+    location.href = "index.html";
+
+  }catch(error){
+
+    console.error(error);
+
+    alert("회원탈퇴 처리 중 오류가 발생했습니다.");
+  }
+}
+
+</script>
+
+</div>
+
+
+<div id="authBlockModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+  <div style="position:relative; width:320px; background:#111; border:1px solid #6a00ff; box-shadow:0 0 20px #6a00ff; border-radius:8px; padding:20px; text-align:center; color:#fff;">
+    <div onclick="document.getElementById('authBlockModal').style.display='none'" style="position:absolute; top:10px; right:10px; cursor:pointer;">✕</div>
+    관리자,운영자 외 열람할 수 없습니다.
+  </div>
+</div>
+<script>
+function checkAdminAccess(role){
+  if(role !== '관리자' && role !== '운영자'){
+    document.getElementById('authBlockModal').style.display='flex';
+    return false;
+  }
+  return true;
+}
+
+
+async function withdrawAccount(){
+
+  const ok = confirm(
+    "정말 회원탈퇴 하시겠습니까?\n\n모든 정보가 삭제됩니다."
+  );
+
+  if(!ok) return;
+
+  try{
+
+    const loginKeys = [
+      "pklLoginUser",
+      "pklCurrentUser",
+      "discordUser",
+      "loginUser"
+    ];
+
+    const adminKey = "pklAdminState_v3";
+
+    const loginUser =
+      JSON.parse(localStorage.getItem("pklLoginUser") || "null") ||
+      JSON.parse(localStorage.getItem("pklCurrentUser") || "null") ||
+      JSON.parse(localStorage.getItem("discordUser") || "null");
+
+    const users =
+      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+
+    const filtered = users.filter(user=>{
+      if(!loginUser) return true;
+
+      const a = String(user?.discordId || "").trim();
+      const b = String(loginUser?.discordId || "").trim();
+
+      return a !== b;
+    });
+
+    localStorage.setItem(
+      "pklUsers",
+      JSON.stringify(filtered)
+    );
+
+    const adminState =
+      JSON.parse(localStorage.getItem(adminKey) || "{}");
+
+    if(Array.isArray(adminState.users)){
+
+      adminState.users = adminState.users.filter(user=>{
+
+        const a = String(user?.discordId || "").trim();
+        const b = String(loginUser?.discordId || "").trim();
+
+        return a !== b;
+      });
+
+      localStorage.setItem(
+        adminKey,
+        JSON.stringify(adminState)
+      );
+    }
+
+    loginKeys.forEach(key=>{
+      localStorage.removeItem(key);
+    });
+
+    alert("회원탈퇴가 완료되었습니다.");
+
+    location.href = "index.html";
+
+  }catch(error){
+
+    console.error(error);
+
+    alert("회원탈퇴 처리 중 오류가 발생했습니다.");
+  }
+}
+
+</script>
+
+
+<script id="pkl-myinfo-click-guard">
+(() => {
+  const isAllowedElement = (target) => {
+    return !!target.closest('button, a, input, textarea, select, option, label, .password-reset-btn, [role="button"]');
+  };
+
+  document.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
+  document.addEventListener('mousedown', (event) => {
+    if (event.button !== 0 && event.button !== 2) return;
+    if (isAllowedElement(event.target)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
+  document.addEventListener('click', (event) => {
+    if (isAllowedElement(event.target)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
+  document.addEventListener('selectstart', (event) => {
+    if (isAllowedElement(event.target)) return;
+    event.preventDefault();
+  }, true);
+})();
+
+
+async function withdrawAccount(){
+
+  const ok = confirm(
+    "정말 회원탈퇴 하시겠습니까?\n\n모든 정보가 삭제됩니다."
+  );
+
+  if(!ok) return;
+
+  try{
+
+    const loginKeys = [
+      "pklLoginUser",
+      "pklCurrentUser",
+      "discordUser",
+      "loginUser"
+    ];
+
+    const adminKey = "pklAdminState_v3";
+
+    const loginUser =
+      JSON.parse(localStorage.getItem("pklLoginUser") || "null") ||
+      JSON.parse(localStorage.getItem("pklCurrentUser") || "null") ||
+      JSON.parse(localStorage.getItem("discordUser") || "null");
+
+    const users =
+      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+
+    const filtered = users.filter(user=>{
+      if(!loginUser) return true;
+
+      const a = String(user?.discordId || "").trim();
+      const b = String(loginUser?.discordId || "").trim();
+
+      return a !== b;
+    });
+
+    localStorage.setItem(
+      "pklUsers",
+      JSON.stringify(filtered)
+    );
+
+    const adminState =
+      JSON.parse(localStorage.getItem(adminKey) || "{}");
+
+    if(Array.isArray(adminState.users)){
+
+      adminState.users = adminState.users.filter(user=>{
+
+        const a = String(user?.discordId || "").trim();
+        const b = String(loginUser?.discordId || "").trim();
+
+        return a !== b;
+      });
+
+      localStorage.setItem(
+        adminKey,
+        JSON.stringify(adminState)
+      );
+    }
+
+    loginKeys.forEach(key=>{
+      localStorage.removeItem(key);
+    });
+
+    alert("회원탈퇴가 완료되었습니다.");
+
+    location.href = "index.html";
+
+  }catch(error){
+
+    console.error(error);
+
+    alert("회원탈퇴 처리 중 오류가 발생했습니다.");
+  }
+}
+
+</script>
+
+<script id="pklMyinfoToPklUsersFinalFix">
+(function(){
+  if(window.__PKL_MYINFO_TO_PKLUSERS_FINAL_FIX__) return;
+  window.__PKL_MYINFO_TO_PKLUSERS_FINAL_FIX__ = true;
+
+  function parse(raw,fallback){try{return JSON.parse(raw) ?? fallback;}catch(e){return fallback;}}
+  function clean(v){return String(v == null ? "" : v).trim();}
+  function getLoginUser(){
+    return parse(localStorage.getItem("pklCurrentUser"), null) ||
+           parse(localStorage.getItem("pklLoggedInUser"), null) ||
+           parse(localStorage.getItem("pklLoginUser"), null) ||
+           parse(localStorage.getItem("pklUser"), null);
+  }
+  async function saveMyinfoToPklUsers(extra){
+    const current = getLoginUser() || {};
+    const updated = {...current, ...extra};
+    const n = clean(updated.nickname || updated.nick || updated.name || updated.displayName);
+    if(n){ updated.nickname=n; updated.nick=n; updated.name=n; updated.displayName=n; }
+    const p = clean(updated.pubgId || updated.gameId || updated.ref || updated.pubgName);
+    if(p){ updated.pubgId=p; updated.gameId=p; updated.ref=p; updated.pubgName=p; }
+
+    ["pklCurrentUser","pklLoggedInUser","pklLoginUser","pklUser"].forEach(k=>{
+      try{
+        const old = parse(localStorage.getItem(k), {});
+        localStorage.setItem(k, JSON.stringify({...old, ...updated}));
+      }catch(e){}
+    });
+
+    try{
+      if(window.PKLAdminIdentity){
+        await window.PKLAdminIdentity.upsertUser(updated);
+      }else{
+        const users = parse(localStorage.getItem("pklUsers"), []);
+        const id = clean(updated.discordId || updated.uid || updated.id || updated.userId || updated.key);
+        let idx = users.findIndex(u => clean(u.discordId || u.uid || u.id || u.userId || u.key) === id);
+        if(idx < 0) idx = users.findIndex(u => clean(u.nickname || u.nick || u.name) === n);
+        if(idx >= 0) users[idx] = {...users[idx], ...updated};
+        else users.push(updated);
+        localStorage.setItem("pklUsers", JSON.stringify(users));
+        localStorage.setItem("PKL_USERS", JSON.stringify(users));
+        if(window.PKLFirebaseDataSync && window.PKLFirebaseDataSync.setShared){
+          await window.PKLFirebaseDataSync.setShared("pklUsers", users);
+        }
+      }
+    }catch(e){ console.warn("[PKL] myinfo final pklUsers save failed", e); }
+  }
+
+  document.addEventListener("click", function(e){
+    const btn = e.target && e.target.closest && e.target.closest("#saveMyInfoBtn,#saveProfileBtn,#myInfoSaveBtn,.save-profile-btn,.myinfo-save-btn,[data-save-myinfo]");
+    if(!btn) return;
+    setTimeout(function(){
+      const pubgInput = document.querySelector("#pubgInput,#pubgId,#gameId,#myPubgId,#pubgName,input[name='pubgId'],input[name='gameId'],input[name='pubgName']");
+      const nickInput = document.querySelector("#nicknameInput,#nickname,#nick,#myNickname,input[name='nickname'],input[name='nick']");
+      saveMyinfoToPklUsers({
+        pubgId: pubgInput ? pubgInput.value : undefined,
+        gameId: pubgInput ? pubgInput.value : undefined,
+        ref: pubgInput ? pubgInput.value : undefined,
+        nickname: nickInput ? nickInput.value : undefined,
+        nick: nickInput ? nickInput.value : undefined,
+        name: nickInput ? nickInput.value : undefined,
+        updatedAt: new Date().toISOString()
+      });
+    }, 80);
+  }, true);
+
+  window.PKLSaveMyinfoToPklUsers = saveMyinfoToPklUsers;
+})();
+</script>
+
+
+<script id="pklWithdrawBanPolicyFinal">
+(function(){
+  if(window.__PKL_WITHDRAW_BAN_POLICY_FINAL__) return;
+  window.__PKL_WITHDRAW_BAN_POLICY_FINAL__=true;
+  const LOGIN_KEYS=["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user","discordUser","loginUser"];
+  function parse(k,f){try{const raw=localStorage.getItem(k);return raw?JSON.parse(raw):f;}catch(e){return f;}}
+  function write(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+  function clean(v){return String(v==null?"":v).trim();}
+  function idOf(u){u=u||{};return clean(u.discordId||u.uid||u.id||u.userId||u.key).toLowerCase();}
+  function nickOf(u){u=u||{};return clean(u.nickname||u.nick||u.name||u.displayName);}
+  function pubgOf(u){u=u||{};return clean(u.pubgId||u.gameId||u.ref||u.pubgName);}
+  function same(a,b){const ai=idOf(a),bi=idOf(b);if(ai&&bi)return ai===bi;const ap=pubgOf(a).toLowerCase(),bp=pubgOf(b).toLowerCase();if(ap&&bp)return ap===bp;const an=nickOf(a).toLowerCase(),bn=nickOf(b).toLowerCase();return !!(an&&bn&&an===bn);}
+  function nowText(){return new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour12:false});}
+  function addDaysIso(days){return new Date(Date.now()+days*86400000).toISOString();}
+  function getLogin(){for(const k of LOGIN_KEYS){const u=parse(k,null);if(u&&typeof u==='object')return u;}return null;}
+  function ensureModal(){
+    if(document.getElementById('pklWithdrawPolicyModal')) return;
+    const style=document.createElement('style');style.textContent=`
+      #pklWithdrawPolicyModal{display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.76);backdrop-filter:blur(8px);align-items:center;justify-content:center;font-family:Pretendard,'Noto Sans KR','Malgun Gothic',sans-serif}
+      #pklWithdrawPolicyModal.open{display:flex}
+      .pkl-withdraw-card{width:min(460px,calc(100vw - 34px));border:1px solid rgba(255,77,100,.72);border-radius:20px;background:radial-gradient(circle at 50% -20%,rgba(255,77,100,.24),transparent 44%),linear-gradient(180deg,rgba(30,8,16,.98),rgba(7,6,12,.98));box-shadow:0 0 38px rgba(255,77,100,.32),0 28px 72px rgba(0,0,0,.62);padding:24px;text-align:center;color:#fff}
+      .pkl-withdraw-card .k{color:#ff9aaa;font-size:12px;font-weight:1000;letter-spacing:2px;margin-bottom:10px}.pkl-withdraw-card h2{margin:0 0 12px;font-size:24px}.pkl-withdraw-card p{margin:0;color:#ffd6dc;font-size:14px;font-weight:900;line-height:1.7}.pkl-withdraw-card .warn{margin-top:14px;padding:12px;border-radius:14px;border:1px solid rgba(255,77,100,.36);background:rgba(255,77,100,.12);color:#fff;font-weight:1000}.pkl-withdraw-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.pkl-withdraw-actions button{height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.14);color:#fff;font-weight:1000;cursor:pointer}.pkl-withdraw-cancel{background:rgba(255,255,255,.08)}.pkl-withdraw-ok{background:linear-gradient(180deg,rgba(255,77,100,.88),rgba(130,15,35,.92));border-color:rgba(255,77,100,.78)!important}`;
+    document.head.appendChild(style);
+    const div=document.createElement('div');div.id='pklWithdrawPolicyModal';div.innerHTML=`<div class="pkl-withdraw-card"><div class="k">PKL ACCOUNT WITHDRAWAL</div><h2>회원탈퇴 안내</h2><p>회원탈퇴를 진행하면 현재 계정 정보가 삭제됩니다.</p><div class="warn">회원 탈퇴하면 30일간 다시 회원가입할 수 없습니다.</div><div class="pkl-withdraw-actions"><button type="button" class="pkl-withdraw-cancel">취소</button><button type="button" class="pkl-withdraw-ok">회원탈퇴</button></div></div>`;document.body.appendChild(div);
+  }
+  function confirmWithdraw(){ensureModal();return new Promise(resolve=>{const m=document.getElementById('pklWithdrawPolicyModal');const ok=m.querySelector('.pkl-withdraw-ok'),cancel=m.querySelector('.pkl-withdraw-cancel');function done(v){m.classList.remove('open');ok.onclick=cancel.onclick=null;resolve(v);}ok.onclick=()=>done(true);cancel.onclick=()=>done(false);m.classList.add('open');});}
+  async function syncShared(key,val){try{if(window.PKLFirebaseDataSync&&window.PKLFirebaseDataSync.setShared)await window.PKLFirebaseDataSync.setShared(key,val);}catch(e){}}
+  window.withdrawAccount=async function(){
+    const ok=await confirmWithdraw(); if(!ok) return;
+    const login=getLogin(); if(!login){location.href='register.html';return;}
+    const date=nowText(); const expiresAt=addDaysIso(30);
+    const ban={type:'selfWithdraw',selfWithdrawal:true,nickname:nickOf(login)||'-',pubgId:pubgOf(login)||'',discordId:login.discordId||'',uid:login.uid||login.id||'',reason:'본인 회원탈퇴 · 30일 재가입 제한',date,createdAt:new Date().toISOString(),expiresAt,admin:'SELF'};
+    const users=(parse('pklUsers',[])||[]).filter(u=>!same(u,login));
+    write('pklUsers',users);write('PKL_USERS',users);
+    const st=parse('pklAdminState_v3',{users:[],pending:[],bans:[],warningRecords:[],memberEvents:[]});
+    st.users=Array.isArray(st.users)?st.users.filter(u=>!same(u,login)):[];
+    st.pending=Array.isArray(st.pending)?st.pending.filter(u=>!same(u,login)):[];
+    st.bans=Array.isArray(st.bans)?st.bans:[];
+    if(!st.bans.some(b=>same(b,login))) st.bans.unshift(ban);
+    st.memberEvents=Array.isArray(st.memberEvents)?st.memberEvents:[];
+    st.memberEvents.unshift({type:'withdraw',nickname:ban.nickname,pubgId:ban.pubgId,discordId:ban.discordId,uid:ban.uid,date,createdAt:ban.createdAt,source:'myinfo'});
+    write('pklAdminState_v3',st);
+    const banned=parse('pklBannedUsers',[]); if(Array.isArray(banned)&&!banned.some(b=>same(b,login))){banned.unshift(ban);write('pklBannedUsers',banned);await syncShared('pklBannedUsers',banned);} 
+    await syncShared('pklUsers',users); await syncShared('PKL_USERS',users); await syncShared('pklAdminState_v3',st);
+    LOGIN_KEYS.forEach(k=>{try{localStorage.removeItem(k);sessionStorage.removeItem(k);}catch(e){}});
+    alert('회원탈퇴가 완료되었습니다. 30일간 재가입할 수 없습니다.');
+    location.href='index.html';
+  };
+})();
+</script>
+  <script src="./pkl-responsive-scale.js"></script>
+</body>
+</html>
+
+<script>
+window.PKL_MYINFO_HOTFIX=true;
+(function(){
+function syncUserEverywhere(user){
+ try{
+  const arr=JSON.parse(localStorage.getItem('pklUsers')||'[]');
+  const next=arr.map(v=>String(v.discordId||v.uid||'')===String(user.discordId||user.uid||'')?({...v,...user}):v);
+  localStorage.setItem('pklUsers',JSON.stringify(next));
+  const admin=JSON.parse(localStorage.getItem('pklAdminState_v3')||'{}');
+  if(Array.isArray(admin.users)){
+   admin.users=admin.users.map(v=>String(v.discordId||v.uid||'')===String(user.discordId||user.uid||'')?({...v,...user}):v);
+   localStorage.setItem('pklAdminState_v3',JSON.stringify(admin));
+  }
+  if(window.PKLFirebaseDataSync?.setShared){window.PKLFirebaseDataSync.setShared('pklUsers',next);}
+ }catch(e){console.error(e)}
+}
+ const oldSave=window.saveMyInfo;
+ if(typeof oldSave==='function'){
+  window.saveMyInfo=async function(){
+   const r=await oldSave.apply(this,arguments);
+   try{
+    const u=JSON.parse(localStorage.getItem('pklLoginUser')||localStorage.getItem('pklCurrentUser')||'null');
+    if(u) syncUserEverywhere(u);
+   }catch(e){}
+   return r;
+  }
+ }
+ window.withdrawAccount=async function(){
+  if(!confirm('정말 회원탈퇴 하시겠습니까?')) return;
+  const login=JSON.parse(localStorage.getItem('pklLoginUser')||localStorage.getItem('pklCurrentUser')||'null');
+  const id=String(login?.discordId||login?.uid||'');
+  const users=JSON.parse(localStorage.getItem('pklUsers')||'[]').filter(v=>String(v.discordId||v.uid||'')!==id);
+  localStorage.setItem('pklUsers',JSON.stringify(users));
+  localStorage.removeItem('pklLoginUser');
+  localStorage.removeItem('pklCurrentUser');
+  localStorage.removeItem('discordUser');
+  if(window.PKLFirebaseDataSync?.setShared){await window.PKLFirebaseDataSync.setShared('pklUsers',users);}
+  alert('회원탈퇴 완료');
+  location.href='index.html';
+ }
+})();
+</script>
+
+<script id="pklWithdrawRedModalOverride20260510">
+(function(){
+  if(window.PKL_WITHDRAW_RED_MODAL_OVERRIDE_20260510) return;
+  window.PKL_WITHDRAW_RED_MODAL_OVERRIDE_20260510 = true;
+  const LOGIN_KEYS=["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user","discordUser","loginUser"];
+  function parseKey(k,f){try{const raw=localStorage.getItem(k);return raw?JSON.parse(raw):f;}catch(e){return f;}}
+  function setKey(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+  function clean(v){return String(v==null?"":v).trim();}
+  function idOf(u){u=u||{};return clean(u.discordId||u.uid||u.id||u.userId||u.key).toLowerCase();}
+  function nickOf(u){u=u||{};return clean(u.nickname||u.nick||u.name||u.displayName);}
+  function pubgOf(u){u=u||{};return clean(u.pubgId||u.gameId||u.ref||u.pubgName);}
+  function same(a,b){const ai=idOf(a),bi=idOf(b);if(ai&&bi)return ai===bi;const ap=pubgOf(a).toLowerCase(),bp=pubgOf(b).toLowerCase();if(ap&&bp)return ap===bp;const an=nickOf(a).toLowerCase(),bn=nickOf(b).toLowerCase();return !!(an&&bn&&an===bn);}
+  function getLogin(){for(const k of LOGIN_KEYS){const u=parseKey(k,null);if(u&&typeof u==='object')return u;}return null;}
+  function nowText(){return new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul',hour12:false});}
+  function addDaysIso(days){return new Date(Date.now()+days*86400000).toISOString();}
+  function ensureModal(){
+    if(document.getElementById('pklWithdrawRedModal')) return;
+    const css=document.createElement('style');
+    css.textContent=`
+      #pklWithdrawRedModal{display:none;position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.78);backdrop-filter:blur(10px);align-items:center;justify-content:center;font-family:Pretendard,'Noto Sans KR','Malgun Gothic',sans-serif}
+      #pklWithdrawRedModal.open{display:flex}
+      .pkl-red-withdraw-card{width:min(500px,calc(100vw - 34px));border:1px solid rgba(255,77,100,.82);border-radius:22px;background:radial-gradient(circle at 50% -18%,rgba(255,77,100,.30),transparent 44%),linear-gradient(180deg,rgba(34,8,17,.98),rgba(8,6,12,.98));box-shadow:0 0 44px rgba(255,77,100,.38),0 28px 80px rgba(0,0,0,.68);padding:26px;text-align:center;color:#fff}
+      .pkl-red-withdraw-card .k{color:#ff9aaa;font-size:12px;font-weight:1000;letter-spacing:2.2px;margin-bottom:10px}.pkl-red-withdraw-card h2{margin:0 0 12px;font-size:25px;font-weight:1000}.pkl-red-withdraw-card p{margin:0;color:#ffd6dc;font-size:14px;font-weight:900;line-height:1.7}.pkl-red-withdraw-card .warn{margin-top:15px;padding:14px;border-radius:15px;border:1px solid rgba(255,77,100,.44);background:rgba(255,77,100,.15);color:#fff;font-weight:1000;line-height:1.55}.pkl-red-withdraw-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:19px}.pkl-red-withdraw-actions button{height:46px;border-radius:13px;border:1px solid rgba(255,255,255,.14);color:#fff;font-weight:1000;cursor:pointer}.pkl-red-withdraw-cancel{background:rgba(255,255,255,.08)}.pkl-red-withdraw-ok{background:linear-gradient(180deg,rgba(255,77,100,.92),rgba(132,14,35,.96));border-color:rgba(255,77,100,.80)!important;box-shadow:0 0 18px rgba(255,77,100,.22)}
+    `;
+    document.head.appendChild(css);
+    const div=document.createElement('div');
+    div.id='pklWithdrawRedModal';
+    div.innerHTML=`<div class="pkl-red-withdraw-card" role="dialog" aria-modal="true"><div class="k">PKL ACCOUNT WITHDRAWAL</div><h2>회원탈퇴 안내</h2><p>회원탈퇴를 진행하면 현재 계정 정보가 삭제됩니다.</p><div class="warn">회원 탈퇴하면 <b>30일간 다시 회원가입할 수 없습니다.</b><br>탈퇴 기록은 추방기록에 등록되며, 30일 후 자동 제외됩니다.</div><div class="pkl-red-withdraw-actions"><button type="button" class="pkl-red-withdraw-cancel">취소</button><button type="button" class="pkl-red-withdraw-ok">회원탈퇴</button></div></div>`;
+    document.body.appendChild(div);
+  }
+  function confirmWithdraw(){
+    ensureModal();
+    return new Promise(resolve=>{
+      const m=document.getElementById('pklWithdrawRedModal');
+      const ok=m.querySelector('.pkl-red-withdraw-ok');
+      const cancel=m.querySelector('.pkl-red-withdraw-cancel');
+      function done(v){m.classList.remove('open');ok.onclick=cancel.onclick=null;resolve(v);}
+      ok.onclick=()=>done(true); cancel.onclick=()=>done(false);
+      m.classList.add('open');
+    });
+  }
+  async function syncShared(key,val){try{if(window.PKLFirebaseDataSync&&window.PKLFirebaseDataSync.setShared)await window.PKLFirebaseDataSync.setShared(key,val);}catch(e){}}
+  async function realWithdraw(){
+    const ok=await confirmWithdraw(); if(!ok) return;
+    const login=getLogin(); if(!login){location.href='register.html';return;}
+    const date=nowText(); const createdAt=new Date().toISOString(); const expiresAt=addDaysIso(30);
+    const ban={type:'selfWithdraw',selfWithdrawal:true,nickname:nickOf(login)||'-',pubgId:pubgOf(login)||'',discordId:login.discordId||'',uid:login.uid||login.id||'',reason:'본인 회원탈퇴 · 30일 재가입 제한',date,createdAt,expiresAt,admin:'SELF'};
+    const users=(parseKey('pklUsers',[])||[]).filter(u=>!same(u,login));
+    setKey('pklUsers',users); setKey('PKL_USERS',users);
+    const st=parseKey('pklAdminState_v3',{users:[],pending:[],bans:[],warningRecords:[],memberEvents:[]});
+    st.users=Array.isArray(st.users)?st.users.filter(u=>!same(u,login)):[];
+    st.pending=Array.isArray(st.pending)?st.pending.filter(u=>!same(u,login)):[];
+    st.bans=Array.isArray(st.bans)?st.bans:[];
+    if(!st.bans.some(b=>same(b,login))) st.bans.unshift(ban);
+    st.memberEvents=Array.isArray(st.memberEvents)?st.memberEvents:[];
+    st.memberEvents.unshift({type:'withdraw',nickname:ban.nickname,pubgId:ban.pubgId,discordId:ban.discordId,uid:ban.uid,date,createdAt,source:'myinfo'});
+    setKey('pklAdminState_v3',st);
+    const banned=parseKey('pklBannedUsers',[]);
+    if(Array.isArray(banned)&&!banned.some(b=>same(b,login))){banned.unshift(ban);setKey('pklBannedUsers',banned);await syncShared('pklBannedUsers',banned);}
+    await syncShared('pklUsers',users); await syncShared('PKL_USERS',users); await syncShared('pklAdminState_v3',st);
+    LOGIN_KEYS.forEach(k=>{try{localStorage.removeItem(k);sessionStorage.removeItem(k);}catch(e){}});
+    alert('회원탈퇴가 완료되었습니다. 30일간 재가입할 수 없습니다.');
+    location.href='index.html';
+  }
+  window.withdrawAccount = realWithdraw;
+  document.addEventListener('click', function(e){
+    const btn=e.target&&e.target.closest&&e.target.closest('.withdraw-btn,[onclick*="withdrawAccount"],[data-withdraw-account]');
+    if(!btn) return;
+    e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    realWithdraw();
+  }, true);
+})();
+</script>

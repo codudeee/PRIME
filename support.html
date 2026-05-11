@@ -1,0 +1,104 @@
+
+<script src="pkl-role-system.js"></script>
+<script src="pkl-common-role-badge.js"></script>
+<script src="pkl-common-tier-badge.js"></script>
+
+<!-- PKL global stacked modal layer manager -->
+<style id="pkl-global-stacked-modal-layer-style">
+  .pkl-layer-managed-modal{
+    position:fixed !important;
+    pointer-events:auto !important;
+  }
+  .pkl-layer-managed-modal > *,
+  .pkl-layer-managed-modal [role="dialog"],
+  .pkl-layer-managed-modal .modal-box,
+  .pkl-layer-managed-modal .modal-card,
+  .pkl-layer-managed-modal .pkl-result-admin-panel,
+  .pkl-layer-managed-modal .pkl-delete-confirm-box,
+  .pkl-layer-managed-modal .pkl-notice-card,
+  .pkl-layer-managed-modal .temp-edit-box{
+    position:relative !important;
+    pointer-events:auto !important;
+  }
+</style>
+<script id="pkl-global-stacked-modal-layer-script">
+(function(){
+  if(window.__PKL_STACKED_MODAL_LAYER_FINAL__) return;
+  window.__PKL_STACKED_MODAL_LAYER_FINAL__=true;
+  var BASE=2147481000;
+  var step=0;
+  var modalSelector=[
+    '.modal',
+    '.edit-modal',
+    '.member-edit-modal',
+    '.temp-edit-modal',
+    '.pkl-notice-layer',
+    '.pkl-result-admin-modal',
+    '.pkl-delete-confirm-modal',
+    '#resultAdminModal',
+    '#resultDeleteConfirmModal'
+  ].join(',');
+  function isOpen(el){
+    if(!el || !el.classList) return false;
+    var cs;
+    try{cs=getComputedStyle(el);}catch(e){cs=null;}
+    return el.classList.contains('open') ||
+      el.getAttribute('aria-hidden')==='false' ||
+      (cs && cs.position==='fixed' && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0');
+  }
+  function setLayer(el,z){
+    if(!el || !el.style) return;
+    el.classList.add('pkl-layer-managed-modal');
+    el.style.setProperty('z-index', String(z), 'important');
+    el.style.setProperty('pointer-events', 'auto', 'important');
+    var kids=el.querySelectorAll(':scope > *, [role="dialog"], .modal-box, .modal-card, .pkl-result-admin-panel, .pkl-delete-confirm-box, .pkl-notice-card, .temp-edit-box');
+    kids.forEach(function(k){
+      k.style.setProperty('z-index', String(z+1), 'important');
+      k.style.setProperty('pointer-events','auto','important');
+      if(getComputedStyle(k).position==='static') k.style.setProperty('position','relative','important');
+    });
+  }
+  function bring(el){
+    if(!el) return;
+    step+=10;
+    setLayer(el,BASE+step);
+  }
+  function scan(){
+    Array.prototype.forEach.call(document.querySelectorAll(modalSelector),function(el){
+      if(isOpen(el) && !el.dataset.pklLayerNoAuto){
+        if(!el.dataset.pklLayerOrder){
+          el.dataset.pklLayerOrder=String(++step);
+        }
+        setLayer(el,BASE+Number(el.dataset.pklLayerOrder));
+      }else if(el && el.dataset){
+        delete el.dataset.pklLayerOrder;
+      }
+    });
+  }
+  window.PKLBringModalToFront=function(el){
+    if(typeof el==='string') el=document.querySelector(el);
+    if(el){ delete el.dataset.pklLayerOrder; bring(el); }
+  };
+  document.addEventListener('click',function(e){
+    var el=e.target && e.target.closest && e.target.closest(modalSelector);
+    if(el) window.PKLBringModalToFront(el);
+    setTimeout(scan,0);
+    setTimeout(scan,80);
+  },true);
+  var mo=new MutationObserver(function(list){
+    list.forEach(function(m){
+      var el=m.target;
+      if(el && el.matches && el.matches(modalSelector) && isOpen(el)) window.PKLBringModalToFront(el);
+    });
+    setTimeout(scan,0);
+  });
+  function boot(){
+    try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
+    scan();
+    
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
+  <script src="./pkl-responsive-scale.js"></script>

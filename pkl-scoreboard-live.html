@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PKL LIVE SCOREBOARD</title>
+<style>
+
+:root{--purple:#9b5cff;--purple2:#c9a8ff;--cyan:#38d9ff;--gold:#ffd45a;--red:#ff4d64;--text:#fff;--line:rgba(151,82,255,.52);--panel:rgba(7,7,15,.78)}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:var(--text);font-family:Pretendard,'Noto Sans KR','Malgun Gothic',system-ui,sans-serif}
+body{display:flex;align-items:flex-start;justify-content:flex-start;padding:0}
+.pkl-live-wrap{width:100vw;max-height:100vh;padding:0;border-radius:0;background:radial-gradient(circle at 12% -8%,rgba(155,92,255,.23),transparent 34%),linear-gradient(145deg,rgba(12,13,27,.96),rgba(5,6,14,.96));border:1px solid rgba(151,82,255,.52);box-shadow:0 0 24px rgba(155,92,255,.17),inset 0 0 22px rgba(255,255,255,.035);overflow:hidden;display:block}
+.pkl-live-head{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.08);background:linear-gradient(90deg,rgba(155,92,255,.28),rgba(255,255,255,.02),transparent)}
+.pkl-live-title{font-size:clamp(22px,2.35vw,32px);font-style:italic;font-weight:1000;letter-spacing:.3px;text-shadow:0 0 14px rgba(155,92,255,.55);white-space:nowrap}.pkl-live-title:before{content:'PKL ';color:var(--purple2)}.pkl-live-title span{color:#fff}
+.pkl-live-note{font-size:clamp(9px,.85vw,12px);font-weight:1000;color:rgba(255,255,255,.58);letter-spacing:1.8px;white-space:nowrap}
+.pkl-live-grid{display:grid;gap:10px;padding:12px;align-items:start;align-content:start;justify-content:start;grid-template-columns:repeat(auto-fit,minmax(288px,288px));grid-auto-rows:max-content;max-height:calc(100vh - 52px);overflow:hidden}
+.pkl-live-grid[data-count="1"]{grid-template-columns:288px}
+.pkl-live-grid[data-count="2"]{grid-template-columns:repeat(2,288px)}
+.pkl-live-grid[data-count="3"],.pkl-live-grid[data-count="4"]{grid-template-columns:repeat(4,288px)}
+.pkl-live-grid[data-count="5"],.pkl-live-grid[data-count="6"],.pkl-live-grid[data-count="7"],.pkl-live-grid[data-count="8"]{grid-template-columns:repeat(4,288px)}
+.pkl-live-grid[data-count="9"],.pkl-live-grid[data-count="10"]{grid-template-columns:repeat(5,288px)}
+.pkl-team-card{position:relative;min-width:0;width:288px;height:auto;border:1px solid rgba(168,111,255,.38);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.012) 34%,rgba(255,255,255,0)),radial-gradient(circle at 100% 0%,rgba(208,92,255,.12),transparent 38%),rgba(9,10,21,.68);box-shadow:0 10px 22px rgba(0,0,0,.36),0 0 18px rgba(159,99,255,.13),inset 0 0 0 1px rgba(255,255,255,.042);display:flex;flex-direction:column;justify-content:flex-start;padding:7px 9px;gap:3px;overflow:hidden}.pkl-team-card:after{content:"";position:absolute;inset:-40% -80% auto -20%;height:72%;transform:rotate(12deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent);opacity:.14;pointer-events:none}
+.pkl-team-card.first{border-color:rgba(255,213,106,.96);box-shadow:0 0 0 1px rgba(255,213,106,.14) inset,0 0 24px rgba(255,213,106,.34),0 12px 24px rgba(0,0,0,.38)}
+.pkl-score{position:relative;isolation:isolate;overflow:hidden;height:36px;margin:-1px -3px 5px;border-radius:13px;border:1px solid rgba(255,255,255,.13);background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.035)),rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:1000;white-space:nowrap;box-shadow:inset 0 0 16px rgba(0,0,0,.62),inset 0 1px 0 rgba(255,255,255,.12),0 0 13px rgba(159,99,255,.14)}
+.pkl-score:before{content:'';position:absolute;left:0;top:0;bottom:0;width:var(--gauge,0%);background:linear-gradient(90deg,#6a3cff,#b46cff,#ffd56a);z-index:0;opacity:.96;transition:width .25s ease}.pkl-score span{position:relative;z-index:1;text-shadow:0 2px 8px rgba(0,0,0,.95),0 0 12px rgba(255,255,255,.20)}
+.pkl-score.is-negative:before{left:auto;right:0;background:linear-gradient(270deg,rgba(255,77,109,.86),rgba(190,62,255,.76),rgba(99,68,255,.58))}
+.pkl-members{display:flex;flex-direction:column;align-items:stretch;gap:2px;min-height:0;overflow:hidden}.pkl-member{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:19px;font-weight:1000;white-space:nowrap;line-height:1;min-height:24px;border-radius:8px;background:linear-gradient(90deg,rgba(255,255,255,.035),rgba(255,255,255,.01))}.pkl-name{min-width:0;max-width:48%;overflow:hidden;text-overflow:ellipsis;text-align:right}.pkl-kd{min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:left;color:#fff}.pkl-team-footer{display:flex;align-items:center;justify-content:center;gap:13px;height:25px;margin-top:1px;font-size:19px;font-weight:1000}.pkl-foot-stat{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:52px;height:24px;padding:0 8px;border-radius:999px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.055)}.pkl-foot-stat.chicken:before{content:'🍗';filter:drop-shadow(0 0 5px rgba(255,212,90,.75))}.pkl-foot-stat.stop:before{content:'⛔';filter:drop-shadow(0 0 5px rgba(255,77,100,.65))}
+.pkl-empty{height:160px;display:flex;align-items:center;justify-content:center;text-align:center;color:rgba(255,255,255,.62);font-size:22px;font-weight:1000;border:1px dashed rgba(155,92,255,.34);border-radius:18px;background:rgba(255,255,255,.03);grid-column:1/-1}
+@media(max-width:1180px){.pkl-live-grid{grid-template-columns:repeat(auto-fit,minmax(250px,250px)) !important}.pkl-team-card{width:250px}.pkl-member{font-size:16px}.pkl-score{font-size:21px}}
+@media(max-width:760px){.pkl-live-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;justify-content:stretch}.pkl-team-card{width:auto}.pkl-live-note{display:none}.pkl-live-title{font-size:22px}}
+@media(max-width:480px){.pkl-live-grid{grid-template-columns:1fr !important}.pkl-team-card{width:auto}.pkl-member{font-size:15px}.pkl-score{font-size:19px}}
+
+</style>
+</head>
+<body>
+<div class="pkl-live-wrap" id="wrap">
+  <header class="pkl-live-head"><div class="pkl-live-title"><span>TEAM</span> SCOREBOARD</div><div class="pkl-live-note">LIVE BROADCAST</div></header>
+  <main class="pkl-live-grid" id="grid"></main>
+</div>
+<script src="pkl-supabase-config.js"></script>
+<script src="pkl-scoreboard-realtime.js"></script>
+
+<!-- PKL global stacked modal layer manager -->
+<style id="pkl-global-stacked-modal-layer-style">
+  .pkl-layer-managed-modal{
+    position:fixed !important;
+    pointer-events:auto !important;
+  }
+  .pkl-layer-managed-modal > *,
+  .pkl-layer-managed-modal [role="dialog"],
+  .pkl-layer-managed-modal .modal-box,
+  .pkl-layer-managed-modal .modal-card,
+  .pkl-layer-managed-modal .pkl-result-admin-panel,
+  .pkl-layer-managed-modal .pkl-delete-confirm-box,
+  .pkl-layer-managed-modal .pkl-notice-card,
+  .pkl-layer-managed-modal .temp-edit-box{
+    position:relative !important;
+    pointer-events:auto !important;
+  }
+</style>
+<script id="pkl-global-stacked-modal-layer-script">
+(function(){
+  if(window.__PKL_STACKED_MODAL_LAYER_FINAL__) return;
+  window.__PKL_STACKED_MODAL_LAYER_FINAL__=true;
+  var BASE=2147481000;
+  var step=0;
+  var modalSelector=[
+    '.modal',
+    '.edit-modal',
+    '.member-edit-modal',
+    '.temp-edit-modal',
+    '.pkl-notice-layer',
+    '.pkl-result-admin-modal',
+    '.pkl-delete-confirm-modal',
+    '#resultAdminModal',
+    '#resultDeleteConfirmModal'
+  ].join(',');
+  function isOpen(el){
+    if(!el || !el.classList) return false;
+    var cs;
+    try{cs=getComputedStyle(el);}catch(e){cs=null;}
+    return el.classList.contains('open') ||
+      el.getAttribute('aria-hidden')==='false' ||
+      (cs && cs.position==='fixed' && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0');
+  }
+  function setLayer(el,z){
+    if(!el || !el.style) return;
+    el.classList.add('pkl-layer-managed-modal');
+    el.style.setProperty('z-index', String(z), 'important');
+    el.style.setProperty('pointer-events', 'auto', 'important');
+    var kids=el.querySelectorAll(':scope > *, [role="dialog"], .modal-box, .modal-card, .pkl-result-admin-panel, .pkl-delete-confirm-box, .pkl-notice-card, .temp-edit-box');
+    kids.forEach(function(k){
+      k.style.setProperty('z-index', String(z+1), 'important');
+      k.style.setProperty('pointer-events','auto','important');
+      if(getComputedStyle(k).position==='static') k.style.setProperty('position','relative','important');
+    });
+  }
+  function bring(el){
+    if(!el) return;
+    step+=10;
+    setLayer(el,BASE+step);
+  }
+  function scan(){
+    Array.prototype.forEach.call(document.querySelectorAll(modalSelector),function(el){
+      if(isOpen(el) && !el.dataset.pklLayerNoAuto){
+        if(!el.dataset.pklLayerOrder){
+          el.dataset.pklLayerOrder=String(++step);
+        }
+        setLayer(el,BASE+Number(el.dataset.pklLayerOrder));
+      }else if(el && el.dataset){
+        delete el.dataset.pklLayerOrder;
+      }
+    });
+  }
+  window.PKLBringModalToFront=function(el){
+    if(typeof el==='string') el=document.querySelector(el);
+    if(el){ delete el.dataset.pklLayerOrder; bring(el); }
+  };
+  document.addEventListener('click',function(e){
+    var el=e.target && e.target.closest && e.target.closest(modalSelector);
+    if(el) window.PKLBringModalToFront(el);
+    setTimeout(scan,0);
+    setTimeout(scan,80);
+  },true);
+  var mo=new MutationObserver(function(list){
+    list.forEach(function(m){
+      var el=m.target;
+      if(el && el.matches && el.matches(modalSelector) && isOpen(el)) window.PKLBringModalToFront(el);
+    });
+    setTimeout(scan,0);
+  });
+  function boot(){
+    try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
+    scan();
+    
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
+  <script src="./pkl-responsive-scale.js"></script>
+</body>
+</html>

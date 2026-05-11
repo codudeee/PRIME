@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>PKL Sheet</title>
+<style>
+body{margin:0;background:#0b0b0f;color:#fff;font-family:sans-serif;display:flex}
+.main{flex:1;padding:10px}
+.side{width:260px;background:#14141c;border-left:1px solid #7a5cff;padding:10px}
+.team-board{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.team{border:1px solid #7a5cff;padding:10px;border-radius:10px}
+.sheet{margin-top:10px;border-top:1px solid #444;padding-top:10px}
+</style>
+
+<style>
+.pkl-ratio-grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+margin-top:6px;
+}
+.pkl-ratio-grid input{
+height:36px;
+text-align:center;
+border-radius:10px;
+border:1px solid rgba(216,180,254,.25);
+background:rgba(20,16,40,.7);
+color:#fff;
+font-weight:700;
+}
+</style>
+
+<style id="force-spacing-fix">
+#pklSideCreateModal .pkl-side-create-body{
+  padding-bottom:48px !important;
+}
+
+#pklSideCreateModal .pkl-side-create-actions{
+  margin-top:20px !important;
+}
+
+#pklSideCreateModal .pkl-side-check-row{
+  margin-top:18px !important;
+  margin-bottom:20px !important;
+}
+
+#pklSideCreateModal .pkl-side-field{
+  margin-bottom:18px !important;
+}
+</style>
+
+<style id="pklFinalTier0Clean">
+/* 🔴 0티어 최종 - 깔끔 + 상위티어 강조 */
+.tier-mark.role-tier0,
+.grade-role-tier0,
+.member-role-badge[data-pkl-grade^="0티어"]{
+  background: rgba(50,0,0,.9) !important;
+
+  /* 핵심: 색만 살짝 고급스럽게 */
+  color: #ffb3a3 !important;
+
+  /* 거의 안보이는 정도로만 또렷하게 */
+  text-shadow: 0 0 1px rgba(255,255,255,.4);
+
+  /* 미세 강조 */
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+</style>
+
+
+<style id="pklPremiumBadgeB">
+/* PKL 등급배지 풀개편 - 깔끔 프리미엄 B */
+/* 공통: 어두운 유리 배지 + 티어별 포인트 컬러 */
+.tier-mark,
+.grade-role-badge,
+.member-role-badge[data-pkl-grade],
+.member-role-badge[class*="grade-role-tier"],
+.member-role-badge.grade-role-beast{
+  min-height:24px !important;
+  min-width:62px !important;
+  padding:0 10px !important;
+  border-radius:999px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:11px !important;
+  font-weight:1000 !important;
+  letter-spacing:.25px !important;
+  line-height:24px !important;
+  white-space:nowrap !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    rgba(10,10,18,.82) !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 0 7px rgba(0,0,0,.34) !important;
+  text-shadow:none !important;
+  backdrop-filter:blur(8px) !important;
+  -webkit-backdrop-filter:blur(8px) !important;
+}
+
+/* 🔴 0티어: 빨강 */
+.tier-mark.role-tier0,
+.grade-role-tier0,
+.member-role-badge[data-pkl-grade^="0티어"]{
+  color:#ff8a8a !important;
+  border-color:rgba(255,95,95,.42) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(95,15,20,.78),rgba(18,8,12,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(255,70,70,.18) !important;
+}
+
+/* 🟡 1티어: 노랑 */
+.tier-mark.role-tier1,
+.grade-role-tier1,
+.member-role-badge[data-pkl-grade^="1티어"]{
+  color:#ffe680 !important;
+  border-color:rgba(255,220,90,.42) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(90,70,12,.78),rgba(22,17,7,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(255,216,80,.16) !important;
+}
+
+/* 🟢 2티어: 초록 */
+.tier-mark.role-tier2,
+.grade-role-tier2,
+.member-role-badge[data-pkl-grade^="2티어"]{
+  color:#8df7a8 !important;
+  border-color:rgba(90,230,130,.40) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(16,78,42,.78),rgba(7,20,13,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(90,230,130,.15) !important;
+}
+
+/* 🔵 3티어: 파랑 */
+.tier-mark.role-tier3,
+.grade-role-tier3,
+.member-role-badge[data-pkl-grade^="3티어"]{
+  color:#8fd3ff !important;
+  border-color:rgba(110,190,255,.40) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(18,52,105,.78),rgba(7,13,28,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(110,190,255,.15) !important;
+}
+
+/* 🟣 4티어: 보라 */
+.tier-mark.role-tier4,
+.grade-role-tier4,
+.member-role-badge[data-pkl-grade^="4티어"]{
+  color:#d8b4fe !important;
+  border-color:rgba(200,150,255,.40) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(64,30,110,.78),rgba(16,9,28,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(200,150,255,.15) !important;
+}
+
+/* 🟤 짐승: 갈색 */
+.tier-mark.role-beast,
+.grade-role-beast,
+.member-role-badge[data-pkl-grade="짐승"]{
+  color:#d9a36c !important;
+  border-color:rgba(210,150,95,.38) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),
+    linear-gradient(135deg,rgba(78,47,24,.78),rgba(20,12,7,.92)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.11),
+    0 0 8px rgba(210,150,95,.14) !important;
+}
+
+/* hover: 적당히 강조 */
+.tier-mark:hover,
+.grade-role-badge:hover,
+.member-role-badge[data-pkl-grade]:hover{
+  filter:brightness(1.12) !important;
+  transform:translateY(-1px) !important;
+  transition:filter .15s ease, transform .15s ease, box-shadow .15s ease !important;
+}
+</style>
+
+
+<style id="pklRoleBorderThick">
+/* 테두리 굵게 + 네온 유지 */
+
+.member-role-manager,
+[data-pkl-role="관리자"],
+[data-pkl-role="manager"]{
+  border:2px solid rgba(255,80,80,.9) !important;
+}
+
+.member-role-operator,
+[data-pkl-role="운영자"],
+[data-pkl-role="operator"]{
+  border:2px solid rgba(255,255,255,.9) !important;
+}
+</style>
+<script src="pkl-user-profile-core.js"></script>
+<script src="pkl-role-system.js"></script>
+<script src="pkl-common-role-badge.js"></script>
+<script src="pkl-common-tier-badge.js"></script>
+<script src="pkl-users-source.js"></script>
+</head>
+<body>
+<div class="main">
+  <div class="team-board">
+    <div class='team'>TEAM 1</div><div class='team'>TEAM 2</div><div class='team'>TEAM 3</div><div class='team'>TEAM 4</div><div class='team'>TEAM 5</div><div class='team'>TEAM 6</div><div class='team'>TEAM 7</div><div class='team'>TEAM 8</div><div class='team'>TEAM 9</div><div class='team'>TEAM 10</div>
+  </div>
+  <div class="sheet">
+    <h3>선택팀 입력 시트지</h3>
+    <table border="1" width="100%" style="text-align:center">
+      <tr><th>라운드</th><th>맵</th><th>킬/다이1</th><th>킬/다이2</th><th>킬/다이3</th><th>킬/다이4</th><th>치킨</th><th>정지</th><th>총점</th></tr>
+    </table>
+  </div>
+</div>
+<div class="side">
+  <h3>관리 패널</h3>
+  <button>불판</button><br><br>
+  <button>서렌</button>
+</div>
+
+<!-- PKL global stacked modal layer manager -->
+<style id="pkl-global-stacked-modal-layer-style">
+  .pkl-layer-managed-modal{
+    position:fixed !important;
+    pointer-events:auto !important;
+  }
+  .pkl-layer-managed-modal > *,
+  .pkl-layer-managed-modal [role="dialog"],
+  .pkl-layer-managed-modal .modal-box,
+  .pkl-layer-managed-modal .modal-card,
+  .pkl-layer-managed-modal .pkl-result-admin-panel,
+  .pkl-layer-managed-modal .pkl-delete-confirm-box,
+  .pkl-layer-managed-modal .pkl-notice-card,
+  .pkl-layer-managed-modal .temp-edit-box{
+    position:relative !important;
+    pointer-events:auto !important;
+  }
+</style>
+<script id="pkl-global-stacked-modal-layer-script">
+(function(){
+  if(window.__PKL_STACKED_MODAL_LAYER_FINAL__) return;
+  window.__PKL_STACKED_MODAL_LAYER_FINAL__=true;
+  var BASE=2147481000;
+  var step=0;
+  var modalSelector=[
+    '.modal',
+    '.edit-modal',
+    '.member-edit-modal',
+    '.temp-edit-modal',
+    '.pkl-notice-layer',
+    '.pkl-result-admin-modal',
+    '.pkl-delete-confirm-modal',
+    '#resultAdminModal',
+    '#resultDeleteConfirmModal'
+  ].join(',');
+  function isOpen(el){
+    if(!el || !el.classList) return false;
+    var cs;
+    try{cs=getComputedStyle(el);}catch(e){cs=null;}
+    return el.classList.contains('open') ||
+      el.getAttribute('aria-hidden')==='false' ||
+      (cs && cs.position==='fixed' && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0');
+  }
+  function setLayer(el,z){
+    if(!el || !el.style) return;
+    el.classList.add('pkl-layer-managed-modal');
+    el.style.setProperty('z-index', String(z), 'important');
+    el.style.setProperty('pointer-events', 'auto', 'important');
+    var kids=el.querySelectorAll(':scope > *, [role="dialog"], .modal-box, .modal-card, .pkl-result-admin-panel, .pkl-delete-confirm-box, .pkl-notice-card, .temp-edit-box');
+    kids.forEach(function(k){
+      k.style.setProperty('z-index', String(z+1), 'important');
+      k.style.setProperty('pointer-events','auto','important');
+      if(getComputedStyle(k).position==='static') k.style.setProperty('position','relative','important');
+    });
+  }
+  function bring(el){
+    if(!el) return;
+    step+=10;
+    setLayer(el,BASE+step);
+  }
+  function scan(){
+    Array.prototype.forEach.call(document.querySelectorAll(modalSelector),function(el){
+      if(isOpen(el) && !el.dataset.pklLayerNoAuto){
+        if(!el.dataset.pklLayerOrder){
+          el.dataset.pklLayerOrder=String(++step);
+        }
+        setLayer(el,BASE+Number(el.dataset.pklLayerOrder));
+      }else if(el && el.dataset){
+        delete el.dataset.pklLayerOrder;
+      }
+    });
+  }
+  window.PKLBringModalToFront=function(el){
+    if(typeof el==='string') el=document.querySelector(el);
+    if(el){ delete el.dataset.pklLayerOrder; bring(el); }
+  };
+  document.addEventListener('click',function(e){
+    var el=e.target && e.target.closest && e.target.closest(modalSelector);
+    if(el) window.PKLBringModalToFront(el);
+    setTimeout(scan,0);
+    setTimeout(scan,80);
+  },true);
+  var mo=new MutationObserver(function(list){
+    list.forEach(function(m){
+      var el=m.target;
+      if(el && el.matches && el.matches(modalSelector) && isOpen(el)) window.PKLBringModalToFront(el);
+    });
+    setTimeout(scan,0);
+  });
+  function boot(){
+    try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
+    scan();
+    
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
+  <script src="./pkl-responsive-scale.js"></script>
+</body>
+</html>

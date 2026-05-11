@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script src="./pkl-supabase-config.js"></script>
+  
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PKL PATCH CENTER</title>
+<link rel="stylesheet" href="pkl-main-common.css">
+<link rel="stylesheet" href="patch.css">
+</head>
+<body>
+<div class="site">
+  <div id="pklCommonHeader"></div>
+<script src="pkl-role-system.js"></script>
+<script src="pkl-page-permissions.js"></script>
+  <script src="pkl-common-role-badge.js"></script>
+  <script src="pkl-common-tier-badge.js"></script>
+
+  <main class="patch-page" aria-label="패치노트 관리 페이지">
+    <section class="patch-hero-row">
+      <article class="patch-title-card">
+        <div class="patch-kicker">LIVE UPDATE ARCHIVE</div>
+        <h1>PKL PATCH<br>CENTER</h1>
+        <p>PKL 업데이트 및 시스템 변경사항</p>
+      </article>
+
+      <article class="patch-feature-card" id="patchFeatureCard">
+        <div class="patch-live-badge">LIVE</div>
+        <div class="patch-feature-version" id="patchHeroVersion">v3.2</div>
+        <div class="patch-feature-info">
+          <span id="patchHeroDate">2026.05.07</span>
+          <h2 id="patchHeroTitle">랭크 시스템 개편</h2>
+          
+        </div>
+      </article>
+    </section>
+
+    <section class="patch-workspace">
+      <aside class="patch-sidebar">
+        <div class="patch-side-head">
+          <span>PATCH VERSION</span>
+          <button class="patch-write-mini" type="button" id="patchAddBtnSide" data-min-role="admin">＋</button>
+        </div>
+        <div class="patch-version-list" id="patchVersionList"></div>
+      </aside>
+
+      <section class="patch-main-panel">
+        <div class="patch-main-top">
+          <div>
+            <div class="patch-current-version" id="patchMainVersion">v3.2</div>
+            <div class="patch-current-title" id="patchMainTitle">랭크 시스템 개편</div>
+          </div>
+          <div class="patch-main-actions">
+            <span class="patch-current-date" id="patchMainDate">2026.05.07</span>
+            <button class="patch-action-btn" type="button" id="patchEditBtn" data-min-role="admin">수정</button>
+            <button class="patch-action-btn danger" type="button" id="patchDeleteBtn" data-min-role="admin">삭제</button>
+          </div>
+        </div>
+
+        <div class="patch-detail-list" id="patchDetailList"></div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<div class="pkl-patch-modal" id="patchEditorModal" aria-hidden="true">
+  <div class="pkl-patch-modal-card" role="dialog" aria-modal="true">
+    <div class="pkl-patch-modal-head">
+      <div>
+        <span>PKL PATCH EDITOR</span>
+        <h3 id="patchModalTitle">패치노트 작성</h3>
+      </div>
+      <button type="button" class="patch-modal-close" id="patchModalClose">×</button>
+    </div>
+
+    <div class="patch-form-grid">
+      <label>버전<input id="patchInputVersion" placeholder="0.1" readonly></label>
+      <label>날짜<input id="patchInputDate" placeholder="2026.05.08" readonly></label>
+      <label class="wide">제목<input id="patchInputTitle" placeholder="업데이트 제목"></label>
+      <label class="wide">패치 내용<textarea id="patchInputItems" rows="10" placeholder="[NEW]&#10;- &#10;- &#10;&#10;[IMPROVE]&#10;- &#10;- &#10;&#10;[FIX]&#10;- &#10;- "></textarea></label>
+    </div>
+
+    <div class="patch-modal-actions">
+      <button type="button" class="patch-action-btn" id="patchCancelBtn">취소</button>
+      <button type="button" class="patch-action-btn primary" id="patchSaveBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="pkl-patch-modal" id="patchConfirmModal" aria-hidden="true">
+  <div class="pkl-patch-confirm-card" role="dialog" aria-modal="true">
+    <h3>패치노트 삭제</h3>
+    <p>선택한 패치노트를 삭제하시겠습니까?</p>
+    <div class="patch-modal-actions">
+      <button type="button" class="patch-action-btn" id="patchConfirmCancel">취소</button>
+      <button type="button" class="patch-action-btn danger" id="patchConfirmDelete" data-min-role="admin">삭제</button>
+    </div>
+  </div>
+</div>
+
+<script src="pkl-common-header.js"></script>
+<script src="patch.js"></script>
+
+<!-- PKL global stacked modal layer manager -->
+<style id="pkl-global-stacked-modal-layer-style">
+  .pkl-layer-managed-modal{
+    position:fixed !important;
+    pointer-events:auto !important;
+  }
+  .pkl-layer-managed-modal > *,
+  .pkl-layer-managed-modal [role="dialog"],
+  .pkl-layer-managed-modal .modal-box,
+  .pkl-layer-managed-modal .modal-card,
+  .pkl-layer-managed-modal .pkl-result-admin-panel,
+  .pkl-layer-managed-modal .pkl-delete-confirm-box,
+  .pkl-layer-managed-modal .pkl-notice-card,
+  .pkl-layer-managed-modal .temp-edit-box{
+    position:relative !important;
+    pointer-events:auto !important;
+  }
+</style>
+<script id="pkl-global-stacked-modal-layer-script">
+(function(){
+  if(window.__PKL_STACKED_MODAL_LAYER_FINAL__) return;
+  window.__PKL_STACKED_MODAL_LAYER_FINAL__=true;
+  var BASE=2147481000;
+  var step=0;
+  var modalSelector=[
+    '.modal',
+    '.edit-modal',
+    '.member-edit-modal',
+    '.temp-edit-modal',
+    '.pkl-notice-layer',
+    '.pkl-result-admin-modal',
+    '.pkl-delete-confirm-modal',
+    '#resultAdminModal',
+    '#resultDeleteConfirmModal'
+  ].join(',');
+  function isOpen(el){
+    if(!el || !el.classList) return false;
+    var cs;
+    try{cs=getComputedStyle(el);}catch(e){cs=null;}
+    return el.classList.contains('open') ||
+      el.getAttribute('aria-hidden')==='false' ||
+      (cs && cs.position==='fixed' && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0');
+  }
+  function setLayer(el,z){
+    if(!el || !el.style) return;
+    el.classList.add('pkl-layer-managed-modal');
+    el.style.setProperty('z-index', String(z), 'important');
+    el.style.setProperty('pointer-events', 'auto', 'important');
+    var kids=el.querySelectorAll(':scope > *, [role="dialog"], .modal-box, .modal-card, .pkl-result-admin-panel, .pkl-delete-confirm-box, .pkl-notice-card, .temp-edit-box');
+    kids.forEach(function(k){
+      k.style.setProperty('z-index', String(z+1), 'important');
+      k.style.setProperty('pointer-events','auto','important');
+      if(getComputedStyle(k).position==='static') k.style.setProperty('position','relative','important');
+    });
+  }
+  function bring(el){
+    if(!el) return;
+    step+=10;
+    setLayer(el,BASE+step);
+  }
+  function scan(){
+    Array.prototype.forEach.call(document.querySelectorAll(modalSelector),function(el){
+      if(isOpen(el) && !el.dataset.pklLayerNoAuto){
+        if(!el.dataset.pklLayerOrder){
+          el.dataset.pklLayerOrder=String(++step);
+        }
+        setLayer(el,BASE+Number(el.dataset.pklLayerOrder));
+      }else if(el && el.dataset){
+        delete el.dataset.pklLayerOrder;
+      }
+    });
+  }
+  window.PKLBringModalToFront=function(el){
+    if(typeof el==='string') el=document.querySelector(el);
+    if(el){ delete el.dataset.pklLayerOrder; bring(el); }
+  };
+  document.addEventListener('click',function(e){
+    var el=e.target && e.target.closest && e.target.closest(modalSelector);
+    if(el) window.PKLBringModalToFront(el);
+    setTimeout(scan,0);
+    setTimeout(scan,80);
+  },true);
+  var mo=new MutationObserver(function(list){
+    list.forEach(function(m){
+      var el=m.target;
+      if(el && el.matches && el.matches(modalSelector) && isOpen(el)) window.PKLBringModalToFront(el);
+    });
+    setTimeout(scan,0);
+  });
+  function boot(){
+    try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
+    scan();
+    
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
+  <script src="./pkl-responsive-scale.js"></script>
+</body>
+</html>
