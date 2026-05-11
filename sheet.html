@@ -2,7 +2,6 @@
 <html lang="ko">
 <head>
   <script src="./pkl-supabase-config.js"></script>
-  
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PKL MATCH SHEET</title>
@@ -2879,7 +2878,7 @@ body:has(#pklColdEntryModal.is-open) #pklFireBlockToast{
 
 <style>
 body {
-  background: url('pkl_bg_new.png') center/cover no-repeat fixed !important;
+  background: url('pkl_bg_new.webp') center/cover no-repeat fixed !important;
   background-color: #050508 !important;
 }
 </style>
@@ -5386,7 +5385,6 @@ input[type="number"]{
 <script src="pkl-page-permissions.js"></script>
 <script src="pkl-common-role-badge.js"></script>
 <script src="pkl-common-tier-badge.js"></script>
-<script src="pkl-users-source.js"></script>
 
 <style id="pkl-sheet-home-back-style">
 </style>
@@ -6254,30 +6252,12 @@ input[type="number"]{
 }
 </style>
 
-
-<style id="pklBgRestoreFinal">
-html,body{
-  background:linear-gradient(rgba(2,2,8,.36),rgba(2,2,8,.36)),url("pkl_join_bg.webp") center/cover no-repeat fixed !important;
-}
-body::before{
-  content:"" !important;
-  position:fixed !important;
-  inset:0 !important;
-  pointer-events:none !important;
-  z-index:0 !important;
-  background:radial-gradient(circle at 50% 0%,rgba(168,85,247,.22),transparent 36%),linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.30)) !important;
-  opacity:1 !important;
-  mask-image:none !important;
-}
-body::after{display:none !important;}
-.app{position:relative !important;z-index:1 !important;}
-</style>
 </head>
 <body>
 <div class="app">
   <main class="left">
     <header class="topbar">
-<div class="logo-box"><button type="button" class="sheet-back-btn" onclick="location.href='index.html'">메인으로</button></div>
+<div class="logo-box"><button type="button" class="sheet-back-btn" onclick="history.back()">← 뒤로가기</button></div>
       <div class="title-box">
         <div class="main-title">MATCH SHEET</div>
         <div class="pkl-title-line" aria-hidden="true"></div>
@@ -6505,6 +6485,7 @@ function save(){
   state.selectedTeamId=selectedTeamId;
   state.savedAt=new Date().toISOString();
   localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+  /* 전체 시트 상태는 Firebase 공유문서에 저장하지 않음.
      점수/치킨/LIVE카드 실시간 공유는 pkl-scoreboard-realtime.js가 작은 live payload만 전송한다. */
   try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(120); }catch(e){}
 }
@@ -7055,7 +7036,7 @@ function pklStartPreciseTopTimeTicker(){
   if(window.__pklPreciseTopTimeTickerStarted) return;
   window.__pklPreciseTopTimeTickerStarted=true;
   pklSheetSyncServerClock();
-  
+  setInterval(pklSheetSyncServerClock,5*60*1000);
   var lastSecond='';
   function tick(){
     var correctedNow=Date.now()+pklSheetClockOffsetMs;
@@ -7065,7 +7046,7 @@ function pklStartPreciseTopTimeTicker(){
     setTimeout(tick, Math.max(80, Math.min(1000, delay)));
   }
   tick();
-  
+  setInterval(updateEndTimeWarningEffect,5000);
 }
 
 
@@ -8461,7 +8442,7 @@ window.PKLSheetLiveBridge={
 };
 render();
 pklStartPreciseTopTimeTicker();
-
+setInterval(updateTopBetJackpot, 3500);
 window.addEventListener('storage', (e)=>{ if(e.key==='pklSideListItems'||e.key===STORAGE_KEY) updateTopBetJackpot(); });
 })();
 
@@ -12617,6 +12598,5 @@ window.addEventListener('DOMContentLoaded',()=>{
 })();
 </script>
 
-  <script src="./pkl-responsive-scale.js"></script>
 </body>
 </html>

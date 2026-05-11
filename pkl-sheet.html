@@ -215,7 +215,6 @@ font-weight:700;
 <script src="pkl-role-system.js"></script>
 <script src="pkl-common-role-badge.js"></script>
 <script src="pkl-common-tier-badge.js"></script>
-<script src="pkl-users-source.js"></script>
 </head>
 <body>
 <div class="main">
@@ -327,12 +326,11 @@ font-weight:700;
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
-    
+    setInterval(scan,700);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
 </script>
 
-  <script src="./pkl-responsive-scale.js"></script>
 </body>
 </html>

@@ -1783,32 +1783,3 @@ button, a, .btn, .card, .clickable, [onclick] {
     line-height: 1.4 !important;
     letter-spacing: 0 !important;
 }
-body{
-  min-width:1280px !important;
-  overflow-x:auto !important;
-}
-.site{
-  min-width:1280px !important;
-  overflow:visible !important;
-}
-.topbar{
-  min-width:1280px !important;
-}
-.hero{
-  width:1238px !important;
-  max-width:1238px !important;
-}
-.primary-grid{
-  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
-}
-.info-grid{
-  grid-template-columns:1fr 1fr 1fr !important;
-}
-.join-main{
-  grid-template-columns:320px 1fr !important;
-}
-@media (max-width:1279px){
-  html,body{
-    width:1280px !important;
-  }
-}

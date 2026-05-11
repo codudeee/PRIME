@@ -2,7 +2,6 @@
 <html lang="ko">
 <head>
   <script src="./pkl-supabase-config.js"></script>
-  
   <script src="./pkl-join-realtime.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,7 +12,6 @@
 <script src="pkl-page-permissions.js"></script>
 <script src="pkl-common-role-badge.js"></script>
 <script src="pkl-common-tier-badge.js"></script>
-<script src="pkl-users-source.js"></script>
 
 <style id="pkl-reroll-memo-notepad-style">
 /* PKL 리스트 모달 메모장 - 독립 플로팅 메모장 */
@@ -601,12 +599,11 @@
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
-    
+    setInterval(scan,700);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
 </script>
 
-  <script src="./pkl-responsive-scale.js"></script>
 </body>
 </html>

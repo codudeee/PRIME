@@ -2,129 +2,6 @@
 
 <html lang="ko">
 <head>
-
-<script>
-(function(){
-
-function safeDecode(value){
-try{
-return decodeURIComponent(escape(value));
-}catch(e){
-return value;
-}
-}
-
-try{
-
-if(location.hash.includes('access_token')){
-
-const hash = new URLSearchParams(
-location.hash.substring(1)
-);
-
-const token = hash.get('access_token');
-
-if(token){
-
-const payload = JSON.parse(
-atob(token.split('.')[1])
-);
-
-const rawName =
-payload.user_metadata?.custom_claims?.global_name ||
-payload.user_metadata?.full_name ||
-payload.user_metadata?.name ||
-payload.email ||
-'PKL유저';
-
-const nickname = safeDecode(rawName);
-
-const user = {
-id:payload.sub,
-email:payload.email,
-nickname:nickname,
-role:'user'
-};
-
-localStorage.setItem(
-'discordUser',
-JSON.stringify(user)
-);
-
-localStorage.setItem(
-'pklCurrentUser',
-JSON.stringify(user)
-);
-
-localStorage.setItem(
-'pklLoginUser',
-JSON.stringify(user)
-);
-
-// 최초 가입 플래그
-if(
-!localStorage.getItem('pkl_user_registered')
-){
-sessionStorage.setItem(
-'PKL_FORCE_REGISTER',
-'1'
-);
-}
-
-history.replaceState(
-{},
-document.title,
-'/'
-);
-
-console.log(
-'PKL LOGIN SAVE OK',
-user
-);
-
-setTimeout(()=>{
-
-if(
-sessionStorage.getItem(
-'PKL_FORCE_REGISTER'
-)==='1'
-){
-
-const modal =
-document.querySelector(
-'#registerModal,.register-modal,.signup-modal'
-);
-
-if(modal){
-
-modal.style.display='flex';
-modal.classList.add('show');
-
-console.log('REGISTER MODAL OPEN');
-
-}else{
-
-if(location.pathname.endsWith('index.html') || location.pathname === '/'){
-
-}
-
-}
-
-}
-
-},800);
-
-}
-
-}
-
-}catch(e){
-console.error(e);
-}
-
-})();
-</script>
-
   <script src="./pkl-supabase-config.js"></script>
 <meta charset="utf-8"/>
 <title>PKL 프라임 킬내기 리그</title>
@@ -370,7 +247,6 @@ font-weight:700;
 <script src="pkl-page-permissions.js"></script>
 <script src="pkl-common-role-badge.js"></script>
 <script src="pkl-common-tier-badge.js"></script>
-<script src="pkl-users-source.js"></script>
 
 <style id="pkl-premium-support-ui">
 /* =========================================================
@@ -835,9 +711,9 @@ font-weight:700;
   function rerenderSoon(){clearTimeout(rerenderSoon._t);rerenderSoon._t=setTimeout(render,80);}
   render();
   window.addEventListener("storage",function(e){if(!e||e.key===MATCHES_KEY) rerenderSoon();});
-  window.addEventListener("pkl-data-updated",function(e){if(!e.detail||!e.detail.key||e.detail.key===MATCHES_KEY) rerenderSoon();});
-  window.addEventListener("pkl-sync-ready",rerenderSoon);
-  
+  window.addEventListener("pkl-firebase-data-updated",function(e){if(!e.detail||!e.detail.key||e.detail.key===MATCHES_KEY) rerenderSoon();});
+  window.addEventListener("pkl-firebase-sync-ready",rerenderSoon);
+  setInterval(render,2500);
   document.addEventListener("visibilitychange",function(){if(!document.hidden) render();});
 })();
 </script>
@@ -917,10 +793,10 @@ font-weight:700;
     localStorage.setItem(STORAGE_KEY,text);
     localStorage.setItem(BACKUP_KEY,text);
     try{
-      if(window.PKLDataSync && typeof window.PKLDataSync.setShared === "function") window.PKLDataSync.setShared(STORAGE_KEY,text);
+      if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.setShared === "function") window.PKLFirebaseDataSync.setShared(STORAGE_KEY,text);
       else if(typeof window.saveSharedData === "function") window.saveSharedData(STORAGE_KEY,text);
     }catch(e){}
-    try{window.dispatchEvent(new CustomEvent("pkl-data-updated",{detail:{key:STORAGE_KEY}}));}catch(e){}
+    try{window.dispatchEvent(new CustomEvent("pkl-firebase-data-updated",{detail:{key:STORAGE_KEY}}));}catch(e){}
   }
   function sortItems(items){return items.slice().sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});}
   function esc(v){return String(v||"").replace(/[&<>"]/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch];});}
@@ -1018,9 +894,9 @@ font-weight:700;
     if(modal.classList.contains("open")) renderModal();
   }
   window.addEventListener("storage",function(e){if(!e || e.key===STORAGE_KEY) handleNoticeDataUpdated(e);});
-  window.addEventListener("pkl-data-updated",handleNoticeDataUpdated);
-  window.addEventListener("pkl-sync-ready",handleNoticeDataUpdated);
-  setTimeout(function(){try{if(window.PKLDataSync&&typeof window.PKLDataSync.refresh==='function')window.PKLDataSync.refresh();}catch(e){}},120);
+  window.addEventListener("pkl-firebase-data-updated",handleNoticeDataUpdated);
+  window.addEventListener("pkl-firebase-sync-ready",handleNoticeDataUpdated);
+  setTimeout(function(){try{if(window.PKLFirebaseDataSync&&typeof window.PKLFirebaseDataSync.refresh==='function')window.PKLFirebaseDataSync.refresh();}catch(e){}},120);
   syncNoticeAdminState();
   renderPreview();
   setTimeout(handleNoticeDataUpdated,700);
@@ -1202,109 +1078,10 @@ font-weight:700;
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
-    
+    setInterval(scan,700);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
-</script>
-
-  <script src="./pkl-responsive-scale.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-window.addEventListener('DOMContentLoaded', async ()=>{
-
-try{
-
-const cfg = await (window.PKL_SUPABASE_READY || Promise.resolve(window.PKL_SUPABASE_CONFIG || {}));
-const url = (cfg && cfg.url) || localStorage.getItem('SUPABASE_URL') || localStorage.getItem('PKL_SUPABASE_URL');
-const key = (cfg && cfg.anonKey) || localStorage.getItem('SUPABASE_ANON_KEY') || localStorage.getItem('PKL_SUPABASE_ANON_KEY');
-
-if(!url || !key){
-console.error('SUPABASE 설정 없음');
-return;
-}
-
-const client = supabase.createClient(url,key,{
-auth:{
-persistSession:true,
-autoRefreshToken:true,
-detectSessionInUrl:true
-}
-});
-
-window.supabase = client;
-
-// HASH TOKEN -> SESSION 저장
-if(location.hash.includes('access_token')){
-
-const hash = new URLSearchParams(
-location.hash.substring(1)
-);
-
-const access_token = hash.get('access_token');
-const refresh_token = hash.get('refresh_token');
-
-if(access_token && refresh_token){
-
-await client.auth.setSession({
-access_token,
-refresh_token
-});
-
-localStorage.setItem(
-'PKL_AUTH_FINISH',
-'1'
-);
-
-// URL 정리
-history.replaceState(
-{},
-document.title,
-'/'
-);
-
-}
-
-}
-
-// 세션 재조회
-const {
-data:{session}
-} = await client.auth.getSession();
-
-if(!session?.user){
-console.log('세션 없음');
-return;
-}
-
-// 로그인 버튼 닉네임 변경
-const nickname =
-session.user.user_metadata?.global_name ||
-session.user.user_metadata?.full_name ||
-session.user.email ||
-'로그인됨';
-
-document.querySelectorAll(
-'.login-btn,#loginBtn,.login-button,[data-login]'
-).forEach(el=>{
-el.innerText = nickname;
-});
-
-// 로그인 버튼 숨김 시도
-document.querySelectorAll(
-'.login-wrap,.login-area,.login-box'
-).forEach(el=>{
-el.classList.add('logged-in');
-});
-
-console.log('PKL_AUTH_FINISH');
-
-}catch(err){
-console.error(err);
-}
-
-});
 </script>
 
 </body>

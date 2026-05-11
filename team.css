@@ -1816,7 +1816,7 @@ body{
   background:
     linear-gradient(180deg,rgba(3,4,10,.18) 0%,rgba(3,4,10,.34) 38%,rgba(3,4,10,.66) 100%),
     radial-gradient(circle at 50% 9%,rgba(145,92,255,.18),transparent 38%),
-    url('./team-bg-stadium.webp') center center / cover no-repeat !important;
+    url('./team-bg-stadium.webp') center center / cover no-repeat fixed !important;
 }
 
 body::before{
@@ -5777,38 +5777,3 @@ body .modal-layer [class*="streak"]{
 
 
 
-
-
-/* PKL_TEAM_PRIVACY_LOCK_FINAL_START */
-.pkl-team-privacy-message{
-  display:none;
-  margin:22px auto 0;
-  width:min(820px,calc(100vw - 42px));
-  padding:28px 24px;
-  border-radius:24px;
-  border:1px solid rgba(216,180,254,.34);
-  background:radial-gradient(circle at 50% 0%,rgba(168,85,247,.24),transparent 50%),linear-gradient(180deg,rgba(18,10,38,.94),rgba(6,6,14,.98));
-  box-shadow:0 30px 90px rgba(0,0,0,.58),0 0 40px rgba(168,85,247,.15);
-  color:#f8f4ff;
-  text-align:center;
-  font-size:16px;
-  font-weight:950;
-  line-height:1.75;
-}
-.pkl-team-privacy-message b{display:block;margin-bottom:8px;font-size:22px;font-weight:1000;text-shadow:0 0 18px rgba(168,85,247,.55)}
-body.pkl-team-private-locked .tier-panel,
-body.pkl-team-private-locked .team-board,
-body.pkl-team-private-locked .control-panel{display:none !important;}
-body.pkl-team-private-locked .builder-layout{display:block !important;}
-body.pkl-team-private-locked .pkl-team-privacy-message{display:block !important;}
-/* PKL_TEAM_PRIVACY_LOCK_FINAL_END */
-.team-page{
-  min-width:1440px !important;
-  width:100% !important;
-  overflow:hidden !important;
-}
-@media (max-width:1439px){
-  html,body{
-    width:1440px !important;
-  }
-}

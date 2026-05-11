@@ -1272,10 +1272,9 @@ if (!rerollModeDropdown) return;
 
       const item = reel.querySelector('.slot-machine-item');
       const spinSpeed = 72 + Math.floor(Math.random() * 38);
-      const spinTimer = trackRerollInterval(window./* realtime disabled
-setInterval(() => {
+      const spinTimer = trackRerollInterval(window.setInterval(() => {
         const nextId = originalIds[Math.floor(Math.random() * originalIds.length)];
-        item.textContent = getPlayerName(nextId); */
+        item.textContent = getPlayerName(nextId);
         reel.classList.remove('is-tick');
         void reel.offsetWidth;
         reel.classList.add('is-tick');
@@ -1486,12 +1485,15 @@ function completeTeams() {
     try {
       window.dispatchEvent(new CustomEvent('pkl-sheet-teams-imported', { detail: { state: sheetState, teams } }));
     } catch (error) {}
+    const remoteSave = saveSheetStateToFirebaseNow(sheetJson);
     return {
       count: teams.reduce((sum, team) => sum + team.members.filter(member => member.name).length, 0),
       remoteSave
     };
   }
 
+  function saveSheetStateToFirebaseNow(sheetJson) {
+    // PKL 2026-05-10: 팀 편성 완료 시 시트 전체 상태를 Firebase 공유문서에 직접 PATCH하지 않는다.
     // 시트 전달은 같은 브라우저 localStorage만 사용하고, 실제 실시간 공유는 sheet.html의 pklLiveScoreboard/current만 사용한다.
     return Promise.resolve(null);
   }
@@ -2894,7 +2896,7 @@ function pklTeamSyncServerClock() {
   }
 function startClock() {
     pklTeamSyncServerClock();
-    
+    setInterval(pklTeamSyncServerClock, 5 * 60 * 1000);
     let lastSecond = '';
     const update = () => {
       const correctedNow = Date.now() + pklTeamClockOffsetMs;
@@ -3028,75 +3030,3 @@ function startClock() {
 
 
 })();
-
-
-/* PKL_TEAM_PRIVACY_GATE_FINAL_START */
-(function(){
-  'use strict';
-  if(window.__PKL_TEAM_PRIVACY_GATE_FINAL__) return;
-  window.__PKL_TEAM_PRIVACY_GATE_FINAL__=true;
-  var WAIT_KEY='pklJoinWaitList';
-  function parse(raw,fb){try{var v=raw?JSON.parse(raw):fb;return v==null?fb:v;}catch(e){return fb;}}
-  function readLS(key,fb){try{return parse(localStorage.getItem(key),fb);}catch(e){return fb;}}
-  function norm(v){return String(v==null?'':v).trim().replace(/\s+/g,'').toLowerCase();}
-  function arr(v){return Array.isArray(v)?v:[];}
-  function currentUser(){
-    try{if(window.PKLRoleSystem&&typeof window.PKLRoleSystem.currentUser==='function'){var u=window.PKLRoleSystem.currentUser(); if(u&&typeof u==='object') return u;}}catch(e){}
-    var keys=['discordUser','pklLoginUser','pklCurrentUser','pklUser','pklLoggedInUser','pkl_current_user','PKL_CURRENT_USER','PKL_로그인_USER','currentUser'];
-    for(var i=0;i<keys.length;i++){
-      var u=parse((localStorage.getItem(keys[i])||sessionStorage.getItem(keys[i])),null);
-      if(u&&typeof u==='object') return hydrateUser(u);
-    }
-    return null;
-  }
-  function hydrateUser(u){try{if(window.PKLRoleSystem&&typeof window.PKLRoleSystem.hydrateUser==='function') return window.PKLRoleSystem.hydrateUser(u)||u;}catch(e){} return u||{};}
-  function accessRole(u){
-    try{if(window.PKLRoleSystem&&typeof window.PKLRoleSystem.accessRoleFromUser==='function') return norm(window.PKLRoleSystem.accessRoleFromUser(u));}catch(e){}
-    var raw=norm(u&&(u.memberRole||u.adminRole||u.userRole||u.authRole||u.permission||u.type||u.role));
-    if(/관리자|admin|owner|master|superadmin/.test(raw)) return 'admin';
-    if(/운영자|운영진|operator|staff|moderator/.test(raw)) return 'operator';
-    if(/수감자|prisoner|banned|blocked|jail/.test(raw)) return 'prisoner';
-    if(/user|member|일반|회원/.test(raw)) return 'user';
-    return raw||'guest';
-  }
-  function isStaff(u){var r=accessRole(u);return r==='admin'||r==='operator';}
-  function tokens(u){
-    u=hydrateUser(u||{});
-    return [u.discordId,u.uid,u.id,u.userId,u.memberId,u.loginId,u.username,u.email,u.nickname,u.nick,u.name,u.displayName,u.pubgId,u.pubgID,u.gameId,u.gameName,u.key,u.ref]
-      .map(norm).filter(function(v){return v&&v!=='undefined'&&v!=='null';});
-  }
-  function sameUser(a,b){
-    var aa=tokens(a), bb=tokens(b||{});
-    if(!aa.length||!bb.length) return false;
-    return aa.some(function(x){return bb.indexOf(x)>=0;});
-  }
-  function isWaiting(u){return arr(readLS(WAIT_KEY,[])).some(function(item){return sameUser(u,item);});}
-  function ensureMessage(){
-    var layout=document.querySelector('.builder-layout');
-    if(!layout) return null;
-    var msg=document.getElementById('pklTeamPrivacyMessage');
-    if(!msg){
-      msg=document.createElement('div');
-      msg.id='pklTeamPrivacyMessage';
-      msg.className='pkl-team-privacy-message';
-      msg.innerHTML='<b>팀구성 보드 비공개</b>대기 등록한 참가자만 팀구성 보드를 확인할 수 있습니다.<br>참가 전에는 티어 대기칸과 팀박스를 볼 수 없습니다.';
-      layout.insertBefore(msg, layout.firstChild);
-    }
-    return msg;
-  }
-  function apply(){
-    var u=currentUser();
-    var allowed=isStaff(u)||isWaiting(u);
-    ensureMessage();
-    document.body.classList.toggle('pkl-team-private-locked',!allowed);
-    document.body.classList.toggle('pkl-team-private-allowed',allowed);
-  }
-  window.addEventListener('pkl-join-state-updated',apply);
-  window.addEventListener('storage',function(e){if(!e||e.key===WAIT_KEY||e.key==='pklUsers'||e.key==='PKL_USERS'||e.key==='pklAdminState_v3'||e.key==='pklLoginUser') apply();});
-  document.addEventListener('DOMContentLoaded',apply);
-  setTimeout(apply,150);
-  setTimeout(apply,1500);
-  setTimeout(apply,5000);
-  apply();
-})();
-/* PKL_TEAM_PRIVACY_GATE_FINAL_END */
