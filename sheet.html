@@ -6257,7 +6257,7 @@ input[type="number"]{
 <div class="app">
   <main class="left">
     <header class="topbar">
-<div class="logo-box"><button type="button" class="sheet-back-btn" onclick="location.href='index.html'">← 메인으로</button></div>
+<div class="logo-box"><button type="button" class="sheet-back-btn" onclick="location.href='index.html'">메인으로</button></div>
       <div class="title-box">
         <div class="main-title">MATCH SHEET</div>
         <div class="pkl-title-line" aria-hidden="true"></div>
@@ -10604,7 +10604,6 @@ document.addEventListener("DOMContentLoaded", function(){
       <div class="pkl-admin-grid">
         <button type="button" class="pkl-admin-card normal-save" id="pklAdminNormalMatchSave">무료경기저장</button>
         <button type="button" class="pkl-admin-card gold" id="pklAdminMatchSave">유료경기저장</button>
-        <button type="button" class="pkl-admin-card" id="pklAdminUsageHistoryOpen">이용내역</button>
       </div>
     </div>
   </div>
@@ -12596,41 +12595,6 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(!el || !el.classList) return;
     try{ el.classList.add('pkl-layer-managed-modal'); }catch(e){}
   };
-})();
-</script>
-
-
-
-<script id="pkl-usage-history-safe-fix">
-(function(){
-  if(window.__PKL_USAGE_HISTORY_SAFE_FIX__) return;
-  window.__PKL_USAGE_HISTORY_SAFE_FIX__=true;
-  var KEY='PKL_USAGE_HISTORY_V1';
-  function parse(raw,fb){try{return raw?JSON.parse(raw):fb;}catch(e){return fb;}}
-  function read(){return parse(localStorage.getItem(KEY),[]);}
-  function write(list){try{localStorage.setItem(KEY,JSON.stringify(Array.isArray(list)?list:[]));}catch(e){}}
-  function snapshot(mode){
-    var st=null;
-    try{ if(typeof state==='object') st=state; }catch(e){}
-    if(!st){ try{st=parse(localStorage.getItem('PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1'),{});}catch(e){} }
-    return {id:'usage-'+Date.now(),mode:mode||'unknown',savedAt:new Date().toISOString(),title:(mode==='normal'?'무료경기':'유료경기')+' 이용내역',snapshot:st||{}};
-  }
-  function saveUsage(mode){var list=read();list.unshift(snapshot(mode));write(list.slice(0,200));}
-  window.PKLUsageHistory={read:read,save:saveUsage};
-  document.addEventListener('click',function(e){
-    var normal=e.target&&e.target.closest&&e.target.closest('#pklAdminNormalMatchSave');
-    var paid=e.target&&e.target.closest&&e.target.closest('#pklAdminMatchSave');
-    if(normal) saveUsage('normal');
-    if(paid) saveUsage('paid');
-    if(e.target&&e.target.closest&&e.target.closest('#pklAdminUsageHistoryOpen')){
-      e.preventDefault();
-      var list=read();
-      var msg=list.slice(0,10).map(function(x,i){return (i+1)+'. '+(x.title||'이용내역')+' · '+String(x.savedAt||'').replace('T',' ').slice(0,16);}).join('\n') || '저장된 이용내역이 없습니다.';
-      if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast('이용내역 '+list.length+'건 저장됨');
-      else alert(msg);
-      console.log('[PKL 이용내역]', list);
-    }
-  },true);
 })();
 </script>
 

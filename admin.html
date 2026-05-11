@@ -4,7 +4,6 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <script src="./pkl-firebase-data-sync.js"></script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PKL ADMIN CONSOLE</title>
@@ -5754,6 +5753,16 @@ a,
 }
 </style>
 
+
+<style id="pkl-admin-user-list-scroll-fix-final">
+#userList{overflow-y:auto !important;overflow-x:hidden !important;scrollbar-width:thin;scrollbar-color:rgba(192,132,252,.75) rgba(255,255,255,.04);padding-right:6px;}
+#userList::-webkit-scrollbar{width:8px;}
+#userList::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:999px;}
+#userList::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(216,180,254,.9),rgba(124,58,237,.72));border-radius:999px;border:2px solid rgba(8,7,18,.82);}
+.detail{grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;}
+.info-block,.metric{min-width:0 !important;}
+.metric b{word-break:keep-all;overflow-wrap:anywhere;line-height:1.25;}
+</style>
 </head>
 <body>
 <div class="app">
@@ -6631,19 +6640,26 @@ function render(){ if(typeof renderPklRoleDistribution==='function' && typeof st
 function renderUserList(){
   normalizeAllUserRoles();
   const q=(document.getElementById("search")?.value||"").trim().toLowerCase();
-  const list=state.users.map((u,i)=>({u,i})).filter(({u})=>!q||String(u.nickname).toLowerCase().includes(q)||String(u.pubgId).toLowerCase().includes(q)||String(roleName(u.role)).toLowerCase().includes(q));
+  const seen=new Set();
+  const source=(Array.isArray(state.users)?state.users:[]).map((u,i)=>({u,i})).filter(({u})=>{
+    const key=String(u.discordId||u.discord_id||u.uid||u.id||u.userId||u.pubgId||u.gameId||u.nickname||"").trim().toLowerCase();
+    if(key && seen.has(key)) return false;
+    if(key) seen.add(key);
+    return true;
+  });
+  const list=source.filter(({u})=>!q||String(u.nickname||u.name||"").toLowerCase().includes(q)||String(u.pubgId||u.gameId||"").toLowerCase().includes(q)||String(roleName(u.role)||"").toLowerCase().includes(q));
   const wrap=document.getElementById("userList");
   if(!wrap)return;
-  wrap.innerHTML=list.map(({u,i})=>`
+  wrap.innerHTML=list.map(({u,i},displayIndex)=>`
     <div class="user-card named-role-layout ${i===current?'active':''}" onclick="selectUser(${i})">
-      <div class="avatar">${i+1}</div>
+      <div class="avatar">${displayIndex+1}</div>
       <div class="user-main">
         <div class="user-role-line">
           <span class="user-name">${esc(u.nickname||u.name||"-")}</span>
           ${memberBadgeHtml(u)}
           ${gradeBadgeHtml(u)}
         </div>
-        <div class="user-sub">${esc(u.pubgId||"-")}</div>
+        <div class="user-sub">${esc(u.pubgId||u.gameId||"-")}</div>
       </div>
     </div>
   `).join("")||`<div class="pending-empty">검색된 회원이 없습니다.</div>`;
@@ -6663,31 +6679,41 @@ function renderProfile(){
   const u=state.users[current]||state.users[0];
   if(!u){renderEmptyProfile();return;}
   current=state.users.indexOf(u);
-  document.getElementById("bigAvatar").textContent=current+1;
-  document.getElementById("pName").innerHTML=
+  const setText=(id,val)=>{const el=document.getElementById(id); if(el) el.textContent=val;};
+  const fmtDate=(v)=>{
+    if(!v) return '-';
+    const raw=String(v);
+    const d=new Date(raw);
+    if(!Number.isNaN(d.getTime())) return d.toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'.').replace(/\.$/,'.');
+    const m=raw.match(/(\d{4})\D*(\d{1,2})\D*(\d{1,2})/);
+    return m ? `${m[1]}.${String(m[2]).padStart(2,'0')}.${String(m[3]).padStart(2,'0')}.` : raw;
+  };
+  setText("bigAvatar",current+1);
+  const pName=document.getElementById("pName");
+  if(pName)pName.innerHTML=
     `<div class="name-wrap">
         <div class="name-role-line">
           <span class="user-name">${esc(u.nickname||u.name||"-")}</span>
           ${memberBadgeHtml(u)}
           ${gradeBadgeHtml(u)}
         </div>
-        <div class="name-sub">${esc(u.pubgId||"-")}</div>
+        <div class="name-sub">${esc(u.pubgId||u.gameId||"-")}</div>
      </div>`;
-  document.getElementById("badges").innerHTML="";
-  document.getElementById("pMeta").textContent="";
-  document.getElementById("rankName").textContent=gradeRoleName(u);
-  document.getElementById("rankInfo").textContent=`접속 ${u.logs||0}회`;
-  document.getElementById("dNick").textContent=u.nickname;
-  document.getElementById("dPubg").textContent=u.pubgId;
-  document.getElementById("dRole").textContent=gradeRoleName(u);
+  const badges=document.getElementById("badges"); if(badges)badges.innerHTML="";
+  setText("pMeta","");
+  setText("rankName",gradeRoleName(u));
+  setText("rankInfo",`접속 ${Number(u.logs||0)}회`);
+  setText("dNick",u.nickname||u.name||'-');
+  setText("dPubg",u.pubgId||u.gameId||'-');
+  setText("dRole",gradeRoleName(u));
   const dMemberRole=document.getElementById("dMemberRole"); if(dMemberRole)dMemberRole.textContent=memberRoleName(u.memberRole)+(isPenaltyActive(u)?" · 수감자":"");
-  document.getElementById("dWarn").textContent=u.warnings+"/4";
-  document.getElementById("dDia").textContent=(u.dia??0)+" 마리";
-  document.getElementById("dOrder").textContent=u.join||"-";
-  document.getElementById("mJoin").textContent=(u.logs||0)+"회";
-  document.getElementById("mWin").textContent=Math.max(0,78-current*3)+"%";
-  document.getElementById("mLast").textContent=u.last||"-";
-  document.getElementById("mAvgKill").textContent=(Math.max(1.2,(u.logs*0.7+current*0.25))).toFixed(1);
+  setText("dWarn",(Number(u.warnings)||0)+"/4");
+  setText("dDia",(Number(u.dia||u.prime||u.points||0)||0)+" 마리");
+  setText("dOrder",fmtDate(u.join||u.joinDate||u.created_at||u.createdAt));
+  setText("mJoin",(Number(u.logs||0)||0)+"회");
+  setText("mWin","-");
+  setText("mLast",fmtDate(u.last||u.lastLogin||u.updated_at||u.updatedAt));
+  setText("mAvgKill","-");
   renderMemoList();
   if(activeDetailTab!=="detail")renderDetailLog(activeDetailTab);
 }
@@ -7921,90 +7947,46 @@ loadFirestoreUsers();
 
 </script>
 <script id="pklAdminIdentityPklUsersFix">
-(function(){
-  if(window.__PKL_ADMIN_IDENTITY_PKLUSERS_FIX__) return;
-  window.__PKL_ADMIN_IDENTITY_PKLUSERS_FIX__ = true;
-  const PKL_USERS_KEY="pklUsers", PKL_USERS_ALIAS="PKL_USERS";
-  function parse(raw,fb){try{const v=JSON.parse(raw);return v==null?fb:v;}catch(e){return fb;}}
-  function clean(v){return String(v==null?"":v).trim();}
-  function uid(u){return clean(u&&(u.discordId||u.uid||u.id||u.userId||u.memberId||u.key));}
-  function pubg(u){return clean(u&&(u.pubgId||u.gameId||u.ref||u.pubgName));}
-  function nick(u){return clean(u&&(u.nickname||u.nick||u.name||u.displayName||u.discordGlobalName||u.discordUsername));}
-  function same(a,b){const ai=uid(a),bi=uid(b);if(ai&&bi)return ai===bi;const ap=pubg(a).toLowerCase(),bp=pubg(b).toLowerCase();if(ap&&bp)return ap===bp;const an=nick(a).toLowerCase(),bn=nick(b).toLowerCase();return !!(an&&bn&&an===bn);}
-  function mergeLists(){const out=[];function add(list){(Array.isArray(list)?list:[]).forEach(u=>{if(!u||typeof u!=="object")return;const i=out.findIndex(x=>same(x,u));if(i>=0)out[i]={...out[i],...u};else out.push({...u});});}for(let i=0;i<arguments.length;i++)add(arguments[i]);return out;}
-  function readUsers(){return mergeLists(parse(localStorage.getItem(PKL_USERS_KEY),[]),parse(localStorage.getItem(PKL_USERS_ALIAS),[]));}
-  function writeUsers(users,remote){const arr=mergeLists(users);localStorage.setItem(PKL_USERS_KEY,JSON.stringify(arr));localStorage.setItem(PKL_USERS_ALIAS,JSON.stringify(arr));if(remote&&window.PKLFirebaseDataSync&&window.PKLFirebaseDataSync.setShared){try{window.PKLFirebaseDataSync.setShared(PKL_USERS_KEY,arr);window.PKLFirebaseDataSync.setShared(PKL_USERS_ALIAS,arr);}catch(e){}}try{window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:arr}}));window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:arr}}));}catch(e){}return arr;}
-  function syncAdminFromUsers(users){
-    if(!Array.isArray(users)||!users.length||!window.state||!Array.isArray(window.state.users))return;
-    let changed=false;
-    users.forEach(u=>{
-      const idx=window.state.users.findIndex(x=>same(x,u));
-      if(idx>=0){
-        const old=window.state.users[idx];
-        window.state.users[idx]={...old,...u,history:Array.isArray(old.history)?old.history:u.history,memoList:Array.isArray(old.memoList)?old.memoList:u.memoList,warnings:Number(old.warnings??u.warnings??0)};
-        changed=true;
-      }else{
-        window.state.users.push({...u});changed=true;
-      }
-    });
-    if(changed){try{if(typeof normalizeState==="function")window.state=normalizeState(window.state);if(typeof render==="function")render();}catch(e){}}
-  }
-  window.PKLAdminIdentity={readPklUsers:readUsers,savePklUsers:function(list){return writeUsers(list,true)},upsertUser:function(user){const users=readUsers();const i=users.findIndex(x=>same(x,user));if(i>=0)users[i]={...users[i],...user};else users.push({...user});return writeUsers(users,true);},sameUser:same,mergeList:mergeLists};
-  window.addEventListener("pkl-users-updated",function(e){syncAdminFromUsers(e.detail&&e.detail.users?e.detail.users:readUsers());});
-  setTimeout(function(){syncAdminFromUsers(readUsers());},700);
-})();
+window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:function(list){return Array.isArray(list)?list:[]},upsertUser:function(user){return user},sameUser:function(){return false},mergeList:function(){return []}};
 </script>
-
-
 <script id="pkl-admin-supabase-users-loader">
 (function(){
   if(window.__PKL_ADMIN_SUPABASE_USERS_LOADER__) return;
   window.__PKL_ADMIN_SUPABASE_USERS_LOADER__=true;
-  function norm(v){return String(v==null?'':v).trim().replace(/\s+/g,'').toLowerCase();}
-  function same(a,b){
-    var ak=norm(a&&(a.uid||a.id||a.discordId||a.discord_id||a.userId));
-    var bk=norm(b&&(b.uid||b.id||b.discordId||b.discord_id||b.userId));
-    if(ak&&bk) return ak===bk;
-    var an=norm(a&&(a.nickname||a.name||a.nick));
-    var bn=norm(b&&(b.nickname||b.name||b.nick));
-    var ap=norm(a&&(a.pubgId||a.gameId||a.pubg_id));
-    var bp=norm(b&&(b.pubgId||b.gameId||b.pubg_id));
-    return !!((an&&bn&&an===bn)||(ap&&bp&&ap===bp));
-  }
+  function clean(v){return String(v==null?'':v).trim();}
+  function keyOf(u){return clean(u.discordId||u.discord_id||u.uid||u.id||u.userId||u.pubgId||u.gameId||u.nickname).toLowerCase();}
+  function unique(list){const out=[],seen=new Set();(Array.isArray(list)?list:[]).forEach(u=>{const k=keyOf(u);if(k&&seen.has(k))return;if(k)seen.add(k);out.push(u);});return out;}
   function fmtDate(v){
     if(!v) return '-';
     var d=new Date(v);
-    if(isNaN(d.getTime())) return String(v).slice(0,10)||'-';
-    return d.toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'.').replace(/\.$/,'.');
+    if(!isNaN(d.getTime())) return d.toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'.').replace(/\.$/,'.');
+    var raw=String(v), m=raw.match(/(\d{4})\D*(\d{1,2})\D*(\d{1,2})/);
+    return m ? (m[1]+'.'+String(m[2]).padStart(2,'0')+'.'+String(m[3]).padStart(2,'0')+'.') : raw;
   }
   function mapUser(u){
     u=u||{};
-    var nick=u.nickname||u.name||u.nick||u.discordUsername||u.discord_username||'';
-    var pubg=u.pubgId||u.gameId||u.pubg_id||u.pubgName||u.pubg_name||'';
-    var memberRole=u.memberRole||u.member_role||u.role||(u.is_admin||u.admin?'admin':'user');
-    return Object.assign({},u,{nickname:nick,name:nick,pubgId:pubg,gameId:pubg,uid:u.uid||u.id||u.discordId||u.discord_id||u.user_id||'',memberRole:memberRole,role:u.role||memberRole,join:fmtDate(u.join||u.joinDate||u.joined_at||u.created_at||u.createdAt),warnings:Number(u.warnings||u.warning_count||0),dia:Number(u.dia||u.money||u.point||u.points||0),history:Array.isArray(u.history)?u.history:[],memoList:Array.isArray(u.memoList)?u.memoList:[]});
+    var nick=clean(u.nickname||u.name||u.nick||u.discordUsername||u.discord_username||u.username);
+    var pubg=clean(u.pubgId||u.gameId||u.pubg_id||u.pubgName||u.pubg_name||u.ref);
+    var memberRole=clean(u.memberRole||u.member_role||u.role||(u.is_admin||u.admin?'admin':'user'))||'user';
+    var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||u.memberTierName)||'none';
+    return Object.assign({},u,{nickname:nick,name:nick,pubgId:pubg,gameId:pubg,uid:clean(u.uid||u.id||u.discordId||u.discord_id||u.user_id),discordId:clean(u.discordId||u.discord_id||u.id),memberRole:memberRole,role:u.role||memberRole,gradeRole:tier,tierRole:tier,memberTier:tier,baseRole:tier,join:fmtDate(u.join||u.joinDate||u.joined_at||u.created_at||u.createdAt),last:fmtDate(u.last||u.lastLogin||u.updated_at||u.updatedAt),warnings:Number(u.warnings||u.warning_count||0),dia:Number(u.dia||u.money||u.point||u.points||u.prime||0),history:Array.isArray(u.history)?u.history:[],memoList:Array.isArray(u.memoList)?u.memoList:[]});
   }
   async function loadUsers(){
     try{
-      var res=await fetch('/api/pkl-users?limit=500&offset=0',{cache:'no-store'});
+      var res=await fetch('/api/pkl-users?limit=1000&offset=0',{cache:'no-store'});
       var data=await res.json();
-      var list=Array.isArray(data.users)?data.users.map(mapUser):[];
-      if(!list.length) return;
+      var list=unique((Array.isArray(data.users)?data.users:[]).map(mapUser)).filter(function(u){return u.nickname||u.pubgId||u.discordId;});
       list.sort(function(a,b){return String(a.nickname||'').localeCompare(String(b.nickname||''),'ko');});
       if(window.state && Array.isArray(window.state.users)){
-        var merged=list.slice();
-        window.state.users.forEach(function(old){ if(!merged.some(function(x){return same(x,old);})){ merged.push(old); } });
-        merged.sort(function(a,b){return String(a.nickname||'').localeCompare(String(b.nickname||''),'ko');});
-        window.state.users=merged;
+        window.state.users=list;
+        if(window.current>=list.length) window.current=0;
         try{window.state=typeof normalizeState==='function'?normalizeState(window.state):window.state;}catch(e){}
         if(typeof render==='function') render();
       }
-      try{window.dispatchEvent(new CustomEvent('pkl-users-updated',{detail:{users:list}}));}catch(e){}
     }catch(err){console.error('PKL Supabase users load failed',err);}
   }
-  document.addEventListener('DOMContentLoaded',function(){setTimeout(loadUsers,60);});
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(loadUsers,20);});
 })();
 </script>
-
 </body>
 </html>
