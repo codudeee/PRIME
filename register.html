@@ -37,7 +37,7 @@ body{
   content:"";
   position:fixed;
   inset:0;
-  background:url("pkl_join_bg.webp") center/cover no-repeat;
+  background:url("login_bg.png") center/cover no-repeat;
   z-index:-3;
   transform:scale(1.01);
 }
@@ -658,17 +658,10 @@ font-weight:700;
 </style>
 
 
-<script src="pkl-supabase-config.js"></script>
-
+<script src="pkl-firebase-data-sync.js"></script>
 <script src="pkl-role-system.js"></script>
 <script src="pkl-common-role-badge.js"></script>
 <script src="pkl-common-tier-badge.js"></script>
-
-<style id="pklBgRestoreFinal">
-html,body{background:#05050a !important;}
-.join-page::before{background:url("pkl_join_bg.webp") center/cover no-repeat !important;opacity:1 !important;display:block !important;}
-.join-page::after{background:radial-gradient(circle at 50% 52%,rgba(168,85,247,.14),transparent 29%),linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.17) 38%,rgba(0,0,0,.58)) !important;}
-</style>
 </head>
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -684,14 +677,14 @@ html,body{background:#05050a !important;}
         최초 Discord 로그인 시 한글 닉네임 설정 후 일반 회원으로 등록됩니다.
       </div>
       <div class="form">
-        <button class="discord-btn" type="button" onclick="">
+        <button class="discord-btn" type="button" onclick="location.href='/api/discord-login'">
           Discord로 가입 / 로그인
         </button>
         <p class="success-msg">Discord 인증 후 자동으로 메인 화면으로 이동합니다.</p>
       </div>
       <div class="divider">PKL AUTH</div>
       <div class="join-links">
-        <a href='register.html'>로그인 화면</a>
+        <a href="login.html">로그인 화면</a>
         <a href="contact.html">관리자문의</a>
       </div>
     </div>
@@ -808,190 +801,9 @@ function checkAdminAccess(role){
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
-    
+    setInterval(scan,700);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
-})();
-</script>
-
-  <script src="./pkl-responsive-scale.js"></script>
-
-
-
-
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
-(async function(){
-
-const cfg = await (window.PKL_SUPABASE_READY || Promise.resolve(window.PKL_SUPABASE_CONFIG || {}));
-const url = (cfg && cfg.url) || localStorage.getItem('SUPABASE_URL') || localStorage.getItem('PKL_SUPABASE_URL');
-const key = (cfg && cfg.anonKey) || localStorage.getItem('SUPABASE_ANON_KEY') || localStorage.getItem('PKL_SUPABASE_ANON_KEY');
-
-if(!url || !key){
-console.error('SUPABASE 설정 없음');
-return;
-}
-
-const client = supabase.createClient(url,key,{
-auth:{
-persistSession:true,
-autoRefreshToken:true,
-detectSessionInUrl:true
-}
-});
-
-// OAuth callback 처리
-if(location.hash.includes('access_token')){
-
-const hash = new URLSearchParams(location.hash.substring(1));
-
-const access_token = hash.get('access_token');
-const refresh_token = hash.get('refresh_token');
-
-if(access_token && refresh_token){
-
-await client.auth.setSession({
-access_token,
-refresh_token
-});
-
-history.replaceState({},document.title,'/register.html');
-
-}
-
-}
-
-const { data:{session} } =
-await client.auth.getSession();
-
-if(session?.user){
-
-const fakeUser = {
-uid: session.user.id,
-email: session.user.email,
-displayName:
-session.user.user_metadata?.custom_claims?.global_name ||
-session.user.user_metadata?.full_name ||
-session.user.user_metadata?.name ||
-session.user.email,
-photoURL:
-session.user.user_metadata?.avatar_url || ''
-};
-
-localStorage.setItem(
-'pklCurrentUser',
-JSON.stringify(fakeUser)
-);
-
-// supabase.auth() 가짜 구현
-window.supabase = {
-auth: function(){
-return {
-currentUser: fakeUser,
-onAuthStateChanged: function(callback){
-
-
-setTimeout(()=>{
-callback(fakeUser);
-},100);
-
-},
-signOut: async function(){
-localStorage.removeItem('pklCurrentUser');
-location.reload();
-}
-};
-}
-};
-
-window.currentUser = fakeUser;
-window.supabaseUser = fakeUser;
-
-// 신규유저 확인
-let exists = null;
-
-try{
-
-const { data } =
-await client
-.from('users')
-.select('id,nickname,pubg_id')
-.eq('id', fakeUser.uid)
-.maybeSingle();
-
-exists = data;
-
-}catch(e){
-console.error(e);
-}
-
-// 신규유저면 가입UI 강제
-if(
-!exists ||
-!exists.nickname ||
-!exists.pubg_id
-){
-
-setTimeout(()=>{
-
-document.querySelectorAll(
-'input,button'
-).forEach(el=>{
-el.disabled=false;
-el.style.pointerEvents='auto';
-});
-
-document.querySelectorAll(
-'.signup-wrap,.register-wrap,.nickname-wrap,#signupBox,#registerBox,.user-info-wrap'
-).forEach(el=>{
-el.style.display='flex';
-el.style.visibility='visible';
-el.style.opacity='1';
-});
-
-},300);
-
-}else{
-
-location.href='index.html';
-
-}
-
-}
-
-// 로그인 버튼
-window.addEventListener('DOMContentLoaded',()=>{
-
-document.documentElement.style.overflowX='hidden';
-document.body.style.overflowX='hidden';
-
-const btn =
-document.querySelector('.discord-btn,#discordLoginBtn');
-
-if(btn){
-
-btn.disabled=false;
-btn.style.pointerEvents='auto';
-
-btn.onclick = async function(e){
-
-e.preventDefault();
-
-await client.auth.signInWithOAuth({
-provider:'discord',
-options:{
-redirectTo:location.origin+'/register.html'
-}
-});
-
-};
-
-}
-
-});
-
 })();
 </script>
 

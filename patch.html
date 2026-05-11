@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <script src="./pkl-supabase-config.js"></script>
-  
+  <script src="./pkl-firebase-data-sync.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PKL PATCH CENTER</title>
@@ -194,12 +193,11 @@
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
-    
+    setInterval(scan,700);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
 </script>
 
-  <script src="./pkl-responsive-scale.js"></script>
 </body>
 </html>

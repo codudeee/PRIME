@@ -1816,7 +1816,7 @@ body{
   background:
     linear-gradient(180deg,rgba(3,4,10,.18) 0%,rgba(3,4,10,.34) 38%,rgba(3,4,10,.66) 100%),
     radial-gradient(circle at 50% 9%,rgba(145,92,255,.18),transparent 38%),
-    url('./team-bg-stadium.webp') center center / cover no-repeat fixed !important;
+    url('./team-bg-stadium.jpg') center center / cover no-repeat fixed !important;
 }
 
 body::before{

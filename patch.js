@@ -60,9 +60,13 @@
     ].forEach(id => els[id] = $(id));
 
     bindEvents();
+    bindFirebasePatchSync();
     render();
   }
 
+  function bindFirebasePatchSync(){
+    if(window.PKL_PATCH_FIREBASE_SYNC_FINAL) return;
+    window.PKL_PATCH_FIREBASE_SYNC_FINAL = true;
     const reloadFromShared = () => {
       const fresh = loadNotes();
       if(!fresh) return;
@@ -70,10 +74,10 @@
       if(selected < 0 || selected >= notes.length) selected = 0;
       render();
     };
-    window.addEventListener("pkl-data-updated", e => {
+    window.addEventListener("pkl-firebase-data-updated", e => {
       if(e && e.detail && e.detail.key === STORAGE_KEY) reloadFromShared();
     });
-    window.addEventListener("pkl-sync-ready", () => setTimeout(reloadFromShared, 80));
+    window.addEventListener("pkl-firebase-sync-ready", () => setTimeout(reloadFromShared, 80));
     window.addEventListener("storage", e => {
       if(e && e.key === STORAGE_KEY) reloadFromShared();
     });
@@ -100,8 +104,8 @@
     localStorage.setItem(STORAGE_KEY, text);
     localStorage.setItem(BACKUP_KEY, text);
     try{
-      if(window.PKLDataSync && typeof window.PKLDataSync.setShared === "function"){
-        window.PKLDataSync.setShared(STORAGE_KEY, normalized);
+      if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.setShared === "function"){
+        window.PKLFirebaseDataSync.setShared(STORAGE_KEY, normalized);
       }else if(typeof window.saveSharedData === "function"){
         window.saveSharedData(STORAGE_KEY, normalized);
       }

@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<script src="./pkl-supabase-config.js"></script>
-  
+<script src="./pkl-firebase-data-sync.js"></script>
 <title>PKL 전적검색</title>
 <link rel="stylesheet" href="pkl-main-common.css">
 <style>
@@ -261,66 +260,6 @@ flex-shrink:0;
 }
 </style>
 
-
-<style id="pkl-record-search-center-strict-v1">
-/* 전적검색 상단 타이틀은 검색창 폭(720px) 기준으로 완전 중앙 고정 */
-#pklSearchPage{
-  display:flex !important;
-  flex-direction:column !important;
-  align-items:center !important;
-}
-#pklSearchPage > .hero,
-#pklSearchPage > #searchForm.search-shell{
-  width:min(720px,100%) !important;
-  max-width:720px !important;
-  margin-left:auto !important;
-  margin-right:auto !important;
-}
-#pklSearchPage > .hero{
-  display:flex !important;
-  flex-direction:column !important;
-  align-items:center !important;
-  justify-content:center !important;
-  text-align:center !important;
-  padding-left:0 !important;
-  padding-right:0 !important;
-  transform:none !important;
-}
-#pklSearchPage > .hero .hero-kicker,
-#pklSearchPage > .hero .hero-title,
-#pklSearchPage > .hero .hero-title span{
-  display:block !important;
-  width:100% !important;
-  text-align:center !important;
-  margin-left:auto !important;
-  margin-right:auto !important;
-  padding-left:0 !important;
-  padding-right:0 !important;
-  transform:none !important;
-}
-#pklSearchPage > .hero .hero-title{
-  margin-top:7px !important;
-  margin-bottom:7px !important;
-}
-</style>
-
-
-<style id="pkl-search-record-title-center-final-real">
-#pklSearchPage .hero,#pklSearchPage .search-hero,#pklSearchPage .hero-kicker,#pklSearchPage .hero-title,#pklSearchPage .hero-title span{text-align:center!important;margin-left:auto!important;margin-right:auto!important;left:auto!important;transform:none!important;}
-#pklSearchPage .hero{width:min(920px,100%)!important;margin:0 auto 24px!important;display:flex!important;flex-direction:column!important;align-items:center!important;}
-#pklSearchPage .search-box,#pklSearchPage #searchForm,#pklSearchPage .search-form{margin-left:auto!important;margin-right:auto!important;}
-</style>
-<script id="pkl-search-normal-history-final">
-(function(){'use strict';var MATCH_KEY='PKL_RESULT_MATCHES_V1';function readJSON(k,fb){try{var raw=localStorage.getItem(k);return raw?JSON.parse(raw):fb;}catch(e){return fb;}}function norm(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}function isNormal(m){return String(m&&m.kind||'').toLowerCase()==='normal'||/일반|무료/.test(String(m&&m.title||''))||/일반|무료/.test(String(m&&m.type||''));}function teamViews(st){var teams=Array.isArray(st&&st.teams)?st.teams:[];return teams.map(function(t,i){return {id:t.id||('team'+(i+1)),name:t.name||t.teamName||((i+1)+'팀'),members:Array.isArray(t.members)?t.members:[]};});}function normalStats(name){var key=norm(name);var rows=[];var totalK=0,totalD=0,best=0,rounds=0;var matches=readJSON(MATCH_KEY,[]);if(!Array.isArray(matches))matches=[];matches.filter(isNormal).forEach(function(m){var snap=m.snapshot||{};var rs=Array.isArray(snap.rounds)?snap.rounds:[];teamViews(snap).forEach(function(t){t.members.forEach(function(mem,idx){var n=String(mem&&mem.name||mem&&mem.nickname||'').trim();if(!n||norm(n)!==key)return;var k=0,d=0;rs.forEach(function(r){var td=(r&&r.teams&&r.teams[t.id])||{};var rk=Number((Array.isArray(td.kills)?td.kills:[])[idx]||0);var rd=Number((Array.isArray(td.deaths)?td.deaths:[])[idx]||0);k+=rk;d+=rd;best=Math.max(best,rk);rounds++;});totalK+=k;totalD+=d;rows.push({match:m.title||'일반경기',date:m.date||String(m.savedAt||'').slice(0,10)||'-',team:t.name,kills:k,deaths:d,score:k-d});});});});return {rows:rows,totalKills:totalK,totalDeaths:totalD,bestKill:best,rounds:rounds,avg:rounds?totalK/rounds:0,score:totalK-totalD};}function currentName(){var el=document.getElementById('playerName');return el?String(el.textContent||'').replace(/\s+/g,' ').trim().split(' ')[0]:'';}function renderNormal(){var summary=document.getElementById('summaryTab');if(!summary)return;var name=currentName();var s=normalStats(name);summary.innerHTML='<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">일반전 총 킬</div><div class="stat-value">'+s.totalKills+'</div></div></div><div class="stat-card"><div><div class="stat-label">일반전 참여 라운드</div><div class="stat-value">'+s.rounds+'</div></div></div><div class="stat-card"><div><div class="stat-label">일반전 평균 킬</div><div class="stat-value">'+s.avg.toFixed(1)+'</div></div></div><div class="stat-card"><div><div class="stat-label">일반전 최고 킬</div><div class="stat-value">'+s.bestKill+'</div></div></div></div><div class="summary-row"><div><div class="mini-label">일반전 기록</div><div class="mini-value">'+(s.rows.length?s.rows.map(function(r){return esc(r.match)+' · '+esc(r.team)+' · '+r.kills+'킬';}).join('<br>'):'일반경기 기록이 없습니다.')+'</div></div><div><div class="mini-label">일반전 총 점수</div><div class="mini-value">'+s.score+'</div></div></div>';}function normalizeLabels(){document.querySelectorAll('[data-tab="teams"]').forEach(function(b){b.textContent='일반 이력';});document.querySelectorAll('.mini-label').forEach(function(el){if(/팀 이력|TEAM HISTORY/.test(el.textContent))el.textContent='일반 이력';});}document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-tab="teams"]');if(b){setTimeout(renderNormal,0);setTimeout(renderNormal,60);}},true);var mo=new MutationObserver(normalizeLabels);if(document.body)mo.observe(document.body,{childList:true,subtree:true,characterData:true});setTimeout(normalizeLabels,100);})();
-</script>
-
-
-<style id="pkl-record-search-center-absolute-20260511">
-#pklSearchPage.search-page{display:flex!important;flex-direction:column!important;align-items:center!important;}
-#pklSearchPage .hero{width:100%!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;}
-#pklSearchPage .hero-title,#pklSearchPage .hero-title span{display:block!important;width:100%!important;text-align:center!important;margin-left:auto!important;margin-right:auto!important;}
-#pklSearchPage #searchForm.search-shell{align-self:center!important;margin-left:auto!important;margin-right:auto!important;left:auto!important;right:auto!important;transform:none!important;}
-</style>
 </head>
 <body>
 
@@ -352,7 +291,7 @@ flex-shrink:0;
           <div class="tabs" id="tabBar">
             <button type="button" class="tab-btn active" data-tab="summary">요약 정보</button>
             <button type="button" class="tab-btn" data-tab="history">매치 기록</button>
-            <button type="button" class="tab-btn" data-tab="teams">일반 이력</button>
+            <button type="button" class="tab-btn" data-tab="teams">팀 이력</button>
             <button type="button" class="tab-btn" data-tab="detail">상세 통계</button>
           </div>
           <div id="emptyState" class="empty">
@@ -369,7 +308,7 @@ flex-shrink:0;
               </div>
               <div class="summary-row">
                 <div><div class="mini-label">최근 참여</div><div class="mini-value" id="recentMatch">-</div></div>
-                <div><div class="mini-label">일반 이력</div><div class="mini-value" id="teamHistoryText">-</div></div>
+                <div><div class="mini-label">팀 이력</div><div class="mini-value" id="teamHistoryText">-</div></div>
               </div>
             </div>
           </div>
@@ -393,7 +332,6 @@ flex-shrink:0;
 <script src="pkl-page-permissions.js"></script>
 <script src="pkl-common-role-badge.js"></script>
 <script src="pkl-common-tier-badge.js"></script>
-<script src="pkl-users-source.js"></script>
 <script>
 const STORAGE_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
 const RESULT_MATCHES_KEY='PKL_RESULT_MATCHES_V1';
@@ -467,7 +405,7 @@ function renderTop(){const top=document.getElementById('topKillerList');top.inne
 function getRecent(){try{return JSON.parse(localStorage.getItem(RECENT_KEY)||'[]').filter(Boolean).slice(0,5);}catch(e){return [];}}
 function saveRecent(name){return;}
 function renderRecent(){return;}
-function showTab(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));if(!current)return;const summary=document.getElementById('summaryTab');if(tab==='summary'){summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">총 킬</div><div class="stat-value">${current.totalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">참여 라운드</div><div class="stat-value">${current.rounds}</div></div></div><div class="stat-card"><div><div class="stat-label">평균 킬</div><div class="stat-value">${current.avg.toFixed(1)}</div></div></div><div class="stat-card"><div><div class="stat-label">최고 킬</div><div class="stat-value">${current.bestKill}</div></div></div></div><div class="summary-row"><div><div class="mini-label">최근 참여</div><div class="mini-value">${esc((matches[0]&&matches[0].title)||'PKL 회차')} ${esc((matches[0]&&matches[0].date)||'')}</div></div><div><div class="mini-label">일반 이력</div><div class="mini-value">${esc(current.teams.join(' · '))}</div></div></div>`;}else if(tab==='teams'){summary.innerHTML=`<div><div class="mini-label">NORMAL HISTORY</div><div class="team-chip-wrap">${current.teams.map(t=>`<span class="team-chip">${esc(t)}</span>`).join('')}</div></div>`;}else if(tab==='detail'){const deathRate=current.rounds?((current.totalDeaths/current.rounds)*100).toFixed(1):'0.0';summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">총 사망</div><div class="stat-value">${current.totalDeaths}</div></div></div><div class="stat-card"><div><div class="stat-label">킬/데스</div><div class="stat-value">${current.totalDeaths?(current.totalKills/current.totalDeaths).toFixed(2):current.totalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">사망률</div><div class="stat-value">${deathRate}%</div></div></div><div class="stat-card"><div><div class="stat-label">순수 점수</div><div class="stat-value">${current.score}</div></div></div></div>`;}else{summary.innerHTML=`<div class="summary-row"><div><div class="mini-label">매치 기록</div><div class="mini-value">아래 MATCH HISTORY 테이블에서 라운드별 기록을 확인하세요.</div></div><div><div class="mini-label">총 기록</div><div class="mini-value">${current.rows.length}개 라운드 기록</div></div></div>`;}}
+function showTab(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));if(!current)return;const summary=document.getElementById('summaryTab');if(tab==='summary'){summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">총 킬</div><div class="stat-value">${current.totalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">참여 라운드</div><div class="stat-value">${current.rounds}</div></div></div><div class="stat-card"><div><div class="stat-label">평균 킬</div><div class="stat-value">${current.avg.toFixed(1)}</div></div></div><div class="stat-card"><div><div class="stat-label">최고 킬</div><div class="stat-value">${current.bestKill}</div></div></div></div><div class="summary-row"><div><div class="mini-label">최근 참여</div><div class="mini-value">${esc((matches[0]&&matches[0].title)||'PKL 회차')} ${esc((matches[0]&&matches[0].date)||'')}</div></div><div><div class="mini-label">팀 이력</div><div class="mini-value">${esc(current.teams.join(' · '))}</div></div></div>`;}else if(tab==='teams'){summary.innerHTML=`<div><div class="mini-label">TEAM HISTORY</div><div class="team-chip-wrap">${current.teams.map(t=>`<span class="team-chip">${esc(t)}</span>`).join('')}</div></div>`;}else if(tab==='detail'){const deathRate=current.rounds?((current.totalDeaths/current.rounds)*100).toFixed(1):'0.0';summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">총 사망</div><div class="stat-value">${current.totalDeaths}</div></div></div><div class="stat-card"><div><div class="stat-label">킬/데스</div><div class="stat-value">${current.totalDeaths?(current.totalKills/current.totalDeaths).toFixed(2):current.totalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">사망률</div><div class="stat-value">${deathRate}%</div></div></div><div class="stat-card"><div><div class="stat-label">순수 점수</div><div class="stat-value">${current.score}</div></div></div></div>`;}else{summary.innerHTML=`<div class="summary-row"><div><div class="mini-label">매치 기록</div><div class="mini-value">아래 MATCH HISTORY 테이블에서 라운드별 기록을 확인하세요.</div></div><div><div class="mini-label">총 기록</div><div class="mini-value">${current.rows.length}개 라운드 기록</div></div></div>`;}}
 function renderPlayer(p){current=p;document.getElementById('emptyState').classList.add('hidden');document.getElementById('resultState').classList.remove('hidden');const pn=document.getElementById('playerName'); if(pn) pn.innerHTML=esc(p.name)+' '+pklSearchTierBadgeHtml(p);document.getElementById('playerTeam').textContent=p.teams[0]||'PKL PLAYER';showTab(document.querySelector('.tab-btn.active')?.dataset.tab||'summary');document.getElementById('historyNote').textContent=p.rows.length+'개 기록';document.getElementById('historyBody').innerHTML=p.rows.map(r=>`<tr><td>${esc(r.match)}</td><td>${esc(r.date)}</td><td>${esc(r.team)}</td><td>${esc(r.round)}</td><td>${esc(r.map)}</td><td>${r.kills}</td><td>${r.deaths}</td><td>${r.score}</td></tr>`).join('')||'<tr><td colspan="8">기록이 없습니다.</td></tr>';saveRecent(p.name);}
 function searchPlayer(q){const key=norm(q);if(!key)return;const exact=players.find(p=>norm(p.name)===key);const partial=players.find(p=>norm(p.name).includes(key));const p=exact||partial;if(p){renderPlayer(p);return;}document.getElementById('emptyState').classList.remove('hidden');document.getElementById('resultState').classList.add('hidden');document.getElementById('emptyState').innerHTML='<div><div class="empty-mark">!</div><h3>검색 결과 없음</h3><p>현재 시트지에서 해당 닉네임을 찾지 못했습니다.</p></div>';document.getElementById('historyNote').textContent='검색 결과 없음';document.getElementById('historyBody').innerHTML='<tr><td colspan="8">검색 결과가 없습니다.</td></tr>';}
 document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault();searchPlayer(document.getElementById('searchInput').value);});
@@ -1197,12 +1135,11 @@ window.getUnifiedMatchRecords=function(){
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
-    
+    setInterval(scan,700);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
 </script>
 
-  <script src="./pkl-responsive-scale.js"></script>
 </body>
 </html>

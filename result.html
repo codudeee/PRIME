@@ -2,8 +2,7 @@
 
 <html lang="ko">
 <head>
-  <script src="./pkl-supabase-config.js"></script>
-  
+  <script src="./pkl-firebase-data-sync.js"></script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>PKL 킬내기 결과</title>
@@ -1206,80 +1205,6 @@ button{cursor:pointer}
 #resultDeleteConfirmModal .pkl-delete-confirm-box{position:relative !important;z-index:2147483647 !important;pointer-events:auto !important;}
 #resultDeleteConfirmModal button{position:relative !important;z-index:2147483647 !important;pointer-events:auto !important;cursor:pointer !important;}
 </style>
-
-<style id="pkl-result-admin-modal-layer-final">
-/* PKL: 회차관리 내부 확인/삭제/하위 모달이 뒤로 깔리지 않게 최상단 고정 */
-.pkl-result-admin-modal{z-index:2147483000 !important;}
-.pkl-result-admin-panel{position:relative !important;z-index:2147483001 !important;}
-.pkl-delete-confirm-modal,
-#resultDeleteConfirmModal,
-.pkl-confirm-modal,
-.pkl-round-delete-modal,
-.pkl-admin-child-modal{
-  z-index:2147483600 !important;
-  pointer-events:auto !important;
-}
-.pkl-delete-confirm-modal.open,
-#resultDeleteConfirmModal.open,
-.pkl-delete-confirm-modal.show,
-#resultDeleteConfirmModal.show{
-  display:flex !important;
-}
-.pkl-delete-confirm-box,
-#resultDeleteConfirmModal .pkl-delete-confirm-box,
-.pkl-confirm-box{
-  position:relative !important;
-  z-index:2147483601 !important;
-  pointer-events:auto !important;
-}
-#resultDeleteConfirmModal button,
-.pkl-delete-confirm-modal button{
-  position:relative !important;
-  z-index:2147483602 !important;
-  pointer-events:auto !important;
-}
-</style>
-
-
-<style id="pkl-result-score-add-button-style">
-.result-score-add-wrap{
-  display:none;
-  padding:10px 12px 14px;
-  border-top:1px solid rgba(255,255,255,.07);
-}
-.result-sheet-editing .result-score-add-wrap,
-.result-sheet-global-editing .result-score-add-wrap{
-  display:flex;
-  justify-content:center;
-}
-.result-score-add-btn{
-  min-width:220px;
-  height:38px;
-  border-radius:12px;
-  border:1px solid rgba(255,214,91,.42);
-  background:linear-gradient(180deg,rgba(255,214,91,.25),rgba(155,92,255,.22));
-  color:#fff;
-  font-weight:1000;
-  cursor:pointer;
-  box-shadow:0 0 16px rgba(255,214,91,.14), inset 0 1px 0 rgba(255,255,255,.14);
-}
-.result-score-add-btn:hover{filter:brightness(1.12);}
-</style>
-
-
-<style id="pkl-result-cumulative-final-ui-fix">
-#resultAdminModal.pkl-result-admin-modal{z-index:2147483000!important;}
-#resultAdminModal .pkl-result-admin-panel{z-index:2147483001!important;overflow:visible!important;}
-#resultDeleteConfirmModal.pkl-delete-confirm-modal,#resultUsageHistoryModal.pkl-usage-modal{position:fixed!important;inset:0!important;z-index:2147483640!important;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);pointer-events:auto!important;}
-#resultDeleteConfirmModal.open,#resultUsageHistoryModal.open{display:flex!important;}
-#resultDeleteConfirmModal .pkl-delete-confirm-box,#resultUsageHistoryModal .pkl-usage-box{position:relative!important;z-index:2147483641!important;pointer-events:auto!important;}
-.result-usage-btn{width:100%;height:42px;margin-top:10px;border-radius:13px;border:1px solid rgba(255,214,91,.38);background:linear-gradient(180deg,rgba(255,214,91,.22),rgba(155,92,255,.18));color:#fff;font-weight:1000;box-shadow:0 0 14px rgba(255,214,91,.14), inset 0 1px 0 rgba(255,255,255,.12);cursor:pointer;}
-.result-usage-btn:hover{filter:brightness(1.12);}
-.pkl-usage-box{width:min(720px,calc(100vw - 36px));max-height:min(760px,calc(100vh - 36px));overflow:auto;border:1px solid rgba(201,168,255,.52);border-radius:22px;background:linear-gradient(180deg,rgba(24,16,48,.98),rgba(7,8,18,.98));box-shadow:0 0 40px rgba(155,92,255,.28);padding:22px;}
-.pkl-usage-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}.pkl-usage-kicker{font-size:11px;letter-spacing:2px;color:#c9a8ff;font-weight:1000;}.pkl-usage-title{font-size:24px;font-weight:1000;color:#fff;margin:2px 0 0;}.pkl-usage-close{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;font-size:24px;cursor:pointer;}.pkl-usage-list{display:grid;gap:9px;}.pkl-usage-item{border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(255,255,255,.045);padding:11px 12px;display:grid;grid-template-columns:82px 1fr 90px;gap:10px;align-items:center;}.pkl-usage-type{font-weight:1000;color:#ffd65b;}.pkl-usage-text{font-weight:900;color:#fff;line-height:1.45;}.pkl-usage-time{text-align:right;color:#b8aacd;font-size:12px;font-weight:900;}.pkl-usage-empty{border:1px dashed rgba(201,168,255,.25);border-radius:16px;padding:34px;text-align:center;color:#a99bbb;font-weight:900;}
-.result-score-add-wrap{display:flex!important;justify-content:center!important;}.result-score-add-btn{display:inline-flex!important;align-items:center;justify-content:center;}
-</style>
-
 </head>
 <body>
 
@@ -1291,7 +1216,6 @@ button{cursor:pointer}
 <script src="pkl-page-permissions.js"></script>
 <script src="pkl-common-role-badge.js"></script>
 <script src="pkl-common-tier-badge.js"></script>
-<script src="pkl-users-source.js"></script>
 
 
 <div class="site">
@@ -1329,7 +1253,6 @@ button{cursor:pointer}
 <tbody id="recordBody"></tbody>
 </table>
 </div>
-<div class="result-score-add-wrap"><button class="result-score-add-btn" id="resultAddScoreRoundBtn" type="button">+ 스코어칸 추가</button></div>
 </div>
 </section>
 </div>
@@ -1352,7 +1275,6 @@ button{cursor:pointer}
 </div>
 <div class="match-info" id="matchInfo"></div>
 <button class="admin-panel-btn" id="adminPanelBtn" type="button">관리자패널</button>
-<button class="result-usage-btn" id="resultUsageHistoryBtn" type="button">해당 회차 이용내역</button>
 <button class="capture-btn" id="captureBtn" type="button">이미지 캡쳐</button>
 <div class="capture-toast" id="captureToast">캡쳐 모드가 켜졌습니다. 브라우저/윈도우 캡처 도구로 스코어보드 영역을 저장해주세요.</div>
 <button class="result-sheet-edit-done" id="resultSheetEditDoneBtn" type="button">수정 완료</button>
@@ -1361,17 +1283,6 @@ button{cursor:pointer}
 </section>
 </main>
 </div>
-
-<div aria-hidden="true" class="pkl-usage-modal" id="resultUsageHistoryModal">
-  <div aria-modal="true" class="pkl-usage-box" role="dialog">
-    <div class="pkl-usage-head">
-      <div><div class="pkl-usage-kicker">MATCH SHEET HISTORY</div><div class="pkl-usage-title">해당 회차 이용내역</div></div>
-      <button class="pkl-usage-close" id="resultUsageCloseBtn" type="button">×</button>
-    </div>
-    <div class="pkl-usage-list" id="resultUsageHistoryList"></div>
-  </div>
-</div>
-
 <div aria-hidden="true" class="pkl-result-admin-modal" id="resultAdminModal">
 <div aria-labelledby="resultAdminTitle" aria-modal="true" class="pkl-result-admin-panel" role="dialog">
 <button aria-label="닫기" class="pkl-result-admin-close" id="resultAdminClose" type="button">×</button>
@@ -1386,7 +1297,7 @@ button{cursor:pointer}
 <section class="admin-edit-box">
 <div class="admin-section-title">회차 수정</div>
 <div class="admin-form">
-<label>회차 명<input id="adminMatchTitle" placeholder="PKL 15회차"/></label>
+<label>회차 이름<input id="adminMatchTitle" placeholder="PKL 15회차"/></label>
 <label>경기 일자<input id="adminMatchDate" placeholder="2026.05.06"/></label>
 <div class="admin-two">
 <label>시작 시간<input id="adminMatchStart" placeholder="PM 08:30"/></label>
@@ -1447,8 +1358,8 @@ function pklResultSharedSet(key,value){
   const text=typeof value==='string'?value:JSON.stringify(value);
   try{
     localStorage.setItem(key,text);
-    if(window.PKLDataSync && typeof window.PKLDataSync.setShared==='function'){
-      window.PKLDataSync.setShared(key,text);
+    if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.setShared==='function'){
+      window.PKLFirebaseDataSync.setShared(key,text);
     }else if(typeof window.saveSharedData==='function'){
       window.saveSharedData(key,text);
     }
@@ -1579,12 +1490,12 @@ function visibleTeams(){
     }));
 }
 
-function resultStore(){return state && state.fires && typeof state.fires==='object' ? state.fires : {};}
+function resultFireStore(){return state && state.fires && typeof state.fires==='object' ? state.fires : {};}
 function resultFireCancelStore(){return state && state.fireCancels && typeof state.fireCancels==='object' ? state.fireCancels : {};}
 function resultSurrenderStore(){return state && state.surrenders && typeof state.surrenders==='object' ? state.surrenders : {};}
 function resultNormalizeFireRecord(viewId){
   const key=String(viewId||'');
-  const item=resultStore()[key];
+  const item=resultFireStore()[key];
   if(!item) return {sessions:[]};
   if(Array.isArray(item.sessions)) return item;
   const sessions=[];
@@ -1612,7 +1523,14 @@ function resultIsSurrendered(viewId){
   return !!(item && item.done);
 }
 function resultTeamEventSummary(team){
-  return '';
+  const latest=resultLatestFireRound(team.viewId);
+  const fireCount=latest>=0 ? Array.from({length:latest+1},(_,i)=>i).filter(i=>!resultIsFireCancelled(team.viewId,i)).length : 0;
+  const surrender=resultIsSurrendered(team.viewId) ? 1 : 0;
+  if(!fireCount && !surrender) return '';
+  return `<div class="result-event-summary"><div class="result-event-summary-title">TEAM EVENT HISTORY</div><div class="result-event-summary-list">
+    ${fireCount?`<div class="result-event-summary-item"><span>불판 사용 라운드</span><b>${fireCount}개</b></div>`:''}
+    ${surrender?`<div class="result-event-summary-item"><span>서렌 처리</span><b>완료</b></div>`:''}
+  </div></div>`;
 }
 
 /* PKL RESULT ↔ SHEET SCORE SYNC
@@ -1893,7 +1811,7 @@ function resultEnableSheetEdit(){
   const panel=document.getElementById('sheetPanel');
   if(panel) panel.classList.add('open');
   const text=document.getElementById('sheetToggleText');
-  if(text) text.textContent='';
+  if(text) text.textContent='시트지 수정 중';
   renderAll();
 }
 function resultCompleteSheetEdit(){
@@ -2156,38 +2074,16 @@ function saveResultAdminForm(){
   renderAll();
   renderResultAdminModal();
 }
-function pklResultNextRoundNumber(){
-  const nums=(Array.isArray(MATCHES)?MATCHES:[]).map(m=>{
-    const title=String((m&&m.title)||'');
-    const match=title.match(/(\d+)\s*회차/);
-    return match ? Number(match[1]) : 0;
-  }).filter(n=>Number.isFinite(n)&&n>0);
-  return (nums.length ? Math.max(...nums) : 0) + 1;
-}
 function addResultAdminMatch(){
   if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
-  const nums=(Array.isArray(MATCHES)?MATCHES:[]).map(function(m){
-    const mm=String((m&&m.title)||'').match(/(\d+)\s*회차/);
-    return mm?Number(mm[1]):0;
-  }).filter(function(n){return Number.isFinite(n)&&n>0;});
-  let last=0;
-  try{ last=Number(localStorage.getItem('PKL_RESULT_LAST_ROUND_NO')||0)||0; }catch(e){}
-  const no=Math.max(last, nums.length?Math.max.apply(null,nums):0)+1;
-  try{ localStorage.setItem('PKL_RESULT_LAST_ROUND_NO', String(no)); }catch(e){}
-  const id='match_'+Date.now();
-  MATCHES.unshift({
-    id:id,
-    title:'PKL '+no+'회차',
-    date:'',time:'',endTime:'',maps:'',type:'프라임 킬내기 리그',teamCount:10,
-    snapshot:{mode:'squad',selectedTeamId:'',teams:[],rounds:[],feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''},
-    savedAt:new Date().toISOString()
-  });
+  const n=(MATCHES.length?Math.max(...MATCHES.map(m=>Number(String(m.id).replace(/\D/g,''))||0)):0)+1;
+  const id=String(n || Date.now());
+  MATCHES.unshift({id,title:`PKL ${id}회차`,date:'',time:'PM 08:30',endTime:'PM 11:10',maps:'에란겔 / 미라마 / 태이고 / 론도',type:'프라임 킬내기 리그',teamCount:10});
   adminEditingMatchId=id;
   selectedMatchId=id;
   pklResultSaveMatches();
   renderAll();
   renderResultAdminModal();
-  pklResultPermissionToast('PKL '+no+'회차가 추가되었습니다.');
 }
 
 function pklResultNormKey(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}
@@ -2326,27 +2222,6 @@ function deleteResultAdminMatch(){
   renderAll();
   renderResultAdminModal();
 }
-
-function resultAddScoreRound(){
-  if(!pklResultIsStaff()){
-    pklResultPermissionToast('접근 제한: 관리자/운영자만 수정 가능합니다.');
-    return;
-  }
-  if(!resultSheetEditMode){ resultSheetEditMode=true; document.body.classList.add('result-sheet-global-editing'); }
-  if(!state || typeof state!=='object') state=makeEmptyState();
-  if(!Array.isArray(state.rounds)) state.rounds=[];
-  const no=state.rounds.length+1;
-  const round={no:no,map:'',teams:{}};
-  (state.teams||[]).forEach(t=>{
-    if(t && t.id){
-      round.teams[t.id]={kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};
-    }
-  });
-  state.rounds.push(round);
-  resultSaveSheetSnapshot();
-  renderAll();
-}
-
 function bindResultAdminModal(){
   const modal=document.getElementById('resultAdminModal');
   if(!modal || modal.dataset.bound) return;
@@ -2416,10 +2291,9 @@ function bind(){
   document.getElementById('recordBody')?.addEventListener('change',resultHandleSheetInput);
   document.getElementById('recordBody')?.addEventListener('click',resultHandleSheetClick);
   document.getElementById('resultSheetEditDoneBtn')?.addEventListener('click',resultCompleteSheetEdit);
-  document.getElementById('resultAddScoreRoundBtn')?.addEventListener('click',resultAddScoreRound);
   document.getElementById('sheetToggle').addEventListener('click',()=>{
     const panel=document.getElementById('sheetPanel'); panel.classList.toggle('open');
-    document.getElementById('sheetToggleText').textContent=resultSheetEditMode?'':(panel.classList.contains('open')?'점수 시트지 접기':'점수 시트지 열기');
+    document.getElementById('sheetToggleText').textContent=resultSheetEditMode?'시트지 수정 중':(panel.classList.contains('open')?'점수 시트지 접기':'점수 시트지 열기');
   });
 }
 function renderAll(){renderBoard();renderSheet();renderSide();}
@@ -2427,14 +2301,14 @@ bind();renderAll();
 window.addEventListener('storage',function(e){
   if(e && e.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
 });
-window.addEventListener('pkl-data-updated',function(e){
+window.addEventListener('pkl-firebase-data-updated',function(e){
   if(e && e.detail && e.detail.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
 });
 window.addEventListener('pkl-users-updated',function(){ renderSide(); });
 window.addEventListener('pkl-role-data-updated',function(){ renderSide(); });
-window.addEventListener('pkl-sync-ready',function(){
-  if(window.PKLDataSync && typeof window.PKLDataSync.refresh==='function'){
-    window.PKLDataSync.refresh();
+window.addEventListener('pkl-firebase-sync-ready',function(){
+  if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.refresh==='function'){
+    window.PKLFirebaseDataSync.refresh();
   }
   setTimeout(pklResultRefreshMatchesFromStorage,350);
 });
@@ -2781,107 +2655,130 @@ window.addEventListener('load', restoreDiscordSession);
 </script>
 
 
-
-<!-- PKL result admin modal safe layer fix: no MutationObserver / no interval -->
-<style id="pkl-result-admin-safe-layer-fix">
-  #resultAdminModal.pkl-result-admin-modal{
+<!-- PKL global stacked modal layer manager -->
+<style id="pkl-global-stacked-modal-layer-style">
+  .pkl-layer-managed-modal{
     position:fixed !important;
-    inset:0 !important;
-    z-index:2147483000 !important;
     pointer-events:auto !important;
   }
-  #resultAdminModal.pkl-result-admin-modal.open{display:flex !important;}
-  #resultAdminModal .pkl-result-admin-panel{
+  .pkl-layer-managed-modal > *,
+  .pkl-layer-managed-modal [role="dialog"],
+  .pkl-layer-managed-modal .modal-box,
+  .pkl-layer-managed-modal .modal-card,
+  .pkl-layer-managed-modal .pkl-result-admin-panel,
+  .pkl-layer-managed-modal .pkl-delete-confirm-box,
+  .pkl-layer-managed-modal .pkl-notice-card,
+  .pkl-layer-managed-modal .temp-edit-box{
     position:relative !important;
-    z-index:2147483001 !important;
-    pointer-events:auto !important;
-  }
-  #resultDeleteConfirmModal.pkl-delete-confirm-modal.open{
-    position:fixed !important;
-    z-index:2147483010 !important;
-    pointer-events:auto !important;
-  }
-  #resultDeleteConfirmModal .pkl-delete-confirm-box{
-    position:relative !important;
-    z-index:2147483011 !important;
     pointer-events:auto !important;
   }
 </style>
-<script id="pkl-result-admin-safe-layer-fix-script">
+<script id="pkl-global-stacked-modal-layer-script">
 (function(){
-  'use strict';
-  function moveToBody(id){
-    var el=document.getElementById(id);
-    if(el && el.parentNode!==document.body){
-      try{document.body.appendChild(el);}catch(e){}
-    }
-    return el;
+  if(window.__PKL_STACKED_MODAL_LAYER_FINAL__) return;
+  window.__PKL_STACKED_MODAL_LAYER_FINAL__=true;
+  var BASE=2147481000;
+  var step=0;
+  var modalSelector=[
+    '.modal',
+    '.edit-modal',
+    '.member-edit-modal',
+    '.temp-edit-modal',
+    '.pkl-notice-layer',
+    '.pkl-result-admin-modal',
+    '.pkl-delete-confirm-modal',
+    '#resultAdminModal',
+    '#resultDeleteConfirmModal'
+  ].join(',');
+  function isOpen(el){
+    if(!el || !el.classList) return false;
+    var cs;
+    try{cs=getComputedStyle(el);}catch(e){cs=null;}
+    return el.classList.contains('open') ||
+      el.getAttribute('aria-hidden')==='false' ||
+      (cs && cs.position==='fixed' && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0');
   }
-  function showAdmin(){
-    var modal=moveToBody('resultAdminModal');
-    if(!modal) return;
-    modal.classList.add('open');
-    modal.setAttribute('aria-hidden','false');
-    modal.style.removeProperty('display');
-    if(typeof window.renderResultAdminModal==='function'){
-      try{window.renderResultAdminModal();}catch(e){console.warn('[PKL] result admin render failed',e);}
-    }
+  function setLayer(el,z){
+    if(!el || !el.style) return;
+    el.classList.add('pkl-layer-managed-modal');
+    el.style.setProperty('z-index', String(z), 'important');
+    el.style.setProperty('pointer-events', 'auto', 'important');
+    var kids=el.querySelectorAll(':scope > *, [role="dialog"], .modal-box, .modal-card, .pkl-result-admin-panel, .pkl-delete-confirm-box, .pkl-notice-card, .temp-edit-box');
+    kids.forEach(function(k){
+      k.style.setProperty('z-index', String(z+1), 'important');
+      k.style.setProperty('pointer-events','auto','important');
+      if(getComputedStyle(k).position==='static') k.style.setProperty('position','relative','important');
+    });
   }
-  function hideAdmin(){
-    var modal=document.getElementById('resultAdminModal');
-    if(!modal) return;
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden','true');
-    modal.style.removeProperty('display');
+  function bring(el){
+    if(!el) return;
+    step+=10;
+    setLayer(el,BASE+step);
   }
+  function scan(){
+    Array.prototype.forEach.call(document.querySelectorAll(modalSelector),function(el){
+      if(isOpen(el) && !el.dataset.pklLayerNoAuto){
+        if(!el.dataset.pklLayerOrder){
+          el.dataset.pklLayerOrder=String(++step);
+        }
+        setLayer(el,BASE+Number(el.dataset.pklLayerOrder));
+      }else if(el && el.dataset){
+        delete el.dataset.pklLayerOrder;
+      }
+    });
+  }
+  window.PKLBringModalToFront=function(el){
+    if(typeof el==='string') el=document.querySelector(el);
+    if(el){ delete el.dataset.pklLayerOrder; bring(el); }
+  };
   document.addEventListener('click',function(e){
-    var openBtn=e.target && e.target.closest && e.target.closest('#adminPanelBtn');
-    if(openBtn){
-      e.preventDefault();
-      e.stopPropagation();
-      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-      showAdmin();
-      return;
-    }
-    var closeBtn=e.target && e.target.closest && e.target.closest('#resultAdminClose');
-    if(closeBtn){
-      e.preventDefault();
-      e.stopPropagation();
-      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-      hideAdmin();
-    }
+    var el=e.target && e.target.closest && e.target.closest(modalSelector);
+    if(el) window.PKLBringModalToFront(el);
+    setTimeout(scan,0);
+    setTimeout(scan,80);
   },true);
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',function(){moveToBody('resultAdminModal');moveToBody('resultDeleteConfirmModal');});
-  }else{
-    moveToBody('resultAdminModal');
-    moveToBody('resultDeleteConfirmModal');
+  var mo=new MutationObserver(function(list){
+    list.forEach(function(m){
+      var el=m.target;
+      if(el && el.matches && el.matches(modalSelector) && isOpen(el)) window.PKLBringModalToFront(el);
+    });
+    setTimeout(scan,0);
+  });
+  function boot(){
+    try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
+    scan();
+    setInterval(scan,700);
   }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
 </script>
 
-  <script src="./pkl-responsive-scale.js"></script>
 
-<script id="pkl-result-cumulative-final-script">
+<!-- PKL result nested modal order final override -->
+<style id="pkl-result-nested-modal-order-final">
+  #resultAdminModal.pkl-result-admin-modal.open{z-index:2147482000 !important;}
+  #resultAdminModal .pkl-result-admin-panel{z-index:2147482001 !important;}
+  #resultDeleteConfirmModal.pkl-delete-confirm-modal.open{z-index:2147482600 !important;}
+  #resultDeleteConfirmModal .pkl-delete-confirm-box{z-index:2147482601 !important;}
+</style>
+<script id="pkl-result-nested-modal-order-final-script">
 (function(){
-  'use strict';
-  var MATCH_KEY='PKL_RESULT_MATCHES_V1';
-  var DELETED_KEY='PKL_RESULT_DELETED_IDS_V1';
-  function readJSON(k,fb){try{var raw=localStorage.getItem(k);return raw?JSON.parse(raw):fb;}catch(e){return fb;}}
-  function writeJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
-  function deletedIds(){var v=readJSON(DELETED_KEY,[]);return Array.isArray(v)?v:[];}
-  function markDeleted(id){if(!id)return;var arr=deletedIds().filter(Boolean);if(arr.indexOf(String(id))<0)arr.push(String(id));writeJSON(DELETED_KEY,arr.slice(-80));}
-  function filterDeletedMatches(){var ids=deletedIds();if(!ids.length)return false;var list=readJSON(MATCH_KEY,[]);if(!Array.isArray(list))return false;var next=list.filter(function(m){return ids.indexOf(String(m&&m.id))<0;});if(next.length!==list.length){writeJSON(MATCH_KEY,next);return true;}return false;}
-  document.addEventListener('click',function(e){var yes=e.target&&e.target.closest&&e.target.closest('#resultDeleteYesBtn');if(yes){var active=document.querySelector('#adminMatchList .admin-match-item.active');var id=active&&active.getAttribute('data-admin-match');markDeleted(id);setTimeout(filterDeletedMatches,60);setTimeout(filterDeletedMatches,420);}},true);
-  window.addEventListener('pkl-data-updated',function(e){if(e&&e.detail&&e.detail.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
-  window.addEventListener('storage',function(e){if(e&&e.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
-  function getMatches(){return readJSON(MATCH_KEY,[]);} function currentMatch(){var id=(document.getElementById('matchSelect')||{}).value||'';var list=getMatches();return list.find(function(m){return String(m&&m.id)===String(id);})||list[0]||null;}
-  function fmtTime(t){if(!t)return '-';var d=new Date(Number(t)||t);if(String(d)==='Invalid Date')return String(t);return d.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
-  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
-  function feedRows(snap){var rows=[];var feeds=Array.isArray(snap&&snap.feeds)?snap.feeds:[];feeds.forEach(function(f){var type=String(f&&f.type||'이용');if(type==='치킨'||type==='올다이'||type==='사이드') return;rows.push({type:type||'이용', text:String(f&&f.text||''), time:f&&f.time});});return rows;}
-  function openUsage(){var m=currentMatch();var modal=document.getElementById('resultUsageHistoryModal');var list=document.getElementById('resultUsageHistoryList');if(!modal||!list)return;var snap=(m&&m.snapshot)||{};var rows=feedRows(snap);if(!rows.length){list.innerHTML='<div class="pkl-usage-empty">이 회차에 저장된 불판/서렌 이용내역이 없습니다.</div>';}else{list.innerHTML=rows.map(function(r){return '<div class="pkl-usage-item"><div class="pkl-usage-type">'+esc(r.type)+'</div><div class="pkl-usage-text">'+esc(r.text)+'</div><div class="pkl-usage-time">'+esc(fmtTime(r.time))+'</div></div>';}).join('');}try{document.body.appendChild(modal);}catch(e){}modal.classList.add('open');modal.setAttribute('aria-hidden','false');}
-  function closeUsage(){var modal=document.getElementById('resultUsageHistoryModal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}}
-  document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('#resultUsageHistoryBtn')){e.preventDefault();openUsage();}if(e.target&&e.target.closest&&e.target.closest('#resultUsageCloseBtn')){e.preventDefault();closeUsage();}if(e.target&&e.target.id==='resultUsageHistoryModal'){closeUsage();}},true);
+  function topDelete(){
+    var m=document.getElementById('resultDeleteConfirmModal');
+    if(!m) return;
+    try{document.body.appendChild(m);}catch(e){}
+    m.style.setProperty('z-index','2147482600','important');
+    var b=m.querySelector('.pkl-delete-confirm-box');
+    if(b)b.style.setProperty('z-index','2147482601','important');
+    if(window.PKLBringModalToFront) window.PKLBringModalToFront(m);
+  }
+  function bind(){
+    var btn=document.getElementById('adminDeleteMatchBtn');
+    if(btn && !btn.dataset.pklNestedBound){btn.dataset.pklNestedBound='1';btn.addEventListener('click',function(){setTimeout(topDelete,0);setTimeout(topDelete,100);},true);}
+    var m=document.getElementById('resultDeleteConfirmModal');
+    if(m && !m.dataset.pklNestedMo){m.dataset.pklNestedMo='1';new MutationObserver(function(){if(m.classList.contains('open')) topDelete();}).observe(m,{attributes:true,attributeFilter:['class','style','aria-hidden']});}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
 </script>
 
@@ -2895,17 +2792,60 @@ window.PKL_RESULT_DELETE_FIX=true;
 })();
 </script>
 
-
-<style>
-.pkl-admin-modal,
-.pkl-delete-modal,
-.pkl-round-modal,
-.pkl-confirm-modal{
-  z-index:999999 !important;
-}
+<!-- PKL result admin modal top layer hardfix -->
+<style id="pkl-result-admin-topmost-hardfix">
+  #resultAdminModal.pkl-result-admin-modal,
+  #resultAdminModal.pkl-result-admin-modal.open{
+    position:fixed !important;
+    inset:0 !important;
+    display:none;
+    z-index:2147483647 !important;
+    pointer-events:auto !important;
+    isolation:isolate !important;
+  }
+  #resultAdminModal.pkl-result-admin-modal.open{display:flex !important;}
+  #resultAdminModal .pkl-result-admin-panel{
+    position:relative !important;
+    z-index:2147483647 !important;
+    pointer-events:auto !important;
+    overflow:visible !important;
+  }
+  #resultAdminClose.pkl-result-admin-close{
+    position:absolute !important;
+    top:16px !important;
+    right:16px !important;
+    left:auto !important;
+    transform:none !important;
+    z-index:2147483647 !important;
+    pointer-events:auto !important;
+    cursor:pointer !important;
+  }
+  #resultDeleteConfirmModal.pkl-delete-confirm-modal.open{
+    z-index:2147483646 !important;
+  }
 </style>
-
-<script>
-// PKL_NEXT_ROUND_SEQUENCE
-window.PKL_USE_SEQUENTIAL_ROUND_NAME = true;
+<script id="pkl-result-admin-topmost-hardfix-script">
+(function(){
+  'use strict';
+  function bring(){
+    var m=document.getElementById('resultAdminModal');
+    if(!m) return;
+    if(m.parentNode!==document.body) document.body.appendChild(m);
+    m.style.zIndex='2147483647';
+    var p=m.querySelector('.pkl-result-admin-panel'); if(p) p.style.zIndex='2147483647';
+  }
+  document.addEventListener('click',function(e){
+    var open=e.target&&e.target.closest&&e.target.closest('#adminPanelBtn');
+    if(open) setTimeout(bring,0);
+    var close=e.target&&e.target.closest&&e.target.closest('#resultAdminClose');
+    if(close){
+      e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+      var m=document.getElementById('resultAdminModal');
+      if(m){m.classList.remove('open');m.setAttribute('aria-hidden','true');m.style.display='none';}
+    }
+  },true);
+  var mo=new MutationObserver(function(){var m=document.getElementById('resultAdminModal'); if(m&&m.classList.contains('open')) bring();});
+  if(document.body) mo.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
+  setTimeout(bring,100);
+})();
 </script>

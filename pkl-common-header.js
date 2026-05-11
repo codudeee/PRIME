@@ -46,7 +46,7 @@ function pklCanChangeRole() {
   const MAIL_KEY = "pklMailboxMails";
   const HEADER_HTML = `<header class="topbar">
 <div class="topbar-inner">
-<a aria-label="PKL 메인" class="brand" href="index.html"><img class="brand-logo-img" src="pkl_logo_final.webp" alt="PKL"><div class="brand-name">PRIME KILL LEAGUE</div></a>
+<a aria-label="PKL 메인" class="brand" href="index.html"><img class="brand-logo-img" src="pkl_logo_final.png" alt="PKL"><div class="brand-name">PRIME KILL LEAGUE</div></a>
 <nav aria-label="주요 메뉴" class="main-nav"><a href="index.html">메인</a><a href="join.html">참가</a><a href="team.html">팀구성</a><a href="sheet.html">시트지</a><a href="tier.html">티어표</a><a href="result.html">결과표</a><a href="patch.html">패치노트</a><a href="search.html">전적검색</a></nav>
 <div class="user-box"><button class="top-btn manager-btn" id="managerBtn" type="button" onclick="location.href='admin.html'">관리홈</button><div class="account-wrap">
 <button class="top-btn account-trigger" id="loginBtn" type="button">LOGIN<span class="mail-badge" id="mailBadge" style="display:none"></span></button>
@@ -365,34 +365,10 @@ if(node.nodeType===Node.TEXT_NODE){
   }
 
   function readMails(){
-    let local=[];
     try{
       const data=JSON.parse(localStorage.getItem(MAIL_KEY) || "[]");
-      local=Array.isArray(data) ? data : [];
-    }catch(e){ local=[]; }
-    try{
-      const login=getLoginUser&&getLoginUser();
-      const stored=findStoredPklUser&&findStoredPklUser(login);
-      const remote=[];
-      [stored&&stored.pklMailboxMails,stored&&stored.mailbox,stored&&stored.mails,stored&&stored.mailboxMails].forEach(function(list){
-        if(Array.isArray(list)) remote.push(...list);
-      });
-      if(remote.length){
-        const seen=new Set();
-        const merged=[...remote,...local].filter(function(mail){
-          if(!mail||typeof mail!=="object")return false;
-          const id=String(mail.id||mail.mailId||JSON.stringify(mail));
-          if(seen.has(id))return false;
-          seen.add(id);
-          return true;
-        });
-        if(JSON.stringify(merged)!==JSON.stringify(local)){
-          try{localStorage.setItem(MAIL_KEY,JSON.stringify(merged));localStorage.setItem("pklMailbox",JSON.stringify(merged));localStorage.setItem("pklMails",JSON.stringify(merged));localStorage.setItem("pklMailboxUnread",String(merged.filter(m=>!m.deleted&&!isRead(m)).length));}catch(e){}
-        }
-        return merged;
-      }
-    }catch(e){}
-    return local;
+      return Array.isArray(data) ? data : [];
+    }catch(e){ return []; }
   }
 
   function saveMails(mails){

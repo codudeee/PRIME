@@ -30,7 +30,7 @@ body{
   content:"";
   position:fixed;
   inset:0;
-  background:url("pkl_join_bg.webp") center/cover no-repeat;
+  background:url("login_bg.png") center/cover no-repeat;
   z-index:-3;
   transform:scale(1.01);
 }
@@ -619,54 +619,6 @@ body{
   transform:scale(.98);
 }
 
-
-/* PKL 보유 프라임 표시칸 */
-.prime-field{
-  grid-template-columns:132px minmax(0,1fr) !important;
-  border-color:rgba(255,213,106,.55) !important;
-  background:
-    radial-gradient(circle at 0 0,rgba(255,213,106,.20),transparent 42%),
-    linear-gradient(135deg,rgba(255,213,106,.13),rgba(124,58,237,.06) 42%,rgba(0,0,0,.30)),
-    rgba(12,9,20,.82) !important;
-  box-shadow:
-    inset 0 0 22px rgba(0,0,0,.34),
-    0 0 22px rgba(255,213,106,.16),
-    0 0 38px rgba(168,85,247,.08) !important;
-}
-.prime-field .profile-label{
-  color:#ffe9a6 !important;
-  text-shadow:0 0 12px rgba(255,213,106,.42);
-}
-.prime-display{
-  min-height:48px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:0 16px;
-  border-radius:8px;
-  border:1px solid rgba(255,213,106,.34);
-  background:linear-gradient(180deg,rgba(22,15,6,.92),rgba(6,5,10,.94));
-  color:#fff7d6;
-  box-shadow:inset 0 0 18px rgba(0,0,0,.40),0 0 16px rgba(255,213,106,.12);
-  user-select:none;
-}
-.prime-display .prime-count{
-  font-size:22px;
-  line-height:1;
-  font-weight:1000;
-  color:#ffd45a;
-  text-shadow:0 0 10px rgba(255,213,106,.48),0 0 22px rgba(168,85,247,.20);
-}
-.prime-display .prime-unit{
-  font-size:12px;
-  font-weight:1000;
-  color:rgba(255,245,200,.78);
-  letter-spacing:.6px;
-}
-@media (max-width:700px){
-  .prime-field{grid-template-columns:1fr !important;}
-}
 </style>
 
 <style>
@@ -1377,15 +1329,8 @@ async function withdrawAccount(){
 }
 
 </script>
-<script src="pkl-supabase-config.js"></script>
-
+<script src="pkl-firebase-data-sync.js"></script>
 <script src="pkl-user-profile-core.js"></script>
-
-<style id="pklBgRestoreFinal">
-html,body{background:#05050a !important;}
-.my-page::before{background:url("pkl_join_bg.webp") center/cover no-repeat !important;opacity:1 !important;display:block !important;}
-.my-page::after{background:radial-gradient(circle at 50% 52%,rgba(168,85,247,.13),transparent 30%),linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.17) 38%,rgba(0,0,0,.60)) !important;}
-</style>
 </head>
 <body>
 <button class="back-home" type="button" onclick="history.back()">← 뒤로가기</button>
@@ -1398,19 +1343,6 @@ html,body{background:#05050a !important;}
 
       <form class="form" onsubmit="saveMyInfo(event)" autocomplete="off">
         <div class="info-grid">
-
-          <div class="info-row">
-            <div class="profile-field prime-field is-single">
-              <div class="profile-label">보유 프라임</div>
-              <div class="profile-control">
-                <div class="prime-display" aria-label="보유 프라임">
-                  <span class="prime-count" id="primeDisplay">0</span>
-                  <span class="prime-unit">PRIME</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div class="info-row">
             <div class="profile-field">
               <div class="profile-label">NICKNAME</div>
@@ -1477,7 +1409,7 @@ function saveUsers(users){
   localStorage.setItem("pklUsers", JSON.stringify(arr));
   localStorage.setItem("PKL_USERS", JSON.stringify(arr));
   try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.setUsers === "function") window.PKLUserProfile.setUsers(arr, true); }catch(e){}
-  try{ if(window.PKLDataSync && window.PKLDataSync.setShared) window.PKLDataSync.setShared("pklUsers", arr); }catch(e){}
+  try{ if(window.PKLFirebaseDataSync && window.PKLFirebaseDataSync.setShared) window.PKLFirebaseDataSync.setShared("pklUsers", arr); }catch(e){}
 }
 
 function getLoginUser(){
@@ -1608,31 +1540,10 @@ function updateAccountStorage(updatedUser){
   return updatedUser;
 }
 
-
-function resolvePrimeValue(user){
-  const candidates = [
-    user?.prime, user?.primes, user?.primePoint, user?.primePoints,
-    user?.point, user?.points, user?.dia, user?.chicken
-  ];
-  for(const value of candidates){
-    const n = Number(value);
-    if(Number.isFinite(n)) return Math.max(0, Math.floor(n));
-  }
-  return 0;
-}
-
-function setPrimeDisplay(user){
-  const el = document.getElementById("primeDisplay");
-  if(!el) return;
-  const n = resolvePrimeValue(user || {});
-  el.textContent = n.toLocaleString("ko-KR");
-}
-
 function renderMyInfo(){
   const user = getLoginUser();
-  if(!user){location.href='register.html';return;}
+  if(!user){location.href = "login.html";return;}
   originalUser = {...user};
-  setPrimeDisplay(user);
   const nickname = user.nickname || user.nick || user.name || "";
   const pubg = user.pubgId || user.gameId || user.ref || "";
   document.getElementById("nicknameInput").value = nickname;
@@ -1677,7 +1588,7 @@ function saveMyInfo(e){
   const stored = updateAccountStorage(Object.assign({}, updated, {__pklProfileWrite:true,pklProfileUpdatedAt:new Date().toISOString()}));
   updateAdminStorage(stored);
   try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function") window.PKLUserProfile.upsert(stored, true); }catch(e){}
-  try{ if(window.PKLDataSync && window.PKLDataSync.setShared) window.PKLDataSync.setShared("pklUsers", JSON.parse(localStorage.getItem("pklUsers")||"[]")); }catch(e){}
+  try{ if(window.PKLFirebaseDataSync && window.PKLFirebaseDataSync.setShared) window.PKLFirebaseDataSync.setShared("pklUsers", JSON.parse(localStorage.getItem("pklUsers")||"[]")); }catch(e){}
   setEveryLoginUser(stored);
   originalUser = {...stored};
   nicknameCheckedValue = nickname;
@@ -2034,8 +1945,8 @@ async function withdrawAccount(){
         else users.push(updated);
         localStorage.setItem("pklUsers", JSON.stringify(users));
         localStorage.setItem("PKL_USERS", JSON.stringify(users));
-        if(window.PKLDataSync && window.PKLDataSync.setShared){
-          await window.PKLDataSync.setShared("pklUsers", users);
+        if(window.PKLFirebaseDataSync && window.PKLFirebaseDataSync.setShared){
+          await window.PKLFirebaseDataSync.setShared("pklUsers", users);
         }
       }
     }catch(e){ console.warn("[PKL] myinfo final pklUsers save failed", e); }
@@ -2090,10 +2001,10 @@ async function withdrawAccount(){
     const div=document.createElement('div');div.id='pklWithdrawPolicyModal';div.innerHTML=`<div class="pkl-withdraw-card"><div class="k">PKL ACCOUNT WITHDRAWAL</div><h2>회원탈퇴 안내</h2><p>회원탈퇴를 진행하면 현재 계정 정보가 삭제됩니다.</p><div class="warn">회원 탈퇴하면 30일간 다시 회원가입할 수 없습니다.</div><div class="pkl-withdraw-actions"><button type="button" class="pkl-withdraw-cancel">취소</button><button type="button" class="pkl-withdraw-ok">회원탈퇴</button></div></div>`;document.body.appendChild(div);
   }
   function confirmWithdraw(){ensureModal();return new Promise(resolve=>{const m=document.getElementById('pklWithdrawPolicyModal');const ok=m.querySelector('.pkl-withdraw-ok'),cancel=m.querySelector('.pkl-withdraw-cancel');function done(v){m.classList.remove('open');ok.onclick=cancel.onclick=null;resolve(v);}ok.onclick=()=>done(true);cancel.onclick=()=>done(false);m.classList.add('open');});}
-  async function syncShared(key,val){try{if(window.PKLDataSync&&window.PKLDataSync.setShared)await window.PKLDataSync.setShared(key,val);}catch(e){}}
+  async function syncShared(key,val){try{if(window.PKLFirebaseDataSync&&window.PKLFirebaseDataSync.setShared)await window.PKLFirebaseDataSync.setShared(key,val);}catch(e){}}
   window.withdrawAccount=async function(){
     const ok=await confirmWithdraw(); if(!ok) return;
-    const login=getLogin(); if(!login){location.href='register.html';return;}
+    const login=getLogin(); if(!login){location.href='login.html';return;}
     const date=nowText(); const expiresAt=addDaysIso(30);
     const ban={type:'selfWithdraw',selfWithdrawal:true,nickname:nickOf(login)||'-',pubgId:pubgOf(login)||'',discordId:login.discordId||'',uid:login.uid||login.id||'',reason:'본인 회원탈퇴 · 30일 재가입 제한',date,createdAt:new Date().toISOString(),expiresAt,admin:'SELF'};
     const users=(parse('pklUsers',[])||[]).filter(u=>!same(u,login));
@@ -2114,7 +2025,6 @@ async function withdrawAccount(){
   };
 })();
 </script>
-  <script src="./pkl-responsive-scale.js"></script>
 </body>
 </html>
 
@@ -2131,7 +2041,7 @@ function syncUserEverywhere(user){
    admin.users=admin.users.map(v=>String(v.discordId||v.uid||'')===String(user.discordId||user.uid||'')?({...v,...user}):v);
    localStorage.setItem('pklAdminState_v3',JSON.stringify(admin));
   }
-  if(window.PKLDataSync?.setShared){window.PKLDataSync.setShared('pklUsers',next);}
+  if(window.PKLFirebaseDataSync?.setShared){window.PKLFirebaseDataSync.setShared('pklUsers',next);}
  }catch(e){console.error(e)}
 }
  const oldSave=window.saveMyInfo;
@@ -2154,7 +2064,7 @@ function syncUserEverywhere(user){
   localStorage.removeItem('pklLoginUser');
   localStorage.removeItem('pklCurrentUser');
   localStorage.removeItem('discordUser');
-  if(window.PKLDataSync?.setShared){await window.PKLDataSync.setShared('pklUsers',users);}
+  if(window.PKLFirebaseDataSync?.setShared){await window.PKLFirebaseDataSync.setShared('pklUsers',users);}
   alert('회원탈퇴 완료');
   location.href='index.html';
  }
@@ -2202,10 +2112,10 @@ function syncUserEverywhere(user){
       m.classList.add('open');
     });
   }
-  async function syncShared(key,val){try{if(window.PKLDataSync&&window.PKLDataSync.setShared)await window.PKLDataSync.setShared(key,val);}catch(e){}}
+  async function syncShared(key,val){try{if(window.PKLFirebaseDataSync&&window.PKLFirebaseDataSync.setShared)await window.PKLFirebaseDataSync.setShared(key,val);}catch(e){}}
   async function realWithdraw(){
     const ok=await confirmWithdraw(); if(!ok) return;
-    const login=getLogin(); if(!login){location.href='register.html';return;}
+    const login=getLogin(); if(!login){location.href='login.html';return;}
     const date=nowText(); const createdAt=new Date().toISOString(); const expiresAt=addDaysIso(30);
     const ban={type:'selfWithdraw',selfWithdrawal:true,nickname:nickOf(login)||'-',pubgId:pubgOf(login)||'',discordId:login.discordId||'',uid:login.uid||login.id||'',reason:'본인 회원탈퇴 · 30일 재가입 제한',date,createdAt,expiresAt,admin:'SELF'};
     const users=(parseKey('pklUsers',[])||[]).filter(u=>!same(u,login));
