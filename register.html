@@ -1,9 +1,3 @@
-
-// PKL role change restriction
-function pklCanChangeRole(currentUser){
-  return currentUser && currentUser.role === "총관리자";
-}
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -671,6 +665,25 @@ html,body{background:#05050a !important;}
 </style>
 </head>
 <body>
+<script id="pkl-discord-login-button-hard-bind">
+(function(){
+  function bindDiscordLoginButton(){
+    var buttons = document.querySelectorAll('#discordLoginBtn,.discord-btn');
+    buttons.forEach(function(btn){
+      btn.disabled = false;
+      btn.style.pointerEvents = 'auto';
+      btn.onclick = function(event){
+        if(event) event.preventDefault();
+        window.location.href = '/api/discord-login';
+        return false;
+      };
+    });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindDiscordLoginButton);
+  else bindDiscordLoginButton();
+  window.addEventListener('load', bindDiscordLoginButton);
+})();
+</script>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
 
 <main class="join-page">
@@ -684,7 +697,7 @@ html,body{background:#05050a !important;}
         최초 Discord 로그인 시 한글 닉네임 설정 후 일반 회원으로 등록됩니다.
       </div>
       <div class="form">
-        <button class="discord-btn" type="button" onclick="">
+        <button id="discordLoginBtn" class="discord-btn" type="button" onclick="location.href='/api/discord-login'">
           Discord로 로그인 / 가입
         </button>
         <p class="success-msg">Discord 인증 후 자동으로 메인 화면으로 이동합니다.</p>
