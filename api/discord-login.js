@@ -19,7 +19,7 @@ function getRedirectUri(event) {
     return `${siteUrl}/api/discord-callback`;
   }
   if (configured && !/localhost|127\.0\.0\.1/i.test(configured)) return configured.replace(/\/$/, "");
-  return `${siteUrl}/api/discord-callback`;
+  return PRODUCTION_REDIRECT_URI;
 }
 
 exports.handler = async function(event) {

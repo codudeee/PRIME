@@ -34,7 +34,7 @@ function getRedirectUri(event) {
   const host = String(event.headers.host || event.headers.Host || "");
   if (/localhost|127\.0\.0\.1/i.test(host)) return `${siteUrl}/api/discord-callback`;
   if (configured && !/localhost|127\.0\.0\.1/i.test(configured)) return configured.replace(/\/$/, "");
-  return `${siteUrl}/api/discord-callback`;
+  return PRODUCTION_REDIRECT_URI;
 }
 function mask(value) {
   const v = String(value || "");
@@ -74,10 +74,31 @@ function normalizeRole(role){
   return "user";
 }
 async function readServerUsers(){
-  return await supabaseStore.readUsers();
+  if (supabaseStore && typeof supabaseStore.readUsers === "function") {
+    return await supabaseStore.readUsers();
+  }
+  if (supabaseStore && typeof supabaseStore.readUserDocs === "function") {
+    const first = await supabaseStore.readUserDocs({ limit: 100, offset: 0 });
+    let users = Array.isArray(first && first.users) ? first.users : [];
+    const total = Number(first && first.count) || users.length;
+    for (let offset = users.length; offset < total && offset < 1000; offset += 100) {
+      const next = await supabaseStore.readUserDocs({ limit: 100, offset });
+      users = users.concat(Array.isArray(next && next.users) ? next.users : []);
+    }
+    return users;
+  }
+  return [];
 }
 async function writeServerUsers(users){
-  await supabaseStore.writeUsers(users);
+  if (supabaseStore && typeof supabaseStore.writeUsers === "function") {
+    await supabaseStore.writeUsers(users);
+    return true;
+  }
+  if (supabaseStore && typeof supabaseStore.writeUserDoc === "function") {
+    const list = Array.isArray(users) ? users : [];
+    for (const user of list) await supabaseStore.writeUserDoc(user, normalizeRole(user && (user.memberRole || user.role)) === "admin");
+    return true;
+  }
   return true;
 }
 function createUser(discordUser, nickname, saved){
@@ -117,8 +138,10 @@ async function registerServerUser(discordUser, nickname){
   const merged = createUser(discordUser, finalNickname, saved || {});
   if (!saved && Array.isArray(users) && users.length===0){ merged.role="admin"; merged.memberRole="admin"; merged.memberRoleName="관리자"; }
   if (!saved && nicknameTaken(users, finalNickname, merged)) return { ok:false, statusCode:409, message:"이미 사용 중인 닉네임입니다." };
+  const makeFirstAdmin = !saved && Array.isArray(users) && users.length === 0;
   if (existingIndex >= 0) users[existingIndex] = merged; else users.push(merged);
-  await writeServerUsers(users);
+  if (supabaseStore && typeof supabaseStore.writeUserDoc === "function") await supabaseStore.writeUserDoc(merged, makeFirstAdmin);
+  else await writeServerUsers(users);
   return { ok:true, user: merged, users };
 }
 function oauthErrorHtml(title, message, data) {

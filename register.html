@@ -8,7 +8,7 @@ function pklCanChangeRole(currentUser){
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<title>PKL 회원가입</title>
+<title>PKL 로그인</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
 *{box-sizing:border-box}
@@ -676,7 +676,7 @@ html,body{background:#05050a !important;}
 <main class="join-page">
   <section class="join-shell" aria-label="PKL Discord 가입">
     <div class="join-card">
-      <h1 class="join-title">JOIN</h1>
+      <h1 class="join-title">LOGIN</h1>
       <p class="join-sub">PRIME KILL LEAGUE DISCORD AUTH</p>
       <div class="join-rule-box">
         기존 아이디/비밀번호 회원가입은 사용하지 않습니다.<br>
@@ -685,13 +685,13 @@ html,body{background:#05050a !important;}
       </div>
       <div class="form">
         <button class="discord-btn" type="button" onclick="">
-          Discord로 가입 / 로그인
+          Discord로 로그인 / 가입
         </button>
         <p class="success-msg">Discord 인증 후 자동으로 메인 화면으로 이동합니다.</p>
       </div>
       <div class="divider">PKL AUTH</div>
       <div class="join-links">
-        <a href='register.html'>로그인 화면</a>
+        <a href='index.html'>메인으로</a>
         <a href="contact.html">관리자문의</a>
       </div>
     </div>
@@ -857,7 +857,7 @@ access_token,
 refresh_token
 });
 
-history.replaceState({},document.title,'/register.html');
+history.replaceState({},document.title, window.location.pathname || '/register.html');
 
 }
 
@@ -975,16 +975,11 @@ if(btn){
 btn.disabled=false;
 btn.style.pointerEvents='auto';
 
-btn.onclick = async function(e){
+btn.onclick = function(e){
 
 e.preventDefault();
 
-await client.auth.signInWithOAuth({
-provider:'discord',
-options:{
-redirectTo: window.location.origin + '/register.html'
-}
-});
+location.href = '/api/discord-login';
 
 };
 

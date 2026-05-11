@@ -182,34 +182,25 @@ async function writeUserDoc(user, forceAdmin=false){
     return await upsert(fallback);
   }
 }
-async function readUsers(options={}){
-  const pageSize = Math.max(1, Math.min(100, Number(options.limit || 100)));
-  const q = clean(options.q || '');
-  if(q){
-    const result = await readUserDocs({ limit: pageSize, offset: Math.max(0, Number(options.offset || 0)), q });
-    return result.users;
+
+async function readUsers(){
+  const first = await readUserDocs({ limit: 100, offset: 0 });
+  let users = Array.isArray(first && first.users) ? first.users : [];
+  const total = Number(first && first.count) || users.length;
+  for (let offset = users.length; offset < total && offset < 1000; offset += 100) {
+    const next = await readUserDocs({ limit: 100, offset });
+    users = users.concat(Array.isArray(next && next.users) ? next.users : []);
   }
-  const max = Math.max(pageSize, Math.min(1000, Number(options.max || 1000)));
-  const users = [];
-  for(let offset = 0; offset < max; offset += pageSize){
-    const result = await readUserDocs({ limit: Math.min(pageSize, max - offset), offset });
-    users.push(...(result.users || []));
-    if(!result.users || result.users.length < pageSize) break;
-  }
-  return mergeUsers(users);
+  return users;
 }
 async function writeUsers(users){
-  const input = Array.isArray(users) ? users : [];
+  const list = Array.isArray(users) ? users : [];
   const saved = [];
-  for(const user of input){
-    if(!user || typeof user !== 'object') continue;
-    const normalized = normalizeUser(user);
-    if(!cleanId(normalized.discordId || normalized.uid || normalized.id)) continue;
-    saved.push(await writeUserDoc(normalized, normalizeRole(normalized.role || normalized.memberRole) === 'admin'));
-  }
-  return mergeUsers(saved);
+  for (const user of list) saved.push(await writeUserDoc(user, normalizeRole(user && (user.memberRole || user.role)) === 'admin'));
+  return saved;
 }
 async function readAdminState(){
-  return { users: await readUsers({ max: 1000 }), pending: [], bans: [], warningRecords: [] };
+  return { users: await readUsers(), pending: [], bans: [], warningRecords: [] };
 }
+
 module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser };
