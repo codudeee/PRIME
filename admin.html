@@ -1,7 +1,3 @@
-const seoulClockText = document.getElementById("seoulClockText");
-
-
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -37,7 +33,7 @@ body{
   background:
     radial-gradient(circle at 50% 12%,rgba(124,58,237,.22),transparent 34%),
     linear-gradient(180deg,rgba(3,2,8,.18),rgba(3,2,8,.72) 54%,rgba(3,2,8,.92)),
-    url("pkl_admin_bg.png") center top / cover fixed no-repeat;
+    url("pkl_admin_bg.webp") center top / cover fixed no-repeat;
 }
 body::after{
   content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;
@@ -5804,45 +5800,95 @@ html,body{
 </style>
 
 
-<style id="pkl-admin-users-supabase-lazy-style">
-/* 회원관리 유저 목록 전용: 기존 UI 보존 + 디자인 스크롤 */
-#userManageTab{display:grid;}
-#userList.user-list{
+<style id="pkl-admin-users-final-stability-fix-20260512">
+/* admin 회원관리 전용 보정: 기존 UI는 유지하고 밀림/스크롤/통계만 안정화 */
+#userManageTab{
+  min-height:0 !important;
+  overflow:hidden !important;
+}
+#userManageTab .user-panel,
+#userManageTab .center-panel,
+#userManageTab .action-panel{
+  min-width:0 !important;
+  min-height:0 !important;
+}
+#userManageTab .user-list{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  max-height:calc(100vh - 285px) !important;
   overflow-y:auto !important;
   overflow-x:hidden !important;
-  scrollbar-width:thin;
-  scrollbar-color:rgba(196,181,253,.78) rgba(255,255,255,.045);
-  scroll-behavior:smooth;
+  padding:8px 14px 16px 14px !important;
+  scrollbar-width:thin !important;
+  scrollbar-color:rgba(190,160,255,.72) rgba(255,255,255,.045) !important;
 }
-#userList.user-list::-webkit-scrollbar{width:10px;}
-#userList.user-list::-webkit-scrollbar-track{
-  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(124,58,237,.045));
-  border-radius:999px;
-  margin:8px 0;
+#userManageTab .user-list::-webkit-scrollbar{width:8px !important;}
+#userManageTab .user-list::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.035) !important;
+  border-radius:999px !important;
+  margin:6px 0 !important;
 }
-#userList.user-list::-webkit-scrollbar-thumb{
-  border:2px solid rgba(8,7,18,.92);
-  border-radius:999px;
-  background:linear-gradient(180deg,rgba(233,213,255,.92),rgba(124,58,237,.66));
-  box-shadow:0 0 16px rgba(124,58,237,.34);
+#userManageTab .user-list::-webkit-scrollbar-thumb{
+  border-radius:999px !important;
+  background:linear-gradient(180deg,rgba(216,180,254,.82),rgba(124,58,237,.58)) !important;
+  box-shadow:0 0 12px rgba(168,85,247,.26) !important;
 }
-#userList.user-list::-webkit-scrollbar-thumb:hover{
-  background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(167,139,250,.86));
+#userManageTab .detail{
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+  align-items:stretch !important;
+  overflow:hidden !important;
 }
-.pkl-users-loading-row,.pkl-users-end-row{
-  height:42px;
+#userManageTab .info-block{
+  min-width:0 !important;
+  min-height:0 !important;
+  height:auto !important;
+  overflow:hidden !important;
+}
+#userManageTab .metric-grid{
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+  grid-auto-rows:minmax(82px,1fr) !important;
+  min-width:0 !important;
+  height:auto !important;
+}
+#userManageTab .metric,
+#userManageTab .metric b,
+#userManageTab .metric span{
+  min-width:0 !important;
+  max-width:100% !important;
+  height:auto !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+#userManageTab .metric b{
+  font-size:18px !important;
+  line-height:1.2 !important;
+  white-space:normal !important;
+  word-break:keep-all !important;
+  overflow-wrap:anywhere !important;
+}
+#userManageTab .row{
+  grid-template-columns:96px minmax(0,1fr) !important;
+}
+#userManageTab .row strong{
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}
+.pkl-users-loading-card{
+  height:74px;
   display:flex;
   align-items:center;
   justify-content:center;
-  margin:8px 0 2px;
-  border-radius:14px;
-  border:1px solid rgba(216,180,254,.13);
-  background:rgba(124,58,237,.08);
-  color:rgba(237,233,254,.74);
-  font-size:12px;
-  font-weight:950;
+  border-radius:16px;
+  border:1px solid rgba(216,180,254,.12);
+  background:linear-gradient(90deg,rgba(124,58,237,.10),rgba(255,255,255,.035));
+  color:rgba(231,225,255,.66);
+  font-size:13px;
+  font-weight:1000;
 }
 </style>
+
 </head>
 <body>
 <div class="app">
@@ -5881,7 +5927,7 @@ html,body{
     <section class="grid user-tab" id="userManageTab" style="display:grid;">
       <section class="glass user-panel">
         <div class="panel-title"><h2>유저 목록</h2><small id="userCount">0명</small></div>
-        <div class="search-row"><input id="search" placeholder="닉네임 / ID 검색"><button class="filter-btn">≡</button></div>
+        <div class="search-row"><input id="search" placeholder="닉네임 / ID 검색" oninput="render()"><button class="filter-btn">≡</button></div>
         <div class="user-list" id="userList"></div>
       </section>
 
@@ -6725,21 +6771,11 @@ function penaltyBadgeHtml(u){if(!isPenaltyActive(u))return "";const until=u.pena
 function permanentBanRecord(u,reason,auto){const role=normalizeRole(u.role);return {nickname:u.nickname,pubgId:u.pubgId,discordId:u.discordId||"",role:role,reason:reason,date:nowText(),admin:adminName(),auto:!!auto,permanent:true,ip:u.ip||u.lastIp||"",clientId:u.clientId||"",uid:u.uid||u.id||""};}
 function syncPermanentBanStorage(){try{const old=JSON.parse(localStorage.getItem("pklBannedUsers")||"[]");const merged=[...old];(state.bans||[]).forEach(b=>{const same=merged.some(x=>(x.uid&&b.uid&&x.uid===b.uid)||(x.discordId&&b.discordId&&x.discordId===b.discordId)||(x.nickname&&x.nickname===b.nickname)||(x.pubgId&&x.pubgId===b.pubgId)||(x.ip&&b.ip&&x.ip===b.ip));if(!same)merged.push({nickname:b.nickname,pubgId:b.pubgId,discordId:b.discordId||"",uid:b.uid||"",ip:b.ip||"",clientId:b.clientId||"",reason:b.reason||"영구추방",date:b.date||nowText(),admin:b.admin||adminName(),permanent:b.permanent!==false});});localStorage.setItem("pklBannedUsers",JSON.stringify(merged));}catch(e){}}
 
-function pklVisibleScreenId(){const screens=[...document.querySelectorAll('#userManageTab,.admin-screen')];const visible=screens.find(el=>el&&getComputedStyle(el).display!=="none");return visible?visible.id:"userManageTab";}
-function render(){
-  const visibleId=pklVisibleScreenId();
-  if(visibleId==="userManageTab"){
-    renderUserList();
-    renderProfile();
-  }else{
-    renderCurrentScreen();
-  }
-  renderStats();
-}
+function render(){ if(typeof renderPklRoleDistribution==='function' && typeof state!=="undefined"){setTimeout(()=>renderPklRoleDistribution(state.users||[]),50);} renderUserList();renderProfile();renderStats();renderCurrentScreen();if(typeof updatePremiumDashboard==='function')updatePremiumDashboard();}
 function renderUserList(){
   normalizeAllUserRoles();
   const q=(document.getElementById("search")?.value||"").trim().toLowerCase();
-  const list=state.users.map((u,i)=>({u,i})).filter(({u})=>!q||String(u.nickname).toLowerCase().includes(q)||String(u.pubgId).toLowerCase().includes(q)||String(roleName(u.role)).toLowerCase().includes(q));
+  const list=state.users.map((u,i)=>({u,i})).filter(({u})=>!q||String(u.nickname).toLowerCase().includes(q)||String(u.pubgId).toLowerCase().includes(q)||String(roleName(u.role)).toLowerCase().includes(q)).sort((a,b)=>String(a.u.nickname||a.u.name||"").localeCompare(String(b.u.nickname||b.u.name||""),"ko-KR",{numeric:true,sensitivity:"base"}));
   const wrap=document.getElementById("userList");
   if(!wrap)return;
   wrap.innerHTML=list.map(({u,i})=>`
@@ -6764,6 +6800,15 @@ function renderEmptyProfile(){
   const badges=document.getElementById("badges"); if(badges)badges.innerHTML="";
   const pMeta=document.getElementById("pMeta"); if(pMeta)pMeta.textContent="";
   const memoList=document.getElementById("memoList"); if(memoList)memoList.innerHTML='<div class="detail-log-empty">회원 데이터가 없습니다.</div>';
+}
+
+
+function formatPklAdminDate(value){
+  const raw=String(value||"").trim();
+  if(!raw)return "-";
+  const d=new Date(raw);
+  if(Number.isNaN(d.getTime()))return raw;
+  return new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:true}).format(d).replace(/\. /g,".").replace(/\.$/,"");
 }
 
 function renderProfile(){
@@ -6792,13 +6837,14 @@ function renderProfile(){
   document.getElementById("dWarn").textContent=u.warnings+"/4";
   document.getElementById("dDia").textContent=(u.dia??0)+"";
   document.getElementById("dOrder").textContent=u.join||"-";
-  const joinCount=Number(u.logs??u.matchCount??u.matches??u.games??u.stats?.matches??0)||0;
-  const winRate=(u.winRate??u.stats?.winRate);
-  const avgKill=(u.avgKill??u.averageKill??u.stats?.avgKill);
-  document.getElementById("mJoin").textContent=joinCount+"회";
-  document.getElementById("mWin").textContent=(winRate==null||winRate==="")?"-":(Number(winRate)||0)+"%";
-  document.getElementById("mLast").textContent=u.last||u.lastLogin||"-";
-  document.getElementById("mAvgKill").textContent=(avgKill==null||avgKill==="")?"-":(Number(avgKill)||0).toFixed(1);
+  const stats=u.stats||u.user_stats||{};
+  const games=Number(stats.games ?? stats.matches ?? stats.play_count ?? u.games ?? u.matches ?? 0)||0;
+  const wins=Number(stats.wins ?? u.wins ?? 0)||0;
+  const kills=Number(stats.kills ?? u.kills ?? 0)||0;
+  document.getElementById("mJoin").textContent=games+"회";
+  document.getElementById("mWin").textContent=games>0?Math.round((wins/games)*100)+"%":"0%";
+  document.getElementById("mLast").textContent=formatPklAdminDate(u.last||u.lastLogin||u.updated_at||u.updatedAt||"");
+  document.getElementById("mAvgKill").textContent=games>0?(kills/games).toFixed(1):"0.0";
   renderMemoList();
   if(activeDetailTab!=="detail")renderDetailLog(activeDetailTab);
 }
@@ -7351,7 +7397,7 @@ function renderWelcome(){
   if(settingsBtn)settingsBtn.style.display=isSuperAdmin()?"":"none";
 
   if(!window.__pklWelcomeUserSyncTimer){
-    window.__pklWelcomeUserSyncTimer=
+    window.__pklWelcomeUserSyncTimer=true;
   }
 }
 function initActionPlaceholders(){document.querySelectorAll(".action-panel textarea").forEach(el=>{if(!el.dataset.placeholderText)el.dataset.placeholderText=el.getAttribute("placeholder")||"";const hide=()=>{el.setAttribute("placeholder","")};const show=()=>{if(!el.matches(":focus")&&!el.value.trim())el.setAttribute("placeholder",el.dataset.placeholderText)};el.addEventListener("mouseenter",hide);el.addEventListener("focus",hide);el.addEventListener("mouseleave",show);el.addEventListener("blur",show);});}
@@ -7987,26 +8033,13 @@ window.addEventListener("pkl-users-updated", function(){ setTimeout(pklForceUser
   회원 목록은 pkl-users-source.js -> /api/pkl-users -> Supabase users 기준으로만 불러온다.
 */
 </script>
-<script id="pklAdminIdentityPklUsersFix">
-(function(){
-  if(window.__PKL_ADMIN_IDENTITY_SUPABASE_ONLY__) return;
-  window.__PKL_ADMIN_IDENTITY_SUPABASE_ONLY__=true;
-  function users(){return (window.PKLUsersSource&&typeof window.PKLUsersSource.localUsers==='function')?window.PKLUsersSource.localUsers():((window.state&&Array.isArray(window.state.users))?window.state.users:[]);}
-  function same(a,b){return window.PKLUsersSource&&typeof window.PKLUsersSource.same==='function'?window.PKLUsersSource.same(a,b):false;}
-  window.PKLAdminIdentity={
-    readPklUsers:users,
-    savePklUsers:function(list){
-      if(window.PKLUsersSource&&typeof window.PKLUsersSource.saveUser==='function'){(Array.isArray(list)?list:[]).forEach(function(u){window.PKLUsersSource.saveUser(u);});}
-      return users();
-    },
-    upsertUser:function(user){
-      if(window.PKLUsersSource&&typeof window.PKLUsersSource.saveUser==='function')window.PKLUsersSource.saveUser(user);
-      return users();
-    },
-    sameUser:same,
-    mergeList:function(){return users();}
-  };
-})();
+<script id="pklAdminIdentityPklUsersFix-disabled">
+/*
+  Disabled 2026-05-12:
+  admin 회원 목록은 Supabase page loader(pkl-users-source.js)만 단일 원본으로 사용한다.
+  기존 pklUsers/localStorage 병합 로직이 Supabase에서 받은 회원 목록을 다시 덮어써서
+  회원 목록/프로필이 비거나 옛 데이터로 보이는 문제가 있어 제거한다.
+*/
 </script>
 
   <script src="./pkl-responsive-scale.js"></script>
