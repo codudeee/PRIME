@@ -1,3 +1,7 @@
+const seoulClockText = document.getElementById("seoulClockText");
+
+
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -5799,6 +5803,73 @@ html,body{
 }
 </style>
 
+
+<style id="pkl-admin-userlist-layout-fix">
+/* admin member panel final layout: prevent stat-card overflow and keep the list scroll inside the panel */
+.user-panel{min-width:0;}
+.center-panel{min-width:0;overflow:hidden;}
+.user-list{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding-right:10px!important;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(196,181,253,.72) rgba(18,14,31,.72);
+}
+.user-list::-webkit-scrollbar{width:10px!important;}
+.user-list::-webkit-scrollbar-track{
+  background:linear-gradient(180deg,rgba(20,14,35,.88),rgba(10,8,18,.82));
+  border:1px solid rgba(216,180,254,.10);
+  border-radius:999px;
+  margin:8px 0;
+}
+.user-list::-webkit-scrollbar-thumb{
+  border:2px solid rgba(10,8,18,.96);
+  border-radius:999px;
+  background:linear-gradient(180deg,rgba(233,213,255,.90),rgba(124,58,237,.68));
+  box-shadow:0 0 14px rgba(167,139,250,.34);
+}
+.user-list::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(167,139,250,.80));
+}
+.detail{
+  grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr)!important;
+  align-items:stretch;
+  overflow:hidden!important;
+}
+.info-block{min-width:0!important;}
+.basic-info-block{min-width:0!important;}
+.metric-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+}
+.metric{
+  min-width:0!important;
+  min-height:86px!important;
+  padding:12px 10px!important;
+  overflow:hidden!important;
+}
+.metric b{
+  max-width:100%;
+  font-size:20px!important;
+  line-height:1.18!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  word-break:keep-all;
+}
+.metric span{line-height:1.2!important;}
+.row strong{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.memo{min-width:0!important;}
+@media(max-width:1280px){
+  .grid{grid-template-columns:320px minmax(0,1fr) 320px!important;}
+  .detail{grid-template-columns:1fr!important;overflow-y:auto!important;}
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -6682,15 +6753,26 @@ function permanentBanRecord(u,reason,auto){const role=normalizeRole(u.role);retu
 function syncPermanentBanStorage(){try{const old=JSON.parse(localStorage.getItem("pklBannedUsers")||"[]");const merged=[...old];(state.bans||[]).forEach(b=>{const same=merged.some(x=>(x.uid&&b.uid&&x.uid===b.uid)||(x.discordId&&b.discordId&&x.discordId===b.discordId)||(x.nickname&&x.nickname===b.nickname)||(x.pubgId&&x.pubgId===b.pubgId)||(x.ip&&b.ip&&x.ip===b.ip));if(!same)merged.push({nickname:b.nickname,pubgId:b.pubgId,discordId:b.discordId||"",uid:b.uid||"",ip:b.ip||"",clientId:b.clientId||"",reason:b.reason||"영구추방",date:b.date||nowText(),admin:b.admin||adminName(),permanent:b.permanent!==false});});localStorage.setItem("pklBannedUsers",JSON.stringify(merged));}catch(e){}}
 
 function render(){ if(typeof renderPklRoleDistribution==='function' && typeof state!=="undefined"){setTimeout(()=>renderPklRoleDistribution(state.users||[]),50);} renderUserList();renderProfile();renderStats();renderCurrentScreen();if(typeof updatePremiumDashboard==='function')updatePremiumDashboard();}
+function pklUserSortValue(u){
+  return String((u&&((u.nickname||u.name||u.pubgId||u.discordId)))||"").trim();
+}
+function pklCompareUsers(a,b){
+  const av=pklUserSortValue(a.u||a);
+  const bv=pklUserSortValue(b.u||b);
+  return av.localeCompare(bv,"ko-KR",{numeric:true,sensitivity:"base"});
+}
 function renderUserList(){
   normalizeAllUserRoles();
   const q=(document.getElementById("search")?.value||"").trim().toLowerCase();
-  const list=state.users.map((u,i)=>({u,i})).filter(({u})=>!q||String(u.nickname).toLowerCase().includes(q)||String(u.pubgId).toLowerCase().includes(q)||String(roleName(u.role)).toLowerCase().includes(q));
+  const list=state.users
+    .map((u,i)=>({u,i}))
+    .filter(({u})=>!q||String(u.nickname||u.name||"").toLowerCase().includes(q)||String(u.pubgId||"").toLowerCase().includes(q)||String(roleName(u.role)).toLowerCase().includes(q))
+    .sort(pklCompareUsers);
   const wrap=document.getElementById("userList");
   if(!wrap)return;
-  wrap.innerHTML=list.map(({u,i})=>`
+  wrap.innerHTML=list.map(({u,i},displayIndex)=>`
     <div class="user-card named-role-layout ${i===current?'active':''}" onclick="selectUser(${i})">
-      <div class="avatar">${i+1}</div>
+      <div class="avatar">${displayIndex+1}</div>
       <div class="user-main">
         <div class="user-role-line">
           <span class="user-name">${esc(u.nickname||u.name||"-")}</span>
@@ -6710,6 +6792,17 @@ function renderEmptyProfile(){
   const badges=document.getElementById("badges"); if(badges)badges.innerHTML="";
   const pMeta=document.getElementById("pMeta"); if(pMeta)pMeta.textContent="";
   const memoList=document.getElementById("memoList"); if(memoList)memoList.innerHTML='<div class="detail-log-empty">회원 데이터가 없습니다.</div>';
+}
+
+function formatAdminDateText(value){
+  if(!value)return "-";
+  const text=String(value);
+  const d=new Date(text);
+  if(!Number.isNaN(d.getTime())){
+    try{return d.toLocaleDateString("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit"});}
+    catch(e){return text.split("T")[0]||text;}
+  }
+  return text.length>16?text.slice(0,10):text;
 }
 
 function renderProfile(){
@@ -6738,10 +6831,15 @@ function renderProfile(){
   document.getElementById("dWarn").textContent=u.warnings+"/4";
   document.getElementById("dDia").textContent=(u.dia??0)+"";
   document.getElementById("dOrder").textContent=u.join||"-";
-  document.getElementById("mJoin").textContent=(u.logs||0)+"회";
-  document.getElementById("mWin").textContent=Math.max(0,78-current*3)+"%";
-  document.getElementById("mLast").textContent=u.last||"-";
-  document.getElementById("mAvgKill").textContent=(Math.max(1.2,(u.logs*0.7+current*0.25))).toFixed(1);
+  const statMatches=Number(u.matches||u.match_count||u.games||u.play_count||u.stats?.matches||u.stats?.games||0)||0;
+  const statWins=Number(u.wins||u.win_count||u.stats?.wins||0)||0;
+  const statKills=Number(u.kills||u.total_kills||u.stats?.kills||0)||0;
+  const lastRaw=String(u.last||u.last_login||u.lastLogin||"").trim();
+  const lastText=lastRaw?formatAdminDateText(lastRaw):"-";
+  document.getElementById("mJoin").textContent=statMatches+"회";
+  document.getElementById("mWin").textContent=statMatches?Math.round((statWins/statMatches)*100)+"%":"0%";
+  document.getElementById("mLast").textContent=lastText;
+  document.getElementById("mAvgKill").textContent=statMatches?(statKills/statMatches).toFixed(1):"0.0";
   renderMemoList();
   if(activeDetailTab!=="detail")renderDetailLog(activeDetailTab);
 }
@@ -7294,7 +7392,7 @@ function renderWelcome(){
   if(settingsBtn)settingsBtn.style.display=isSuperAdmin()?"":"none";
 
   if(!window.__pklWelcomeUserSyncTimer){
-    window.__pklWelcomeUserSyncTimer=true;
+    window.__pklWelcomeUserSyncTimer=
   }
 }
 function initActionPlaceholders(){document.querySelectorAll(".action-panel textarea").forEach(el=>{if(!el.dataset.placeholderText)el.dataset.placeholderText=el.getAttribute("placeholder")||"";const hide=()=>{el.setAttribute("placeholder","")};const show=()=>{if(!el.matches(":focus")&&!el.value.trim())el.setAttribute("placeholder",el.dataset.placeholderText)};el.addEventListener("mouseenter",hide);el.addEventListener("focus",hide);el.addEventListener("mouseleave",show);el.addEventListener("blur",show);});}
@@ -7930,13 +8028,39 @@ window.addEventListener("pkl-users-updated", function(){ setTimeout(pklForceUser
   회원 목록은 pkl-users-source.js -> /api/pkl-users -> Supabase users 기준으로만 불러온다.
 */
 </script>
-<script id="pklAdminIdentityPklUsersFix-disabled">
-/*
-  Disabled 2026-05-12:
-  admin 회원 목록은 Supabase page loader(pkl-users-source.js)만 단일 원본으로 사용한다.
-  기존 pklUsers/localStorage 병합 로직이 Supabase에서 받은 회원 목록을 다시 덮어써서
-  회원 목록/프로필이 비거나 옛 데이터로 보이는 문제가 있어 제거한다.
-*/
+<script id="pklAdminIdentityPklUsersFix">
+(function(){
+  if(window.__PKL_ADMIN_IDENTITY_PKLUSERS_FIX__) return;
+  window.__PKL_ADMIN_IDENTITY_PKLUSERS_FIX__ = true;
+  const PKL_USERS_KEY="pklUsers", PKL_USERS_ALIAS="PKL_USERS";
+  function parse(raw,fb){try{const v=JSON.parse(raw);return v==null?fb:v;}catch(e){return fb;}}
+  function clean(v){return String(v==null?"":v).trim();}
+  function uid(u){return clean(u&&(u.discordId||u.uid||u.id||u.userId||u.memberId||u.key));}
+  function pubg(u){return clean(u&&(u.pubgId||u.gameId||u.ref||u.pubgName));}
+  function nick(u){return clean(u&&(u.nickname||u.nick||u.name||u.displayName||u.discordGlobalName||u.discordUsername));}
+  function same(a,b){const ai=uid(a),bi=uid(b);if(ai&&bi)return ai===bi;const ap=pubg(a).toLowerCase(),bp=pubg(b).toLowerCase();if(ap&&bp)return ap===bp;const an=nick(a).toLowerCase(),bn=nick(b).toLowerCase();return !!(an&&bn&&an===bn);}
+  function mergeLists(){const out=[];function add(list){(Array.isArray(list)?list:[]).forEach(u=>{if(!u||typeof u!=="object")return;const i=out.findIndex(x=>same(x,u));if(i>=0)out[i]={...out[i],...u};else out.push({...u});});}for(let i=0;i<arguments.length;i++)add(arguments[i]);return out;}
+  function readUsers(){return mergeLists(parse(localStorage.getItem(PKL_USERS_KEY),[]),parse(localStorage.getItem(PKL_USERS_ALIAS),[]));}
+  function writeUsers(users,remote){const arr=mergeLists(users);localStorage.setItem(PKL_USERS_KEY,JSON.stringify(arr));localStorage.setItem(PKL_USERS_ALIAS,JSON.stringify(arr));if(remote&&window.PKLDataSync&&window.PKLDataSync.setShared){try{window.PKLDataSync.setShared(PKL_USERS_KEY,arr);window.PKLDataSync.setShared(PKL_USERS_ALIAS,arr);}catch(e){}}try{window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:arr}}));window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:arr}}));}catch(e){}return arr;}
+  function syncAdminFromUsers(users){
+    if(!Array.isArray(users)||!users.length||!window.state||!Array.isArray(window.state.users))return;
+    let changed=false;
+    users.forEach(u=>{
+      const idx=window.state.users.findIndex(x=>same(x,u));
+      if(idx>=0){
+        const old=window.state.users[idx];
+        window.state.users[idx]={...old,...u,history:Array.isArray(old.history)?old.history:u.history,memoList:Array.isArray(old.memoList)?old.memoList:u.memoList,warnings:Number(old.warnings??u.warnings??0)};
+        changed=true;
+      }else{
+        window.state.users.push({...u});changed=true;
+      }
+    });
+    if(changed){try{if(typeof normalizeState==="function")window.state=normalizeState(window.state);if(typeof render==="function")render();}catch(e){}}
+  }
+  window.PKLAdminIdentity={readPklUsers:readUsers,savePklUsers:function(list){return writeUsers(list,true)},upsertUser:function(user){const users=readUsers();const i=users.findIndex(x=>same(x,user));if(i>=0)users[i]={...users[i],...user};else users.push({...user});return writeUsers(users,true);},sameUser:same,mergeList:mergeLists};
+  window.addEventListener("pkl-users-updated",function(e){syncAdminFromUsers(e.detail&&e.detail.users?e.detail.users:readUsers());});
+  setTimeout(function(){syncAdminFromUsers(readUsers());},700);
+})();
 </script>
 
   <script src="./pkl-responsive-scale.js"></script>
