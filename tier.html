@@ -3325,5 +3325,97 @@ document.addEventListener("DOMContentLoaded", function(){
 })();
 </script>
 
+
+
+<script id="pkl-tier-supabase-single-source-final">
+(function(){
+  'use strict';
+  if(window.__PKL_TIER_SUPABASE_SINGLE_SOURCE_FINAL__) return;
+  window.__PKL_TIER_SUPABASE_SINGLE_SOURCE_FINAL__=true;
+  var ROLE_TO_LANE={tier0_high:'0상',tier0_mid:'0중',tier0_low:'0하',tier1_high:'1상',tier1_mid:'1중',tier1_low:'1하',tier2_high:'2상',tier2_mid:'2중',tier2_low:'2하',tier3_high:'3상',tier3_mid:'3중',tier3_low:'3하',tier4_high:'4상',tier4_mid:'4중',tier4_low:'4하',beast:'짐승'};
+  var LANE_TO_ROLE={}; Object.keys(ROLE_TO_LANE).forEach(function(k){LANE_TO_ROLE[ROLE_TO_LANE[k]]=k;});
+  var LABEL={none:'없음',tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',tier2_high:'2티어 상',tier2_mid:'2티어 중',tier2_low:'2티어 하',tier3_high:'3티어 상',tier3_mid:'3티어 중',tier3_low:'3티어 하',tier4_high:'4티어 상',tier4_mid:'4티어 중',tier4_low:'4티어 하',beast:'짐승'};
+  var cache=[]; var loading=false;
+  function clean(v){return String(v==null?'':v).trim();}
+  function didOf(u){u=u||{};var did=clean(u.discordId||u.discord_id); if(did)return did.replace(/^discord-/i,''); ['uid','id','userId','key'].some(function(k){var raw=clean(u[k]); if(/^discord-/i.test(raw)){did=raw.replace(/^discord-/i,''); return true;} return false;}); return did;}
+  function keyOf(u,i){return didOf(u)||clean(u.nickname||u.name||u.nick)||String(i);}
+  function normalizeTier(v){
+    if(window.PKLTierBadge&&typeof window.PKLTierBadge.normalize==='function') return window.PKLTierBadge.normalize(v);
+    var raw=clean(v); if(!raw||raw==='없음'||raw.toLowerCase()==='none')return 'none'; return raw;
+  }
+  function tierOf(u){return normalizeTier(u&& (u.memberTier||u.gradeRole||u.tierRole||u.baseRole||u.tier||u.memberTierName||u.tierName||u.roleName));}
+  function labelOf(t){t=normalizeTier(t); return LABEL[t]||t||'없음';}
+  function mapUser(u){
+    u=u||{}; var did=didOf(u); var tier=tierOf(u); var nick=clean(u.nickname||u.name||u.nick||u.discordUsername||u.discord_username||u.username);
+    var out=Object.assign({},u,{discordId:did,uid:did?'discord-'+did:clean(u.uid||u.id||u.userId),id:did?'discord-'+did:clean(u.id||u.uid||u.userId),userId:did?'discord-'+did:clean(u.userId||u.uid||u.id),nickname:nick,name:nick,nick:nick,memberTier:tier,gradeRole:tier,tierRole:tier,baseRole:tier,tier:tier==='none'?'없음':labelOf(tier),memberTierName:labelOf(tier)});
+    return out;
+  }
+  async function fetchUsers(){
+    if(loading) return cache.slice();
+    loading=true;
+    try{
+      var all=[]; var offset=0; var limit=100; var count=Infinity;
+      while(offset<count && offset<5000){
+        var res=await fetch('/api/pkl-users?limit='+limit+'&offset='+offset,{cache:'no-store',headers:{Accept:'application/json'}});
+        var data=await res.json().catch(function(){return {};});
+        if(!res.ok||!data.ok) throw new Error(data.message||'users fetch failed');
+        var users=Array.isArray(data.users)?data.users:[];
+        all=all.concat(users);
+        count=Number(data.count||all.length);
+        if(!users.length||users.length<limit) break;
+        offset+=limit;
+      }
+      var seen=new Set();
+      cache=all.map(mapUser).filter(function(u,i){var k=keyOf(u,i); if(!k||seen.has(k))return false; seen.add(k); return true;}).sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
+      return cache.slice();
+    }catch(e){console.error('PKL tier Supabase users load failed',e); return cache.slice();}
+    finally{loading=false;}
+  }
+  function canEdit(){return typeof window.pklTierCanEdit==='function' ? !!window.pklTierCanEdit() : false;}
+  async function renderSupabaseTierMembers(){
+    var users=await fetchUsers();
+    var lists=document.querySelectorAll('.pkl-lane-list[data-tier]');
+    if(!lists.length) return;
+    lists.forEach(function(list){list.querySelectorAll('.pkl-tier-member').forEach(function(n){n.remove();}); list.classList.remove('pkl-drop-ready');});
+    users.forEach(function(u,i){
+      var tier=tierOf(u); if(!tier||tier==='none') return;
+      var lane=ROLE_TO_LANE[tier]; if(!lane) return;
+      var list=document.querySelector('.pkl-lane-list[data-tier="'+lane+'"]'); if(!list) return;
+      var badge=document.createElement('div'); badge.className='pkl-tier-member'; badge.textContent=clean(u.nickname||u.name||u.pubgId)||'회원'; badge.dataset.userKey=keyOf(u,i); badge.dataset.lane=lane; badge.setAttribute('draggable',canEdit()?'true':'false'); list.appendChild(badge);
+    });
+    if(typeof pklTierBindDrag==='function'){try{pklTierBindDrag();}catch(e){}}
+  }
+  async function setUserTierSupabase(userKey,targetLane){
+    var role=LANE_TO_ROLE[targetLane]; if(!role) return false;
+    var users=cache.length?cache:await fetchUsers();
+    var target=users.find(function(u,i){return keyOf(u,i)===userKey;});
+    if(!target) return false;
+    var beforeTier=tierOf(target);
+    target=Object.assign({},target,{memberTier:role,gradeRole:role,tierRole:role,baseRole:role,tier:labelOf(role),memberTierName:labelOf(role),updatedAt:new Date().toISOString()});
+    cache=cache.map(function(u,i){return keyOf(u,i)===userKey?target:u;});
+    await renderSupabaseTierMembers();
+    try{
+      var res=await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'updateUserWithLog',originalIdentity:{discordId:didOf(target),nickname:target.nickname,pubgId:target.pubgId},user:target,log:{type:'tier_change',reason:'티어표 이동: '+labelOf(beforeTier)+' → '+labelOf(role),actor:'TIER'}})});
+      var data=await res.json().catch(function(){return {};});
+      if(!res.ok||!data.ok) throw new Error(data.message||'Supabase 티어 저장 실패');
+      await fetchUsers();
+      await renderSupabaseTierMembers();
+      try{window.dispatchEvent(new CustomEvent('pkl-users-updated',{detail:{users:cache.slice()}}));}catch(e){}
+      try{window.dispatchEvent(new CustomEvent('pkl-role-data-updated',{detail:{users:cache.slice()}}));}catch(e){}
+      return true;
+    }catch(e){
+      console.error(e); await fetchUsers(); await renderSupabaseTierMembers();
+      if(typeof pklAlert==='function') pklAlert(e.message||'티어 변경 저장에 실패했습니다.','저장 실패');
+      return false;
+    }
+  }
+  window.renderPklTierMembers=function(){renderSupabaseTierMembers();};
+  window.pklTierSetUserRole=function(userKey,targetLane){setUserTierSupabase(userKey,targetLane); return true;};
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(renderSupabaseTierMembers,0);});
+  window.addEventListener('pkl-users-updated',function(){fetchUsers().then(renderSupabaseTierMembers);});
+  window.addEventListener('pkl-role-data-updated',function(){fetchUsers().then(renderSupabaseTierMembers);});
+})();
+</script>
+
 </body>
 </html>

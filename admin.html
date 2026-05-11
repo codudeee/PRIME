@@ -6505,10 +6505,9 @@ function gradeRoleFromTierText(text){
   return pklGradeRoles.includes(text)?text:(map[text]||"none");
 }
 function gradeRole(u){
-  /* admin 화면은 현재 state.users의 값만 신뢰한다.
-     PKLRoleSystem/PKLTierBadge가 localStorage의 예전 pklUsers를 hydrate하면
-     `없음` 저장 후에도 이전 티어 배지가 다시 살아나는 문제가 생긴다. */
-  const fields=[u?.memberTier,u?.gradeRole,u?.tierRole,u?.baseRole,u?.tier,u?.memberTierName,u?.tierName];
+  const sys=pklRoleSystem();
+  if(typeof sys.gradeRoleFromUser==="function") return sys.gradeRoleFromUser(u);
+  const fields=[u?.memberTier,u?.gradeRole,u?.tierRole,u?.baseRole,u?.role,u?.tier,u?.memberTierName,u?.tierName,u?.roleName];
   for(const field of fields){
     const r=gradeRoleFromTierText(field);
     if(r&&r!=="none") return r;
@@ -6533,7 +6532,9 @@ function memberBadgeHtml(u){
   return `<span class="member-role-badge ${memberRoleClass(mr)}">${esc(memberRoleName(mr))}</span>`;
 }
 function gradeBadgeHtml(u){
-  /* 외부 공통 배지 함수는 예전 localStorage hydrate를 탈 수 있으므로 admin에서는 직접 렌더한다. */
+  if(window.PKLTierBadge&&typeof window.PKLTierBadge.renderForUser==="function") return window.PKLTierBadge.renderForUser(u);
+  const sys=pklRoleSystem();
+  if(typeof sys.gradeBadgeForUser==="function") return sys.gradeBadgeForUser(u);
   const g=gradeRole(u);
   if(!g||g==="none") return "";
   return `<span class="pkl-tier-badge tier-mark ${gradeRoleClass(u)}" data-pkl-tier-badge="${esc(g)}">${esc(gradeRoleName(u))}</span>`;
@@ -7071,8 +7072,8 @@ async function saveMemberEdit(){
 
   const nick=document.getElementById("editNick")?.value.trim() || "";
   const pubg=document.getElementById("editPubg")?.value.trim() || (u.pubgId||u.gameId||u.ref||"");
-  const selectedGradeRaw=(document.getElementById("editRole")?.value ?? "none");
-  const selectedGrade=(selectedGradeRaw===""||selectedGradeRaw==="none"||selectedGradeRaw==="없음") ? "none" : ((typeof gradeRoleFromTierText==="function") ? gradeRoleFromTierText(selectedGradeRaw) : selectedGradeRaw);
+  const selectedGradeRaw=document.getElementById("editRole")?.value || "none";
+  const selectedGrade=(typeof gradeRoleFromTierText==="function") ? gradeRoleFromTierText(selectedGradeRaw) : selectedGradeRaw;
   let memberRole=canEditMemberRole()?normalizeMemberRole(document.getElementById("editMemberRole")?.value||u.memberRole):normalizeMemberRole(u.memberRole);
   const dia=Math.max(0,parseInt(document.getElementById("editDia")?.value||"0",10)||0);
   const memberTitle=document.getElementById("editMemberTitle")?.value || "none";
@@ -7128,20 +7129,7 @@ async function saveMemberEdit(){
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.message||"Supabase 저장 실패");
     if(data.user){
-      const saved=(window.PKLUsersSource&&typeof window.PKLUsersSource.normalize==="function") ? window.PKLUsersSource.normalize(data.user) : data.user;
-      Object.assign(u,saved);
-      // `없음` 저장은 화면에서도 즉시 배지가 사라져야 하므로 티어 관련 필드를 확실히 정리한다.
-      if(selectedGrade==="none"){
-        u.gradeRole="none";
-        u.tierRole="none";
-        u.memberTier="none";
-        u.memberTierName="없음";
-        u.baseRole="none";
-        u.originalRole="none";
-        u.tier="없음";
-        u.role=memberRole||"guest";
-      }
-      u.prime=Number(u.prime ?? u.points ?? u.dia ?? 0)||0;
+      u.prime=Number(data.user.prime ?? data.user.points ?? u.prime ?? u.dia ?? 0)||0;
       u.points=u.prime;
       u.dia=u.prime;
       u.chicken=u.prime;
@@ -7152,25 +7140,22 @@ async function saveMemberEdit(){
     return;
   }
   try{
-    if(window.PKLUsersSource && typeof window.PKLUsersSource.saveUser === "function"){
-      await window.PKLUsersSource.saveUser(u);
-    }else if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function"){
+    if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function"){
       window.PKLUserProfile.upsert(u);
     }
   }catch(e){}
 
   save();
+  try{localStorage.setItem(dataKey,JSON.stringify(state));}catch(e){}
   try{syncUsersToAccountStorage();}catch(e){}
-  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:state.users}}));}catch(e){}
+  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
+  try{window.dispatchEvent(new StorageEvent("storage",{key:dataKey,newValue:JSON.stringify(state)}));}catch(e){}
 
   closeMemberEditModal();
-  // 현재 화면 메모리와 DOM을 Supabase 저장 결과 기준으로 즉시 다시 그린다.
-  normalizeUserGradeAndMemberRole(u);
   renderUserList();
   renderProfile();
   renderStats();
   renderCurrentScreen();
-  if(typeof renderPklRoleDistribution==="function")renderPklRoleDistribution(state.users||[]);
   if(typeof updatePremiumDashboard==="function")updatePremiumDashboard();
 }
 
@@ -7716,15 +7701,9 @@ document.addEventListener("DOMContentLoaded",()=>{
     const menu=document.getElementById("editRoleCustomMenu");
     if(!select||!custom||!text||!menu) return;
 
-    if(![...select.options].some(opt=>opt.value==="none")){
-      const opt=document.createElement("option");
-      opt.value="none";
-      opt.textContent="없음";
-      select.insertBefore(opt,select.firstChild);
-    }
     const options=[...select.options].filter(opt=>pklGradeRoles.includes(opt.value));
 
-    text.textContent=(select.value==="none"||select.value==="" ? "없음" : (select.options[select.selectedIndex]?.textContent || "회원 티어 선택"));
+    text.textContent=select.options[select.selectedIndex]?.textContent || "회원 티어 선택";
     menu.innerHTML=options.map(opt=>(
       '<button type="button" class="pkl-role-option '+(opt.value===select.value?'active':'')+'" data-value="'+opt.value+'">'+opt.textContent+'</button>'
     )).join("");
@@ -8048,5 +8027,104 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   window.addEventListener("load",function(){setTimeout(showUsersFirst,0);});
 })();
 </script>
+
+
+<script id="pkl-admin-supabase-single-source-tier-save-final">
+(function(){
+  'use strict';
+  if(window.__PKL_ADMIN_SUPABASE_SINGLE_SOURCE_TIER_SAVE_FINAL__) return;
+  window.__PKL_ADMIN_SUPABASE_SINGLE_SOURCE_TIER_SAVE_FINAL__=true;
+  function clean(v){return String(v==null?'':v).trim();}
+  function normalizeTierValue(v){
+    var raw=clean(v);
+    if(!raw || raw==='없음' || raw.toLowerCase()==='none') return 'none';
+    if(typeof gradeRoleFromTierText==='function'){
+      try{return gradeRoleFromTierText(raw)||raw;}catch(e){}
+    }
+    return raw;
+  }
+  function tierLabel(key){
+    key=normalizeTierValue(key);
+    if(!key || key==='none') return '없음';
+    if(typeof roleName==='function'){
+      try{return roleName(key)||key;}catch(e){}
+    }
+    if(window.PKLTierBadge&&typeof window.PKLTierBadge.label==='function') return window.PKLTierBadge.label(key);
+    return key;
+  }
+  function memberRoleValue(u){
+    var raw='user';
+    try{raw=(typeof canEditMemberRole==='function'&&canEditMemberRole()) ? (document.getElementById('editMemberRole')?.value||u.memberRole||u.role||'user') : (u.memberRole||u.role||'user');}catch(e){raw=u.memberRole||u.role||'user';}
+    try{return typeof normalizeMemberRole==='function'?normalizeMemberRole(raw):raw;}catch(e){return raw||'user';}
+  }
+  function identityOf(u){
+    u=u||{};
+    var did=clean(u.discordId||u.discord_id);
+    if(did) return {discordId:did};
+    ['uid','id','userId','key'].some(function(k){var raw=clean(u[k]); if(/^discord-/i.test(raw)){did=raw.replace(/^discord-/i,''); return true;} return false;});
+    if(did) return {discordId:did};
+    return {nickname:clean(u.nickname||u.name||u.nick), pubgId:clean(u.pubgId||u.gameId||u.ref)};
+  }
+  async function refreshSupabaseUsers(){
+    try{
+      if(window.PKLUsersSource&&typeof window.PKLUsersSource.load==='function'){
+        await window.PKLUsersSource.load({limit:100,offset:0,q:'',append:false});
+        return;
+      }
+    }catch(e){console.warn('PKLUsersSource refresh failed',e);}
+    try{
+      var res=await fetch('/api/pkl-users?limit=100&offset=0',{cache:'no-store'});
+      var data=await res.json();
+      if(data&&Array.isArray(data.users)&&window.state){window.state.users=data.users;}
+    }catch(e){console.warn('Supabase users refresh failed',e);}
+  }
+  async function saveMemberEditSupabaseOnly(){
+    var list=(window.state&&Array.isArray(window.state.users))?window.state.users:[];
+    var idx=typeof current==='number'?current:0;
+    var before=list[idx];
+    if(!before) return;
+    var nick=clean(document.getElementById('editNick')?.value)||clean(before.nickname||before.name||before.nick);
+    var pubg=clean(document.getElementById('editPubg')?.value)||clean(before.pubgId||before.gameId||before.ref);
+    var selectedTier=normalizeTierValue(document.getElementById('editRole')?.value || 'none');
+    var selectedMemberRole=memberRoleValue(before);
+    var prime=Math.max(0,parseInt(clean(document.getElementById('editDia')?.value)||'0',10)||0);
+    var memberTitle=clean(document.getElementById('editMemberTitle')?.value)||'none';
+    var pw=document.getElementById('editPw')?.value||'';
+    if(!nick){ if(typeof pklAlert==='function') await pklAlert('닉네임을 입력해주세요.','저장 실패'); return; }
+    var tierName=tierLabel(selectedTier);
+    var after=Object.assign({},before,{nickname:nick,nick:nick,name:nick,displayName:nick,pubgId:pubg,gameId:pubg,ref:pubg,memberTier:selectedTier,gradeRole:selectedTier,tierRole:selectedTier,baseRole:selectedTier,originalRole:selectedTier,memberTierName:tierName,tier:tierName,memberRole:selectedMemberRole,userRole:selectedMemberRole,authRole:selectedMemberRole,role:selectedMemberRole==='prisoner'?'prisoner':(selectedTier&&selectedTier!=='none'?selectedTier:selectedMemberRole||'user'),prime:prime,points:prime,dia:prime,chicken:prime,memberTitle:memberTitle,titleBadge:memberTitle,updatedAt:new Date().toISOString()});
+    if(pw) after.password=pw;
+    var logReason=[];
+    function addChange(label,a,b){if(clean(a)!==clean(b)) logReason.push(label+': '+(clean(a)||'-')+' → '+(clean(b)||'-'));}
+    addChange('닉네임',before.nickname,nick);
+    addChange('배그 ID',before.pubgId,pubg);
+    addChange('회원 티어',tierLabel(before.memberTier||before.gradeRole||before.tierRole||before.tier),tierName);
+    addChange('회원 역할',before.memberRole||before.role,selectedMemberRole);
+    addChange('보유 프라임',before.prime??before.points??before.dia,prime);
+    try{
+      var res=await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'updateUserWithLog',originalIdentity:identityOf(before),user:after,log:{type:selectedTier!==normalizeTierValue(before.memberTier||before.gradeRole||before.tierRole||before.tier)?'tier_change':'profile_edit',reason:logReason.length?logReason.join(' / '):'회원 정보 수정',actor:(typeof adminName==='function'?adminName():'ADMIN')}})});
+      var data=await res.json().catch(function(){return {};});
+      if(!res.ok||!data.ok) throw new Error(data.message||'Supabase 저장 실패');
+      var saved=data.user||after;
+      list[idx]=Object.assign({},after,saved,{memberTier:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),gradeRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tierRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),baseRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tier:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),memberTierName:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier)});
+      if(typeof closeMemberEditModal==='function') closeMemberEditModal();
+      if(typeof renderUserList==='function') renderUserList();
+      if(typeof renderProfile==='function') renderProfile();
+      if(typeof renderStats==='function') renderStats();
+      try{window.dispatchEvent(new CustomEvent('pkl-users-updated',{detail:{users:list.slice()}}));}catch(e){}
+      try{window.dispatchEvent(new CustomEvent('pkl-role-data-updated',{detail:{users:list.slice()}}));}catch(e){}
+      await refreshSupabaseUsers();
+      if(typeof renderUserList==='function') renderUserList();
+      if(typeof renderProfile==='function') renderProfile();
+    }catch(err){
+      console.error(err);
+      if(typeof pklAlert==='function') await pklAlert(err.message||'회원 정보를 Supabase에 저장하지 못했습니다.','저장 실패');
+    }
+  }
+  try{ saveMemberEdit=saveMemberEditSupabaseOnly; }catch(e){}
+  window.saveMemberEdit=saveMemberEditSupabaseOnly;
+})();
+</script>
+
 </body>
 </html>
