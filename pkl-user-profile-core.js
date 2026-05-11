@@ -2,7 +2,16 @@
   "use strict";
   if(window.PKLUserProfile && window.PKLUserProfile.__singleSourceFinal20260512) return;
 
-  var USER_KEYS = {pklUsers:true, PKL_USERS:true};
+  var USER_KEYS = {pklUsers:true, PKL_USERS:true, pklAdminUsers:true, PKL_ADMIN_USERS:true, pklUserList:true};
+  var OPERATIONAL_BLOCK_KEYS = {
+    pklAdminState_v3:true,
+    pklAdminUsers:true,
+    PKL_ADMIN_USERS:true,
+    pklUserList:true,
+    pklPendingUsers:true,
+    PKL_DELETED_USER_KEYS_V1:true,
+    pklBannedUsers:true
+  };
   var applying = false;
   var nativeSetItem = localStorage.setItem.bind(localStorage);
   var nativeRemoveItem = localStorage.removeItem.bind(localStorage);
@@ -101,6 +110,10 @@
         window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:memoryUsers}}));
         window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:memoryUsers}}));
       }catch(e){}
+      return;
+    }
+    if(OPERATIONAL_BLOCK_KEYS[key]){
+      try{console.info && console.info("PKL Supabase-only storage skipped:", key);}catch(_e){}
       return;
     }
     try{return nativeSetItem(key,value);}

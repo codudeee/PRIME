@@ -6240,7 +6240,13 @@ function syncPendingSignupUsers(st){
   return st;
 }
 function load(){pklPurgeNonTierUsersFromStorage();try{const raw=localStorage.getItem(dataKey);if(raw){const parsed=JSON.parse(raw);return normalizeState(syncPendingSignupUsers(mergeAccountUsersIntoState(parsed)));}}catch(e){} return normalizeState(syncPendingSignupUsers(mergeAccountUsersIntoState(seed())))}
-function save(){state=normalizeState(state);window.state=state;syncUsersToAccountStorage();localStorage.setItem(dataKey,JSON.stringify(state));}
+function save(){
+  state=normalizeState(state);
+  window.state=state;
+  /* 운영 데이터는 Supabase가 단일 원본이다.
+     여기서 localStorage/pklAdminState_v3에 저장하면 예전 데이터가 다시 복원되어
+     닉네임/티어 수정값을 되돌리는 원인이 되므로 저장하지 않는다. */
+}
 function normalizeState(s){
   s=s||seed();
   s.users=Array.isArray(s.users)?s.users:[];
@@ -6357,70 +6363,9 @@ function pklRoleSnapshotForStorage(u){
   return {role:finalRole,memberRole:memberRole,memberRoleName:memberRoleName(memberRole),memberTier:grade,memberTierName:gradeName,gradeRole:grade,tierRole:grade,roleName:memberRole==="prisoner"?memberRoleName(memberRole):(hasGrade?gradeName:memberRoleName(memberRole)),tier:gradeName,penalty:u&&u.penalty||null,isPrisoner:isPenaltyActive(u)};
 }
 function syncUsersToAccountStorage(){
-  try{
-    syncPermanentBanStorage();
-    pklPurgeNonTierUsersFromStorage();
-    const base=JSON.parse(localStorage.getItem("pklUsers")||"[]");
-    const existing=Array.isArray(base)?base.filter(x=>!(x&&(x.uid==="pkl_tester_user"||x.id==="pkl_tester_user"||x.pubgId==="PKL_TESTER"||x.gameId==="PKL_TESTER"||x.nickname==="테스터"||x.nick==="테스터"||x.name==="테스터"||pklIsDeletedUser(x)))):[];
-    const banned=Array.isArray(state.bans)?state.bans:[];
-    const activeUsers=(Array.isArray(state.users)?state.users:[]).filter(u=>!pklIsDeletedUser(u)&&!banned.some(b=>pklUserIdentityMatches(u,b)));
-    const merged=activeUsers.map(u=>{
-      const old=existing.find(x=>pklUserIdentityMatches(u,x))||{};
-      const snap=pklRoleSnapshotForStorage(u);
-      const restricted=isPenaltyActive(u);
-      const savedPubg=(u.pubgId||u.gameId||u.ref||old.pubgId||old.gameId||old.ref||"");
-      return {
-        ...old,
-        uid:u.uid||old.uid||old.id||"",
-        id:old.id||u.uid||"",
-        nickname:u.nickname||u.nick||u.name||old.nickname||old.nick||old.name||"",
-        nick:u.nickname||u.nick||u.name||old.nickname||old.nick||old.name||"",
-        name:u.nickname||u.nick||u.name||old.nickname||old.nick||old.name||"",
-        pubgId:savedPubg,
-        gameId:savedPubg || old.gameId || "",
-        ref:savedPubg || old.ref || "",
-        password:u.password||(old.password||""),
-        ...snap,
-        status:"approved",
-        approved:true,
-        warnings:u.warnings,
-        isBanned:false,
-        isPrisoner:restricted,
-        penalty:u.penalty||null,
-        joinBlockedUntil:u.penalty?.until||""
-      };
-    });
-    localStorage.setItem("pklUsers",JSON.stringify(merged));
-    ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"].forEach(key=>{
-      try{
-        const cur=JSON.parse(localStorage.getItem(key)||"null");
-        if(!cur)return;
-        if(cur.uid==="pkl_tester_user"||cur.id==="pkl_tester_user"||cur.pubgId==="PKL_TESTER"||cur.gameId==="PKL_TESTER"||cur.nickname==="테스터"||cur.nick==="테스터"||cur.name==="테스터"){
-          localStorage.removeItem(key);return;
-        }
-        const matched=activeUsers.find(u=>pklUserIdentityMatches(u,cur));
-        if(!matched)return;
-        const old=merged.find(u=>pklUserIdentityMatches(u,cur))||{};
-        const snap=pklRoleSnapshotForStorage(matched);
-        const savedPubg=matched.pubgId||matched.gameId||matched.ref||cur.pubgId||cur.gameId||cur.ref||old.pubgId||"";
-        localStorage.setItem(key,JSON.stringify({
-          ...cur,
-          uid:matched.uid||cur.uid||cur.id||"",
-          id:cur.id||matched.uid||"",
-          nickname:matched.nickname||matched.nick||matched.name||cur.nickname||cur.nick||cur.name||"",
-          nick:matched.nickname||matched.nick||matched.name||cur.nickname||cur.nick||cur.name||"",
-          name:matched.nickname||matched.nick||matched.name||cur.nickname||cur.nick||cur.name||"",
-          pubgId:savedPubg,
-          gameId:savedPubg||cur.gameId||"",
-          ref:savedPubg||cur.ref||"",
-          ...snap,
-          status:"approved",approved:true,warnings:matched.warnings,
-          isBanned:false,isPrisoner:isPenaltyActive(matched),penalty:matched.penalty||null,joinBlockedUntil:matched.penalty?.until||""
-        }));
-      }catch(e){}
-    });
-    try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
-  }catch(e){}
+  /* Supabase-only: users 전체를 localStorage에 동기화하지 않는다.
+     화면 렌더는 현재 메모리 state와 /api/pkl-users fetch 결과만 사용한다. */
+  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
 }
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function seoulParts(){
@@ -6448,22 +6393,35 @@ function seoulClockText(){const t=seoulParts();return `${t.hour12}:${t.minute}`}
 function adminName(){return document.getElementById("welcomeNick")?.textContent.trim()||"ADMIN"}
 
 function readPklMailboxMails(){
-  try{
-    const raw=localStorage.getItem("pklMailboxMails");
-    const mails=raw?JSON.parse(raw):[];
-    return Array.isArray(mails)?mails:[];
-  }catch(e){
-    return [];
-  }
+  const u=state.users&&state.users[current];
+  return Array.isArray(u&&u.mailbox)?u.mailbox:[];
 }
 function savePklMailboxMails(mails){
-  const safe=Array.isArray(mails)?mails:[];
-  localStorage.setItem("pklMailboxMails",JSON.stringify(safe));
-  localStorage.setItem("pklMailboxUnread",String(safe.filter(mail=>!mail.read).length));
+  const u=state.users&&state.users[current];
+  if(u) u.mailbox=Array.isArray(mails)?mails:[];
   if(typeof window.updateMailboxBadge==="function"){
     try{window.updateMailboxBadge();}catch(e){}
   }
   try{window.dispatchEvent(new CustomEvent("pkl-mailbox-updated"));}catch(e){}
+}
+async function pklSaveUserToSupabase(u, log){
+  if(!u) return null;
+  const payload={
+    action:"updateUserWithLog",
+    user:u,
+    originalIdentity:pklUserPayloadForApi ? pklUserPayloadForApi(u) : u,
+    log:Object.assign({actor:adminName(),admin:adminName(),date:nowText()},log||{})
+  };
+  const res=await fetch("/api/pkl-users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||!data.ok) throw new Error(data.message||"Supabase 저장 실패");
+  return data.user||null;
+}
+async function pklRecordBanToSupabase(ban){
+  const res=await fetch("/api/pkl-users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"recordBan",ban,actor:adminName()})});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||!data.ok) throw new Error(data.message||"Supabase 추방기록 저장 실패");
+  return data.ban||null;
 }
 function sendAdminWarningMail(target,reason,count){
   if(!target) return false;
@@ -6801,7 +6759,7 @@ function confirmMemoDelete(){const u=state.users[current];if(u?.memoList?.[pendi
 
 function action(type){if(type==="ban"&&!pklIsSuperAdmin()){pklAlert("영구추방은 관리자만 사용할 수 있습니다.","권한 제한");return;}if(type!=="ban"&&!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}pendingAction=type;const u=state.users[current];const id=type==="warn"?"warnText":type==="minus"?"minusText":"banText";const reason=(document.getElementById(id)?.value||"").trim();const input=document.getElementById("modalReasonInput"),view=document.getElementById("modalReasonView"),yes=document.querySelector("#modal .confirm-yes"),no=document.querySelector("#modal .confirm-no");if(!u)return;document.getElementById("modalTitle").textContent=type==="warn"?"경고 부여 확인":type==="minus"?"경고 차감 확인":"영구추방 확인";document.getElementById("modalQuestion").innerHTML=`<b>${esc(u.nickname)}</b> 님을 처리하시겠습니까?`;view.textContent=reason;view.style.display=reason?"block":"none";input.value=reason;input.placeholder=type==="ban"?"영구추방 사유를 입력하세요.":"처리 사유를 입력하세요.";input.style.display=reason?"none":"block";yes.style.display="";yes.textContent=reason?"예":"처리";no.textContent=reason?"아니오":"취소";document.getElementById("modal").classList.add("open");}
 function closeModal(){document.getElementById("modal").classList.remove("open");}
-function confirmModal(){
+async function confirmModal(){
   const u=state.users[current];
   if(!u)return closeModal();
   const input=document.getElementById("modalReasonInput");
@@ -6852,6 +6810,17 @@ function confirmModal(){
   }
   ["warnText","minusText","banText"].forEach(id=>{const el=document.getElementById(id);if(el)el.value=""});
   closeModal();autoClearTempRoleWhenGradeSet(u);
+  try{
+    if(pendingAction==="ban" || (pendingAction==="warn" && Number((u&&u.warnings)||0)>=4)){
+      const lastBan=(state.bans&&state.bans[0])||permanentBanRecord(u,reason,pendingAction==="warn");
+      await pklRecordBanToSupabase(lastBan);
+    }else{
+      await pklSaveUserToSupabase(u,{type:pendingAction==="warn"?"warning":(pendingAction==="minus"?"warning_minus":"admin_action"),reason,warningCount:u.warnings});
+    }
+  }catch(err){
+    console.error(err);
+    await pklAlert(err.message||"Supabase 저장 실패","저장 실패");
+  }
   save();render();
 }
 
@@ -6871,7 +6840,7 @@ async function switchAdminTab(tab,btn){
   if(tab==="dashboard" && typeof renderPremiumDashboard === "function") renderPremiumDashboard();
   render();
 }
-function removeApprovedFromPendingStorage(p){try{const pending=JSON.parse(localStorage.getItem("pklPendingUsers")||"[]");if(!Array.isArray(pending))return;const nick=p?.nickname||"";const pubg=p?.ref||p?.pubgId||"";const next=pending.filter(x=>!((nick&&(x.nickname===nick||x.nick===nick||x.name===nick))||(pubg&&(x.pubgId===pubg||x.ref===pubg||x.gameId===pubg))));localStorage.setItem("pklPendingUsers",JSON.stringify(next));}catch(e){}}
+function removeApprovedFromPendingStorage(p){/* 승인대기/로컬 pending 사용 안 함 */}
 function pklMemberDataLabel(type){
   const t=String(type||"log").toLowerCase();
   if(t==="join"||t==="signup"||t==="approve")return "가입";
@@ -7178,7 +7147,7 @@ async function saveMemberEdit(){
   u.pklProfileUpdatedAt=u.updatedAt;
   u.__pklProfileWrite=true;
   try{
-    const res=await fetch("/api/pkl-users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user:u})});
+    const res=await fetch("/api/pkl-users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"updateUserWithLog",user:u,originalIdentity:pklUserPayloadForApi(u),log:{type:"profile_edit",reason:"회원 정보 수정",actor:adminName(),admin:adminName()}})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.message||"Supabase 저장 실패");
     if(data.user){
@@ -7199,10 +7168,7 @@ async function saveMemberEdit(){
   }catch(e){}
 
   save();
-  try{localStorage.setItem(dataKey,JSON.stringify(state));}catch(e){}
-  try{syncUsersToAccountStorage();}catch(e){}
   try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
-  try{window.dispatchEvent(new StorageEvent("storage",{key:dataKey,newValue:JSON.stringify(state)}));}catch(e){}
 
   closeMemberEditModal();
   renderUserList();
