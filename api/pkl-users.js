@@ -12,8 +12,7 @@ function mergeUsers(base, incoming){
 module.exports = async function handler(req, res) {
   try {
     if (req.method === "GET") {
-      const users = await supabaseStore.readUserDocs(
-        Number(req.query?.limit || 20),
+      const users = await supabaseStore.readUserDocs(9999,0),
         Number(req.query?.offset || 0)
       );
       memoryUsers = mergeUsers(memoryUsers, users);
