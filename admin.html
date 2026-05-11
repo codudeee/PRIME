@@ -1546,6 +1546,25 @@ button,input,select,textarea{font-family:inherit}button{cursor:pointer}input,sel
   .temp-edit-grid{grid-template-columns:1fr;grid-template-rows:auto;grid-auto-flow:row;}
   .temp-edit-empty{display:none;}
 }
+.member-data-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0 12px;}
+.member-data-stat{border:1px solid rgba(216,180,254,.14);border-radius:16px;background:rgba(255,255,255,.035);padding:12px;text-align:center;}
+.member-data-stat small{display:block;color:rgba(231,225,255,.62);font-size:11px;font-weight:900;}
+.member-data-stat strong{display:block;margin-top:5px;color:#fff;font-size:22px;font-weight:1000;}
+.member-data-section-title{margin:10px 2px 8px;color:#fff;font-weight:1000;font-size:15px;text-shadow:0 0 12px rgba(216,180,254,.18);}
+.member-data-log-card{display:grid;grid-template-columns:112px minmax(0,1fr) 168px;gap:12px;align-items:center;border:1px solid rgba(216,180,254,.13);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));padding:12px;}
+.member-data-log-card + .member-data-log-card{margin-top:8px;}
+.member-data-kind{height:30px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:1000;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.055);color:#e9d5ff;}
+.member-data-kind.warn{color:#fde68a;border-color:rgba(251,191,36,.28);background:rgba(245,158,11,.10);}
+.member-data-kind.minus{color:#bfdbfe;border-color:rgba(96,165,250,.26);background:rgba(59,130,246,.10);}
+.member-data-kind.prison{color:#f0abfc;border-color:rgba(217,70,239,.28);background:rgba(168,85,247,.10);}
+.member-data-kind.release{color:#bbf7d0;border-color:rgba(74,222,128,.24);background:rgba(34,197,94,.09);}
+.member-data-kind.ban{color:#fecaca;border-color:rgba(248,113,113,.28);background:rgba(239,68,68,.10);}
+.member-data-kind.edit{color:#ddd6fe;border-color:rgba(167,139,250,.26);background:rgba(124,58,237,.10);}
+.member-data-main{min-width:0;}
+.member-data-main strong{display:block;color:#fff;font-size:14px;font-weight:1000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.member-data-main p{margin:5px 0 0;color:rgba(231,225,255,.68);font-size:12px;font-weight:800;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.member-data-meta{text-align:right;color:rgba(231,225,255,.62);font-size:11px;font-weight:900;line-height:1.55;}
+@media(max-width:900px){.member-data-summary{grid-template-columns:repeat(2,minmax(0,1fr));}.member-data-log-card{grid-template-columns:1fr}.member-data-meta{text-align:left}}
 </style>
 
 
@@ -5777,7 +5796,7 @@ a,
     <div class="nav">
       <button class="nav-btn" data-tab="dashboard" onclick="switchAdminTab('dashboard', this)"><i>⌂</i>대시보드</button>
       <button class="nav-btn active" data-tab="users" onclick="switchAdminTab('users', this)"><i>♟</i>회원 관리</button>
-      <button class="nav-btn" data-tab="pending" onclick="switchAdminTab('pending', this)"><i>◴</i>승인 대기 <span id="navPending">0</span></button>
+      <button class="nav-btn" data-tab="pending" onclick="switchAdminTab('pending', this)"><i>◴</i>회원 데이터 <span id="navPending">0</span></button>
       <button class="nav-btn" data-tab="warnings" onclick="switchAdminTab('warnings', this)"><i>⚠</i>경고 기록</button>
       <button class="nav-btn" data-tab="bans" onclick="switchAdminTab('bans', this)"><i>♜</i>추방 기록</button>
       <button class="nav-btn" data-tab="settings" data-min-role="admin" onclick="switchAdminTab('settings', this)"><i>⚙</i>설정</button>
@@ -5921,11 +5940,11 @@ a,
       <div class="glass pending-board">
         <div class="pending-head">
           <div>
-            <h2>승인 대기</h2>
-            <p>회원가입 후 운영진 승인을 기다리는 신청 목록입니다.</p>
+            <h2>회원 데이터</h2>
+            <p>가입·탈퇴·경고·차감·수감·해제·추방·티어변동·닉네임 변경 내역을 확인합니다.</p>
           </div>
           <div class="pending-count-card">
-            <small>대기 인원</small>
+            <small>전체 로그</small>
             <strong id="pendingBoardCount">0</strong>
           </div>
         </div>
@@ -6816,9 +6835,77 @@ function confirmModal(){
 
 async function switchAdminTab(tab,btn){if(tab==="settings"&&!isSuperAdmin()){await pklAlert("관리자 외 출입금지","접근 제한");tab="dashboard";btn=document.querySelector('[data-tab="dashboard"]');}document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));if(btn)btn.classList.add("active");const ids={users:"userManageTab",dashboard:"dashboardManageTab",pending:"pendingManageTab",warnings:"warningsManageTab",bans:"bansManageTab",settings:"settingsManageTab"};Object.values(ids).forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none"});const target=document.getElementById(ids[tab]||"userManageTab");if(target)target.style.display=tab==="users"?"grid":"block";if(tab==="users"){const search=document.getElementById("search");if(search)search.value="";}render();}
 function removeApprovedFromPendingStorage(p){try{const pending=JSON.parse(localStorage.getItem("pklPendingUsers")||"[]");if(!Array.isArray(pending))return;const nick=p?.nickname||"";const pubg=p?.ref||p?.pubgId||"";const next=pending.filter(x=>!((nick&&(x.nickname===nick||x.nick===nick||x.name===nick))||(pubg&&(x.pubgId===pubg||x.ref===pubg||x.gameId===pubg))));localStorage.setItem("pklPendingUsers",JSON.stringify(next));}catch(e){}}
-function renderPendingList(){const wrap=document.getElementById("pendingList");if(!wrap)return;document.getElementById("pendingBoardCount").textContent=state.pending.length;wrap.innerHTML=state.pending.length?state.pending.map((p,i)=>`<div class="pending-card"><div class="pending-no">${i+1}</div><div class="pending-info"><strong>${esc(p.nickname)}</strong><span>가입일자 : ${esc(p.date||'-')}</span><span>배그아이디 : ${esc(p.ref||'-')}</span></div><div class="pending-actions"><button class="pending-approve" data-min-role="operator" onclick="approvePending(${i})">승인</button><button class="pending-reject" data-min-role="operator" onclick="rejectPending(${i})">거절</button></div></div>`).join(""):`<div class="pending-empty">승인 대기 중인 회원이 없습니다.</div>`;}
-function approvePending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const p=state.pending[i];if(!p)return;state.users.push({nickname:p.nickname,pubgId:p.ref||p.pubgId||p.nickname,password:p.password||"",tier:"없음",role:"user",baseRole:"none",gradeRole:"none",memberRole:"user",status:"approved",approved:true,warnings:0,uid:"approved-"+Date.now(),join:nowText().split(' ')[0],last:"-",logs:0,memoList:[],history:[{type:"approve",reason:"가입 승인",date:nowText(),admin:adminName()}]});removeApprovedFromPendingStorage(p);state.pending.splice(i,1);save();render();renderPendingList();}
-function rejectPending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}if(!state.pending[i])return;state.pending.splice(i,1);save();render();renderPendingList();}
+function pklMemberDataLabel(type){
+  const t=String(type||"log").toLowerCase();
+  if(t==="join"||t==="signup"||t==="approve")return "가입";
+  if(t==="leave"||t==="withdraw"||t==="delete")return "탈퇴";
+  if(t==="warn"||t==="warning")return "경고";
+  if(t==="minus"||t==="warning-minus"||t==="warning_reduce"||t==="reduce")return "차감";
+  if(t==="penalty"||t==="prison"||t==="jail")return "수감";
+  if(t==="release"||t==="unjail")return "해제";
+  if(t==="ban"||t==="banned")return "추방";
+  if(t==="tier"||t==="tier-change")return "티어변동";
+  if(t==="nickname"||t==="nickname-change")return "닉네임변경";
+  if(t==="edit")return "정보수정";
+  return "기록";
+}
+function pklMemberDataClass(type){
+  const label=pklMemberDataLabel(type);
+  if(label==="경고")return "warn";
+  if(label==="차감")return "minus";
+  if(label==="수감")return "prison";
+  if(label==="해제")return "release";
+  if(label==="추방")return "ban";
+  if(label==="티어변동"||label==="닉네임변경"||label==="정보수정")return "edit";
+  return "";
+}
+function pklMemberDataLogs(){
+  const logs=[];
+  const push=(x)=>{if(!x)return;logs.push({
+    type:x.type||x.kind||"log",
+    nickname:x.nickname||x.nick||x.name||x.toNickname||"-",
+    pubgId:x.pubgId||x.gameId||x.ref||"-",
+    reason:x.reason||x.memo||x.message||x.detail||"-",
+    date:x.date||x.createdAt||x.updatedAt||x.time||"-",
+    admin:x.admin||x.moderator||x.moderatorTag||x.by||x.actor||"-",
+    warningCount:x.warningCount||x.warnings||x.count||"",
+    before:x.before||x.oldValue||x.old||"",
+    after:x.after||x.newValue||x.new||""
+  });};
+  [state.memberDataLogs,state.memberActivityLogs,state.activityLogs,state.adminLogs].forEach(arr=>{if(Array.isArray(arr))arr.forEach(push);});
+  (state.users||[]).forEach(u=>{
+    const nick=u.nickname||u.nick||u.name||"-", pubg=u.pubgId||u.gameId||u.ref||"-";
+    push({type:"join",nickname:nick,pubgId:pubg,reason:"회원 가입/승인",date:u.join||u.createdAt||u.approvedAt||"-",admin:u.approvedBy||"SYSTEM"});
+    (Array.isArray(u.history)?u.history:[]).forEach(h=>push({...h,nickname:nick,pubgId:pubg,warningCount:h.warningCount||u.warnings||""}));
+    if(u.penalty&&u.penalty.date)push({type:"penalty",nickname:nick,pubgId:pubg,reason:u.penalty.reason||"수감자 처리",date:u.penalty.date,admin:u.penalty.admin||"SYSTEM",warningCount:u.warnings||""});
+  });
+  (Array.isArray(state.warningRecords)?state.warningRecords:[]).forEach(push);
+  (Array.isArray(state.bans)?state.bans:[]).forEach(b=>push({...b,type:"ban"}));
+  const seen=new Set();
+  return logs.filter(x=>{
+    const key=[x.type,x.nickname,x.pubgId,x.reason,x.date,x.admin].join("|");
+    if(seen.has(key))return false;seen.add(key);return true;
+  }).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,500);
+}
+function renderPendingList(){
+  const wrap=document.getElementById("pendingList");if(!wrap)return;
+  const logs=pklMemberDataLogs();
+  const pending=Array.isArray(state.pending)?state.pending:[];
+  const warnCount=logs.filter(x=>pklMemberDataLabel(x.type)==="경고").length;
+  const prisonCount=logs.filter(x=>pklMemberDataLabel(x.type)==="수감").length;
+  const banCount=logs.filter(x=>pklMemberDataLabel(x.type)==="추방").length;
+  const count=document.getElementById("pendingBoardCount");if(count)count.textContent=logs.length;
+  const pendingHtml=pending.length?`<div class="member-data-section-title">승인 대기</div>`+pending.map((p,i)=>`<div class="pending-card"><div class="pending-no">${i+1}</div><div class="pending-info"><strong>${esc(p.nickname)}</strong><span>가입일자 : ${esc(p.date||'-')}</span><span>배그아이디 : ${esc(p.ref||p.pubgId||'-')}</span></div><div class="pending-actions"><button class="pending-approve" data-min-role="operator" onclick="approvePending(${i})">승인</button><button class="pending-reject" data-min-role="operator" onclick="rejectPending(${i})">거절</button></div></div>`).join(""):"";
+  const logHtml=logs.length?logs.map(x=>{
+    const label=pklMemberDataLabel(x.type), cls=pklMemberDataClass(x.type);
+    const extra=x.warningCount!==""&&x.warningCount!=null?` · 누적 경고 ${esc(x.warningCount)}회`:"";
+    const change=(x.before||x.after)?` · ${esc(x.before||'-')} → ${esc(x.after||'-')}`:"";
+    return `<div class="member-data-log-card"><div class="member-data-kind ${cls}">${label}</div><div class="member-data-main"><strong>${esc(x.nickname||'-')} / ${esc(x.pubgId||'-')}${extra}</strong><p>${esc(x.reason||'-')}${change}</p></div><div class="member-data-meta">${esc(x.date||'-')}<br>처리자 ${esc(x.admin||'-')}</div></div>`;
+  }).join(""):`<div class="pending-empty">회원 데이터 로그가 없습니다.</div>`;
+  wrap.innerHTML=`<div class="member-data-summary"><div class="member-data-stat"><small>승인 대기</small><strong>${pending.length}</strong></div><div class="member-data-stat"><small>경고 로그</small><strong>${warnCount}</strong></div><div class="member-data-stat"><small>수감 로그</small><strong>${prisonCount}</strong></div><div class="member-data-stat"><small>추방 로그</small><strong>${banCount}</strong></div></div>${pendingHtml}<div class="member-data-section-title">회원 활동 로그</div>${logHtml}`;
+}
+function approvePending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const p=state.pending[i];if(!p)return;state.users.push({nickname:p.nickname,pubgId:p.ref||p.pubgId||p.nickname,password:p.password||"",tier:"없음",role:"user",baseRole:"none",gradeRole:"none",memberRole:"user",status:"approved",approved:true,warnings:0,uid:"approved-"+Date.now(),join:nowText().split(' ')[0],last:"-",logs:0,memoList:[],history:[{type:"approve",reason:"가입 승인",date:nowText(),admin:adminName()}]});state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];state.memberDataLogs.unshift({type:"approve",nickname:p.nickname,pubgId:p.ref||p.pubgId||"",reason:"가입 승인",date:nowText(),admin:adminName()});removeApprovedFromPendingStorage(p);state.pending.splice(i,1);save();render();renderPendingList();}
+function rejectPending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const p=state.pending[i];if(!p)return;state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];state.memberDataLogs.unshift({type:"reject",nickname:p.nickname,pubgId:p.ref||p.pubgId||"",reason:"가입 거절",date:nowText(),admin:adminName()});state.pending.splice(i,1);save();render();renderPendingList();}
 function renderBanRecords(){const list=document.getElementById("banRecordList"),count=document.getElementById("banBoardCount");state.bans=Array.isArray(state.bans)?state.bans:[];if(count)count.textContent=state.bans.length;if(!list)return;list.innerHTML=state.bans.length?state.bans.map((b,i)=>`<div class="record-card"><div class="record-badge red">영구추방</div><div><strong>${esc(b.nickname)} / ${esc(b.pubgId||'-')}</strong><p>${esc(b.reason)}</p></div><div class="record-meta">${esc(b.date)}<br>처리자 ${esc(b.admin)}</div>${recordDeleteButton('ban',i)}</div>`).join(""):`<div class="pending-empty">추방 기록이 없습니다.</div>`;}
 function renderWarnRecords(){
   state.warningRecords=Array.isArray(state.warningRecords)?state.warningRecords:[];
@@ -7070,7 +7157,7 @@ function saveMemberEdit(){
   renderCurrentScreen();
   if(typeof updatePremiumDashboard==="function")updatePremiumDashboard();
 }
-async function deleteMemberData(){if(!pklIsSuperAdmin()){pklAlert("회원 데이터 삭제는 관리자만 사용할 수 있습니다.","권한 제한");return;}const u=state.users[current];if(!u)return;if(!await pklConfirm(`${u.nickname} 회원 데이터를 삭제하시겠습니까?`,"회원 데이터 삭제",true))return;pklPurgeDeletedUserFromStorage(u);state.users.splice(current,1);current=0;save();closeMemberEditModal();render();renderWelcome();}
+async function deleteMemberData(){if(!pklIsSuperAdmin()){pklAlert("회원 데이터 삭제는 관리자만 사용할 수 있습니다.","권한 제한");return;}const u=state.users[current];if(!u)return;if(!await pklConfirm(`${u.nickname} 회원 데이터를 삭제하시겠습니까?`,"회원 데이터 삭제",true))return;state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];state.memberDataLogs.unshift({type:"delete",nickname:u.nickname,pubgId:u.pubgId,reason:"회원 데이터 삭제/탈퇴 처리",date:nowText(),admin:adminName(),warningCount:u.warnings||0});pklPurgeDeletedUserFromStorage(u);state.users.splice(current,1);current=0;save();closeMemberEditModal();render();renderWelcome();}
 async function exportAdminState(){
   if(!pklIsSuperAdmin()){pklAlert("관리자만 사용할 수 있습니다.","권한 제한");return;}
   const text=JSON.stringify(state,null,2);
@@ -7464,7 +7551,7 @@ function setAdminNavActiveByScreen(screenId){
   const textMap={
     dashboardManageTab:"대시보드",
     userManageTab:"회원 관리",
-    pendingManageTab:"승인 대기",
+    pendingManageTab:"회원 데이터",
     bansManageTab:"추방 기록",
     warningsManageTab:"경고 기록",
     settingsManageTab:"설정"
