@@ -270,7 +270,23 @@
     showLoading();
     load({ limit: 20, offset: 0, q: '', append: false });
   }
-  window.PKLUsersSource = { __supabasePagedUsers20260512Fix: true, load: load, loadMore: loadMore, search: search, saveUser: saveUser, refresh: function(){ cache=[]; meta.offset=0; return load({limit:meta.limit,offset:0,q:meta.q||'',append:false}); }, invalidate: function(){ cache=[]; meta.loadedAt=0; }, localUsers: function(){ return cache.slice(); }, normalize: normalize, same: same, meta: meta };
+  function updateCachedUser(user, options){
+    options = options || {};
+    var normalized = normalize(user || {});
+    var idx = cache.findIndex(function(x){ return same(x, normalized); });
+    if(idx >= 0) cache[idx] = Object.assign({}, cache[idx], normalized);
+    else cache.push(normalized);
+    cache = sortUsers(mergeLists(cache));
+    if(window.state && Array.isArray(window.state.users)){
+      var sidx = window.state.users.findIndex(function(x){ return same(x, normalized); });
+      if(sidx >= 0) window.state.users[sidx] = Object.assign({}, window.state.users[sidx], normalized);
+    }
+    if(!options.silent){
+      try { window.dispatchEvent(new CustomEvent('pkl-user-updated', { detail: { user: normalized } })); } catch(e) {}
+    }
+    return cache.slice();
+  }
+  window.PKLUsersSource = { __supabasePagedUsers20260512Fix: true, load: load, loadMore: loadMore, search: search, saveUser: saveUser, updateCachedUser: updateCachedUser, refresh: function(){ cache=[]; meta.offset=0; return load({limit:meta.limit,offset:0,q:meta.q||'',append:false}); }, invalidate: function(){ cache=[]; meta.loadedAt=0; }, localUsers: function(){ return cache.slice(); }, normalize: normalize, same: same, meta: meta };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
   window.addEventListener('pkl-role-data-updated', patchProfile);
 })();

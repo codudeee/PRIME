@@ -3302,13 +3302,10 @@ document.addEventListener("DOMContentLoaded", function(){
       var res=await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'updateUserWithLog',originalIdentity:{discordId:didOf(target),nickname:target.nickname,pubgId:target.pubgId},user:target,log:{type:'tier_change',reason:'티어표 이동: '+labelOf(beforeTier)+' → '+labelOf(role),actor:'TIER'}})});
       var data=await res.json().catch(function(){return {};});
       if(!res.ok||!data.ok) throw new Error(data.message||'Supabase 티어 저장 실패');
-      await fetchUsers(true);
-      await renderSupabaseTierMembers();
-      try{window.dispatchEvent(new CustomEvent('pkl-users-updated',{detail:{users:cache.slice()}}));}catch(e){}
-      try{window.dispatchEvent(new CustomEvent('pkl-role-data-updated',{detail:{users:cache.slice()}}));}catch(e){}
+      try{window.dispatchEvent(new CustomEvent('pkl-user-updated',{detail:{user:target}}));}catch(e){}
       return true;
     }catch(e){
-      console.error(e); await fetchUsers(); await renderSupabaseTierMembers();
+      console.error(e); await fetchUsers(true); await renderSupabaseTierMembers();
       if(typeof pklAlert==='function') pklAlert(e.message||'티어 변경 저장에 실패했습니다.','저장 실패');
       return false;
     }
@@ -3316,8 +3313,19 @@ document.addEventListener("DOMContentLoaded", function(){
   window.renderPklTierMembers=function(){renderSupabaseTierMembers();};
   window.pklTierSetUserRole=function(userKey,targetLane){setUserTierSupabase(userKey,targetLane); return true;};
   document.addEventListener('DOMContentLoaded',function(){setTimeout(renderSupabaseTierMembers,0);});
-  window.addEventListener('pkl-users-updated',function(){fetchUsers(true).then(renderSupabaseTierMembers);});
-  window.addEventListener('pkl-role-data-updated',function(){fetchUsers(true).then(renderSupabaseTierMembers);});
+  window.addEventListener('pkl-user-updated',function(ev){
+    var user=ev&&ev.detail&&ev.detail.user;
+    if(!user) return;
+    var mapped=mapUser(user);
+    var k=keyOf(mapped);
+    var idx=cache.findIndex(function(u,i){return keyOf(u,i)===k;});
+    if(idx>=0) cache[idx]=Object.assign({},cache[idx],mapped); else cache.push(mapped);
+    renderSupabaseTierMembers();
+  });
+  window.addEventListener('pkl-users-updated',function(ev){
+    var users=ev&&ev.detail&&ev.detail.users;
+    if(Array.isArray(users)){ cache=users.map(mapUser); renderSupabaseTierMembers(); }
+  });
 })();
 </script>
 

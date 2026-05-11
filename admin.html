@@ -8068,18 +8068,32 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     if(did) return {discordId:did};
     return {nickname:clean(u.nickname||u.name||u.nick), pubgId:clean(u.pubgId||u.gameId||u.ref)};
   }
-  async function refreshSupabaseUsers(){
-    try{
-      if(window.PKLUsersSource&&typeof window.PKLUsersSource.load==='function'){
-        await window.PKLUsersSource.load({limit:100,offset:0,q:'',append:false});
-        return;
-      }
-    }catch(e){console.warn('PKLUsersSource refresh failed',e);}
-    try{
-      var res=await fetch('/api/pkl-users?limit=100&offset=0',{cache:'no-store'});
-      var data=await res.json();
-      if(data&&Array.isArray(data.users)&&window.state){window.state.users=data.users;}
-    }catch(e){console.warn('Supabase users refresh failed',e);}
+  function sameUser(a,b){
+    a=a||{}; b=b||{};
+    function c(v){return String(v==null?'':v).trim().toLowerCase();}
+    var ad=c(a.discordId||a.discord_id), bd=c(b.discordId||b.discord_id);
+    if(ad&&bd) return ad===bd;
+    var aid=c(a.uid||a.id||a.userId), bid=c(b.uid||b.id||b.userId);
+    if(aid&&bid) return aid===bid;
+    var an=c(a.nickname||a.name||a.nick), bn=c(b.nickname||b.name||b.nick);
+    var ap=c(a.pubgId||a.gameId||a.ref), bp=c(b.pubgId||b.gameId||b.ref);
+    return !!(an&&bn&&an===bn) || !!(ap&&bp&&ap===bp);
+  }
+  function updateUserDomOnly(user){
+    if(!window.state||!Array.isArray(window.state.users)) return;
+    var list=window.state.users;
+    var idx=list.findIndex(function(x){return sameUser(x,user);});
+    if(idx<0) idx=typeof current==='number'?current:-1;
+    if(idx<0) return;
+    list[idx]=Object.assign({},list[idx],user);
+    current=idx;
+    try{ if(window.PKLUsersSource&&typeof window.PKLUsersSource.updateCachedUser==='function') window.PKLUsersSource.updateCachedUser(list[idx],{silent:true}); }catch(e){}
+    try{ if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers(list.slice(),false); }catch(e){}
+    // 전체 users refetch/render 금지: 현재 회원 카드/프로필만 교체한다.
+    try{ if(typeof renderUserList==='function') renderUserList(); }catch(e){}
+    try{ if(typeof renderProfile==='function') renderProfile(); }catch(e){}
+    try{ if(typeof renderStats==='function') renderStats(); }catch(e){}
+    try{ window.dispatchEvent(new CustomEvent('pkl-user-updated',{detail:{user:list[idx],index:idx}})); }catch(e){}
   }
   async function saveMemberEditSupabaseOnly(){
     var list=(window.state&&Array.isArray(window.state.users))?window.state.users:[];
@@ -8110,16 +8124,8 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       if(!res.ok||!data.ok) throw new Error(data.message||'Supabase 저장 실패');
       var saved=data.user||after;
       list[idx]=Object.assign({},after,saved,{memberTier:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),gradeRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tierRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),baseRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tier:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),memberTierName:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier)});
+      updateUserDomOnly(list[idx]);
       if(typeof closeMemberEditModal==='function') closeMemberEditModal();
-      try{if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers(list.slice(),false);}catch(e){}
-      if(typeof renderUserList==='function') renderUserList();
-      if(typeof renderProfile==='function') renderProfile();
-      if(typeof renderStats==='function') renderStats();
-      try{window.dispatchEvent(new CustomEvent('pkl-users-updated',{detail:{users:list.slice()}}));}catch(e){}
-      try{window.dispatchEvent(new CustomEvent('pkl-role-data-updated',{detail:{users:list.slice()}}));}catch(e){}
-      await refreshSupabaseUsers();
-      if(typeof renderUserList==='function') renderUserList();
-      if(typeof renderProfile==='function') renderProfile();
     }catch(err){
       console.error(err);
       if(typeof pklAlert==='function') await pklAlert(err.message||'회원 정보를 Supabase에 저장하지 못했습니다.','저장 실패');
