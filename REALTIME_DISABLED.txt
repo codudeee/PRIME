@@ -1,2 +1,0 @@
-Realtime subscriptions and interval-based polling were disabled.
-Project converted to fetch/manual-refresh oriented structure.
