@@ -30,9 +30,19 @@ module.exports = async function handler(req, res) {
         const result = await supabaseStore.adjustUserPrime(body.user || body.identity || {}, Number(body.amount || 0), String(body.reason || ''), String(body.actor || 'ADMIN'));
         return res.status(200).json({ ok: true, ...result });
       }
-      if (body.action === 'discipline') {
-        if (typeof supabaseStore.applyUserDiscipline !== 'function') throw new Error('Supabase discipline function missing');
-        const result = await supabaseStore.applyUserDiscipline(body.user || body.identity || {}, String(body.kind || body.type || ''), String(body.reason || ''), String(body.actor || 'ADMIN'));
+      if (body.action === 'updateUserWithLog') {
+        if (typeof supabaseStore.updateUserWithLog !== 'function') throw new Error('Supabase user log function missing');
+        const user = await supabaseStore.updateUserWithLog(body.user || body.identity || {}, body.log || {});
+        return res.status(200).json({ ok: true, user });
+      }
+      if (body.action === 'recordBan') {
+        if (typeof supabaseStore.recordBan !== 'function') throw new Error('Supabase ban function missing');
+        const ban = await supabaseStore.recordBan(body.ban || {}, String(body.actor || 'ADMIN'));
+        return res.status(200).json({ ok: true, ban });
+      }
+      if (body.action === 'deleteBanRecord') {
+        if (typeof supabaseStore.deleteBanRecord !== 'function') throw new Error('Supabase ban delete function missing');
+        const result = await supabaseStore.deleteBanRecord(body.ban || {}, String(body.actor || 'ADMIN'));
         return res.status(200).json({ ok: true, ...result });
       }
       return res.status(400).json({ ok: false, message: '지원하지 않는 PATCH action입니다.' });

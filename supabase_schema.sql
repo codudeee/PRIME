@@ -122,9 +122,31 @@ DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.point_logs;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- PKL admin/member log performance indexes
-create index if not exists idx_admin_logs_created_at_desc on public.admin_logs (created_at desc);
-create index if not exists idx_admin_logs_action_created_at on public.admin_logs (action, created_at desc);
-create index if not exists idx_admin_logs_target_created_at on public.admin_logs (target, created_at desc);
-create index if not exists idx_point_logs_created_at_desc on public.point_logs (created_at desc);
-create index if not exists idx_point_logs_user_created_at on public.point_logs (user_id, created_at desc);
+
+-- 영구추방/재가입 차단 기록: 이 테이블에 active=true 기록이 있으면 Discord 재가입 차단
+create table if not exists public.ban_records (
+  id uuid primary key default gen_random_uuid(),
+  discord_id text,
+  nickname text not null default '',
+  pubg_id text not null default '',
+  reason text not null default '',
+  actor text,
+  permanent boolean not null default true,
+  active boolean not null default true,
+  raw jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_ban_records_active_discord on public.ban_records(active, discord_id);
+create index if not exists idx_ban_records_active_pubg on public.ban_records(active, pubg_id);
+create index if not exists idx_ban_records_active_nickname on public.ban_records(active, nickname);
+create index if not exists idx_admin_logs_action_created_at on public.admin_logs(action, created_at desc);
+create index if not exists idx_point_logs_discord_created_at on public.point_logs(discord_id, created_at desc);
+
+do $$ begin
+  create trigger touch_ban_records_updated_at before update on public.ban_records for each row execute function public.touch_updated_at();
+exception when duplicate_object then null; end $$;
+
+alter table public.ban_records enable row level security;
+do $$ begin create policy "pkl public read ban_records" on public.ban_records for select using (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "pkl public upsert ban_records" on public.ban_records for all using (true) with check (true); exception when duplicate_object then null; end $$;

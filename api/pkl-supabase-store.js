@@ -216,6 +216,98 @@ async function insertPointLogSafe(payload){
     });
   }catch(e){ console.warn && console.warn('point_logs insert failed', e && e.message ? e.message : e); }
 }
+
+function banToPayload(b={}){
+  const now = new Date().toISOString();
+  const raw = b && typeof b.raw === 'object' ? b.raw : b;
+  return {
+    discord_id: cleanId(b.discordId || b.discord_id || b.uid || b.id || b.userId || ''),
+    nickname: clean(b.nickname || b.nick || b.name || ''),
+    pubg_id: clean(b.pubgId || b.pubg_id || b.gameId || b.ref || ''),
+    reason: clean(b.reason || '영구추방'),
+    actor: clean(b.admin || b.actor || 'SYSTEM'),
+    permanent: b.permanent !== false,
+    active: b.active !== false,
+    raw: raw || {},
+    created_at: b.created_at || b.date || b.createdAt || now,
+    updated_at: now
+  };
+}
+function rowToBan(r={}){
+  const raw = r.raw && typeof r.raw === 'object' ? r.raw : {};
+  return {
+    id: r.id || raw.id || '',
+    discordId: r.discord_id || raw.discordId || raw.discord_id || '',
+    uid: r.discord_id ? `discord-${r.discord_id}` : (raw.uid || raw.id || ''),
+    nickname: r.nickname || raw.nickname || raw.nick || raw.name || '',
+    pubgId: r.pubg_id || raw.pubgId || raw.pubg_id || raw.gameId || '',
+    reason: r.reason || raw.reason || '영구추방',
+    admin: r.actor || raw.admin || raw.actor || 'SYSTEM',
+    permanent: r.permanent !== false,
+    active: r.active !== false,
+    date: r.created_at || raw.date || raw.createdAt || '',
+    raw
+  };
+}
+function banIdentityFilter(b={}){
+  const parts=[];
+  const did=cleanId(b.discordId || b.discord_id || b.uid || b.id || b.userId || '');
+  const pubg=clean(b.pubgId || b.pubg_id || b.gameId || b.ref || '');
+  const nick=clean(b.nickname || b.nick || b.name || '');
+  if(did) parts.push(`discord_id.eq.${did}`);
+  if(pubg) parts.push(`pubg_id.eq.${pubg}`);
+  if(nick) parts.push(`nickname.eq.${nick}`);
+  return parts;
+}
+async function readBanRecords(){
+  try{
+    const { json } = await supabaseFetch('ban_records?select=*&active=eq.true&order=created_at.desc&limit=1000');
+    return (Array.isArray(json)?json:[]).map(rowToBan);
+  }catch(e){ console.warn && console.warn('ban_records read failed', e && e.message ? e.message : e); return []; }
+}
+async function recordBan(ban={}, actor=''){
+  const payload = banToPayload({...ban, actor: actor || ban.actor || ban.admin});
+  const filters = banIdentityFilter(payload);
+  async function insert(payload){
+    const { json } = await supabaseFetch('ban_records', { method:'POST', headers:{ Prefer:'return=representation' }, body:JSON.stringify(payload) });
+    return Array.isArray(json)&&json[0]?rowToBan(json[0]):rowToBan(payload);
+  }
+  if(filters.length){
+    try{
+      const { json } = await supabaseFetch(`ban_records?select=*&or=(${filters.map(encodeURIComponent).join(',')})&active=eq.true&limit=1`);
+      if(Array.isArray(json)&&json[0]){
+        const { json:patched } = await supabaseFetch(`ban_records?id=eq.${encodeURIComponent(json[0].id)}`, { method:'PATCH', headers:{ Prefer:'return=representation' }, body:JSON.stringify({...payload, active:true, updated_at:new Date().toISOString()}) });
+        const saved=Array.isArray(patched)&&patched[0]?rowToBan(patched[0]):rowToBan({...json[0],...payload});
+        await insertAdminLogSafe({ action:'ban', actor: payload.actor, target: payload.nickname || payload.pubg_id || payload.discord_id, detail: saved });
+        return saved;
+      }
+    }catch(e){ console.warn && console.warn('ban_records upsert lookup failed', e && e.message ? e.message : e); }
+  }
+  const saved = await insert(payload);
+  await insertAdminLogSafe({ action:'ban', actor: payload.actor, target: payload.nickname || payload.pubg_id || payload.discord_id, detail: saved });
+  return saved;
+}
+async function deleteBanRecord(ban={}, actor=''){
+  const id=clean(ban.id || '');
+  let deleted=[];
+  if(id){
+    const { json } = await supabaseFetch(`ban_records?id=eq.${encodeURIComponent(id)}`, { method:'PATCH', headers:{ Prefer:'return=representation' }, body:JSON.stringify({active:false, updated_at:new Date().toISOString(), raw:{...((ban.raw&&typeof ban.raw==='object')?ban.raw:{}), removed_by: clean(actor||'ADMIN'), removed_at:new Date().toISOString()}}) });
+    deleted = Array.isArray(json)?json.map(rowToBan):[];
+  }else{
+    const parts=banIdentityFilter(ban);
+    if(parts.length){
+      const { json } = await supabaseFetch(`ban_records?or=(${parts.map(encodeURIComponent).join(',')})&active=eq.true`, { method:'PATCH', headers:{ Prefer:'return=representation' }, body:JSON.stringify({active:false, updated_at:new Date().toISOString()}) });
+      deleted = Array.isArray(json)?json.map(rowToBan):[];
+    }
+  }
+  await insertAdminLogSafe({ action:'ban_remove', actor: clean(actor||'ADMIN'), target: ban.nickname || ban.pubgId || ban.discordId || '', detail: { ban, deleted_count: deleted.length } });
+  return { deleted };
+}
+async function updateUserWithLog(user={}, log={}){
+  const saved = await writeUserDoc(user);
+  await insertAdminLogSafe({ action: clean(log.type || 'edit'), actor: clean(log.actor || log.admin || 'ADMIN'), target: saved.nickname || saved.pubgId || saved.discordId || '', detail: { reason: clean(log.reason || ''), changes: Array.isArray(log.changes)?log.changes:[], warningCount: log.warningCount, user: { discordId:saved.discordId, pubgId:saved.pubgId, nickname:saved.nickname } } });
+  return saved;
+}
 async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   const delta = Number(amount) || 0;
   if(!delta) throw new Error('프라임 수량이 없습니다.');
@@ -266,175 +358,6 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   return { user: rowToUser(savedRow), before: current, after: next, amount: delta, mail: mailText };
 }
 
-
-function isoToKstText(value){
-  const d = value ? new Date(value) : new Date();
-  const parts = new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(d);
-  const out={}; parts.forEach(p=>{ if(p.type!=='literal') out[p.type]=p.value; });
-  if(out.hour==='24') out.hour='00';
-  return `${out.year}.${out.month}.${out.day} ${out.hour}:${out.minute}`;
-}
-function addKstDays(days){
-  return isoToKstText(new Date(Date.now() + (Number(days)||0)*86400000).toISOString());
-}
-function penaltyDaysByWarning(count){
-  const n=Number(count)||0;
-  if(n>=3) return 14;
-  if(n>=2) return 7;
-  return 0;
-}
-function makeMail(row, type, title, message, reason, actor, extra={}){
-  const now=new Date().toISOString();
-  const raw=row.raw&&typeof row.raw==='object'?row.raw:{};
-  return {
-    id:`admin-${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    type,
-    title,
-    body:message,
-    message,
-    reason:message,
-    date:isoToKstText(now),
-    createdAt:now,
-    created_at:now,
-    admin:clean(actor||'PKL 운영진'),
-    from:clean(actor||'PKL 운영진'),
-    read:false,
-    isRead:false,
-    toNickname:row.nickname||raw.nickname||'',
-    targetNickname:row.nickname||raw.nickname||'',
-    nickname:row.nickname||raw.nickname||'',
-    toPubgId:row.pubg_id||raw.pubgId||raw.gameId||'',
-    targetPubgId:row.pubg_id||raw.pubgId||raw.gameId||'',
-    pubgId:row.pubg_id||raw.pubgId||raw.gameId||'',
-    uid:raw.uid||raw.id||raw.userId||(row.discord_id?`discord-${row.discord_id}`:''),
-    toUid:raw.uid||raw.id||raw.userId||(row.discord_id?`discord-${row.discord_id}`:''),
-    targetUid:raw.uid||raw.id||raw.userId||(row.discord_id?`discord-${row.discord_id}`:''),
-    discordId:row.discord_id||raw.discordId||'',
-    reasonText:clean(reason),
-    ...extra
-  };
-}
-function normalizeRawForDiscipline(row){
-  const raw=row.raw&&typeof row.raw==='object'?{...row.raw}:{};
-  raw.history=Array.isArray(raw.history)?raw.history:[];
-  raw.memoList=Array.isArray(raw.memoList)?raw.memoList:[];
-  raw.mailbox=Array.isArray(raw.mailbox)?raw.mailbox:[];
-  return raw;
-}
-async function patchUserRow(row, body){
-  async function patch(obj){
-    const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
-      method:'PATCH',
-      headers:{ Prefer:'return=representation' },
-      body:JSON.stringify(obj)
-    });
-    return json;
-  }
-  try{ return await patch(body); }
-  catch(e){
-    const msg=String(e&&e.message||e);
-    const fallback={...body};
-    for(const key of ['points','warnings','role','raw','updated_at','jailed','banned']){
-      if(new RegExp(key,'i').test(msg)) delete fallback[key];
-    }
-    if(JSON.stringify(fallback)===JSON.stringify(body)) throw e;
-    return await patch(fallback);
-  }
-}
-async function applyUserDiscipline(identity={}, action='', reason='', actor=''){
-  const row=await readUserRowByIdentity(identity);
-  const raw=normalizeRawForDiscipline(row);
-  const nowIso=new Date().toISOString();
-  const nowText=isoToKstText(nowIso);
-  const admin=clean(actor||'ADMIN');
-  const beforeWarnings=Number(row.warnings ?? raw.warnings ?? 0)||0;
-  const baseTarget=row.nickname||row.pubg_id||row.discord_id||'';
-  let nextWarnings=beforeWarnings;
-  let role=row.role||raw.memberRole||raw.role||'user';
-  let banned=!!(row.banned||raw.banned||raw.isBanned);
-  let jailed=!!(row.jailed||raw.jailed||raw.isPrisoner);
-  let mail=null;
-  let adminAction='member_action';
-  let logReason=clean(reason)||'관리자 처리';
-  let extraDetail={};
-
-  if(action==='warn'){
-    nextWarnings=beforeWarnings+1;
-    adminAction='warn';
-    raw.warnings=nextWarnings;
-    raw.history.unshift({type:'warn',reason:logReason,date:nowText,admin,warningCount:nextWarnings,before:beforeWarnings,after:nextWarnings});
-    mail=makeMail(row,'warning',`경고 ${nextWarnings}회 부여 안내`,`경고 사유:\n${logReason}\n\n현재 누적 경고: ${nextWarnings}회`,logReason,admin,{warningCount:nextWarnings});
-    raw.mailbox.unshift(mail);
-
-    const days=penaltyDaysByWarning(nextWarnings);
-    if(nextWarnings>=4){
-      banned=true; jailed=false; role='banned';
-      const banReason=`경고 4회 누적 자동 영구추방 · ${logReason}`;
-      raw.banned=true; raw.isBanned=true; raw.banReason=banReason; raw.bannedAt=nowIso;
-      raw.history.unshift({type:'ban',reason:banReason,date:nowText,admin,auto:true,warningCount:nextWarnings});
-      const banMail=makeMail(row,'ban','경고 4회 누적 영구추방 안내',`처리 사유:\n${banReason}\n\nPKL 운영 규정에 따라 계정 이용이 제한되었습니다.`,banReason,admin,{warningCount:nextWarnings,permanent:true});
-      raw.mailbox.unshift(banMail);
-      extraDetail.penalty='permanent_ban';
-      extraDetail.ban_reason=banReason;
-    }else if(days>0){
-      jailed=true; role='prisoner';
-      const until=addKstDays(days);
-      raw.memberRole='prisoner'; raw.userRole='prisoner'; raw.authRole='prisoner'; raw.role='prisoner'; raw.isPrisoner=true; raw.jailed=true;
-      raw.penalty={type:'prisoner',label:'수감자',days,until,reason:`경고 ${nextWarnings}회 누적 · ${logReason}`,date:nowText,admin};
-      raw.history.unshift({type:'penalty',reason:`경고 ${nextWarnings}회 누적 · 수감자 ${days}일 자동 적용`,date:nowText,admin,warningCount:nextWarnings,days,until});
-      const jailMail=makeMail(row,'penalty',`수감자 역할 ${days}일 자동 적용 안내`,`경고 ${nextWarnings}회 누적으로 수감자 역할이 ${days}일 적용되었습니다.\n해제 예정: ${until}\n사유: ${logReason}`,logReason,admin,{warningCount:nextWarnings,days,until});
-      raw.mailbox.unshift(jailMail);
-      extraDetail.penalty='prisoner'; extraDetail.days=days; extraDetail.until=until;
-    }
-  }else if(action==='minus'){
-    nextWarnings=Math.max(0,beforeWarnings-1);
-    adminAction='warning_minus';
-    raw.warnings=nextWarnings;
-    raw.history.unshift({type:'minus',reason:logReason,date:nowText,admin,warningCount:nextWarnings,before:beforeWarnings,after:nextWarnings});
-    mail=makeMail(row,'warning-minus','경고 차감 안내',`경고 차감 내용:\n${logReason}\n\n현재 누적 경고: ${nextWarnings}회`,logReason,admin,{warningCount:nextWarnings});
-    raw.mailbox.unshift(mail);
-    const days=penaltyDaysByWarning(nextWarnings);
-    if(days>0){
-      jailed=true; role='prisoner';
-      const until=addKstDays(days);
-      raw.memberRole='prisoner'; raw.userRole='prisoner'; raw.authRole='prisoner'; raw.role='prisoner'; raw.isPrisoner=true; raw.jailed=true;
-      raw.penalty={type:'prisoner',label:'수감자',days,until,reason:`경고 ${nextWarnings}회 상태 유지`,date:nowText,admin};
-    }else{
-      jailed=false;
-      if(String(raw.memberRole||raw.role||'')==='prisoner'){
-        const back=raw.beforePrisonerMemberRole||'user';
-        raw.memberRole=back==='prisoner'?'user':back; raw.userRole=raw.memberRole; raw.authRole=raw.memberRole; raw.role=raw.memberRole;
-      }
-      raw.isPrisoner=false; raw.jailed=false; raw.penalty=null;
-      role=raw.role||'user';
-    }
-  }else if(action==='ban'){
-    adminAction='ban';
-    banned=true; jailed=false; role='banned';
-    raw.banned=true; raw.isBanned=true; raw.banReason=logReason; raw.bannedAt=nowIso;
-    raw.history.unshift({type:'ban',reason:logReason,date:nowText,admin,warningCount:beforeWarnings,permanent:true});
-    mail=makeMail(row,'ban','영구추방 안내',`처리 사유:\n${logReason}\n\nPKL 운영 규정에 따라 계정 이용이 제한되었습니다.`,logReason,admin,{warningCount:beforeWarnings,permanent:true});
-    raw.mailbox.unshift(mail);
-    extraDetail.penalty='permanent_ban';
-  }else{
-    throw new Error('지원하지 않는 discipline action입니다.');
-  }
-
-  raw.updatedAt=nowIso;
-  raw.pklProfileUpdatedAt=nowIso;
-  raw.__pklProfileWrite=true;
-  const body={warnings:nextWarnings, role, jailed, banned, raw, updated_at:nowIso};
-  const json=await patchUserRow(row, body);
-  await insertAdminLogSafe({
-    action:adminAction,
-    actor:admin,
-    target:baseTarget,
-    detail:{reason:logReason,before_warnings:beforeWarnings,after_warnings:nextWarnings,discord_id:row.discord_id||'',pubg_id:row.pubg_id||'',mail:mail&&mail.title,...extraDetail}
-  });
-  const savedRow=Array.isArray(json)&&json[0]?json[0]:{...row,warnings:nextWarnings,role,jailed,banned,raw};
-  return { user: rowToUser(savedRow), beforeWarnings, afterWarnings:nextWarnings, banned, jailed, mail };
-}
-
 async function readUsers(options={}){
   const result = await readUserDocs({ limit: options.limit || 100, offset: options.offset || 0, q: options.q || "" });
   return result.users;
@@ -446,7 +369,7 @@ async function writeUsers(users){
   return mergeUsers(saved);
 }
 async function readAdminState(){
-  return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
+  return { users: await readUsers({ limit: 100 }), pending: [], bans: await readBanRecords(), warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, applyUserDiscipline };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, readBanRecords, recordBan, deleteBanRecord, insertAdminLogSafe };
