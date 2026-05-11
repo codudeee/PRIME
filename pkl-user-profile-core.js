@@ -2,19 +2,12 @@
   "use strict";
   if(window.PKLUserProfile && window.PKLUserProfile.__singleSourceFinal20260512) return;
 
-  var USER_KEYS = {pklUsers:true, PKL_USERS:true, pklAdminUsers:true, PKL_ADMIN_USERS:true, pklUserList:true};
-  var OPERATIONAL_BLOCK_KEYS = {
-    pklAdminState_v3:true,
-    pklAdminUsers:true,
-    PKL_ADMIN_USERS:true,
-    pklUserList:true,
-    pklPendingUsers:true,
-    PKL_DELETED_USER_KEYS_V1:true,
-    pklBannedUsers:true
-  };
+  var USER_KEYS = {pklUsers:true, PKL_USERS:true};
   var applying = false;
-  var nativeSetItem = localStorage.setItem.bind(localStorage);
-  var nativeRemoveItem = localStorage.removeItem.bind(localStorage);
+  var nativeSetItem = (window.__PKL_NATIVE_LOCALSTORAGE_SETITEM__ || (Storage && Storage.prototype && Storage.prototype.setItem));
+  var nativeRemoveItem = (window.__PKL_NATIVE_LOCALSTORAGE_REMOVEITEM__ || (Storage && Storage.prototype && Storage.prototype.removeItem));
+  window.__PKL_NATIVE_LOCALSTORAGE_SETITEM__ = nativeSetItem;
+  window.__PKL_NATIVE_LOCALSTORAGE_REMOVEITEM__ = nativeRemoveItem;
   var memoryUsers = [];
 
   function esc(v){return String(v == null ? "" : v).replace(/[&<>\"']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m];});}
@@ -78,13 +71,11 @@
     for(var i=0;i<arguments.length;i++){var a=arguments[i]; if(a&&a.__force)add(a.list,true); else add(a,false);}
     return out;
   }
-  function stateUsers(){var st=read("pklAdminState_v3",{});return st&&Array.isArray(st.users)?st.users:[];}
+  function stateUsers(){return [];}
   function users(){
-    if(Array.isArray(memoryUsers) && memoryUsers.length) return mergeLists(memoryUsers);
-    var p=read("pklUsers",[]); if(Array.isArray(p)&&p.length){memoryUsers=mergeLists(p);return mergeLists(memoryUsers);}
-    var a=read("PKL_USERS",[]); if(Array.isArray(a)&&a.length){memoryUsers=mergeLists(a);return mergeLists(memoryUsers);}
-    memoryUsers=mergeLists(read("pklAdminUsers",[]),read("PKL_ADMIN_USERS",[]),stateUsers());
-    return mergeLists(memoryUsers);
+    /* 운영 유저 데이터는 localStorage snapshot에서 복원하지 않는다.
+       Supabase fetch가 setUsers()로 주입한 메모리 목록만 사용한다. */
+    return Array.isArray(memoryUsers) ? mergeLists(memoryUsers) : [];
   }
   function findUser(u){return users().find(function(x){return same(x,u);})||null;}
   function hydrate(u){var found=findUser(u); return found?mergeOne(u,found,true):normalize(u||{});}
@@ -95,36 +86,26 @@
     try{
       /* 운영 유저 목록은 Supabase가 단일 원본이므로 localStorage에 전체 저장하지 않는다.
          브라우저 저장소가 꽉 차면 admin 정보수정/티어변경 저장 버튼까지 막히므로 메모리 이벤트만 갱신한다. */
-      try{nativeRemoveItem("pklUsers");nativeRemoveItem("PKL_USERS");nativeRemoveItem("pklAdminUsers");nativeRemoveItem("PKL_ADMIN_USERS");}catch(_e){}
+      try{nativeRemoveItem.call(localStorage,"pklUsers");nativeRemoveItem.call(localStorage,"PKL_USERS");nativeRemoveItem.call(localStorage,"pklAdminUsers");nativeRemoveItem.call(localStorage,"PKL_ADMIN_USERS");}catch(_e){}
     }finally{applying=false;}
     try{window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:arr}}));window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:arr}}));}catch(e){}
     return arr;
   }
   function upsert(u){var list=users(); var nu=normalize(Object.assign({},u,{pklProfileUpdatedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),__pklProfileWrite:true})); var i=list.findIndex(function(x){return same(x,nu);}); if(i>=0)list[i]=mergeOne(list[i],nu,true); else list.push(nu); return setUsers(list,true);}
 
-  localStorage.setItem=function(key,value){
-    if(applying) return nativeSetItem(key,value);
-    if(USER_KEYS[key]){
-      try{
-        memoryUsers=mergeLists(parse(value,[]));
-        window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:memoryUsers}}));
-        window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:memoryUsers}}));
-      }catch(e){}
-      return;
-    }
-    if(OPERATIONAL_BLOCK_KEYS[key]){
-      try{console.info && console.info("PKL Supabase-only storage skipped:", key);}catch(_e){}
-      return;
-    }
-    try{return nativeSetItem(key,value);}
+  /* 운영 데이터 저장은 Supabase API가 담당한다.
+     localStorage.setItem을 전역으로 가로채면 중복 로드 시 재귀 호출/Quota 오류로
+     admin 정보수정 저장이 멈추므로 더 이상 monkey patch 하지 않는다. */
+  function pklSafeLocalSetItem(key,value){
+    try{return nativeSetItem.call(localStorage,key,value);}
     catch(e){
-      if(e && (e.name==="QuotaExceededError" || String(e.message||e).indexOf("quota")>=0)){
+      if(e && (e.name==="QuotaExceededError" || String(e.message||e).toLowerCase().indexOf("quota")>=0)){
         console.warn("PKL localStorage quota skipped:", key);
         return;
       }
       throw e;
     }
-  };
+  }
 
   function renderTierForUser(u,extra){u=hydrate(u); if(window.PKLTierBadge&&window.PKLTierBadge.renderForUser)return window.PKLTierBadge.renderForUser(u,{extraClass:extra||""}); var t=normTier(u.memberTier||u.gradeRole||u.tierRole||u.tier); return t&&t!=="none"?'<span class="pkl-tier-badge tier-mark '+esc(extra||'')+'">'+esc(tierLabel(t))+'</span>':"";}
   function renderRoleForUser(u,extra){u=hydrate(u); if(window.PKLRoleBadge&&window.PKLRoleBadge.renderForUser)return window.PKLRoleBadge.renderForUser(u,{extraClass:extra||""}); return '<span class="member-role-badge '+esc(extra||'')+'">'+esc(roleLabel(u.memberRole||u.role))+'</span>';}

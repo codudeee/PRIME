@@ -120,21 +120,9 @@
     return user;
   }
   function syncStorage(){
-    try{
-      var raw=localStorage.getItem("pklUsers");
-      if(!raw) return;
-      var users=JSON.parse(raw);
-      if(!Array.isArray(users)) return;
-      var changed=false;
-      users.forEach(function(user){
-        if(!user||typeof user!=="object") return;
-        var before=JSON.stringify({memberTier:user.memberTier,memberTierName:user.memberTierName,tierBadge:user.tierBadge,memberTierBadge:user.memberTierBadge,tierBadgeRole:user.tierBadgeRole,tierBadgeName:user.tierBadgeName,tierBadgeClass:user.tierBadgeClass,tierBadgeHtml:user.tierBadgeHtml});
-        applySnapshotToUser(user);
-        var after=JSON.stringify({memberTier:user.memberTier,memberTierName:user.memberTierName,tierBadge:user.tierBadge,memberTierBadge:user.memberTierBadge,tierBadgeRole:user.tierBadgeRole,tierBadgeName:user.tierBadgeName,tierBadgeClass:user.tierBadgeClass,tierBadgeHtml:user.tierBadgeHtml});
-        if(before!==after) changed=true;
-      });
-      if(changed) localStorage.setItem("pklUsers",JSON.stringify(users));
-    }catch(error){}
+    /* Supabase 단일 원본 구조: 티어 배지는 화면 렌더만 담당하고
+       pklUsers 전체를 localStorage에 다시 저장하지 않는다. */
+    return;
   }
   function injectStyle(){
     var old=document.getElementById("pklCommonTierBadgeStyle");
