@@ -19,7 +19,7 @@ function escapeHtml(value) {
   return String(value == null ? "" : value).replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
 }
 
-const PRODUCTION_HOST = "prime-theta-five.vercel.app";
+const PRODUCTION_HOST = process.env.VERCEL_URL || "prime-theta-five.vercel.app";
 const PRODUCTION_REDIRECT_URI = `https://${PRODUCTION_HOST}/api/discord-callback`;
 
 function env(name) { return String(process.env[name] || "").trim(); }
@@ -31,10 +31,8 @@ function currentSiteUrl(event) {
 function getRedirectUri(event) {
   const configured = env("DISCORD_REDIRECT_URI");
   const siteUrl = currentSiteUrl(event);
-  const host = String(event.headers.host || event.headers.Host || "");
-  if (/localhost|127\.0\.0\.1/i.test(host)) return `${siteUrl}/api/discord-callback`;
   if (configured && !/localhost|127\.0\.0\.1/i.test(configured)) return configured.replace(/\/$/, "");
-  return PRODUCTION_REDIRECT_URI;
+  return `${siteUrl}/api/discord-callback`;
 }
 function mask(value) {
   const v = String(value || "");
@@ -73,33 +71,19 @@ function normalizeRole(role){
   if (["guest","temp","temporary"].includes(low) || ["임시","비로그인"].includes(raw)) return "guest";
   return "user";
 }
-async function readServerUsers(){
-  if (supabaseStore && typeof supabaseStore.readUsers === "function") {
-    return await supabaseStore.readUsers();
-  }
+async function readServerUsers(searchUser){
   if (supabaseStore && typeof supabaseStore.readUserDocs === "function") {
-    const first = await supabaseStore.readUserDocs({ limit: 100, offset: 0 });
-    let users = Array.isArray(first && first.users) ? first.users : [];
-    const total = Number(first && first.count) || users.length;
-    for (let offset = users.length; offset < total && offset < 1000; offset += 100) {
-      const next = await supabaseStore.readUserDocs({ limit: 100, offset });
-      users = users.concat(Array.isArray(next && next.users) ? next.users : []);
-    }
-    return users;
+    const q = searchUser && (searchUser.discordId || searchUser.discord_id || searchUser.uid || searchUser.id || searchUser.nickname);
+    const result = await supabaseStore.readUserDocs({ limit: 100, offset: 0, q: q || "" });
+    return Array.isArray(result && result.users) ? result.users : [];
   }
+  if (supabaseStore && typeof supabaseStore.readUsers === "function") return await supabaseStore.readUsers();
   return [];
 }
-async function writeServerUsers(users){
-  if (supabaseStore && typeof supabaseStore.writeUsers === "function") {
-    await supabaseStore.writeUsers(users);
-    return true;
-  }
-  if (supabaseStore && typeof supabaseStore.writeUserDoc === "function") {
-    const list = Array.isArray(users) ? users : [];
-    for (const user of list) await supabaseStore.writeUserDoc(user, normalizeRole(user && (user.memberRole || user.role)) === "admin");
-    return true;
-  }
-  return true;
+async function writeServerUser(user){
+  if (supabaseStore && typeof supabaseStore.writeUserDoc === "function") return await supabaseStore.writeUserDoc(user);
+  if (supabaseStore && typeof supabaseStore.writeUsers === "function") return await supabaseStore.writeUsers([user]);
+  return user;
 }
 function createUser(discordUser, nickname, saved){
   const finalNickname = normalizeNickname(nickname || saved?.nickname || discordUser.nickname);
@@ -130,7 +114,7 @@ function createUser(discordUser, nickname, saved){
   });
 }
 async function registerServerUser(discordUser, nickname){
-  const users = await readServerUsers();
+  const users = await readServerUsers(discordUser);
   const existingIndex = users.findIndex(u => sameDiscordUser(u, discordUser));
   const saved = existingIndex >= 0 ? users[existingIndex] : null;
   const finalNickname = normalizeNickname(nickname || saved?.nickname || discordUser.nickname);
@@ -138,10 +122,8 @@ async function registerServerUser(discordUser, nickname){
   const merged = createUser(discordUser, finalNickname, saved || {});
   if (!saved && Array.isArray(users) && users.length===0){ merged.role="admin"; merged.memberRole="admin"; merged.memberRoleName="관리자"; }
   if (!saved && nicknameTaken(users, finalNickname, merged)) return { ok:false, statusCode:409, message:"이미 사용 중인 닉네임입니다." };
-  const makeFirstAdmin = !saved && Array.isArray(users) && users.length === 0;
   if (existingIndex >= 0) users[existingIndex] = merged; else users.push(merged);
-  if (supabaseStore && typeof supabaseStore.writeUserDoc === "function") await supabaseStore.writeUserDoc(merged, makeFirstAdmin);
-  else await writeServerUsers(users);
+  await writeServerUser(merged);
   return { ok:true, user: merged, users };
 }
 function oauthErrorHtml(title, message, data) {
@@ -211,7 +193,7 @@ exports.handler = async function(event) {
     return { statusCode: 403, headers: { "Content-Type":"text/html; charset=utf-8", "Set-Cookie": "pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" }, body: oauthErrorHtml("가입 제한", "추방 기록이 있는 계정은 회원가입할 수 없습니다. 운영진에게 문의해주세요.", { Discord: displayName, Reason: "banRecords" }) };
   }
 
-  const serverUsers = await readServerUsers();
+  const serverUsers = await readServerUsers(discordUser);
   const existing = serverUsers.find(u => sameDiscordUser(u, discordUser));
   const payload = {
   existingUser: existing || null,

@@ -182,25 +182,18 @@ async function writeUserDoc(user, forceAdmin=false){
     return await upsert(fallback);
   }
 }
-
-async function readUsers(){
-  const first = await readUserDocs({ limit: 100, offset: 0 });
-  let users = Array.isArray(first && first.users) ? first.users : [];
-  const total = Number(first && first.count) || users.length;
-  for (let offset = users.length; offset < total && offset < 1000; offset += 100) {
-    const next = await readUserDocs({ limit: 100, offset });
-    users = users.concat(Array.isArray(next && next.users) ? next.users : []);
-  }
-  return users;
+async function readUsers(options={}){
+  const result = await readUserDocs({ limit: options.limit || 100, offset: options.offset || 0, q: options.q || "" });
+  return result.users;
 }
 async function writeUsers(users){
   const list = Array.isArray(users) ? users : [];
   const saved = [];
-  for (const user of list) saved.push(await writeUserDoc(user, normalizeRole(user && (user.memberRole || user.role)) === 'admin'));
-  return saved;
+  for (const user of list) saved.push(await writeUserDoc(user));
+  return mergeUsers(saved);
 }
 async function readAdminState(){
-  return { users: await readUsers(), pending: [], bans: [], warningRecords: [] };
+  return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
 module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser };

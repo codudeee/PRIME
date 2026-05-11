@@ -73,7 +73,7 @@ async function handler(req,res){
 
     const localUsers=Array.isArray(body.localUsers) ? body.localUsers : [];
     let serverUsers=[];
-    try{ serverUsers = await supabaseStore.readUsers(); }catch(e){ serverUsers = []; }
+    try{ const r = supabaseStore.readUserDocs ? await supabaseStore.readUserDocs({ limit: 100, offset: 0, q: discordUser.discordId || nickname || "" }) : { users: await supabaseStore.readUsers() }; serverUsers = Array.isArray(r.users) ? r.users : (Array.isArray(r) ? r : []); }catch(e){ serverUsers = []; }
     const allUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(serverUsers, localUsers) : serverUsers.concat(localUsers);
     const activeBans = await readActiveBans();
     const banSeed = Object.assign({}, discordUser, {nickname:nickname, pubgId:pubgId, gameId:pubgId, ref:pubgId});
@@ -134,8 +134,8 @@ async function handler(req,res){
       user.memberRole="admin";
       user.memberRoleName="관리자";
     }
-    const nextUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(allUsers, [user]) : allUsers.concat([user]);
-    const savedUsers = await supabaseStore.writeUsers(nextUsers);
+    const savedUser = supabaseStore.writeUserDoc ? await supabaseStore.writeUserDoc(user) : user;
+    const savedUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(allUsers, [savedUser]) : allUsers.concat([savedUser]);
 
     return res.status(200).json({
       ok:true,

@@ -1,7 +1,3 @@
-const seoulClockText = document.getElementById("seoulClockText");
-
-
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -7298,7 +7294,7 @@ function renderWelcome(){
   if(settingsBtn)settingsBtn.style.display=isSuperAdmin()?"":"none";
 
   if(!window.__pklWelcomeUserSyncTimer){
-    window.__pklWelcomeUserSyncTimer=
+    window.__pklWelcomeUserSyncTimer=true;
   }
 }
 function initActionPlaceholders(){document.querySelectorAll(".action-panel textarea").forEach(el=>{if(!el.dataset.placeholderText)el.dataset.placeholderText=el.getAttribute("placeholder")||"";const hide=()=>{el.setAttribute("placeholder","")};const show=()=>{if(!el.matches(":focus")&&!el.value.trim())el.setAttribute("placeholder",el.dataset.placeholderText)};el.addEventListener("mouseenter",hide);el.addEventListener("focus",hide);el.addEventListener("mouseleave",show);el.addEventListener("blur",show);});}
@@ -7934,39 +7930,13 @@ window.addEventListener("pkl-users-updated", function(){ setTimeout(pklForceUser
   회원 목록은 pkl-users-source.js -> /api/pkl-users -> Supabase users 기준으로만 불러온다.
 */
 </script>
-<script id="pklAdminIdentityPklUsersFix">
-(function(){
-  if(window.__PKL_ADMIN_IDENTITY_PKLUSERS_FIX__) return;
-  window.__PKL_ADMIN_IDENTITY_PKLUSERS_FIX__ = true;
-  const PKL_USERS_KEY="pklUsers", PKL_USERS_ALIAS="PKL_USERS";
-  function parse(raw,fb){try{const v=JSON.parse(raw);return v==null?fb:v;}catch(e){return fb;}}
-  function clean(v){return String(v==null?"":v).trim();}
-  function uid(u){return clean(u&&(u.discordId||u.uid||u.id||u.userId||u.memberId||u.key));}
-  function pubg(u){return clean(u&&(u.pubgId||u.gameId||u.ref||u.pubgName));}
-  function nick(u){return clean(u&&(u.nickname||u.nick||u.name||u.displayName||u.discordGlobalName||u.discordUsername));}
-  function same(a,b){const ai=uid(a),bi=uid(b);if(ai&&bi)return ai===bi;const ap=pubg(a).toLowerCase(),bp=pubg(b).toLowerCase();if(ap&&bp)return ap===bp;const an=nick(a).toLowerCase(),bn=nick(b).toLowerCase();return !!(an&&bn&&an===bn);}
-  function mergeLists(){const out=[];function add(list){(Array.isArray(list)?list:[]).forEach(u=>{if(!u||typeof u!=="object")return;const i=out.findIndex(x=>same(x,u));if(i>=0)out[i]={...out[i],...u};else out.push({...u});});}for(let i=0;i<arguments.length;i++)add(arguments[i]);return out;}
-  function readUsers(){return mergeLists(parse(localStorage.getItem(PKL_USERS_KEY),[]),parse(localStorage.getItem(PKL_USERS_ALIAS),[]));}
-  function writeUsers(users,remote){const arr=mergeLists(users);localStorage.setItem(PKL_USERS_KEY,JSON.stringify(arr));localStorage.setItem(PKL_USERS_ALIAS,JSON.stringify(arr));if(remote&&window.PKLDataSync&&window.PKLDataSync.setShared){try{window.PKLDataSync.setShared(PKL_USERS_KEY,arr);window.PKLDataSync.setShared(PKL_USERS_ALIAS,arr);}catch(e){}}try{window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:arr}}));window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:arr}}));}catch(e){}return arr;}
-  function syncAdminFromUsers(users){
-    if(!Array.isArray(users)||!users.length||!window.state||!Array.isArray(window.state.users))return;
-    let changed=false;
-    users.forEach(u=>{
-      const idx=window.state.users.findIndex(x=>same(x,u));
-      if(idx>=0){
-        const old=window.state.users[idx];
-        window.state.users[idx]={...old,...u,history:Array.isArray(old.history)?old.history:u.history,memoList:Array.isArray(old.memoList)?old.memoList:u.memoList,warnings:Number(old.warnings??u.warnings??0)};
-        changed=true;
-      }else{
-        window.state.users.push({...u});changed=true;
-      }
-    });
-    if(changed){try{if(typeof normalizeState==="function")window.state=normalizeState(window.state);if(typeof render==="function")render();}catch(e){}}
-  }
-  window.PKLAdminIdentity={readPklUsers:readUsers,savePklUsers:function(list){return writeUsers(list,true)},upsertUser:function(user){const users=readUsers();const i=users.findIndex(x=>same(x,user));if(i>=0)users[i]={...users[i],...user};else users.push({...user});return writeUsers(users,true);},sameUser:same,mergeList:mergeLists};
-  window.addEventListener("pkl-users-updated",function(e){syncAdminFromUsers(e.detail&&e.detail.users?e.detail.users:readUsers());});
-  setTimeout(function(){syncAdminFromUsers(readUsers());},700);
-})();
+<script id="pklAdminIdentityPklUsersFix-disabled">
+/*
+  Disabled 2026-05-12:
+  admin 회원 목록은 Supabase page loader(pkl-users-source.js)만 단일 원본으로 사용한다.
+  기존 pklUsers/localStorage 병합 로직이 Supabase에서 받은 회원 목록을 다시 덮어써서
+  회원 목록/프로필이 비거나 옛 데이터로 보이는 문제가 있어 제거한다.
+*/
 </script>
 
   <script src="./pkl-responsive-scale.js"></script>

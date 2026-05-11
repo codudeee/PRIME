@@ -1,8 +1,14 @@
+
+// PKL role change restriction
+function pklCanChangeRole(currentUser){
+  return currentUser && currentUser.role === "총관리자";
+}
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<title>PKL 로그인</title>
+<title>PKL 회원가입</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
 *{box-sizing:border-box}
@@ -665,31 +671,12 @@ html,body{background:#05050a !important;}
 </style>
 </head>
 <body>
-<script id="pkl-discord-login-button-hard-bind">
-(function(){
-  function bindDiscordLoginButton(){
-    var buttons = document.querySelectorAll('#discordLoginBtn,.discord-btn');
-    buttons.forEach(function(btn){
-      btn.disabled = false;
-      btn.style.pointerEvents = 'auto';
-      btn.onclick = function(event){
-        if(event) event.preventDefault();
-        window.location.href = '/api/discord-login';
-        return false;
-      };
-    });
-  }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindDiscordLoginButton);
-  else bindDiscordLoginButton();
-  window.addEventListener('load', bindDiscordLoginButton);
-})();
-</script>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
 
 <main class="join-page">
   <section class="join-shell" aria-label="PKL Discord 가입">
     <div class="join-card">
-      <h1 class="join-title">LOGIN</h1>
+      <h1 class="join-title">JOIN</h1>
       <p class="join-sub">PRIME KILL LEAGUE DISCORD AUTH</p>
       <div class="join-rule-box">
         기존 아이디/비밀번호 회원가입은 사용하지 않습니다.<br>
@@ -697,14 +684,14 @@ html,body{background:#05050a !important;}
         최초 Discord 로그인 시 한글 닉네임 설정 후 일반 회원으로 등록됩니다.
       </div>
       <div class="form">
-        <button id="discordLoginBtn" class="discord-btn" type="button" onclick="location.href='/api/discord-login'">
-          Discord로 로그인 / 가입
+        <button class="discord-btn" type="button" onclick="">
+          Discord로 가입 / 로그인
         </button>
         <p class="success-msg">Discord 인증 후 자동으로 메인 화면으로 이동합니다.</p>
       </div>
       <div class="divider">PKL AUTH</div>
       <div class="join-links">
-        <a href='index.html'>메인으로</a>
+        <a href='register.html'>로그인 화면</a>
         <a href="contact.html">관리자문의</a>
       </div>
     </div>
@@ -870,7 +857,7 @@ access_token,
 refresh_token
 });
 
-history.replaceState({},document.title, window.location.pathname || '/register.html');
+history.replaceState({},document.title,'/register.html');
 
 }
 
@@ -988,11 +975,16 @@ if(btn){
 btn.disabled=false;
 btn.style.pointerEvents='auto';
 
-btn.onclick = function(e){
+btn.onclick = async function(e){
 
 e.preventDefault();
 
-location.href = '/api/discord-login';
+await client.auth.signInWithOAuth({
+provider:'discord',
+options:{
+redirectTo:location.origin+'/register.html'
+}
+});
 
 };
 
