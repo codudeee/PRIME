@@ -121,3 +121,10 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.point_logs;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- PKL admin/member log performance indexes
+create index if not exists idx_admin_logs_created_at_desc on public.admin_logs (created_at desc);
+create index if not exists idx_admin_logs_action_created_at on public.admin_logs (action, created_at desc);
+create index if not exists idx_admin_logs_target_created_at on public.admin_logs (target, created_at desc);
+create index if not exists idx_point_logs_created_at_desc on public.point_logs (created_at desc);
+create index if not exists idx_point_logs_user_created_at on public.point_logs (user_id, created_at desc);

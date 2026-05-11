@@ -1560,6 +1560,19 @@ button,input,select,textarea{font-family:inherit}button{cursor:pointer}input,sel
 .member-data-kind.release{color:#bbf7d0;border-color:rgba(74,222,128,.24);background:rgba(34,197,94,.09);}
 .member-data-kind.ban{color:#fecaca;border-color:rgba(248,113,113,.28);background:rgba(239,68,68,.10);}
 .member-data-kind.edit{color:#ddd6fe;border-color:rgba(167,139,250,.26);background:rgba(124,58,237,.10);}
+.member-data-kind.join{color:#bbf7d0;border-color:rgba(34,197,94,.34);background:rgba(22,163,74,.13);}
+.member-data-kind.reject,.member-data-kind.delete{color:#fecaca;border-color:rgba(248,113,113,.38);background:rgba(239,68,68,.13);}
+.member-data-kind.tier{color:#f5d0fe;border-color:rgba(217,70,239,.36);background:rgba(168,85,247,.14);}
+.member-data-kind.nickname{color:#bfdbfe;border-color:rgba(96,165,250,.36);background:rgba(59,130,246,.13);}
+.member-data-kind.prime{color:#fde68a;border-color:rgba(251,191,36,.38);background:rgba(217,119,6,.14);}
+.member-data-kind.warn{color:#fde68a;border-color:rgba(251,191,36,.38);background:rgba(251,191,36,.12);}
+.member-data-kind.minus{color:#bae6fd;border-color:rgba(56,189,248,.35);background:rgba(14,165,233,.12);}
+.member-data-kind.prison{color:#fbcfe8;border-color:rgba(244,114,182,.34);background:rgba(219,39,119,.12);}
+.member-data-kind.release{color:#a7f3d0;border-color:rgba(52,211,153,.34);background:rgba(16,185,129,.12);}
+.member-data-kind.ban{color:#fecaca;border-color:rgba(248,113,113,.42);background:rgba(185,28,28,.18);}
+.member-data-change-list{display:grid;gap:4px;margin-top:6px;color:rgba(231,225,255,.78);font-size:12px;font-weight:850;line-height:1.45;}
+.member-data-change-list span{display:block;}
+
 .member-data-main{min-width:0;}
 .member-data-main strong{display:block;color:#fff;font-size:14px;font-weight:1000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .member-data-main p{margin:5px 0 0;color:rgba(231,225,255,.68);font-size:12px;font-weight:800;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -6121,7 +6134,7 @@ function seed(){return {users:[],pending:[],bans:[],warningRecords:[]};}
 
 
 function pklHasAssignedTier(u){
-  // 회원목록은 Supabase/가입 데이터 기준으로 보여야 하므로 티어가 없어도 제거하지 않는다.
+  // 회원목록은 Firebase/가입 데이터 기준으로 보여야 하므로 티어가 없어도 제거하지 않는다.
   // 티어 값은 권한이 아니라 회원 티어 표시용 데이터다.
   return !!(u && !pklIsDeletedUser(u));
 }
@@ -6875,26 +6888,47 @@ function removeApprovedFromPendingStorage(p){try{const pending=JSON.parse(localS
 function pklMemberDataLabel(type){
   const t=String(type||"log").toLowerCase();
   if(t==="join"||t==="signup"||t==="approve")return "가입";
+  if(t==="reject")return "가입거절";
   if(t==="leave"||t==="withdraw"||t==="delete")return "탈퇴";
   if(t==="warn"||t==="warning")return "경고";
   if(t==="minus"||t==="warning-minus"||t==="warning_reduce"||t==="reduce")return "차감";
   if(t==="penalty"||t==="prison"||t==="jail")return "수감";
   if(t==="release"||t==="unjail")return "해제";
   if(t==="ban"||t==="banned")return "추방";
-  if(t==="tier"||t==="tier-change")return "티어변동";
+  if(t==="tier"||t==="tier-change"||t==="member_tier")return "티어변동";
   if(t==="nickname"||t==="nickname-change")return "닉네임변경";
-  if(t==="edit")return "정보수정";
+  if(t==="prime_grant")return "프라임지급";
+  if(t==="prime_seize")return "프라임압수";
+  if(t==="edit"||t==="member_edit"||t==="profile_edit")return "정보수정";
   return "기록";
 }
 function pklMemberDataClass(type){
+  const t=String(type||"log").toLowerCase();
   const label=pklMemberDataLabel(type);
+  if(label==="가입")return "join";
+  if(label==="가입거절")return "reject";
+  if(label==="탈퇴")return "delete";
   if(label==="경고")return "warn";
   if(label==="차감")return "minus";
   if(label==="수감")return "prison";
   if(label==="해제")return "release";
   if(label==="추방")return "ban";
-  if(label==="티어변동"||label==="닉네임변경"||label==="정보수정")return "edit";
+  if(label==="티어변동")return "tier";
+  if(label==="닉네임변경")return "nickname";
+  if(label==="프라임지급"||label==="프라임압수")return "prime";
+  if(label==="정보수정")return "edit";
   return "";
+}
+function pklMemberDataFieldName(key){
+  const map={nickname:"닉네임",pubgId:"배그아이디",gameId:"배그아이디",memberTier:"회원 티어",gradeRole:"회원 티어",tierRole:"회원 티어",tier:"회원 티어",memberRole:"권한/역할",role:"권한/역할",memberTitle:"칭호",titleBadge:"칭호",prime:"보유 프라임",points:"보유 프라임",dia:"보유 프라임",chicken:"보유 프라임",warnings:"경고",password:"비밀번호"};
+  return map[key]||key;
+}
+function pklFormatChangeLine(c){
+  if(!c||typeof c!=="object")return "";
+  const field=pklMemberDataFieldName(c.field||c.key||c.name||"항목");
+  const before=(c.before===undefined||c.before===null||c.before==="")?"-":String(c.before);
+  const after=(c.after===undefined||c.after===null||c.after==="")?"-":String(c.after);
+  return `${field}: ${before} → ${after}`;
 }
 function pklMemberDataLogs(){
   const logs=[];
@@ -6907,7 +6941,8 @@ function pklMemberDataLogs(){
     admin:x.admin||x.moderator||x.moderatorTag||x.by||x.actor||"-",
     warningCount:x.warningCount||x.warnings||x.count||"",
     before:x.before||x.oldValue||x.old||"",
-    after:x.after||x.newValue||x.new||""
+    after:x.after||x.newValue||x.new||"",
+    changes:Array.isArray(x.changes)?x.changes:(x.detail&&Array.isArray(x.detail.changes)?x.detail.changes:[])
   });};
   [state.memberDataLogs,state.memberActivityLogs,state.activityLogs,state.adminLogs].forEach(arr=>{if(Array.isArray(arr))arr.forEach(push);});
   (state.users||[]).forEach(u=>{
@@ -6937,7 +6972,8 @@ function renderPendingList(){
     const label=pklMemberDataLabel(x.type), cls=pklMemberDataClass(x.type);
     const extra=x.warningCount!==""&&x.warningCount!=null?` · 누적 경고 ${esc(x.warningCount)}회`:"";
     const change=(x.before||x.after)?` · ${esc(x.before||'-')} → ${esc(x.after||'-')}`:"";
-    return `<div class="member-data-log-card"><div class="member-data-kind ${cls}">${label}</div><div class="member-data-main"><strong>${esc(x.nickname||'-')} / ${esc(x.pubgId||'-')}${extra}</strong><p>${esc(x.reason||'-')}${change}</p></div><div class="member-data-meta">${esc(x.date||'-')}<br>처리자 ${esc(x.admin||'-')}</div></div>`;
+    const changeList=Array.isArray(x.changes)&&x.changes.length?`<div class="member-data-change-list">${x.changes.map(c=>`<span>${esc(pklFormatChangeLine(c))}</span>`).join("")}</div>`:"";
+    return `<div class="member-data-log-card"><div class="member-data-kind ${cls}">${label}</div><div class="member-data-main"><strong>${esc(x.nickname||'-')} / ${esc(x.pubgId||'-')}${extra}</strong><p>${esc(x.reason||'-')}${change}</p>${changeList}</div><div class="member-data-meta">${esc(x.date||'-')}<br>처리자 ${esc(x.admin||'-')}</div></div>`;
   }).join(""):`<div class="pending-empty">회원 데이터 로그가 없습니다.</div>`;
   wrap.innerHTML=`<div class="member-data-summary"><div class="member-data-stat"><small>승인 대기</small><strong>${pending.length}</strong></div><div class="member-data-stat"><small>경고 로그</small><strong>${warnCount}</strong></div><div class="member-data-stat"><small>수감 로그</small><strong>${prisonCount}</strong></div><div class="member-data-stat"><small>추방 로그</small><strong>${banCount}</strong></div></div>${pendingHtml}<div class="member-data-section-title">회원 활동 로그</div>${logHtml}`;
 }
@@ -7123,6 +7159,16 @@ async function saveMemberEdit(){
   const u=state.users[current];
   if(!u)return;
 
+  const before={
+    nickname:u.nickname||u.nick||u.name||"",
+    pubgId:u.pubgId||u.gameId||u.ref||"",
+    memberTier:u.memberTier||u.gradeRole||u.tierRole||u.tier||"none",
+    memberRole:u.memberRole||u.role||"guest",
+    memberTitle:u.memberTitle||u.titleBadge||"none",
+    prime:Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0,
+    warnings:Number(u.warnings||0)||0
+  };
+
   const nick=document.getElementById("editNick")?.value.trim() || "";
   const pubg=document.getElementById("editPubg")?.value.trim() || (u.pubgId||u.gameId||u.ref||"");
   const selectedGradeRaw=document.getElementById("editRole")?.value || "none";
@@ -7134,9 +7180,6 @@ async function saveMemberEdit(){
 
   if(!nick)return;
 
-
-  u.history=Array.isArray(u.history)?u.history:[];
-  u.history.unshift({type:"edit",reason:"회원 정보 수정",date:nowText(),admin:adminName()});
   u.nickname=nick;
   u.pubgId=pubg;
   u.dia=dia;
@@ -7177,8 +7220,28 @@ async function saveMemberEdit(){
   u.updatedAt=new Date().toISOString();
   u.pklProfileUpdatedAt=u.updatedAt;
   u.__pklProfileWrite=true;
+
+  const after={
+    nickname:u.nickname||"",
+    pubgId:u.pubgId||"",
+    memberTier:u.memberTier||u.gradeRole||u.tierRole||"none",
+    memberRole:u.memberRole||u.role||"guest",
+    memberTitle:u.memberTitle||u.titleBadge||"none",
+    prime:Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0,
+    warnings:Number(u.warnings||0)||0
+  };
+  const compareFields=["nickname","pubgId","memberTier","memberRole","memberTitle","prime","warnings"];
+  const changes=compareFields.filter(k=>String(before[k]??"")!==String(after[k]??"")).map(k=>({field:k,before:before[k]??"",after:after[k]??""}));
+  if(pw)changes.push({field:"password",before:"기존 비밀번호",after:"변경됨"});
+  const tierChanged=changes.some(c=>["memberTier","memberRole"].includes(c.field));
+  const logType=tierChanged && changes.length===1 ? "tier" : "edit";
+  const changeSummary=changes.length ? changes.map(pklFormatChangeLine).filter(Boolean).join(" / ") : "변경된 항목 없음";
+  const historyLog={type:logType,reason:`회원 정보 수정 · ${changeSummary}`,date:nowText(),admin:adminName(),changes,before,after};
+  u.history=Array.isArray(u.history)?u.history:[];
+  u.history.unshift(historyLog);
+
   try{
-    const res=await fetch("/api/pkl-users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user:u})});
+    const res=await fetch("/api/pkl-users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user:u,actor:adminName(),adminLog:historyLog})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.message||"Supabase 저장 실패");
     if(data.user){
@@ -7197,12 +7260,6 @@ async function saveMemberEdit(){
       window.PKLUserProfile.upsert(u);
     }
   }catch(e){}
-
-  save();
-  try{localStorage.setItem(dataKey,JSON.stringify(state));}catch(e){}
-  try{syncUsersToAccountStorage();}catch(e){}
-  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
-  try{window.dispatchEvent(new StorageEvent("storage",{key:dataKey,newValue:JSON.stringify(state)}));}catch(e){}
 
   closeMemberEditModal();
   renderUserList();
@@ -7997,7 +8054,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   window.pklApplyAdminAccess=applyAccess;
 })();
 </script>
-<script id="pkl-admin-supabase-disabled">/* Supabase disabled: admin users are loaded only from Supabase /api/pkl-users. */</script>
+<script id="pkl-admin-firebase-disabled">/* Firebase disabled: admin users are loaded only from Supabase /api/pkl-users. */</script>
 <script id="pklAdminIdentityPklUsersFix">
 window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:function(list){return Array.isArray(list)?list:[]},upsertUser:function(user){return user},sameUser:function(){return false},mergeList:function(){return []}};
 </script>

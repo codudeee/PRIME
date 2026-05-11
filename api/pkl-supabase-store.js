@@ -266,11 +266,23 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   return { user: rowToUser(savedRow), before: current, after: next, amount: delta, mail: mailText };
 }
 
-async function deleteUserDoc(identity={}){
-  const row = await readUserRowByIdentity(identity);
-  await insertAdminLogSafe({ action:'user_delete', actor: clean(identity.actor || 'ADMIN'), target: row.nickname || row.pubg_id || row.discord_id || '', detail:{ discord_id: row.discord_id || '', pubg_id: row.pubg_id || '', nickname: row.nickname || '' } });
-  await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, { method:'DELETE', headers:{ Prefer:'return=minimal' } });
-  return { ok:true, deleted:true, user: rowToUser(row) };
+async function writeAdminLog(log={}){
+  const payload = {
+    action: clean(log.type || log.action || 'member_edit'),
+    actor: clean(log.admin || log.actor || 'ADMIN'),
+    target: clean(log.nickname || log.target || log.pubgId || ''),
+    detail: {
+      reason: clean(log.reason || ''),
+      nickname: clean(log.nickname || ''),
+      pubg_id: clean(log.pubgId || ''),
+      before: log.before || null,
+      after: log.after || null,
+      changes: Array.isArray(log.changes) ? log.changes : [],
+      date: log.date || new Date().toISOString()
+    }
+  };
+  await insertAdminLogSafe(payload);
+  return payload;
 }
 
 async function readUsers(options={}){
@@ -287,4 +299,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, deleteUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, writeAdminLog };
