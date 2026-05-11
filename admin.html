@@ -6257,8 +6257,17 @@ function syncPendingSignupUsers(st){
   }catch(e){}
   return st;
 }
-function load(){pklPurgeNonTierUsersFromStorage();try{const raw=localStorage.getItem(dataKey);if(raw){const parsed=JSON.parse(raw);return normalizeState(syncPendingSignupUsers(mergeAccountUsersIntoState(parsed)));}}catch(e){} return normalizeState(syncPendingSignupUsers(mergeAccountUsersIntoState(seed())))}
-function save(){state=normalizeState(state);window.state=state;syncUsersToAccountStorage();localStorage.setItem(dataKey,JSON.stringify(state));}
+function load(){
+  // 운영 데이터는 Supabase가 단일 원본이다.
+  // admin 초기 렌더에서 localStorage 백업을 읽으면 이전 닉네임/티어가 다시 덮어써질 수 있으므로 사용하지 않는다.
+  return normalizeState(seed());
+}
+function save(){
+  // localStorage 저장/복원 금지: 화면 상태만 메모리 state에 유지한다.
+  state=normalizeState(state);
+  window.state=state;
+  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
+}
 function normalizeState(s){
   s=s||seed();
   s.users=Array.isArray(s.users)?s.users:[];
@@ -6375,70 +6384,8 @@ function pklRoleSnapshotForStorage(u){
   return {role:finalRole,memberRole:memberRole,memberRoleName:memberRoleName(memberRole),memberTier:grade,memberTierName:gradeName,gradeRole:grade,tierRole:grade,roleName:memberRole==="prisoner"?memberRoleName(memberRole):(hasGrade?gradeName:memberRoleName(memberRole)),tier:gradeName,penalty:u&&u.penalty||null,isPrisoner:isPenaltyActive(u)};
 }
 function syncUsersToAccountStorage(){
-  try{
-    syncPermanentBanStorage();
-    pklPurgeNonTierUsersFromStorage();
-    const base=JSON.parse(localStorage.getItem("pklUsers")||"[]");
-    const existing=Array.isArray(base)?base.filter(x=>!(x&&(x.uid==="pkl_tester_user"||x.id==="pkl_tester_user"||x.pubgId==="PKL_TESTER"||x.gameId==="PKL_TESTER"||x.nickname==="테스터"||x.nick==="테스터"||x.name==="테스터"||pklIsDeletedUser(x)))):[];
-    const banned=Array.isArray(state.bans)?state.bans:[];
-    const activeUsers=(Array.isArray(state.users)?state.users:[]).filter(u=>!pklIsDeletedUser(u)&&!banned.some(b=>pklUserIdentityMatches(u,b)));
-    const merged=activeUsers.map(u=>{
-      const old=existing.find(x=>pklUserIdentityMatches(u,x))||{};
-      const snap=pklRoleSnapshotForStorage(u);
-      const restricted=isPenaltyActive(u);
-      const savedPubg=(u.pubgId||u.gameId||u.ref||old.pubgId||old.gameId||old.ref||"");
-      return {
-        ...old,
-        uid:u.uid||old.uid||old.id||"",
-        id:old.id||u.uid||"",
-        nickname:u.nickname||u.nick||u.name||old.nickname||old.nick||old.name||"",
-        nick:u.nickname||u.nick||u.name||old.nickname||old.nick||old.name||"",
-        name:u.nickname||u.nick||u.name||old.nickname||old.nick||old.name||"",
-        pubgId:savedPubg,
-        gameId:savedPubg || old.gameId || "",
-        ref:savedPubg || old.ref || "",
-        password:u.password||(old.password||""),
-        ...snap,
-        status:"approved",
-        approved:true,
-        warnings:u.warnings,
-        isBanned:false,
-        isPrisoner:restricted,
-        penalty:u.penalty||null,
-        joinBlockedUntil:u.penalty?.until||""
-      };
-    });
-    localStorage.setItem("pklUsers",JSON.stringify(merged));
-    ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"].forEach(key=>{
-      try{
-        const cur=JSON.parse(localStorage.getItem(key)||"null");
-        if(!cur)return;
-        if(cur.uid==="pkl_tester_user"||cur.id==="pkl_tester_user"||cur.pubgId==="PKL_TESTER"||cur.gameId==="PKL_TESTER"||cur.nickname==="테스터"||cur.nick==="테스터"||cur.name==="테스터"){
-          localStorage.removeItem(key);return;
-        }
-        const matched=activeUsers.find(u=>pklUserIdentityMatches(u,cur));
-        if(!matched)return;
-        const old=merged.find(u=>pklUserIdentityMatches(u,cur))||{};
-        const snap=pklRoleSnapshotForStorage(matched);
-        const savedPubg=matched.pubgId||matched.gameId||matched.ref||cur.pubgId||cur.gameId||cur.ref||old.pubgId||"";
-        localStorage.setItem(key,JSON.stringify({
-          ...cur,
-          uid:matched.uid||cur.uid||cur.id||"",
-          id:cur.id||matched.uid||"",
-          nickname:matched.nickname||matched.nick||matched.name||cur.nickname||cur.nick||cur.name||"",
-          nick:matched.nickname||matched.nick||matched.name||cur.nickname||cur.nick||cur.name||"",
-          name:matched.nickname||matched.nick||matched.name||cur.nickname||cur.nick||cur.name||"",
-          pubgId:savedPubg,
-          gameId:savedPubg||cur.gameId||"",
-          ref:savedPubg||cur.ref||"",
-          ...snap,
-          status:"approved",approved:true,warnings:matched.warnings,
-          isBanned:false,isPrisoner:isPenaltyActive(matched),penalty:matched.penalty||null,joinBlockedUntil:matched.penalty?.until||""
-        }));
-      }catch(e){}
-    });
-    try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
-  }catch(e){}
+  // Supabase 단일 원본 유지: 예전 pklUsers/localStorage 동기화는 되돌아감 원인이므로 비활성화.
+  return;
 }
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function seoulParts(){
@@ -7208,6 +7155,14 @@ async function saveMemberEdit(){
     prime:Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0,
     title:u.memberTitle||u.titleBadge||u.title||"none"
   };
+  const originalIdentity={
+    id:u.id||"",
+    uid:u.uid||"",
+    discordId:u.discordId||u.discord_id||"",
+    userId:u.userId||"",
+    pubgId:u.pubgId||u.gameId||u.ref||"",
+    nickname:u.nickname||u.nick||u.name||""
+  };
 
   const nick=document.getElementById("editNick")?.value.trim() || "";
   const pubg=document.getElementById("editPubg")?.value.trim() || (u.pubgId||u.gameId||u.ref||"");
@@ -7280,10 +7235,11 @@ async function saveMemberEdit(){
   state.memberDataLogs.unshift({type:logType,nickname:u.nickname,pubgId:u.pubgId,reason,date:nowText(),admin:adminName(),changes});
 
   try{
-    const res=await fetch("/api/pkl-users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"updateUserWithLog",user:u,log:{type:logType,reason,changes,actor:adminName()}})});
+    const res=await fetch("/api/pkl-users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"updateUserWithLog",user:u,originalIdentity,log:{type:logType,reason,changes,actor:adminName()}})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.message||"Supabase 저장 실패");
     if(data.user){
+      Object.assign(u,data.user);
       u.prime=Number(data.user.prime ?? data.user.points ?? u.prime ?? u.dia ?? 0)||0;
       u.points=u.prime;
       u.dia=u.prime;
@@ -7302,7 +7258,6 @@ async function saveMemberEdit(){
 
   save();
   try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
-  try{window.dispatchEvent(new StorageEvent("storage",{key:dataKey,newValue:JSON.stringify(state)}));}catch(e){}
 
   closeMemberEditModal();
   renderUserList();
@@ -8125,6 +8080,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   }
   async function loadUsers(){
     try{
+      ["pklAdminState_v3","pklUsers","pklAdminUsers","PKL_ADMIN_USERS","PKL_USERS","pklUserList","pklPendingUsers"].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
       var res=await fetch('/api/pkl-users?limit=1000&offset=0',{cache:'no-store'});
       var data=await res.json();
       var list=unique((Array.isArray(data.users)?data.users:[]).map(mapUser)).filter(function(u){return u.nickname||u.pubgId||u.discordId;});

@@ -143,10 +143,11 @@ async function readUserDocs(options={}){
   const count = Number((range.split('/')[1] || '').replace('*',''));
   return { users: (Array.isArray(json) ? json : []).map(rowToUser), count: Number.isFinite(count) ? count : (Array.isArray(json) ? json.length : 0), limit, offset, q };
 }
-async function writeUserDoc(user, forceAdmin=false){
+async function writeUserDoc(user, forceAdmin=false, originalIdentity={}){
   const u = normalizeUser(user);
-  const discordId = cleanId(u.discordId || u.uid || u.id);
-  if(!discordId) throw new Error('discord_id가 없어 저장할 수 없습니다.');
+  const original = originalIdentity && typeof originalIdentity === 'object' ? originalIdentity : {};
+  const discordId = cleanId(u.discordId || u.uid || u.id || original.discordId || original.discord_id || original.uid || original.id);
+  if(!discordId && !(original.id || original.pubgId || original.nickname)) throw new Error('discord_id가 없어 저장할 수 없습니다.');
   const role = forceAdmin ? 'admin' : normalizeRole(u.memberRole || u.role);
   const body = {
     discord_id: discordId,
@@ -161,7 +162,23 @@ async function writeUserDoc(user, forceAdmin=false){
     raw: u,
     updated_at: new Date().toISOString()
   };
+  async function patchExisting(obj){
+    try{
+      const row = await readUserRowByIdentity(original && Object.keys(original).length ? original : u);
+      if(row && row.id){
+        const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
+          method:'PATCH',
+          headers:{ Prefer:'return=representation' },
+          body:JSON.stringify(obj)
+        });
+        if(Array.isArray(json) && json[0]) return rowToUser(json[0]);
+      }
+    }catch(e){}
+    return null;
+  }
   async function upsert(obj){
+    const patched = await patchExisting(obj);
+    if(patched) return patched;
     const { json } = await supabaseFetch('users?on_conflict=discord_id', {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
@@ -303,8 +320,8 @@ async function deleteBanRecord(ban={}, actor=''){
   await insertAdminLogSafe({ action:'ban_remove', actor: clean(actor||'ADMIN'), target: ban.nickname || ban.pubgId || ban.discordId || '', detail: { ban, deleted_count: deleted.length } });
   return { deleted };
 }
-async function updateUserWithLog(user={}, log={}){
-  const saved = await writeUserDoc(user);
+async function updateUserWithLog(user={}, log={}, originalIdentity={}){
+  const saved = await writeUserDoc(user, false, originalIdentity);
   await insertAdminLogSafe({ action: clean(log.type || 'edit'), actor: clean(log.actor || log.admin || 'ADMIN'), target: saved.nickname || saved.pubgId || saved.discordId || '', detail: { reason: clean(log.reason || ''), changes: Array.isArray(log.changes)?log.changes:[], warningCount: log.warningCount, user: { discordId:saved.discordId, pubgId:saved.pubgId, nickname:saved.nickname } } });
   return saved;
 }
