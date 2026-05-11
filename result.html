@@ -1280,15 +1280,6 @@ button{cursor:pointer}
 .result-score-add-wrap{display:flex!important;justify-content:center!important;}.result-score-add-btn{display:inline-flex!important;align-items:center;justify-content:center;}
 </style>
 
-
-<style id="pkl-result-admin-child-modal-front-final">
-#resultAdminModal{z-index:2147483000!important;}
-#resultAdminModal .pkl-result-admin-panel{position:relative!important;z-index:2147483001!important;}
-#resultDeleteConfirmModal,#resultUsageHistoryModal,.pkl-delete-confirm-modal,.pkl-usage-modal,.pkl-confirm-modal,.pkl-admin-child-modal{position:fixed!important;z-index:2147483640!important;pointer-events:auto!important;}
-#resultDeleteConfirmModal.open,#resultUsageHistoryModal.open,.pkl-delete-confirm-modal.open,.pkl-usage-modal.open,.pkl-confirm-modal.open,.pkl-admin-child-modal.open{display:flex!important;}
-#resultDeleteConfirmModal .pkl-delete-confirm-box,#resultUsageHistoryModal .pkl-usage-box,.pkl-confirm-box,.pkl-admin-child-box{position:relative!important;z-index:2147483641!important;pointer-events:auto!important;}
-#resultDeleteConfirmModal button,#resultUsageHistoryModal button,.pkl-delete-confirm-modal button,.pkl-usage-modal button,.pkl-confirm-modal button{position:relative!important;z-index:2147483642!important;pointer-events:auto!important;cursor:pointer!important;}
-</style>
 </head>
 <body>
 
@@ -1456,8 +1447,8 @@ function pklResultSharedSet(key,value){
   const text=typeof value==='string'?value:JSON.stringify(value);
   try{
     localStorage.setItem(key,text);
-    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function'){
-      window.PKLSupabaseDataSync.setShared(key,text);
+    if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.setShared==='function'){
+      window.PKLFirebaseDataSync.setShared(key,text);
     }else if(typeof window.saveSharedData==='function'){
       window.saveSharedData(key,text);
     }
@@ -1466,6 +1457,7 @@ function pklResultSharedSet(key,value){
   }
 }
 function pklResultSaveMatches(){
+  pklResultSortMatches();
   const text=JSON.stringify(Array.isArray(MATCHES)?MATCHES:[]);
   pklResultSharedSet(RESULT_MATCHES_KEY,text);
   localStorage.setItem(RESULT_MATCHES_BACKUP_KEY,text);
@@ -1524,7 +1516,8 @@ function pklResultStateForMatch(match){
   return loadState();
 }
 function pklResultApplySelectedMatchState(){
-  const match=MATCHES.find(x=>x.id===selectedMatchId)||MATCHES[0];
+  pklResultSortMatches();
+  const match=MATCHES.find(x=>String(x.id)===String(selectedMatchId))||MATCHES[0];
   state=pklResultStateForMatch(match);
   const teams=(state.teams||[]).filter(t=>{
     const members=Array.isArray(t.members)?t.members:[];
@@ -1536,6 +1529,49 @@ function pklResultApplySelectedMatchState(){
   }
 }
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+function pklResultRoundNo(m){
+  const title=String((m&&m.title)||'');
+  const id=String((m&&m.id)||'');
+  let mm=title.match(/(?:PKL\s*)?(\d{1,4})\s*회차/);
+  if(mm) return Number(mm[1]);
+  mm=id.match(/(?:round|match|pkl)[_\-]?(\d{1,4})(?!\d)/i);
+  if(mm) return Number(mm[1]);
+  return 999999;
+}
+function pklResultCleanMatchTitle(m){
+  if(!m) return 'PKL 회차';
+  const n=pklResultRoundNo(m);
+  const raw=String(m.title||'').trim();
+  if(Number.isFinite(n) && n>0 && n<999999){
+    const suffix=/무료|일반/.test(raw)||String(m.kind||'')==='normal' ? ' - 일반' : '';
+    return 'PKL '+n+'회차'+suffix;
+  }
+  return raw && !/^match[_\-]?\d{8,}$/i.test(raw) ? raw : 'PKL 회차';
+}
+function pklResultSortMatches(){
+  if(!Array.isArray(MATCHES)) MATCHES=[];
+  const seen=new Set();
+  MATCHES=MATCHES.filter(function(m){
+    if(!m || typeof m!=='object') return false;
+    if(!m.id) m.id='match_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    const no=pklResultRoundNo(m);
+    const key=(no<999999 ? 'round:'+no : 'id:'+String(m.id));
+    if(seen.has(key)) return false;
+    seen.add(key);
+    m.title=pklResultCleanMatchTitle(m);
+    return true;
+  }).sort(function(a,b){
+    const an=pklResultRoundNo(a), bn=pklResultRoundNo(b);
+    if(an!==bn) return an-bn;
+    return String(a.savedAt||a.id||'').localeCompare(String(b.savedAt||b.id||''),'ko');
+  });
+}
+function pklResultNextRoundNumber(){
+  pklResultSortMatches();
+  const nums=MATCHES.map(pklResultRoundNo).filter(function(n){return Number.isFinite(n)&&n>0&&n<999999;});
+  return (nums.length?Math.max.apply(null,nums):0)+1;
+}
 function pklResultReadJSON(key,fb){try{const raw=localStorage.getItem(key)||sessionStorage.getItem(key);return raw?JSON.parse(raw):fb;}catch(e){return fb;}}
 function pklResultCurrentUserRaw(){
   const keys=['pklCurrentUser','PKL_CURRENT_USER','pklLoginUser','PKL_로그인_USER','pklUser','pklLoggedInUser','discordUser','authUser','currentUser','user'];
@@ -1985,6 +2021,7 @@ function pklResultTimeRange(start,end){
 }
 
 function renderMatchDropdown(){
+  pklResultSortMatches();
   const label=document.getElementById('matchDropdownLabel');
   const menu=document.getElementById('matchDropdownMenu');
   if(!label || !menu) return;
@@ -2003,6 +2040,7 @@ function closeMatchDropdown(){
 }
 
 function renderSide(){
+  pklResultSortMatches();
   pklResultApplySelectedMatchState();
   const __adminBtn=document.getElementById('adminPanelBtn');
   if(__adminBtn){ __adminBtn.style.display=pklResultIsStaff()?'inline-flex':'none'; }
@@ -2112,6 +2150,7 @@ function closeResultAdminModal(){
   modal.setAttribute('aria-hidden','true');
 }
 function renderResultAdminModal(){
+  pklResultSortMatches();
   const list=document.getElementById('adminMatchList');
   if(!list) return;
   if(!MATCHES.length){
@@ -2165,32 +2204,23 @@ function saveResultAdminForm(){
   renderAll();
   renderResultAdminModal();
 }
-function pklResultNextRoundNumber(){
-  const nums=(Array.isArray(MATCHES)?MATCHES:[]).map(m=>{
-    const title=String((m&&m.title)||'');
-    const match=title.match(/(\d+)\s*회차/);
-    return match ? Number(match[1]) : 0;
-  }).filter(n=>Number.isFinite(n)&&n>0);
-  return (nums.length ? Math.max(...nums) : 0) + 1;
-}
 function addResultAdminMatch(){
   if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
-  const nums=(Array.isArray(MATCHES)?MATCHES:[]).map(function(m){
-    const mm=String((m&&m.title)||'').match(/(\d+)\s*회차/);
-    return mm?Number(mm[1]):0;
-  }).filter(function(n){return Number.isFinite(n)&&n>0;});
-  let last=0;
-  try{ last=Number(localStorage.getItem('PKL_RESULT_LAST_ROUND_NO')||0)||0; }catch(e){}
-  const no=Math.max(last, nums.length?Math.max.apply(null,nums):0)+1;
-  try{ localStorage.setItem('PKL_RESULT_LAST_ROUND_NO', String(no)); }catch(e){}
-  const id='match_'+Date.now();
-  MATCHES.unshift({
+  const now=Date.now();
+  if(window.__pklResultAddingMatch && now-window.__pklResultAddingMatch<900) return;
+  window.__pklResultAddingMatch=now;
+  pklResultSortMatches();
+  const no=pklResultNextRoundNumber();
+  const id='match_'+now+'_'+no;
+  const newMatch={
     id:id,
     title:'PKL '+no+'회차',
-    date:'',time:'',endTime:'',maps:'',type:'프라임 킬내기 리그',teamCount:10,
+    date:'',time:'',endTime:'',maps:'',type:'프라임 킬내기 리그',kind:'league',teamCount:10,
     snapshot:{mode:'squad',selectedTeamId:'',teams:[],rounds:[],feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''},
-    savedAt:new Date().toISOString()
-  });
+    savedAt:new Date(now).toISOString()
+  };
+  MATCHES.push(newMatch);
+  pklResultSortMatches();
   adminEditingMatchId=id;
   selectedMatchId=id;
   pklResultSaveMatches();
@@ -2436,14 +2466,14 @@ bind();renderAll();
 window.addEventListener('storage',function(e){
   if(e && e.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
 });
-window.addEventListener('pkl-supabase-data-updated',function(e){
+window.addEventListener('pkl-firebase-data-updated',function(e){
   if(e && e.detail && e.detail.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
 });
 window.addEventListener('pkl-users-updated',function(){ renderSide(); });
 window.addEventListener('pkl-role-data-updated',function(){ renderSide(); });
-window.addEventListener('pkl-supabase-sync-ready',function(){
-  if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.refresh==='function'){
-    window.PKLSupabaseDataSync.refresh();
+window.addEventListener('pkl-firebase-sync-ready',function(){
+  if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.refresh==='function'){
+    window.PKLFirebaseDataSync.refresh();
   }
   setTimeout(pklResultRefreshMatchesFromStorage,350);
 });
@@ -2641,12 +2671,12 @@ window.addEventListener('load', restoreDiscordSession);
   cursor:pointer !important;
 }
 #resultDeleteConfirmModal.pkl-delete-confirm-modal{
-  z-index:2147482990 !important;
+  z-index:2147483646 !important;
   pointer-events:auto !important;
 }
 #resultDeleteConfirmModal .pkl-delete-confirm-box{
   position:relative !important;
-  z-index:2147482991 !important;
+  z-index:2147483647 !important;
 }
 </style>
 <script id="pkl-result-normal-title-hotfix-final">
@@ -2882,7 +2912,7 @@ window.addEventListener('load', restoreDiscordSession);
   function markDeleted(id){if(!id)return;var arr=deletedIds().filter(Boolean);if(arr.indexOf(String(id))<0)arr.push(String(id));writeJSON(DELETED_KEY,arr.slice(-80));}
   function filterDeletedMatches(){var ids=deletedIds();if(!ids.length)return false;var list=readJSON(MATCH_KEY,[]);if(!Array.isArray(list))return false;var next=list.filter(function(m){return ids.indexOf(String(m&&m.id))<0;});if(next.length!==list.length){writeJSON(MATCH_KEY,next);return true;}return false;}
   document.addEventListener('click',function(e){var yes=e.target&&e.target.closest&&e.target.closest('#resultDeleteYesBtn');if(yes){var active=document.querySelector('#adminMatchList .admin-match-item.active');var id=active&&active.getAttribute('data-admin-match');markDeleted(id);setTimeout(filterDeletedMatches,60);setTimeout(filterDeletedMatches,420);}},true);
-  window.addEventListener('pkl-supabase-data-updated',function(e){if(e&&e.detail&&e.detail.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
+  window.addEventListener('pkl-firebase-data-updated',function(e){if(e&&e.detail&&e.detail.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
   window.addEventListener('storage',function(e){if(e&&e.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
   function getMatches(){return readJSON(MATCH_KEY,[]);} function currentMatch(){var id=(document.getElementById('matchSelect')||{}).value||'';var list=getMatches();return list.find(function(m){return String(m&&m.id)===String(id);})||list[0]||null;}
   function fmtTime(t){if(!t)return '-';var d=new Date(Number(t)||t);if(String(d)==='Invalid Date')return String(t);return d.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
@@ -2893,6 +2923,36 @@ window.addEventListener('load', restoreDiscordSession);
   document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('#resultUsageHistoryBtn')){e.preventDefault();openUsage();}if(e.target&&e.target.closest&&e.target.closest('#resultUsageCloseBtn')){e.preventDefault();closeUsage();}if(e.target&&e.target.id==='resultUsageHistoryModal'){closeUsage();}},true);
 })();
 </script>
+
+
+<style id="pkl-result-admin-delete-modal-front-final">
+/* 회차삭제 확인창은 반드시 회차관리 모달보다 앞으로 */
+#resultDeleteConfirmModal.pkl-delete-confirm-modal,
+#resultDeleteConfirmModal.pkl-delete-confirm-modal.open{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:2147483646 !important;
+  display:none;
+  align-items:center !important;
+  justify-content:center !important;
+  pointer-events:auto !important;
+}
+#resultDeleteConfirmModal.pkl-delete-confirm-modal.open{
+  display:flex !important;
+}
+#resultDeleteConfirmModal .pkl-delete-confirm-box,
+#resultDeleteConfirmModal .pkl-delete-confirm-box *{
+  position:relative;
+  z-index:2147483647 !important;
+  pointer-events:auto !important;
+}
+#resultAdminModal.pkl-result-admin-modal.open{
+  z-index:2147483600 !important;
+}
+#resultAdminModal .pkl-result-admin-panel{
+  z-index:2147483601 !important;
+}
+</style>
 
 </body>
 </html>
