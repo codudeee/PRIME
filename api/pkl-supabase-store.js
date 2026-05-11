@@ -64,7 +64,38 @@ function rowToUser(r){
     raw:r.raw
   });
 }
-async function readUserDocs(){ const rows=await sb('users?select=*')||[]; return rows.map(rowToUser); }
+async function readUserDocs(limit=20, offset=0, q='', withTotal=false){
+  limit = Math.max(1, Math.min(Number(limit)||20, 100));
+  offset = Math.max(0, Number(offset)||0);
+  const params = ['select=*', `limit=${limit}`, `offset=${offset}`];
+  const search = clean(q);
+  if(search){
+    const safe = search.replace(/[,*()]/g, ' ').trim();
+    if(safe) params.push(`or=${encodeURIComponent(`nickname.ilike.*${safe}*,pubg_id.ilike.*${safe}*,discord_username.ilike.*${safe}*,discord_id.ilike.*${safe}*`)}`);
+  }
+  const path = `users?${params.join('&')}`;
+  if(!withTotal){
+    const rows = await sb(path) || [];
+    return rows.map(rowToUser);
+  }
+  if(!configured()) throw new Error('Supabase 설정 없음');
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers:{
+      apikey:SUPABASE_KEY,
+      Authorization:`Bearer ${SUPABASE_KEY}`,
+      'Content-Type':'application/json',
+      Prefer:'count=exact'
+    }
+  });
+  if(!res.ok){
+    const detail = await res.text().catch(()=> '');
+    throw new Error(`Supabase GET ${path} failed ${res.status}: ${detail}`);
+  }
+  const rows = await res.json().catch(()=>[]) || [];
+  const range = res.headers.get('content-range') || '';
+  const m = range.match(/\/(\d+)$/);
+  return { users: rows.map(rowToUser), total: m ? Number(m[1]) : rows.length, limit, offset };
+}
 async function getUserCount(){ const rows=await sb('users?select=discord_id&limit=1').catch(()=>[]); return Array.isArray(rows)?rows.length:0; }
 async function writeUserDoc(user, forceAdmin=false){
   const u=normalizeUser(user);
