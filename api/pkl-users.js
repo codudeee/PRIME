@@ -12,9 +12,11 @@ function mergeUsers(base, incoming){
 module.exports = async function handler(req, res) {
   try {
     if (req.method === "GET") {
-      const limit = Number(req.query?.limit || 20);
-      const offset = Number(req.query?.offset || 0);
-      const users = supabaseStore ? await supabaseStore.readUserDocs(limit, offset) : memoryUsers;
+      const users = supabaseStore
+        ? (supabaseStore.readUserDocs
+            ? await supabaseStore.readUserDocs(20,0)
+            : await supabaseStore.readUsers())
+        : memoryUsers;
       memoryUsers = mergeUsers(memoryUsers, users);
       return res.status(200).json({ ok: true, users: memoryUsers });
     }

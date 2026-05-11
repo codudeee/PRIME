@@ -65,13 +65,10 @@ function rowToUser(r){
   });
 }
 async function readUserDocs(limit=20, offset=0){
-  const rows = await sb(`users?select=*&limit=${limit}&offset=${offset}&order=created_at.desc`) || [];
+  const rows = await sb(`users?select=*&order=created_at.desc&limit=${limit}&offset=${offset}`) || [];
   return rows.map(rowToUser);
 }
-async function getUserCount(){
-  const rows = await sb('users?select=discord_id').catch(()=>[]);
-  return Array.isArray(rows) ? rows.length : 0;
-}
+async function getUserCount(){ const rows=await sb('users?select=discord_id&limit=1').catch(()=>[]); return Array.isArray(rows)?rows.length:0; }
 async function writeUserDoc(user, forceAdmin=false){
   const u=normalizeUser(user);
   const role = forceAdmin ? 'admin' : normalizeRole(u.memberRole||u.role);
@@ -116,6 +113,4 @@ async function writeUsers(users){
 }
 module.exports={readUsers,writeUsers,mergeUsers,readUserDocs,writeUserDoc,readAdminState,readJsonDoc,writeJsonDoc};
 
-
 module.exports.readUserDocs = readUserDocs;
-module.exports.getUserCount = getUserCount;
