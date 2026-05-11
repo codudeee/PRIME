@@ -54,8 +54,13 @@
     var p=pubg(u); if(p){u.pubgId=p;u.gameId=p;u.pubgName=p;u.ref=p;}
     var ident=id(u); if(ident){u.discordId=u.discordId||ident;u.uid=u.uid||ident;u.id=u.id||ident;u.userId=u.userId||ident;u.key=u.key||ident;}
     var role=normRole(u.memberRole||u.adminRole||u.userRole||u.authRole||u.role); u.memberRole=role;u.userRole=role;u.authRole=role;u.adminRole=roleLabel(role);u.role=role;
-    var tier=normTier(u.memberTier||u.gradeRole||u.tierRole||u.baseRole||(isTier(u.role)?u.role:"")||u.tier||u.memberTierName||u.tierName||u.roleName);
-    if(tier&&tier!=="none"){u.memberTier=tier;u.gradeRole=tier;u.tierRole=tier;u.baseRole=tier;u.originalRole=tier;u.memberTierName=tierLabel(tier);u.tier=tierLabel(tier);}else{u.memberTier="none";u.gradeRole="none";u.tierRole="none";u.memberTierName="없음";u.tier="없음";}
+    var tierSource = null;
+    [u.memberTier,u.gradeRole,u.tierRole,u.tier].some(function(v){ if(v!==undefined&&v!==null&&String(v).trim()!==""){ tierSource=v; return true; } return false; });
+    if(tierSource===null){
+      [u.baseRole,u.originalRole,u.memberTierName,u.tierName,u.roleName,(isTier(u.role)?u.role:"")].some(function(v){ if(v!==undefined&&v!==null&&String(v).trim()!==""){ tierSource=v; return true; } return false; });
+    }
+    var tier=normTier(tierSource);
+    if(tier&&tier!=="none"){u.memberTier=tier;u.gradeRole=tier;u.tierRole=tier;u.baseRole=tier;u.originalRole=tier;u.memberTierName=tierLabel(tier);u.tier=tierLabel(tier);}else{u.memberTier="none";u.gradeRole="none";u.tierRole="none";u.baseRole="none";u.originalRole="none";u.memberTierName="없음";u.tier="없음";}
     return u;
   }
   function mergeOne(oldU,newU,force){

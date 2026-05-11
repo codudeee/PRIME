@@ -64,24 +64,22 @@
     if(key.indexOf("tier4")===0) return "tier4";
     return key||"none";
   }
+  function hasValue(v){
+    return v !== null && v !== undefined && String(v).trim() !== "";
+  }
   function tierFromUser(user){
     user=user||{};
-    if(window.PKLRoleSystem&&typeof window.PKLRoleSystem.hydrateUser==="function"){
-      user=window.PKLRoleSystem.hydrateUser(user);
+    /* Supabase users.tier / memberTier 계열이 단일 원본이다.
+       여기서 PKLRoleSystem.hydrateUser()를 호출하면 예전 pklUsers/localStorage 값이
+       다시 섞여 "없음"으로 저장한 티어가 옛 배지로 되살아날 수 있어서 금지한다. */
+    var primary=[user.memberTier,user.gradeRole,user.tierRole,user.tier];
+    for(var p=0;p<primary.length;p++){
+      if(hasValue(primary[p])) return normalize(primary[p]);
     }
-    var fields=[
-      user.memberTier,
-      user.gradeRole,
-      user.tierRole,
-      user.baseRole,
-      user.role,
-      user.tier,
-      user.memberTierName,
-      user.tierName,
-      user.roleName
-    ];
-    for(var i=0;i<fields.length;i++){
-      var key=normalize(fields[i]);
+    var legacy=[user.baseRole,user.originalRole,user.memberTierName,user.tierName,user.roleName];
+    for(var i=0;i<legacy.length;i++){
+      if(!hasValue(legacy[i])) continue;
+      var key=normalize(legacy[i]);
       if(key&&key!=="none") return key;
     }
     return "none";

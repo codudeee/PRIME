@@ -82,38 +82,14 @@
     return al.length&&bl.length&&al.some(function(v){return bl.indexOf(v)>=0;});
   }
   function mergeUserLists(){
-    var account=readJson("pklUsers",[]);
-    var upper=readJson("PKL_USERS",[]);
-    var adminState=readJson("pklAdminState_v3",{});
-    var admin=Array.isArray(adminState&&adminState.users)?adminState.users:[];
-    var merged=[];
-    function useful(v){return v!=null&&String(v).trim()!==""&&String(v)!=="undefined"&&String(v)!=="null";}
-    function mergeSafe(oldUser,newUser){
-      var out=Object.assign({},oldUser||{});
-      Object.keys(newUser||{}).forEach(function(k){
-        var nv=newUser[k], ov=out[k];
-        if(!useful(nv)) return;
-        if((k==="pubgId"||k==="gameId"||k==="ref")&&useful(ov)) return;
-        if((k==="memberTier"||k==="gradeRole"||k==="tierRole"||k==="tier")&&useful(ov)) return;
-        out[k]=nv;
-      });
-      return out;
-    }
-    function addList(list){
-      if(!Array.isArray(list))return;
-      list.forEach(function(u){
-        if(!u||typeof u!=="object")return;
-        var idx=merged.findIndex(function(x){return sameUser(x,u);});
-        if(idx>=0) merged[idx]=mergeSafe(merged[idx],u);
-        else merged.push(Object.assign({},u));
-      });
-    }
-    addList(admin);
-    addList(upper);
-    addList(account);
-    return merged;
+    /* Supabase 단일 원본: role/tier 시스템은 더 이상 localStorage의
+       pklUsers / pklAdminState_v3를 읽어서 배지를 되살리지 않는다. */
+    return [];
   }
-  function readUsers(){if(window.PKLUserProfile&&typeof window.PKLUserProfile.users==="function")return window.PKLUserProfile.users();return mergeUserLists();}
+  function readUsers(){
+    if(window.PKLUserProfile&&typeof window.PKLUserProfile.users==="function")return window.PKLUserProfile.users();
+    return [];
+  }
   function hydrateUser(user){
     user=user||{};
     if(window.PKLUserProfile&&typeof window.PKLUserProfile.hydrate==="function")return window.PKLUserProfile.hydrate(user);
@@ -134,11 +110,17 @@
       tier:grade&&grade!=="none"?gradeRoleName(grade):"없음"
     };
   }
+  function hasTierValue(v){return v!==null&&v!==undefined&&String(v).trim()!=="";}
   function gradeRoleFromUser(u){
     u=hydrateUser(u);
-    var fields=[u&&u.memberTier,u&&u.gradeRole,u&&u.tierRole,u&&u.baseRole,u&&u.role,u&&u.tier,u&&u.memberTierName,u&&u.tierName,u&&u.roleName];
-    for(var i=0;i<fields.length;i++){
-      var r=normalizeGradeRole(fields[i]);
+    var primary=[u&&u.memberTier,u&&u.gradeRole,u&&u.tierRole,u&&u.tier];
+    for(var p=0;p<primary.length;p++){
+      if(hasTierValue(primary[p])) return normalizeGradeRole(primary[p]);
+    }
+    var legacy=[u&&u.baseRole,u&&u.originalRole,u&&u.memberTierName,u&&u.tierName,u&&u.roleName];
+    for(var i=0;i<legacy.length;i++){
+      if(!hasTierValue(legacy[i])) continue;
+      var r=normalizeGradeRole(legacy[i]);
       if(r&&r!=="none") return r;
     }
     return "none";

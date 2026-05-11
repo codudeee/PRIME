@@ -42,7 +42,17 @@
     var did = id(src), n = nick(src), p = pubg(src);
     var r = role(src.memberRole || src.member_role || src.role || src.userRole || src.authRole || src.adminRole || (src.is_admin ? 'admin' : 'user'));
     // memberTier/gradeRole/tierRole/tier가 명시적으로 none이면 baseRole/raw의 예전 티어로 되살리지 않는다.
-    var tierCandidate = (src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : (src.baseRole != null ? src.baseRole : (src.memberTierName || src.tierName || src.roleName))))));
+    var tierCandidate = null;
+    [src.memberTier, src.gradeRole, src.tierRole, src.tier].some(function(v){
+      if(v !== null && v !== undefined && String(v).trim() !== ''){ tierCandidate = v; return true; }
+      return false;
+    });
+    if(tierCandidate === null){
+      [src.baseRole, src.originalRole, src.memberTierName, src.tierName, src.roleName].some(function(v){
+        if(v !== null && v !== undefined && String(v).trim() !== ''){ tierCandidate = v; return true; }
+        return false;
+      });
+    }
     var t = tier(tierCandidate);
     if(did){ src.discordId = did; src.uid = 'discord-' + did; src.id = 'discord-' + did; src.userId = 'discord-' + did; src.key = 'discord-' + did; }
     if(n){ src.nickname = n; src.nick = n; src.name = n; src.displayName = n; }
@@ -260,7 +270,7 @@
     showLoading();
     load({ limit: 20, offset: 0, q: '', append: false });
   }
-  window.PKLUsersSource = { __supabasePagedUsers20260512Fix: true, load: load, loadMore: loadMore, search: search, saveUser: saveUser, localUsers: function(){ return cache.slice(); }, normalize: normalize, same: same, meta: meta };
+  window.PKLUsersSource = { __supabasePagedUsers20260512Fix: true, load: load, loadMore: loadMore, search: search, saveUser: saveUser, refresh: function(){ cache=[]; meta.offset=0; return load({limit:meta.limit,offset:0,q:meta.q||'',append:false}); }, invalidate: function(){ cache=[]; meta.loadedAt=0; }, localUsers: function(){ return cache.slice(); }, normalize: normalize, same: same, meta: meta };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
   window.addEventListener('pkl-role-data-updated', patchProfile);
 })();

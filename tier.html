@@ -2555,47 +2555,25 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
   };
 
   function pklTierReadAdminState(){
-    function readJson(key, fallback){
-      try{
-        const v = JSON.parse(localStorage.getItem(key) || "null");
-        return v == null ? fallback : v;
-      }catch(e){ return fallback; }
-    }
-    function normalizeStateUsers(v){
-      if(Array.isArray(v)) return v;
-      if(v && typeof v === "object" && Array.isArray(v.users)) return v.users;
-      return [];
-    }
     try{
+      if(window.PKLUsersSource && typeof window.PKLUsersSource.localUsers === "function"){
+        const users = window.PKLUsersSource.localUsers();
+        if(Array.isArray(users) && users.length) return { users, pending:[], bans:[], warningRecords:[] };
+      }
       if(window.PKLUserProfile && typeof window.PKLUserProfile.users === "function"){
         const users = window.PKLUserProfile.users();
         if(Array.isArray(users) && users.length) return { users, pending:[], bans:[], warningRecords:[] };
       }
-      const state = readJson(PKL_TIER_DATA_KEY, null);
-      if(state && Array.isArray(state.users) && state.users.length) return state;
-
-      /* 게스트/일반유저도 티어표는 구경 가능해야 하므로,
-         관리자 전용 state가 비어 있으면 공통 유저 저장소에서 읽는다. */
-      const fallbackUsers = []
-        .concat(normalizeStateUsers(readJson("pklUsers", [])))
-        .concat(normalizeStateUsers(readJson("PKL_USERS", [])))
-        .concat(normalizeStateUsers(readJson("pklAdminState_v3", {})))
-        .concat(normalizeStateUsers(readJson("pklAdminUsers", [])))
-        .concat(normalizeStateUsers(readJson("PKL_ADMIN_USERS", [])));
-      if(fallbackUsers.length) return { users:fallbackUsers, pending:[], bans:[], warningRecords:[] };
-      if(state && Array.isArray(state.users)) return state;
     }catch(e){}
     return { users:[], pending:[], bans:[], warningRecords:[] };
   }
 
   function pklTierSaveAdminState(state){
-    localStorage.setItem(PKL_TIER_DATA_KEY, JSON.stringify(state));
+    /* 티어 운영 데이터는 Supabase users가 단일 원본이다.
+       이 함수는 구버전 호환용으로만 남기고 localStorage 저장/복원을 하지 않는다. */
     if(window.PKLUserProfile && typeof window.PKLUserProfile.setUsers === "function"){
-      window.PKLUserProfile.setUsers(Array.isArray(state.users)?state.users:[], true);
-    }else{
-      pklTierSyncUsersToAccountStorage(state);
+      window.PKLUserProfile.setUsers(Array.isArray(state && state.users)?state.users:[], false);
     }
-    localStorage.setItem("pklTierLastSync", JSON.stringify({ at:new Date().toISOString() }));
   }
 
   function pklTierUserKey(user, index){
@@ -2651,13 +2629,17 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
     return map[text] || "";
   }
 
+  function pklTierHasValue(v){ return v !== null && v !== undefined && String(v).trim() !== ""; }
   function pklTierGradeRole(user){
-    if(window.PKLUserProfile && typeof window.PKLUserProfile.tierFrom === "function"){
-      const t = window.PKLUserProfile.tierFrom(user);
-      if(t && t !== "none") return t;
+    const primary = [user?.memberTier,user?.gradeRole,user?.tierRole,user?.tier];
+    for(const field of primary){
+      if(!pklTierHasValue(field)) continue;
+      const direct = pklTierNormalizeRole(field) || pklTierRoleFromText(field);
+      return direct || "";
     }
-    const fields = [user?.memberTier,user?.gradeRole,user?.tierRole,user?.baseRole,user?.role,user?.tier,user?.memberTierName,user?.tierName,user?.roleName];
-    for(const field of fields){
+    const legacy = [user?.baseRole,user?.originalRole,user?.memberTierName,user?.tierName,user?.roleName];
+    for(const field of legacy){
+      if(!pklTierHasValue(field)) continue;
       const direct = pklTierNormalizeRole(field) || pklTierRoleFromText(field);
       if(direct) return direct;
     }
@@ -2738,63 +2720,8 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
   }
 
   function pklTierSyncUsersToAccountStorage(state){
-    try{
-      state.users = Array.isArray(state.users) ? state.users : [];
-      const base = JSON.parse(localStorage.getItem("pklUsers") || "[]");
-      const existingList = Array.isArray(base) ? base : [];
-      const merged = state.users.map(user => {
-        const old = existingList.find(x =>
-          (user.uid && (x.uid === user.uid || x.id === user.uid)) ||
-          (user.pubgId && (x.pubgId === user.pubgId || x.gameId === user.pubgId || x.ref === user.pubgId)) ||
-          (user.nickname && (x.nickname === user.nickname || x.nick === user.nickname || x.name === user.nickname))
-        ) || {};
-
-        const grade = pklTierGradeRole(user);
-        const memberRole = user.memberRole || old.memberRole || ((old.role === "admin" || old.role === "operator" || old.role === "user" || old.role === "guest") ? old.role : "user");
-        const savedPubg = user.pubgId || user.gameId || user.ref || old.pubgId || old.gameId || old.ref || "";
-
-        return {
-          ...old,
-          nickname:user.nickname || user.nick || user.name || old.nickname || old.nick || old.name || "",
-          nick:user.nickname || user.nick || user.name || old.nickname || old.nick || old.name || "",
-          name:user.nickname || user.nick || user.name || old.nickname || old.nick || old.name || "",
-          pubgId:savedPubg,
-          gameId:savedPubg || old.gameId || "",
-          ref:savedPubg || old.ref || "",
-          password:user.password || old.password || "",
-          role:grade || old.role || memberRole,
-          memberRole:memberRole,
-          memberTier:grade || old.memberTier || old.gradeRole || old.tierRole || "none",
-          memberTierName:PKL_TIER_ROLE_LABELS[grade] || old.memberTierName || "없음",
-          gradeRole:grade || old.gradeRole || old.memberTier || old.tierRole || "none",
-          tierRole:grade || old.tierRole || old.memberTier || old.gradeRole || "none",
-          tier:PKL_TIER_ROLE_LABELS[grade] || old.tier || "없음",
-          warnings:user.warnings || old.warnings || 0,
-          isBanned:false,
-          isPrisoner:!!user.isPrisoner,
-          penalty:user.penalty || old.penalty || null,
-          uid:user.uid || old.uid || old.id || ""
-        };
-      });
-
-      localStorage.setItem("pklUsers", JSON.stringify(merged));
-
-      ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser"].forEach(key => {
-        try{
-          const cur = JSON.parse(localStorage.getItem(key) || sessionStorage.getItem(key) || "null");
-          if(!cur) return;
-          const matched = merged.find(user =>
-            (cur.uid && user.uid === cur.uid) ||
-            (cur.pubgId && (user.pubgId === cur.pubgId || user.gameId === cur.pubgId || user.ref === cur.pubgId)) ||
-            (cur.nickname && (user.nickname === cur.nickname || user.nick === cur.nickname || user.name === cur.nickname))
-          );
-          if(!matched) return;
-          const next = { ...cur, ...matched, pubgId:matched.pubgId || cur.pubgId || cur.gameId || cur.ref || "" };
-          localStorage.setItem(key, JSON.stringify(next));
-          sessionStorage.setItem(key, JSON.stringify(next));
-        }catch(e){}
-      });
-    }catch(e){}
+    /* Supabase 단일 원본: 티어표는 pklUsers/localStorage에 유저 목록을 저장하지 않는다. */
+    return;
   }
 
   function pklTierSetUserRole(userKey, targetLane){
@@ -3186,43 +3113,11 @@ document.addEventListener("DOMContentLoaded", function(){
 (function(){
   if(window.__PKL_TIER_PKLUSERS_FINAL_READ_FIX__) return;
   window.__PKL_TIER_PKLUSERS_FINAL_READ_FIX__ = true;
-  function parse(raw,fallback){try{return JSON.parse(raw) ?? fallback;}catch(e){return fallback;}}
-  function clean(v){return String(v == null ? "" : v).trim();}
-  function tierOf(u){return clean(u.memberTier || u.gradeRole || u.tierRole || u.tier);}
-  function same(a,b){
-    const aid=clean(a.discordId||a.uid||a.id||a.userId||a.key), bid=clean(b.discordId||b.uid||b.id||b.userId||b.key);
-    if(aid&&bid&&aid===bid) return true;
-    const ap=clean(a.pubgId||a.gameId||a.ref).toLowerCase(), bp=clean(b.pubgId||b.gameId||b.ref).toLowerCase();
-    if(ap&&bp&&ap===bp) return true;
-    const an=clean(a.nickname||a.nick||a.name).toLowerCase(), bn=clean(b.nickname||b.nick||b.name).toLowerCase();
-    return !!(an&&bn&&an===bn);
-  }
-  function merge(list){
-    const out=[];
-    (Array.isArray(list)?list:[]).forEach(u=>{
-      if(!u||typeof u!=="object") return;
-      const i=out.findIndex(x=>same(x,u));
-      if(i>=0){
-        const old=out[i];
-        out[i]={...old,...u};
-        const t=tierOf(u)||tierOf(old); if(t){out[i].memberTier=t;out[i].gradeRole=t;out[i].tierRole=t;out[i].tier=t;}
-        const p=clean(u.pubgId||u.gameId||u.ref)||clean(old.pubgId||old.gameId||old.ref); if(p){out[i].pubgId=p;out[i].gameId=p;out[i].ref=p;}
-      }else out.push(u);
-    });
-    return out;
-  }
-  function getUnifiedUsers(){
+  window.PKLGetUnifiedTierUsers = function(){
+    if(window.PKLUsersSource && typeof window.PKLUsersSource.localUsers === "function") return window.PKLUsersSource.localUsers();
     if(window.PKLUserProfile && typeof window.PKLUserProfile.users === "function") return window.PKLUserProfile.users();
-    const a=parse(localStorage.getItem("pklUsers"),[]);
-    const b=parse(localStorage.getItem("PKL_USERS"),[]);
-    const st=parse(localStorage.getItem("pklAdminState_v3"),null);
-    return merge([...(Array.isArray(a)?a:[]),...(Array.isArray(b)?b:[]),...((st&&Array.isArray(st.users))?st.users:[])]);
-  }
-  window.PKLGetUnifiedTierUsers = getUnifiedUsers;
-  setTimeout(function(){
-    try{ if(window.PKLUserProfile&&window.PKLUserProfile.setUsers) window.PKLUserProfile.setUsers(getUnifiedUsers(), false); else localStorage.setItem("pklUsers", JSON.stringify(getUnifiedUsers())); }catch(e){}
-    try{ window.dispatchEvent(new CustomEvent("pkl-users-updated")); }catch(e){}
-  }, 1000);
+    return [];
+  };
 })();
 </script>
 
@@ -3343,15 +3238,24 @@ document.addEventListener("DOMContentLoaded", function(){
     if(window.PKLTierBadge&&typeof window.PKLTierBadge.normalize==='function') return window.PKLTierBadge.normalize(v);
     var raw=clean(v); if(!raw||raw==='없음'||raw.toLowerCase()==='none')return 'none'; return raw;
   }
-  function tierOf(u){return normalizeTier(u&& (u.memberTier||u.gradeRole||u.tierRole||u.baseRole||u.tier||u.memberTierName||u.tierName||u.roleName));}
+  function hasTierValue(v){return v!==null&&v!==undefined&&String(v).trim()!=='';}
+  function tierOf(u){
+    u=u||{};
+    var primary=[u.memberTier,u.gradeRole,u.tierRole,u.tier];
+    for(var p=0;p<primary.length;p++){ if(hasTierValue(primary[p])) return normalizeTier(primary[p]); }
+    var legacy=[u.baseRole,u.originalRole,u.memberTierName,u.tierName,u.roleName];
+    for(var i=0;i<legacy.length;i++){ if(hasTierValue(legacy[i])){ var t=normalizeTier(legacy[i]); if(t&&t!=='none') return t; } }
+    return 'none';
+  }
   function labelOf(t){t=normalizeTier(t); return LABEL[t]||t||'없음';}
   function mapUser(u){
     u=u||{}; var did=didOf(u); var tier=tierOf(u); var nick=clean(u.nickname||u.name||u.nick||u.discordUsername||u.discord_username||u.username);
     var out=Object.assign({},u,{discordId:did,uid:did?'discord-'+did:clean(u.uid||u.id||u.userId),id:did?'discord-'+did:clean(u.id||u.uid||u.userId),userId:did?'discord-'+did:clean(u.userId||u.uid||u.id),nickname:nick,name:nick,nick:nick,memberTier:tier,gradeRole:tier,tierRole:tier,baseRole:tier,tier:tier==='none'?'없음':labelOf(tier),memberTierName:labelOf(tier)});
     return out;
   }
-  async function fetchUsers(){
+  async function fetchUsers(force){
     if(loading) return cache.slice();
+    if(force) cache=[];
     loading=true;
     try{
       var all=[]; var offset=0; var limit=100; var count=Infinity;
@@ -3373,7 +3277,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function canEdit(){return typeof window.pklTierCanEdit==='function' ? !!window.pklTierCanEdit() : false;}
   async function renderSupabaseTierMembers(){
-    var users=await fetchUsers();
+    var users=await fetchUsers(true);
     var lists=document.querySelectorAll('.pkl-lane-list[data-tier]');
     if(!lists.length) return;
     lists.forEach(function(list){list.querySelectorAll('.pkl-tier-member').forEach(function(n){n.remove();}); list.classList.remove('pkl-drop-ready');});
@@ -3387,7 +3291,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   async function setUserTierSupabase(userKey,targetLane){
     var role=LANE_TO_ROLE[targetLane]; if(!role) return false;
-    var users=cache.length?cache:await fetchUsers();
+    var users=cache.length?cache:await fetchUsers(true);
     var target=users.find(function(u,i){return keyOf(u,i)===userKey;});
     if(!target) return false;
     var beforeTier=tierOf(target);
@@ -3398,7 +3302,7 @@ document.addEventListener("DOMContentLoaded", function(){
       var res=await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'updateUserWithLog',originalIdentity:{discordId:didOf(target),nickname:target.nickname,pubgId:target.pubgId},user:target,log:{type:'tier_change',reason:'티어표 이동: '+labelOf(beforeTier)+' → '+labelOf(role),actor:'TIER'}})});
       var data=await res.json().catch(function(){return {};});
       if(!res.ok||!data.ok) throw new Error(data.message||'Supabase 티어 저장 실패');
-      await fetchUsers();
+      await fetchUsers(true);
       await renderSupabaseTierMembers();
       try{window.dispatchEvent(new CustomEvent('pkl-users-updated',{detail:{users:cache.slice()}}));}catch(e){}
       try{window.dispatchEvent(new CustomEvent('pkl-role-data-updated',{detail:{users:cache.slice()}}));}catch(e){}
@@ -3412,8 +3316,8 @@ document.addEventListener("DOMContentLoaded", function(){
   window.renderPklTierMembers=function(){renderSupabaseTierMembers();};
   window.pklTierSetUserRole=function(userKey,targetLane){setUserTierSupabase(userKey,targetLane); return true;};
   document.addEventListener('DOMContentLoaded',function(){setTimeout(renderSupabaseTierMembers,0);});
-  window.addEventListener('pkl-users-updated',function(){fetchUsers().then(renderSupabaseTierMembers);});
-  window.addEventListener('pkl-role-data-updated',function(){fetchUsers().then(renderSupabaseTierMembers);});
+  window.addEventListener('pkl-users-updated',function(){fetchUsers(true).then(renderSupabaseTierMembers);});
+  window.addEventListener('pkl-role-data-updated',function(){fetchUsers(true).then(renderSupabaseTierMembers);});
 })();
 </script>
 
