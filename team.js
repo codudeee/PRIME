@@ -1486,15 +1486,12 @@ function completeTeams() {
     try {
       window.dispatchEvent(new CustomEvent('pkl-sheet-teams-imported', { detail: { state: sheetState, teams } }));
     } catch (error) {}
-    const remoteSave = saveSheetStateToFirebaseNow(sheetJson);
     return {
       count: teams.reduce((sum, team) => sum + team.members.filter(member => member.name).length, 0),
       remoteSave
     };
   }
 
-  function saveSheetStateToFirebaseNow(sheetJson) {
-    // PKL 2026-05-10: 팀 편성 완료 시 시트 전체 상태를 Firebase 공유문서에 직접 PATCH하지 않는다.
     // 시트 전달은 같은 브라우저 localStorage만 사용하고, 실제 실시간 공유는 sheet.html의 pklLiveScoreboard/current만 사용한다.
     return Promise.resolve(null);
   }

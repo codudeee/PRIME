@@ -42,7 +42,6 @@
   }
   function findUser(u){var list=users(); return list.find(function(x){return same(x,u);})||null;}
   function hydrate(u){var found=findUser(u); return found?mergeOne(u,found,true):normalize(u||{});}
-  function setUsers(list,saveRemote){var arr=mergeLists(list); applying=true; try{originalSet("pklUsers",JSON.stringify(arr));originalSet("PKL_USERS",JSON.stringify(arr));}finally{applying=false;} try{window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:arr}}));window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:arr}}));}catch(e){} /* Firebase sync removed */} return arr;}
   function upsert(u){var list=users(); var nu=normalize(Object.assign({},u,{pklProfileUpdatedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),__pklProfileWrite:true})); var i=list.findIndex(function(x){return same(x,nu);}); if(i>=0)list[i]=mergeOne(list[i],nu,true); else list.push(nu); return setUsers(list,true);}
   localStorage.setItem=function(key,value){
     if(applying)return originalSet(key,value);

@@ -48,10 +48,8 @@
   function ensureUnifiedSyncLoaded(){
     try{
       if(window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.__pklSupabaseUnified20260511) return;
-      var exists = Array.prototype.some.call(document.scripts || [], function(sc){ return /pkl-firebase-data-sync\.js(?:\?|$)/.test(sc.src || ""); });
       if(exists) return;
       var script = document.createElement("script");
-      return; // firebase sync removed
       script.defer = true;
       (document.head || document.documentElement).appendChild(script);
     }catch(e){}

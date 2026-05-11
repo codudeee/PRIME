@@ -6130,7 +6130,6 @@ function seed(){return {users:[],pending:[],bans:[],warningRecords:[]};}
 
 
 function pklHasAssignedTier(u){
-  // 회원목록은 가입 데이터 기준으로 보여야 하므로 티어가 없어도 제거하지 않는다.
   // 티어 값은 권한이 아니라 회원 티어 표시용 데이터다.
   return !!(u && !pklIsDeletedUser(u));
 }
@@ -7952,7 +7951,6 @@ document.addEventListener("DOMContentLoaded",()=>{
   function same(a,b){const ai=uid(a),bi=uid(b);if(ai&&bi)return ai===bi;const ap=pubg(a).toLowerCase(),bp=pubg(b).toLowerCase();if(ap&&bp)return ap===bp;const an=nick(a).toLowerCase(),bn=nick(b).toLowerCase();return !!(an&&bn&&an===bn);}
   function mergeLists(){const out=[];function add(list){(Array.isArray(list)?list:[]).forEach(u=>{if(!u||typeof u!=="object")return;const i=out.findIndex(x=>same(x,u));if(i>=0)out[i]={...out[i],...u};else out.push({...u});});}for(let i=0;i<arguments.length;i++)add(arguments[i]);return out;}
   function readUsers(){return mergeLists(parse(localStorage.getItem(PKL_USERS_KEY),[]),parse(localStorage.getItem(PKL_USERS_ALIAS),[]));}
-  function writeUsers(users,remote){const arr=mergeLists(users);localStorage.setItem(PKL_USERS_KEY,JSON.stringify(arr));localStorage.setItem(PKL_USERS_ALIAS,JSON.stringify(arr));if(remote&&null;null;}catch(e){}}try{window.dispatchEvent(new CustomEvent("pkl-users-updated",{detail:{users:arr}}));window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{users:arr}}));}catch(e){}return arr;}
   function syncAdminFromUsers(users){
     if(!Array.isArray(users)||!users.length||!window.state||!Array.isArray(window.state.users))return;
     let changed=false;

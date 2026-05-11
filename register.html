@@ -866,7 +866,6 @@ history.replaceState({},document.title,'/register.html');
 const { data:{session} } =
 await client.auth.getSession();
 
-// 기존 Firebase listener 에뮬레이션
 if(session?.user){
 
 const fakeUser = {
@@ -886,14 +885,11 @@ localStorage.setItem(
 JSON.stringify(fakeUser)
 );
 
-// firebase.auth() 가짜 구현
-window.firebase = {
 auth: function(){
 return {
 currentUser: fakeUser,
 onAuthStateChanged: function(callback){
 
-console.log('FAKE FIREBASE AUTH OK');
 
 setTimeout(()=>{
 callback(fakeUser);
@@ -909,7 +905,6 @@ location.reload();
 };
 
 window.currentUser = fakeUser;
-window.firebaseUser = fakeUser;
 
 // 신규유저 확인
 let exists = null;

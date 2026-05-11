@@ -6883,7 +6883,6 @@ body.pkl-recruit-waiting #joinCancelBtn,
     try{localStorage.setItem('pklDiscordRecruitMessage',JSON.stringify(msg));}catch(e){}
     try{localStorage.setItem('PKL_DISCORD_RECRUIT_MESSAGE_V1',JSON.stringify(msg));}catch(e){}
     try{localStorage.setItem('pklDiscordBotMessage',JSON.stringify(msg));}catch(e){}
-    try{ if(null; }catch(e){}
     try{ window.dispatchEvent(new CustomEvent('pkl-discord-recruit-message',{detail:msg})); }catch(e){}
   }
 

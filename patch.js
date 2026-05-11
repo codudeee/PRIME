@@ -60,13 +60,9 @@
     ].forEach(id => els[id] = $(id));
 
     bindEvents();
-    bindFirebasePatchSync();
     render();
   }
 
-  function bindFirebasePatchSync(){
-    if(window.PKL_PATCH_FIREBASE_SYNC_FINAL) return;
-    window.PKL_PATCH_FIREBASE_SYNC_FINAL = true;
     const reloadFromShared = () => {
       const fresh = loadNotes();
       if(!fresh) return;
@@ -74,10 +70,8 @@
       if(selected < 0 || selected >= notes.length) selected = 0;
       render();
     };
-    window.addEventListener("pkl-local-data-updated", e => {
       if(e && e.detail && e.detail.key === STORAGE_KEY) reloadFromShared();
     });
-    window.addEventListener("pkl-local-sync-ready", () => setTimeout(reloadFromShared, 80));
     window.addEventListener("storage", e => {
       if(e && e.key === STORAGE_KEY) reloadFromShared();
     });
@@ -104,8 +98,6 @@
     localStorage.setItem(STORAGE_KEY, text);
     localStorage.setItem(BACKUP_KEY, text);
     try{
-      if(null
-        null;
       }else if(typeof window.saveSharedData === "function"){
         window.saveSharedData(STORAGE_KEY, normalized);
       }
