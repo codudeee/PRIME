@@ -6679,7 +6679,8 @@ function render(){ if(typeof renderPklRoleDistribution==='function' && typeof st
 function renderUserList(){
   normalizeAllUserRoles();
   const q=(document.getElementById("search")?.value||"").trim().toLowerCase();
-  const list=state.users.map((u,i)=>({u,i})).filter(({u})=>!q||String(u.nickname).toLowerCase().includes(q)||String(u.pubgId).toLowerCase().includes(q)||String(roleName(u.role)).toLowerCase().includes(q));
+  const serverSearch=!!(window.PKLUsersSource&&window.PKLUsersSource.__supabaseOnly20260512);
+  const list=state.users.map((u,i)=>({u,i})).filter(({u})=>serverSearch||!q||String(u.nickname).toLowerCase().includes(q)||String(u.pubgId).toLowerCase().includes(q)||String(roleName(u.role)).toLowerCase().includes(q));
   const wrap=document.getElementById("userList");
   if(!wrap)return;
   wrap.innerHTML=list.map(({u,i})=>`
@@ -7915,27 +7916,13 @@ document.addEventListener("DOMContentLoaded",()=>{
 <script id="pkl-admin-supabase-users-load">
 (function(){
   "use strict";
-  async function loadSupabaseUsers(){
-    try{
-      if(!window.PKLSupabaseDataSync || !window.PKLSupabaseDataSync.configured || !window.PKLSupabaseDataSync.configured()) return;
-      var cfg=window.PKL_SUPABASE_CONFIG||{};
-      var url=String(cfg.url||localStorage.getItem('PKL_SUPABASE_URL')||'').replace(/\/+$/,'');
-      var key=String(cfg.anonKey||localStorage.getItem('PKL_SUPABASE_ANON_KEY')||'');
-      if(!url||!key) return;
-      var res=await fetch(url+'/rest/v1/users?select=*',{headers:{apikey:key,Authorization:'Bearer '+key}});
-      if(!res.ok) return;
-      var rows=await res.json();
-      var users=(Array.isArray(rows)?rows:[]).map(function(r){var raw=r.raw||{};return Object.assign({},raw,{id:raw.id||r.id,uid:raw.uid||r.discord_id,discordId:raw.discordId||r.discord_id,nickname:raw.nickname||r.nickname,pubgId:raw.pubgId||r.pubg_id,gameId:raw.gameId||r.pubg_id,memberRole:raw.memberRole||r.role||'user',role:raw.role||r.role||'user',memberTier:raw.memberTier||r.tier||'none',prime:Number(r.prime||0),dia:Number(r.prime||0),chicken:Number(r.prime||0)});});
-      function k(u){return String((u&&u.discordId)||(u&&u.uid)||(u&&u.id)||(u&&u.pubgId)||(u&&u.nickname)||'').trim().toLowerCase();}
-      var oldUsers=[];try{oldUsers=JSON.parse(localStorage.getItem('pklUsers')||'[]');}catch(_e){}
-      var merged=Array.isArray(oldUsers)?oldUsers.slice():[];
-      users.forEach(function(u){var idx=merged.findIndex(function(x){return k(x)&&k(x)===k(u);}); if(idx>=0) merged[idx]=Object.assign({},u,merged[idx]); else merged.push(u);});
-      localStorage.setItem('pklUsers',JSON.stringify(merged));localStorage.setItem('PKL_USERS',JSON.stringify(merged));
-      try{window.dispatchEvent(new CustomEvent('pkl-users-updated',{detail:{users:merged}}));window.dispatchEvent(new CustomEvent('pkl-role-data-updated',{detail:{users:merged}}));}catch(_e){}
-      if(typeof state==='object'&&state){state.users=merged;try{localStorage.setItem(dataKey,JSON.stringify(state));}catch(_e){} if(typeof render==='function')render();}
-    }catch(e){console.warn('Supabase users load skipped',e);}
+  function bootSupabaseUsers(){
+    if(window.PKLUsersSource && typeof window.PKLUsersSource.load === "function"){
+      window.PKLUsersSource.load({limit:20,offset:0,q:""});
+    }
   }
-  setTimeout(loadSupabaseUsers,250);
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootSupabaseUsers);
+  else bootSupabaseUsers();
 })();
 </script>
 <script id="pklAdminIdentityPklUsersFix">

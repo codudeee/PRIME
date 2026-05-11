@@ -64,27 +64,24 @@ function rowToUser(r){
     raw:r.raw
   });
 }
-async function readUserDocs(limit=20, offset=0, q='', withTotal=false){
-  limit = Math.max(1, Math.min(Number(limit)||20, 100));
-  offset = Math.max(0, Number(offset)||0);
-  const params = ['select=*', `limit=${limit}`, `offset=${offset}`];
-  const search = clean(q);
-  if(search){
-    const safe = search.replace(/[,*()]/g, ' ').trim();
-    if(safe) params.push(`or=${encodeURIComponent(`nickname.ilike.*${safe}*,pubg_id.ilike.*${safe}*,discord_username.ilike.*${safe}*,discord_id.ilike.*${safe}*`)}`);
-  }
-  const path = `users?${params.join('&')}`;
-  if(!withTotal){
-    const rows = await sb(path) || [];
-    return rows.map(rowToUser);
-  }
+function escapeLike(value){ return clean(value).replace(/[%_]/g, m => '\\' + m); }
+function userSelect(){ return 'id,discord_id,discord_username,nickname,pubg_id,tier,prime,points,warnings,jailed,banned,role,raw,created_at,updated_at'; }
+async function readUserDocs(options={}){
   if(!configured()) throw new Error('Supabase 설정 없음');
+  const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
+  const offset = Math.max(0, Number(options.offset || 0));
+  const q = clean(options.q || '');
+  let path = `users?select=${userSelect()}&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
+  if(q){
+    const term = encodeURIComponent(`*${escapeLike(q)}*`);
+    path += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
+  }
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    headers:{
-      apikey:SUPABASE_KEY,
-      Authorization:`Bearer ${SUPABASE_KEY}`,
-      'Content-Type':'application/json',
-      Prefer:'count=exact'
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'count=exact'
     }
   });
   if(!res.ok){
@@ -92,11 +89,12 @@ async function readUserDocs(limit=20, offset=0, q='', withTotal=false){
     throw new Error(`Supabase GET ${path} failed ${res.status}: ${detail}`);
   }
   const rows = await res.json().catch(()=>[]) || [];
-  const range = res.headers.get('content-range') || '';
+  const range = res.headers && res.headers.get ? String(res.headers.get('content-range') || '') : '';
   const m = range.match(/\/(\d+)$/);
-  return { users: rows.map(rowToUser), total: m ? Number(m[1]) : rows.length, limit, offset };
+  const count = m ? Number(m[1]) : rows.length;
+  return { users: rows.map(rowToUser), count };
 }
-async function getUserCount(){ const rows=await sb('users?select=discord_id&limit=1').catch(()=>[]); return Array.isArray(rows)?rows.length:0; }
+async function getUserCount(){ const result=await readUserDocs({limit:1,offset:0}).catch(()=>({count:0})); return Number(result.count||0); }
 async function writeUserDoc(user, forceAdmin=false){
   const u=normalizeUser(user);
   const role = forceAdmin ? 'admin' : normalizeRole(u.memberRole||u.role);
@@ -128,15 +126,15 @@ async function writeUserDoc(user, forceAdmin=false){
 async function readJsonDoc(key, fallback){ const rows=await sb(`live_scores?id=eq.${encodeURIComponent(key)}&select=payload&limit=1`).catch(()=>null); return rows&&rows[0]?rows[0].payload:fallback; }
 async function writeJsonDoc(key,value){ await sb('live_scores?on_conflict=id',{method:'POST',body:JSON.stringify({id:key,payload:value,updated_at:new Date().toISOString()})}).catch(()=>null); return true; }
 async function readAdminState(){return await readJsonDoc(STATE_KEY,{users:[],pending:[],bans:[],warningRecords:[]});}
-async function readUsers(){const docs=await readUserDocs().catch(()=>[]); const legacy=await readJsonDoc(USERS_KEY,[]).catch(()=>[]); const st=await readAdminState().catch(()=>({users:[]})); return mergeUsers(docs,Array.isArray(legacy)?legacy:[],Array.isArray(st&&st.users)?st.users:[]);}
+async function readUsers(){const result=await readUserDocs({limit:100,offset:0}).catch(()=>({users:[]})); return mergeUsers(result.users||[]);}
 async function writeUsers(users){
   const cleanUsers=mergeUsers(users);
-  const existingDocs=await readUserDocs().catch(()=>[]);
-  const dbWasEmpty=!existingDocs.length;
+  const existingDocsResult=await readUserDocs({limit:1,offset:0}).catch(()=>({users:[]}));
+  const dbWasEmpty=!(existingDocsResult.users||[]).length;
   const saved=[];
   for(let i=0;i<cleanUsers.length;i++) saved.push(await writeUserDoc(cleanUsers[i], dbWasEmpty && i===0));
   const st=await readAdminState().catch(()=>({}));
   await writeJsonDoc(STATE_KEY,{...(st||{}),users:[],__pklUserStorage:'supabase_users'}).catch(()=>null);
   return saved;
 }
-module.exports={readUsers,writeUsers,mergeUsers,readUserDocs,writeUserDoc,readAdminState,readJsonDoc,writeJsonDoc};
+module.exports={readUsers,writeUsers,mergeUsers,readUserDocs,writeUserDoc,readAdminState,readJsonDoc,writeJsonDoc,getUserCount};
