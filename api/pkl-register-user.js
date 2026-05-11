@@ -5,10 +5,11 @@ function normalizeNickname(value){return String(value==null?"":value).normalize(
 function normalizePubgId(value){return String(value==null?"":value).normalize("NFKC").trim();}
 function isKoreanNickname(value){return /^[가-힣]{1,4}$/.test(normalizeNickname(value));}
 function isValidPubgId(value){return /^[A-Za-z0-9_-]{2,32}$/.test(normalizePubgId(value));}
-function cleanId(v){return String(v==null?"":v).trim().toLowerCase();}
-function sameDiscord(a,b){return cleanId(a&&a.discordId)&&cleanId(a&&a.discordId)===cleanId(b&&b.discordId);}
-function identityValue(u){u=u||{};return [u.discordId,u.uid,u.id,u.userId,u.key,u.pubgId,u.gameId,u.ref,u.nickname,u.nick,u.name].map(cleanId).filter(Boolean);}
-function sameAnyUser(a,b){const av=identityValue(a), bv=identityValue(b);return av.length&&bv.length&&av.some(v=>bv.includes(v));}
+function cleanId(v){return String(v==null?"":v).trim().toLowerCase().replace(/^discord-/,"");}
+function explicitDiscordId(u){u=u||{};const d=cleanId(u.discordId||u.discord_id);if(d)return d;for(const k of ['uid','id','userId','key']){const raw=String(u[k]||'').trim();if(/^discord-/i.test(raw))return cleanId(raw);}return '';}
+function sameDiscord(a,b){const ad=explicitDiscordId(a),bd=explicitDiscordId(b);return !!(ad&&bd&&ad===bd);}
+function identityValue(u){u=u||{};const did=explicitDiscordId(u);return [did,u.pubgId,u.gameId,u.ref,u.nickname,u.nick,u.name].map(cleanId).filter(Boolean);}
+function sameAnyUser(a,b){const ad=explicitDiscordId(a),bd=explicitDiscordId(b);if(ad&&bd)return ad===bd;const av=identityValue(a), bv=identityValue(b);return av.length&&bv.length&&av.some(v=>bv.includes(v));}
 function parseKoreanDateMs(text){const m=String(text||"").match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);if(!m)return 0;return new Date(`${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}T00:00:00+09:00`).getTime();}
 function isActiveBanRecord(b){if(!b)return false;if(b.permanent===false||b.selfWithdraw||b.withdrawal||b.type==="withdraw"){const t=parseKoreanDateMs(b.date||b.withdrawnAt||b.createdAt);return !t || Date.now()-t < 30*86400000;}return true;}
 async function readActiveBans(){try{const st=await supabaseStore.readAdminState();return (Array.isArray(st&&st.bans)?st.bans:[]).filter(isActiveBanRecord);}catch(e){return []}}
@@ -71,10 +72,15 @@ async function handler(req,res){
     const nickname=normalizeNickname(body.nickname);
     const pubgId=normalizePubgId(body.pubgId);
 
-    const localUsers=Array.isArray(body.localUsers) ? body.localUsers : [];
     let serverUsers=[];
-    try{ const r = supabaseStore.readUserDocs ? await supabaseStore.readUserDocs({ limit: 100, offset: 0, q: discordUser.discordId || nickname || "" }) : { users: await supabaseStore.readUsers() }; serverUsers = Array.isArray(r.users) ? r.users : (Array.isArray(r) ? r : []); }catch(e){ serverUsers = []; }
-    const allUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(serverUsers, localUsers) : serverUsers.concat(localUsers);
+    try{
+      const r = supabaseStore.readUserDocs
+        ? await supabaseStore.readUserDocs({ limit: 100, offset: 0, q: discordUser.discordId || nickname || "" })
+        : { users: await supabaseStore.readUsers() };
+      const list = Array.isArray(r.users) ? r.users : (Array.isArray(r) ? r : []);
+      serverUsers = list.filter(u => !!explicitDiscordId(u));
+    }catch(e){ serverUsers = []; }
+    const allUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(serverUsers) : serverUsers;
     const activeBans = await readActiveBans();
     const banSeed = Object.assign({}, discordUser, {nickname:nickname, pubgId:pubgId, gameId:pubgId, ref:pubgId});
     if(activeBans.some(b=>sameAnyUser(b, banSeed))){
@@ -139,7 +145,7 @@ async function handler(req,res){
 
     return res.status(200).json({
       ok:true,
-      user:user,
+      user:savedUser,
       users:savedUsers,
       approved:true,
       status:"approved"

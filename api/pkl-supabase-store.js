@@ -4,6 +4,16 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABA
 function configured(){ return !!(SUPABASE_URL && SUPABASE_KEY); }
 function clean(v){ return String(v == null ? '' : v).trim(); }
 function cleanId(v){ return clean(v).toLowerCase().replace(/^discord-/, ''); }
+function explicitDiscordId(src={}){
+  const direct = cleanId(src.discordId || src.discord_id);
+  if(direct) return direct;
+  for(const key of ['uid','id','userId','memberId','key']){
+    const raw = clean(src[key]);
+    if(/^discord-/i.test(raw)) return cleanId(raw);
+  }
+  return '';
+}
+function hasDiscordIdentity(u){ return !!explicitDiscordId(u || {}); }
 function normalizeRole(v){
   const raw = clean(v); const low = raw.toLowerCase();
   if(['admin','administrator','owner','master','superadmin','manager'].includes(low) || ['관리자','총관리자','마스터','총괄'].includes(raw)) return 'admin';
@@ -19,7 +29,7 @@ function normalizeTier(v){
 }
 function normalizeUser(raw){
   const src = raw && raw.raw && typeof raw.raw === 'object' ? {...raw.raw, ...raw} : {...(raw || {})};
-  const did = cleanId(src.discordId || src.discord_id || src.uid || src.id || src.userId || src.memberId || src.key);
+  const did = explicitDiscordId(src);
   const nick = clean(src.nickname || src.nick || src.name || src.displayName || src.discord_username || src.discordUsername || src.username || src.discordGlobalName);
   const pubg = clean(src.pubgId || src.pubg_id || src.pubgID || src.gameId || src.pubgName || src.ref || src.pubg);
   const role = normalizeRole(src.memberRole || src.role || src.userRole || src.authRole || src.adminRole || (src.is_admin ? 'admin' : 'user'));
@@ -67,13 +77,10 @@ function normalizeUser(raw){
   };
   return u;
 }
-function strongKeys(u){ return [u && u.discordId, u && u.discord_id, u && u.uid, u && u.id, u && u.userId, u && u.memberId, u && u.key].map(cleanId).filter(Boolean); }
+function strongKeys(u){ const did = explicitDiscordId(u || {}); return did ? [did] : []; }
 function sameUser(a,b){
   const ak = strongKeys(a), bk = strongKeys(b);
-  if(ak.length && bk.length) return ak.some(v => bk.includes(v));
-  const ap = clean((a||{}).pubgId || (a||{}).pubg_id || (a||{}).gameId).toLowerCase();
-  const bp = clean((b||{}).pubgId || (b||{}).pubg_id || (b||{}).gameId).toLowerCase();
-  return !!(ap && bp && ap === bp);
+  return !!(ak.length && bk.length && ak.some(v => bk.includes(v)));
 }
 function mergeUsers(){
   const out=[];
@@ -81,6 +88,7 @@ function mergeUsers(){
     (Array.isArray(list)?list:[]).forEach(raw=>{
       if(!raw || typeof raw !== 'object') return;
       const u = normalizeUser(raw);
+      if(!u.discordId) return;
       const i = out.findIndex(x => sameUser(x,u));
       if(i >= 0) out[i] = normalizeUser({...out[i], ...u});
       else out.push(u);
@@ -133,7 +141,7 @@ async function readUserDocs(options={}){
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
   const offset = Math.max(0, Number(options.offset || 0));
   const q = clean(options.q || '');
-  let path = `users?select=*&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
+  let path = `users?select=*&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
   if(q){
     const term = encodeURIComponent(`*${escapeLike(q)}*`);
     path += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
@@ -141,13 +149,13 @@ async function readUserDocs(options={}){
   const { json, headers } = await supabaseFetch(path, { headers: { Prefer: 'count=exact' } });
   const range = headers.get('content-range') || '';
   const count = Number((range.split('/')[1] || '').replace('*',''));
-  return { users: (Array.isArray(json) ? json : []).map(rowToUser), count: Number.isFinite(count) ? count : (Array.isArray(json) ? json.length : 0), limit, offset, q };
+  const users = (Array.isArray(json) ? json : []).map(rowToUser).filter(u => !!u.discordId);
+  return { users, count: Number.isFinite(count) ? count : users.length, limit, offset, q };
 }
-async function writeUserDoc(user, forceAdmin=false, originalIdentity={}){
+async function writeUserDoc(user, forceAdmin=false){
   const u = normalizeUser(user);
-  const original = originalIdentity && typeof originalIdentity === 'object' ? originalIdentity : {};
-  const discordId = cleanId(u.discordId || u.uid || u.id || original.discordId || original.discord_id || original.uid || original.id);
-  if(!discordId && !(original.id || original.pubgId || original.nickname)) throw new Error('discord_id가 없어 저장할 수 없습니다.');
+  const discordId = explicitDiscordId(u);
+  if(!discordId) throw new Error('discord_id가 없어 저장할 수 없습니다.');
   const role = forceAdmin ? 'admin' : normalizeRole(u.memberRole || u.role);
   const body = {
     discord_id: discordId,
@@ -162,23 +170,7 @@ async function writeUserDoc(user, forceAdmin=false, originalIdentity={}){
     raw: u,
     updated_at: new Date().toISOString()
   };
-  async function patchExisting(obj){
-    try{
-      const row = await readUserRowByIdentity(original && Object.keys(original).length ? original : u);
-      if(row && row.id){
-        const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
-          method:'PATCH',
-          headers:{ Prefer:'return=representation' },
-          body:JSON.stringify(obj)
-        });
-        if(Array.isArray(json) && json[0]) return rowToUser(json[0]);
-      }
-    }catch(e){}
-    return null;
-  }
   async function upsert(obj){
-    const patched = await patchExisting(obj);
-    if(patched) return patched;
     const { json } = await supabaseFetch('users?on_conflict=discord_id', {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
@@ -201,18 +193,10 @@ async function writeUserDoc(user, forceAdmin=false, originalIdentity={}){
 }
 
 async function readUserRowByIdentity(identity={}){
-  const cleanVal = v => clean(v).replace(/^discord-/, '');
-  const candidates = [];
-  const discordId = cleanVal(identity.discordId || identity.discord_id || identity.uid || identity.id || identity.userId || identity.key);
-  const pubgId = clean(identity.pubgId || identity.pubg_id || identity.gameId || identity.ref);
-  const nickname = clean(identity.nickname || identity.nick || identity.name);
-  if(discordId) candidates.push(`discord_id=eq.${encodeURIComponent(discordId)}`);
-  if(pubgId) candidates.push(`pubg_id=eq.${encodeURIComponent(pubgId)}`);
-  if(nickname) candidates.push(`nickname=eq.${encodeURIComponent(nickname)}`);
-  for(const filter of candidates){
-    const { json } = await supabaseFetch(`users?select=*&${filter}&limit=1`);
-    if(Array.isArray(json) && json[0]) return json[0];
-  }
+  const discordId = explicitDiscordId(identity || {});
+  if(!discordId) throw new Error('Discord ID가 없는 회원 데이터는 수정할 수 없습니다.');
+  const { json } = await supabaseFetch(`users?select=*&discord_id=eq.${encodeURIComponent(discordId)}&limit=1`);
+  if(Array.isArray(json) && json[0]) return json[0];
   throw new Error('대상 회원을 Supabase users에서 찾을 수 없습니다.');
 }
 async function insertAdminLogSafe(payload){
@@ -232,98 +216,6 @@ async function insertPointLogSafe(payload){
       body:JSON.stringify(payload)
     });
   }catch(e){ console.warn && console.warn('point_logs insert failed', e && e.message ? e.message : e); }
-}
-
-function banToPayload(b={}){
-  const now = new Date().toISOString();
-  const raw = b && typeof b.raw === 'object' ? b.raw : b;
-  return {
-    discord_id: cleanId(b.discordId || b.discord_id || b.uid || b.id || b.userId || ''),
-    nickname: clean(b.nickname || b.nick || b.name || ''),
-    pubg_id: clean(b.pubgId || b.pubg_id || b.gameId || b.ref || ''),
-    reason: clean(b.reason || '영구추방'),
-    actor: clean(b.admin || b.actor || 'SYSTEM'),
-    permanent: b.permanent !== false,
-    active: b.active !== false,
-    raw: raw || {},
-    created_at: b.created_at || b.date || b.createdAt || now,
-    updated_at: now
-  };
-}
-function rowToBan(r={}){
-  const raw = r.raw && typeof r.raw === 'object' ? r.raw : {};
-  return {
-    id: r.id || raw.id || '',
-    discordId: r.discord_id || raw.discordId || raw.discord_id || '',
-    uid: r.discord_id ? `discord-${r.discord_id}` : (raw.uid || raw.id || ''),
-    nickname: r.nickname || raw.nickname || raw.nick || raw.name || '',
-    pubgId: r.pubg_id || raw.pubgId || raw.pubg_id || raw.gameId || '',
-    reason: r.reason || raw.reason || '영구추방',
-    admin: r.actor || raw.admin || raw.actor || 'SYSTEM',
-    permanent: r.permanent !== false,
-    active: r.active !== false,
-    date: r.created_at || raw.date || raw.createdAt || '',
-    raw
-  };
-}
-function banIdentityFilter(b={}){
-  const parts=[];
-  const did=cleanId(b.discordId || b.discord_id || b.uid || b.id || b.userId || '');
-  const pubg=clean(b.pubgId || b.pubg_id || b.gameId || b.ref || '');
-  const nick=clean(b.nickname || b.nick || b.name || '');
-  if(did) parts.push(`discord_id.eq.${did}`);
-  if(pubg) parts.push(`pubg_id.eq.${pubg}`);
-  if(nick) parts.push(`nickname.eq.${nick}`);
-  return parts;
-}
-async function readBanRecords(){
-  try{
-    const { json } = await supabaseFetch('ban_records?select=*&active=eq.true&order=created_at.desc&limit=1000');
-    return (Array.isArray(json)?json:[]).map(rowToBan);
-  }catch(e){ console.warn && console.warn('ban_records read failed', e && e.message ? e.message : e); return []; }
-}
-async function recordBan(ban={}, actor=''){
-  const payload = banToPayload({...ban, actor: actor || ban.actor || ban.admin});
-  const filters = banIdentityFilter(payload);
-  async function insert(payload){
-    const { json } = await supabaseFetch('ban_records', { method:'POST', headers:{ Prefer:'return=representation' }, body:JSON.stringify(payload) });
-    return Array.isArray(json)&&json[0]?rowToBan(json[0]):rowToBan(payload);
-  }
-  if(filters.length){
-    try{
-      const { json } = await supabaseFetch(`ban_records?select=*&or=(${filters.map(encodeURIComponent).join(',')})&active=eq.true&limit=1`);
-      if(Array.isArray(json)&&json[0]){
-        const { json:patched } = await supabaseFetch(`ban_records?id=eq.${encodeURIComponent(json[0].id)}`, { method:'PATCH', headers:{ Prefer:'return=representation' }, body:JSON.stringify({...payload, active:true, updated_at:new Date().toISOString()}) });
-        const saved=Array.isArray(patched)&&patched[0]?rowToBan(patched[0]):rowToBan({...json[0],...payload});
-        await insertAdminLogSafe({ action:'ban', actor: payload.actor, target: payload.nickname || payload.pubg_id || payload.discord_id, detail: saved });
-        return saved;
-      }
-    }catch(e){ console.warn && console.warn('ban_records upsert lookup failed', e && e.message ? e.message : e); }
-  }
-  const saved = await insert(payload);
-  await insertAdminLogSafe({ action:'ban', actor: payload.actor, target: payload.nickname || payload.pubg_id || payload.discord_id, detail: saved });
-  return saved;
-}
-async function deleteBanRecord(ban={}, actor=''){
-  const id=clean(ban.id || '');
-  let deleted=[];
-  if(id){
-    const { json } = await supabaseFetch(`ban_records?id=eq.${encodeURIComponent(id)}`, { method:'PATCH', headers:{ Prefer:'return=representation' }, body:JSON.stringify({active:false, updated_at:new Date().toISOString(), raw:{...((ban.raw&&typeof ban.raw==='object')?ban.raw:{}), removed_by: clean(actor||'ADMIN'), removed_at:new Date().toISOString()}}) });
-    deleted = Array.isArray(json)?json.map(rowToBan):[];
-  }else{
-    const parts=banIdentityFilter(ban);
-    if(parts.length){
-      const { json } = await supabaseFetch(`ban_records?or=(${parts.map(encodeURIComponent).join(',')})&active=eq.true`, { method:'PATCH', headers:{ Prefer:'return=representation' }, body:JSON.stringify({active:false, updated_at:new Date().toISOString()}) });
-      deleted = Array.isArray(json)?json.map(rowToBan):[];
-    }
-  }
-  await insertAdminLogSafe({ action:'ban_remove', actor: clean(actor||'ADMIN'), target: ban.nickname || ban.pubgId || ban.discordId || '', detail: { ban, deleted_count: deleted.length } });
-  return { deleted };
-}
-async function updateUserWithLog(user={}, log={}, originalIdentity={}){
-  const saved = await writeUserDoc(user, false, originalIdentity);
-  await insertAdminLogSafe({ action: clean(log.type || 'edit'), actor: clean(log.actor || log.admin || 'ADMIN'), target: saved.nickname || saved.pubgId || saved.discordId || '', detail: { reason: clean(log.reason || ''), changes: Array.isArray(log.changes)?log.changes:[], warningCount: log.warningCount, user: { discordId:saved.discordId, pubgId:saved.pubgId, nickname:saved.nickname } } });
-  return saved;
 }
 async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   const delta = Number(amount) || 0;
@@ -375,6 +267,13 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   return { user: rowToUser(savedRow), before: current, after: next, amount: delta, mail: mailText };
 }
 
+
+async function readLegacyUsers(options={}){
+  const limit = Math.max(1, Math.min(500, Number(options.limit || 200)));
+  const { json } = await supabaseFetch(`users?select=*&or=(discord_id.is.null,discord_id.eq.)&order=nickname.asc.nullslast&limit=${limit}`);
+  return Array.isArray(json) ? json.map(rowToUser) : [];
+}
+
 async function readUsers(options={}){
   const result = await readUserDocs({ limit: options.limit || 100, offset: options.offset || 0, q: options.q || "" });
   return result.users;
@@ -386,7 +285,7 @@ async function writeUsers(users){
   return mergeUsers(saved);
 }
 async function readAdminState(){
-  return { users: await readUsers({ limit: 100 }), pending: [], bans: await readBanRecords(), warningRecords: [] };
+  return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, readBanRecords, recordBan, deleteBanRecord, insertAdminLogSafe };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, readLegacyUsers, explicitDiscordId, hasDiscordIdentity };

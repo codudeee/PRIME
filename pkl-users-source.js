@@ -8,7 +8,17 @@
 
   function clean(v){ return String(v == null ? '' : v).trim(); }
   function low(v){ return clean(v).toLowerCase(); }
-  function id(u){ u = u || {}; return low(u.discordId || u.discord_id || u.uid || u.id || u.userId || u.memberId || u.key).replace(/^discord-/, ''); }
+  function id(u){
+    u = u || {};
+    var direct = low(u.discordId || u.discord_id).replace(/^discord-/, '');
+    if(direct) return direct;
+    var keys = ['uid','id','userId','memberId','key'];
+    for(var i=0;i<keys.length;i++){
+      var raw = clean(u[keys[i]]);
+      if(/^discord-/i.test(raw)) return low(raw).replace(/^discord-/, '');
+    }
+    return '';
+  }
   function nick(u){ u = u || {}; return clean(u.nickname || u.nick || u.name || u.displayName || u.discordUsername || u.discord_username || u.username || u.discordGlobalName); }
   function pubg(u){ u = u || {}; return clean(u.pubgId || u.pubg_id || u.pubgID || u.gameId || u.pubgName || u.ref || u.pubg); }
   function role(v){
@@ -45,9 +55,8 @@
     return src;
   }
   function same(a,b){
-    var ai = id(a), bi = id(b); if(ai && bi) return ai === bi;
-    var ap = low(pubg(a)), bp = low(pubg(b)); if(ap && bp) return ap === bp;
-    var an = low(nick(a)), bn = low(nick(b)); return !!(an && bn && an === bn);
+    var ai = id(a), bi = id(b);
+    return !!(ai && bi && ai === bi);
   }
   function mergeLists(){
     var out = [];
@@ -55,6 +64,7 @@
       (Array.isArray(list) ? list : []).forEach(function(raw){
         if(!raw || typeof raw !== 'object') return;
         var u = normalize(raw);
+        if(!id(u)) return;
         var i = out.findIndex(function(x){ return same(x,u); });
         if(i >= 0) out[i] = normalize(Object.assign({}, out[i], u)); else out.push(u);
       });
@@ -123,7 +133,7 @@
     var limit = Number(options.limit || meta.limit || 20); if(!isFinite(limit) || limit < 1) limit = 20; if(limit > 100) limit = 100;
     var offset = Number(options.offset || 0); if(!isFinite(offset) || offset < 0) offset = 0;
     var q = clean(options.q != null ? options.q : meta.q);
-    var path = url + '/rest/v1/users?select=*&order=nickname.asc.nullslast&offset=' + encodeURIComponent(offset) + '&limit=' + encodeURIComponent(limit);
+    var path = url + '/rest/v1/users?select=*&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=' + encodeURIComponent(offset) + '&limit=' + encodeURIComponent(limit);
     if(q){
       var term = encodeURIComponent('*' + escapeSupabaseLike(q) + '*');
       path += '&or=(nickname.ilike.' + term + ',pubg_id.ilike.' + term + ',discord_id.ilike.' + term + ',discord_username.ilike.' + term + ',role.ilike.' + term + ',tier.ilike.' + term + ')';
@@ -137,7 +147,7 @@
     var range = res.headers.get('content-range') || '';
     var count = Number((range.split('/')[1] || '').replace('*',''));
     meta.source = 'browser'; meta.limit = limit; meta.offset = offset; meta.q = q; meta.count = Number.isFinite(count) ? count : (Array.isArray(rows) ? rows.length : 0); meta.loadedAt = Date.now();
-    return Array.isArray(rows) ? rows.map(rowToUser) : [];
+    return Array.isArray(rows) ? rows.map(rowToUser).filter(function(u){ return !!id(u); }) : [];
   }
   async function fetchViaApi(options){
     options = options || {};
@@ -198,14 +208,15 @@
   }
   async function search(q){ return load({ limit: meta.limit, offset: 0, q: q || '', append: false }); }
   async function saveUser(user){
-    var local = applyUsers([Object.assign({}, user, { updatedAt: new Date().toISOString(), pklProfileUpdatedAt: new Date().toISOString() })], { append: true });
+    var normalized = normalize(user);
+    if(!id(normalized)){ console.warn('PKL Supabase user save blocked: Discord ID missing', user); return cache.slice(); }
     try {
-      var res = await fetch('/api/pkl-users', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ user: normalize(user) }) });
+      var res = await fetch('/api/pkl-users', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ user: normalized }) });
       if(!res.ok) throw new Error('users save failed ' + res.status);
       var data = await res.json();
-      if(data && data.user) applyUsers([data.user], { append: true });
-    } catch(e) { console.warn('PKL Supabase user save skipped', e); }
-    return local;
+      if(data && data.user) return applyUsers([data.user], { append: true });
+    } catch(e) { console.warn('PKL Supabase user save failed', e); }
+    return cache.slice();
   }
   function renderLoadMore(){
     var wrap = document.getElementById('userList');
