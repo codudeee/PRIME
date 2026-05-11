@@ -35,7 +35,7 @@ body{
   background:
     radial-gradient(circle at 50% 12%,rgba(124,58,237,.22),transparent 34%),
     linear-gradient(180deg,rgba(3,2,8,.18),rgba(3,2,8,.72) 54%,rgba(3,2,8,.92)),
-    url("pkl_admin_bg.webp") center top / cover fixed no-repeat;
+    url("pkl_admin_bg.png") center top / cover fixed no-repeat;
 }
 body::after{
   content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;
@@ -7383,15 +7383,15 @@ document.addEventListener("DOMContentLoaded",renderRoleDropdownOptions);
     }
   };
 
-  function openDashboardOnLoad(){
-    const dash=document.getElementById("dashboardManageTab");
-    if(!dash) return;
+  function openUsersOnLoad(){
+    const users=document.getElementById("userManageTab");
+    if(!users) return;
     document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{el.style.display="none";});
-    dash.style.display="block";
-    if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("dashboardManageTab");
-    window.renderPremiumDashboard();
+    users.style.display="grid";
+    if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("userManageTab");
+    if(typeof render === "function") render();
   }
-  document.addEventListener("DOMContentLoaded",()=>setTimeout(openDashboardOnLoad,80));
+  document.addEventListener("DOMContentLoaded",()=>setTimeout(openUsersOnLoad,80));
 })();
 </script>
 
@@ -7459,15 +7459,12 @@ function getVisibleAdminScreenId(){
 
 document.addEventListener("DOMContentLoaded",()=>{
   setTimeout(()=>{
-    const dash=document.getElementById("dashboardManageTab");
-    if(dash){
-      document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{
-        el.style.display="none";
-      });
-      dash.style.display="";
-      if(typeof renderPremiumDashboard==="function") renderPremiumDashboard();
-      if(typeof updatePremiumDashboard==="function") updatePremiumDashboard();
-      setAdminNavActiveByScreen("dashboardManageTab");
+    const users=document.getElementById("userManageTab");
+    if(users){
+      document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{el.style.display="none";});
+      users.style.display="grid";
+      if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("userManageTab");
+      if(typeof render === "function") render();
     }
   },180);
 });
@@ -7955,6 +7952,57 @@ loadFirestoreUsers();
   window.PKLAdminIdentity={readPklUsers:readUsers,savePklUsers:function(list){return writeUsers(list,true)},upsertUser:function(user){const users=readUsers();const i=users.findIndex(x=>same(x,user));if(i>=0)users[i]={...users[i],...user};else users.push({...user});return writeUsers(users,true);},sameUser:same,mergeList:mergeLists};
   window.addEventListener("pkl-users-updated",function(e){syncAdminFromUsers(e.detail&&e.detail.users?e.detail.users:readUsers());});
   setTimeout(function(){syncAdminFromUsers(readUsers());},700);
+})();
+</script>
+
+
+<script id="pkl-admin-supabase-users-loader">
+(function(){
+  if(window.__PKL_ADMIN_SUPABASE_USERS_LOADER__) return;
+  window.__PKL_ADMIN_SUPABASE_USERS_LOADER__=true;
+  function norm(v){return String(v==null?'':v).trim().replace(/\s+/g,'').toLowerCase();}
+  function same(a,b){
+    var ak=norm(a&&(a.uid||a.id||a.discordId||a.discord_id||a.userId));
+    var bk=norm(b&&(b.uid||b.id||b.discordId||b.discord_id||b.userId));
+    if(ak&&bk) return ak===bk;
+    var an=norm(a&&(a.nickname||a.name||a.nick));
+    var bn=norm(b&&(b.nickname||b.name||b.nick));
+    var ap=norm(a&&(a.pubgId||a.gameId||a.pubg_id));
+    var bp=norm(b&&(b.pubgId||b.gameId||b.pubg_id));
+    return !!((an&&bn&&an===bn)||(ap&&bp&&ap===bp));
+  }
+  function fmtDate(v){
+    if(!v) return '-';
+    var d=new Date(v);
+    if(isNaN(d.getTime())) return String(v).slice(0,10)||'-';
+    return d.toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'.').replace(/\.$/,'.');
+  }
+  function mapUser(u){
+    u=u||{};
+    var nick=u.nickname||u.name||u.nick||u.discordUsername||u.discord_username||'';
+    var pubg=u.pubgId||u.gameId||u.pubg_id||u.pubgName||u.pubg_name||'';
+    var memberRole=u.memberRole||u.member_role||u.role||(u.is_admin||u.admin?'admin':'user');
+    return Object.assign({},u,{nickname:nick,name:nick,pubgId:pubg,gameId:pubg,uid:u.uid||u.id||u.discordId||u.discord_id||u.user_id||'',memberRole:memberRole,role:u.role||memberRole,join:fmtDate(u.join||u.joinDate||u.joined_at||u.created_at||u.createdAt),warnings:Number(u.warnings||u.warning_count||0),dia:Number(u.dia||u.money||u.point||u.points||0),history:Array.isArray(u.history)?u.history:[],memoList:Array.isArray(u.memoList)?u.memoList:[]});
+  }
+  async function loadUsers(){
+    try{
+      var res=await fetch('/api/pkl-users?limit=500&offset=0',{cache:'no-store'});
+      var data=await res.json();
+      var list=Array.isArray(data.users)?data.users.map(mapUser):[];
+      if(!list.length) return;
+      list.sort(function(a,b){return String(a.nickname||'').localeCompare(String(b.nickname||''),'ko');});
+      if(window.state && Array.isArray(window.state.users)){
+        var merged=list.slice();
+        window.state.users.forEach(function(old){ if(!merged.some(function(x){return same(x,old);})){ merged.push(old); } });
+        merged.sort(function(a,b){return String(a.nickname||'').localeCompare(String(b.nickname||''),'ko');});
+        window.state.users=merged;
+        try{window.state=typeof normalizeState==='function'?normalizeState(window.state):window.state;}catch(e){}
+        if(typeof render==='function') render();
+      }
+      try{window.dispatchEvent(new CustomEvent('pkl-users-updated',{detail:{users:list}}));}catch(e){}
+    }catch(err){console.error('PKL Supabase users load failed',err);}
+  }
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(loadUsers,60);});
 })();
 </script>
 

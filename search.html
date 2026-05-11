@@ -395,7 +395,7 @@ try{
   }
 }catch(e){console.error(e);}
 const match=matches[0]||DEFAULT_MATCHES[0];visibleTeams().forEach((team,teamIndex)=>{team.members.forEach((member,memberIndex)=>{const name=String(member&&member.name||'').trim();if(!name||name==='-')return;const key=norm(name);if(!map.has(key))map.set(key,{name,teams:new Set(),rows:[],totalKills:0,totalDeaths:0,bestKill:0,rounds:0,score:0});const p=map.get(key);p.teams.add(team.name);(state.rounds||[]).forEach((round,ri)=>{const d=teamData(round,team.id);const kills=Number(d.kills&&d.kills[memberIndex]||0);const deaths=Number(d.deaths&&d.deaths[memberIndex]||0);const score=kills-deaths;p.rows.push({match:match.title||'PKL 회차',date:match.date||'-',team:team.name,round:round.no||ri+1,map:round.map||'-',kills,deaths,score});p.totalKills+=kills;p.totalDeaths+=deaths;p.bestKill=Math.max(p.bestKill,kills);p.rounds+=1;p.score+=score;});});});return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),avg:p.rounds?(p.totalKills/p.rounds):0})).sort((a,b)=>b.totalKills-a.totalKills||a.name.localeCompare(b.name,'ko'));}
-function pklSearchReadUsers(){if(window.PKLUserProfile&&window.PKLUserProfile.users)return window.PKLUserProfile.users();try{const v=JSON.parse(localStorage.getItem('pklUsers')||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+function pklSearchReadUsers(){if(Array.isArray(window.PKLSupabaseUsers)&&window.PKLSupabaseUsers.length)return window.PKLSupabaseUsers;if(window.PKLUserProfile&&window.PKLUserProfile.users)return window.PKLUserProfile.users();try{const v=JSON.parse(localStorage.getItem('pklUsers')||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
 function pklSearchNormName(v){return String(v??'').trim().toLowerCase();}
 function pklSearchUserNames(u){return [u?.nickname,u?.nick,u?.name,u?.displayName,u?.pubgId,u?.gameId,u?.ref,u?.pubgName,u?.playerName,u?.ingameName].map(pklSearchNormName).filter(Boolean);}
 function pklSearchFindPklUser(name){const key=pklSearchNormName(name);if(!key)return null;return pklSearchReadUsers().find(u=>pklSearchUserNames(u).includes(key))||null;}
@@ -1138,6 +1138,33 @@ window.getUnifiedMatchRecords=function(){
     setInterval(scan,700);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
+
+<script id="pkl-search-supabase-users-loader">
+(function(){
+  if(window.__PKL_SEARCH_SUPABASE_USERS_LOADER__) return;
+  window.__PKL_SEARCH_SUPABASE_USERS_LOADER__=true;
+  function norm(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}
+  function mapUser(u){u=u||{};var nick=u.nickname||u.name||u.nick||u.discord_username||'';return Object.assign({},u,{nickname:nick,name:nick,pubgId:u.pubgId||u.pubg_id||u.gameId||''});}
+  async function load(){
+    try{
+      var res=await fetch('/api/pkl-users?limit=500',{cache:'no-store'});
+      var data=await res.json();
+      window.PKLSupabaseUsers=Array.isArray(data.users)?data.users.map(mapUser):[];
+      if(!window.PKLSupabaseUsers.length) return;
+      if(typeof buildPlayers==='function'){
+        var built=buildPlayers();
+        var map=new Map();
+        (Array.isArray(built)?built:[]).forEach(function(p){if(p&&p.name)map.set(norm(p.name),p);});
+        window.PKLSupabaseUsers.forEach(function(u){var nick=u.nickname||u.name;if(!nick)return;var key=norm(nick);if(!map.has(key))map.set(key,{name:nick,teams:[],rows:[],totalKills:0,totalDeaths:0,bestKill:0,rounds:0,score:0,avg:0});});
+        players=Array.from(map.values()).sort(function(a,b){return (b.totalKills||0)-(a.totalKills||0)||String(a.name).localeCompare(String(b.name),'ko');});
+        if(typeof renderTop==='function') renderTop();
+      }
+    }catch(e){console.error('PKL search Supabase users load failed',e);}
+  }
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(load,60);});
 })();
 </script>
 

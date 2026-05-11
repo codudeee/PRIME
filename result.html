@@ -1275,6 +1275,7 @@ button{cursor:pointer}
 </div>
 <div class="match-info" id="matchInfo"></div>
 <button class="admin-panel-btn" id="adminPanelBtn" type="button">관리자패널</button>
+<button class="admin-panel-btn" id="resultUsageHistoryBtn" type="button">이용내역</button>
 <button class="capture-btn" id="captureBtn" type="button">이미지 캡쳐</button>
 <div class="capture-toast" id="captureToast">캡쳐 모드가 켜졌습니다. 브라우저/윈도우 캡처 도구로 스코어보드 영역을 저장해주세요.</div>
 <button class="result-sheet-edit-done" id="resultSheetEditDoneBtn" type="button">수정 완료</button>
@@ -2779,6 +2780,24 @@ window.addEventListener('load', restoreDiscordSession);
     if(m && !m.dataset.pklNestedMo){m.dataset.pklNestedMo='1';new MutationObserver(function(){if(m.classList.contains('open')) topDelete();}).observe(m,{attributes:true,attributeFilter:['class','style','aria-hidden']});}
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
+})();
+</script>
+
+
+<script id="pkl-result-usage-history-btn">
+(function(){
+  if(window.__PKL_RESULT_USAGE_HISTORY_BTN__) return;
+  window.__PKL_RESULT_USAGE_HISTORY_BTN__=true;
+  function read(){try{return JSON.parse(localStorage.getItem('PKL_USAGE_HISTORY_V1')||'[]');}catch(e){return [];}}
+  document.addEventListener('click',function(e){
+    var btn=e.target&&e.target.closest&&e.target.closest('#resultUsageHistoryBtn');
+    if(!btn) return;
+    e.preventDefault();
+    var list=read();
+    var toast=document.getElementById('captureToast');
+    if(toast){toast.textContent='저장된 이용내역 '+list.length+'건';toast.classList.add('show');setTimeout(function(){toast.classList.remove('show');},1500);}
+    console.log('[PKL 이용내역]', list);
+  },true);
 })();
 </script>
 
