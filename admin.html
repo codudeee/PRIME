@@ -7082,74 +7082,107 @@ async function saveMemberEdit(){
   if(!nick)return;
 
 
-  u.history=Array.isArray(u.history)?u.history:[];
-  u.history.unshift({type:"edit",reason:"회원 정보 수정",date:nowText(),admin:adminName()});
-  u.nickname=nick;
-  u.pubgId=pubg;
-  u.dia=dia;
-  u.chicken=dia;
-  u.prime=dia;
-  u.points=dia;
-  u.memberTitle=memberTitle;
-  u.titleBadge=memberTitle;
+  const beforeUser=JSON.parse(JSON.stringify(u));
+  const targetIdentity=pklUserPayloadForApi(beforeUser);
+  if(!targetIdentity.discordId){
+    await pklAlert("Discord ID가 없는 회원은 Supabase 기준으로 수정할 수 없습니다.","저장 실패");
+    return;
+  }
+
+  const nextUser={...u};
+  nextUser.history=Array.isArray(nextUser.history)?nextUser.history:[];
+  nextUser.nickname=nick;
+  nextUser.nick=nick;
+  nextUser.name=nick;
+  nextUser.displayName=nick;
+  nextUser.pubgId=pubg;
+  nextUser.gameId=pubg;
+  nextUser.ref=pubg;
+  nextUser.dia=dia;
+  nextUser.chicken=dia;
+  nextUser.prime=dia;
+  nextUser.points=dia;
+  nextUser.memberTitle=memberTitle;
+  nextUser.titleBadge=memberTitle;
 
   if(selectedGrade && selectedGrade!=="none" && pklGradeRoles.includes(selectedGrade)){
-    u.gradeRole=selectedGrade;
-    u.tierRole=selectedGrade;
-    u.memberTier=selectedGrade;
-    u.memberTierName=roleName(selectedGrade);
-    u.baseRole=selectedGrade;
-    u.originalRole=selectedGrade;
-    u.role=selectedGrade;
-    u.tier=roleName(selectedGrade);
+    nextUser.gradeRole=selectedGrade;
+    nextUser.tierRole=selectedGrade;
+    nextUser.memberTier=selectedGrade;
+    nextUser.memberTierName=roleName(selectedGrade);
+    nextUser.baseRole=selectedGrade;
+    nextUser.originalRole=selectedGrade;
+    nextUser.tier=roleName(selectedGrade);
     if(memberRole!=="prisoner" && (memberRole==="guest" || memberRole==="user")) memberRole="user";
   }else{
-    u.gradeRole="none";
-    u.tierRole="none";
-    u.memberTier="none";
-    u.memberTierName="없음";
-    u.baseRole="none";
-    u.originalRole="none";
-    u.tier="없음";
-    u.role=memberRole||"guest";
+    nextUser.gradeRole="none";
+    nextUser.tierRole="none";
+    nextUser.memberTier="none";
+    nextUser.memberTierName="없음";
+    nextUser.baseRole="none";
+    nextUser.originalRole="none";
+    nextUser.tier="없음";
   }
 
-  u.memberRole=memberRole;
+  nextUser.memberRole=memberRole||"guest";
+  nextUser.role=nextUser.memberRole;
   if(memberRole==="prisoner"){
-    applyPrisonerRole(u, u.penalty&&u.penalty.days ? u.penalty.days : 7, "관리자 수감자 역할 부여");
-  }else if(normalizeMemberRole(u.memberRole)!=="prisoner" && Number(u.warnings||0)<2){
-    clearPrisonerRole(u);
+    applyPrisonerRole(nextUser, nextUser.penalty&&nextUser.penalty.days ? nextUser.penalty.days : 7, "관리자 수감자 역할 부여");
+  }else if(normalizeMemberRole(nextUser.memberRole)!=="prisoner" && Number(nextUser.warnings||0)<2){
+    clearPrisonerRole(nextUser);
   }
-  if(pw)u.password=pw;
-  u.updatedAt=new Date().toISOString();
-  u.pklProfileUpdatedAt=u.updatedAt;
-  u.__pklProfileWrite=true;
+  if(pw)nextUser.password=pw;
+  nextUser.updatedAt=new Date().toISOString();
+  nextUser.pklProfileUpdatedAt=nextUser.updatedAt;
+  nextUser.__pklProfileWrite=true;
+
+  const changes=[];
+  function pushChange(label,before,after){
+    if(String(before??"")!==String(after??"")) changes.push(`${label}: ${before||"-"} → ${after||"-"}`);
+  }
+  pushChange("닉네임", beforeUser.nickname||beforeUser.name, nextUser.nickname);
+  pushChange("배그 ID", beforeUser.pubgId||beforeUser.gameId||beforeUser.ref, nextUser.pubgId);
+  pushChange("회원 티어", gradeRoleName(beforeUser), gradeRoleName(nextUser));
+  pushChange("회원 역할", memberRoleName(normalizeMemberRole(beforeUser.memberRole||beforeUser.role)), memberRoleName(normalizeMemberRole(nextUser.memberRole||nextUser.role)));
+  pushChange("칭호", beforeUser.memberTitle||beforeUser.titleBadge||"none", nextUser.memberTitle||"none");
+  if(Number(beforeUser.prime??beforeUser.points??beforeUser.dia??beforeUser.chicken??0)!==Number(nextUser.prime??0)){
+    changes.push(`보유 프라임: ${Number(beforeUser.prime??beforeUser.points??beforeUser.dia??beforeUser.chicken??0)||0} → ${Number(nextUser.prime)||0}`);
+  }
+
   try{
-    const res=await fetch("/api/pkl-users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user:u})});
+    const res=await fetch("/api/pkl-users",{
+      method:"PATCH",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        action:"updateUserWithLog",
+        originalIdentity:targetIdentity,
+        user:nextUser,
+        log:{
+          type:(selectedGrade!==gradeRole(beforeUser))?"tier_change":"profile_edit",
+          reason:changes.length?changes.join(" / "):"회원 정보 수정",
+          admin:adminName(),
+          actor:adminName()
+        }
+      })
+    });
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.message||"Supabase 저장 실패");
-    if(data.user){
-      u.prime=Number(data.user.prime ?? data.user.points ?? u.prime ?? u.dia ?? 0)||0;
-      u.points=u.prime;
-      u.dia=u.prime;
-      u.chicken=u.prime;
-    }
+    const saved=data.user||nextUser;
+    state.users[current]=Object.assign(u,saved,{__pklProfileWrite:true});
   }catch(err){
     console.error(err);
     await pklAlert(err.message||"회원 정보를 Supabase에 저장하지 못했습니다.","저장 실패");
     return;
   }
+
   try{
     if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function"){
-      window.PKLUserProfile.upsert(u);
+      window.PKLUserProfile.upsert(state.users[current]);
     }
   }catch(e){}
 
   save();
-  try{localStorage.setItem(dataKey,JSON.stringify(state));}catch(e){}
-  try{syncUsersToAccountStorage();}catch(e){}
-  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
-  try{window.dispatchEvent(new StorageEvent("storage",{key:dataKey,newValue:JSON.stringify(state)}));}catch(e){}
+  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{user:state.users[current]}}));}catch(e){}
 
   closeMemberEditModal();
   renderUserList();

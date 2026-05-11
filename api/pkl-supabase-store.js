@@ -302,7 +302,7 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
     updated_at: now
   };
   async function patch(obj){
-    const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(obj)});
+    const { json } = await supabaseFetch(`users?discord_id=eq.${encodeURIComponent(row.discord_id)}`, {method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(obj)});
     return Array.isArray(json) && json[0] ? json[0] : {...row, ...obj};
   }
   let saved;
@@ -345,7 +345,7 @@ async function recordBan(ban={}, actor='ADMIN'){
       const row = await readUserRowByIdentity({discordId});
       const raw = row.raw && typeof row.raw==='object' ? {...row.raw} : {};
       raw.banned = true; raw.banReason = payload.reason; raw.banDate = now;
-      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:true, role:'banned', raw, updated_at:now})});
+      await supabaseFetch(`users?discord_id=eq.${encodeURIComponent(row.discord_id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:true, role:'banned', raw, updated_at:now})});
     }catch(_e){}
   }
   await insertAdminLogSafe({action:'ban', actor:payload.actor, target:payload.nickname||payload.pubg_id||payload.discord_id||'', detail:payload});
@@ -368,7 +368,7 @@ async function deleteBanRecord(ban={}, actor='ADMIN'){
       const row = await readUserRowByIdentity({discordId});
       const raw = row.raw && typeof row.raw==='object' ? {...row.raw} : {};
       raw.banned = false; delete raw.banReason; delete raw.banDate;
-      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:false, role: raw.memberRole || raw.role || 'user', raw, updated_at:new Date().toISOString()})});
+      await supabaseFetch(`users?discord_id=eq.${encodeURIComponent(row.discord_id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:false, role: raw.memberRole || raw.role || 'user', raw, updated_at:new Date().toISOString()})});
     }catch(_e){}
   }
   await insertAdminLogSafe({action:'ban_delete',actor:clean(actor||'ADMIN'),target:nickname||pubg||discordId,detail:{discord_id:discordId,nickname,pubg_id:pubg}});
