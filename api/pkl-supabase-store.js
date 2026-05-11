@@ -240,14 +240,29 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   raw.memoList.unshift({ date: now, admin: clean(actor || 'SYSTEM'), text: `[${title}] ${abs} · ${reason || '사유 없음'}` });
   raw.mailbox.unshift({ type:'prime', title, message: mailText, amount: delta, before: current, after: next, reason: clean(reason), actor: clean(actor || 'SYSTEM'), created_at: now, read:false });
   const body = { prime: next, points: next, raw, updated_at: now };
-  const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
-    method:'PATCH',
-    headers:{ Prefer:'return=representation' },
-    body:JSON.stringify(body)
-  });
+  async function patchUser(obj){
+    const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
+      method:'PATCH',
+      headers:{ Prefer:'return=representation' },
+      body:JSON.stringify(obj)
+    });
+    return json;
+  }
+  let json;
+  try{
+    json = await patchUser(body);
+  }catch(e){
+    const msg = String(e && e.message || e);
+    const fallback = {...body};
+    if(/points/i.test(msg)) delete fallback.points;
+    if(/raw/i.test(msg)) delete fallback.raw;
+    if(/updated_at/i.test(msg)) delete fallback.updated_at;
+    if(JSON.stringify(fallback) === JSON.stringify(body)) throw e;
+    json = await patchUser(fallback);
+  }
   await insertPointLogSafe({ user_id: row.id, discord_id: row.discord_id || null, amount: delta, reason: clean(reason), actor: clean(actor || 'SYSTEM') });
   await insertAdminLogSafe({ action, actor: clean(actor || 'SYSTEM'), target: row.nickname || row.pubg_id || row.discord_id || '', detail: { amount: delta, before: current, after: next, reason: clean(reason), mail: mailText, discord_id: row.discord_id || '', pubg_id: row.pubg_id || '' } });
-  const savedRow = Array.isArray(json) && json[0] ? json[0] : {...row, ...body};
+  const savedRow = Array.isArray(json) && json[0] ? json[0] : {...row, prime: next, points: next, raw};
   return { user: rowToUser(savedRow), before: current, after: next, amount: delta, mail: mailText };
 }
 

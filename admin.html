@@ -2477,7 +2477,7 @@ color:#fff;
   font-size:11px;
 }
 
-/* 보유 치킨 강조 */
+/* 보유 프라임 강조 */
 #dDia{
   color:#c4b5fd;
   text-shadow:0 0 10px rgba(167,139,250,.25);
@@ -2665,7 +2665,7 @@ color:#fff;
   box-shadow:0 0 14px rgba(167,139,250,.18);
 }
 
-/* 보유 치킨 입력칸: 색감 변경 + 숫자 스핀 제거 */
+/* 보유 프라임 입력칸: 색감 변경 + 숫자 스핀 제거 */
 #editDia{
   background:
     radial-gradient(circle at 15% 20%, rgba(251,191,36,.20), transparent 38%),
@@ -6667,7 +6667,17 @@ function penaltyBadgeHtml(u){if(!isPenaltyActive(u))return "";const until=u.pena
 function permanentBanRecord(u,reason,auto){const role=normalizeRole(u.role);return {nickname:u.nickname,pubgId:u.pubgId,discordId:u.discordId||"",role:role,reason:reason,date:nowText(),admin:adminName(),auto:!!auto,permanent:true,ip:u.ip||u.lastIp||"",clientId:u.clientId||"",uid:u.uid||u.id||""};}
 function syncPermanentBanStorage(){try{const old=JSON.parse(localStorage.getItem("pklBannedUsers")||"[]");const merged=[...old];(state.bans||[]).forEach(b=>{const same=merged.some(x=>(x.uid&&b.uid&&x.uid===b.uid)||(x.discordId&&b.discordId&&x.discordId===b.discordId)||(x.nickname&&x.nickname===b.nickname)||(x.pubgId&&x.pubgId===b.pubgId)||(x.ip&&b.ip&&x.ip===b.ip));if(!same)merged.push({nickname:b.nickname,pubgId:b.pubgId,discordId:b.discordId||"",uid:b.uid||"",ip:b.ip||"",clientId:b.clientId||"",reason:b.reason||"영구추방",date:b.date||nowText(),admin:b.admin||adminName(),permanent:b.permanent!==false});});localStorage.setItem("pklBannedUsers",JSON.stringify(merged));}catch(e){}}
 
-function render(){ if(typeof renderPklRoleDistribution==='function' && typeof state!=="undefined"){setTimeout(()=>renderPklRoleDistribution(state.users||[]),50);} renderUserList();renderProfile();renderStats();renderCurrentScreen();if(typeof updatePremiumDashboard==='function')updatePremiumDashboard();}
+function render(){
+  renderUserList();
+  renderProfile();
+  renderStats();
+  renderCurrentScreen();
+  const dash=document.getElementById("dashboardManageTab");
+  if(dash && getComputedStyle(dash).display!=="none"){
+    if(typeof renderPklRoleDistribution==='function' && typeof state!=="undefined") renderPklRoleDistribution(state.users||[]);
+    if(typeof updatePremiumDashboard==='function') updatePremiumDashboard();
+  }
+}
 function renderUserList(){
   normalizeAllUserRoles();
   const q=(document.getElementById("search")?.value||"").trim().toLowerCase();
@@ -6715,7 +6725,7 @@ function renderProfile(){
     if(!v) return '-';
     const raw=String(v);
     const d=new Date(raw);
-    if(!Number.isNaN(d.getTime())) return d.toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'.').replace(/\.$/,'.');
+    if(!Number.isNaN(d.getTime())) return d.toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'.').replace(/\.$/,'');
     const m=raw.match(/(\d{4})\D*(\d{1,2})\D*(\d{1,2})/);
     return m ? `${m[1]}.${String(m[2]).padStart(2,'0')}.${String(m[3]).padStart(2,'0')}.` : raw;
   };
@@ -6845,7 +6855,22 @@ function confirmModal(){
   save();render();
 }
 
-async function switchAdminTab(tab,btn){if(tab==="settings"&&!isSuperAdmin()){await pklAlert("관리자 외 출입금지","접근 제한");tab="dashboard";btn=document.querySelector('[data-tab="dashboard"]');}document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));if(btn)btn.classList.add("active");const ids={users:"userManageTab",dashboard:"dashboardManageTab",pending:"pendingManageTab",warnings:"warningsManageTab",bans:"bansManageTab",settings:"settingsManageTab"};Object.values(ids).forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none"});const target=document.getElementById(ids[tab]||"userManageTab");if(target)target.style.display=tab==="users"?"grid":"block";if(tab==="users"){const search=document.getElementById("search");if(search)search.value="";}render();}
+async function switchAdminTab(tab,btn){
+  if(tab==="settings"&&!isSuperAdmin()){
+    await pklAlert("관리자 외 출입금지","접근 제한");
+    tab="users";
+    btn=document.querySelector('[data-tab="users"]');
+  }
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  if(btn)btn.classList.add("active");
+  const ids={users:"userManageTab",dashboard:"dashboardManageTab",pending:"pendingManageTab",warnings:"warningsManageTab",bans:"bansManageTab",settings:"settingsManageTab"};
+  Object.values(ids).forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none"});
+  const target=document.getElementById(ids[tab]||"userManageTab");
+  if(target)target.style.display=tab==="users"?"grid":"block";
+  if(tab==="users"){const search=document.getElementById("search");if(search)search.value="";}
+  if(tab==="dashboard" && typeof renderPremiumDashboard === "function") renderPremiumDashboard();
+  render();
+}
 function removeApprovedFromPendingStorage(p){try{const pending=JSON.parse(localStorage.getItem("pklPendingUsers")||"[]");if(!Array.isArray(pending))return;const nick=p?.nickname||"";const pubg=p?.ref||p?.pubgId||"";const next=pending.filter(x=>!((nick&&(x.nickname===nick||x.nick===nick||x.name===nick))||(pubg&&(x.pubgId===pubg||x.ref===pubg||x.gameId===pubg))));localStorage.setItem("pklPendingUsers",JSON.stringify(next));}catch(e){}}
 function pklMemberDataLabel(type){
   const t=String(type||"log").toLowerCase();
@@ -7484,17 +7509,17 @@ document.addEventListener("DOMContentLoaded",renderRoleDropdownOptions);
     dash.innerHTML = [
       '<div class="premium-dash">',
         '<div class="premium-dash-hero">',
-          '<div><div class="hero-kicker">PRIME KILL LEAGUE · ADMIN CENTER</div><div class="hero-title">PKL 운영 대시보드</div><div class="hero-sub">회원, 승인, 경고, 치킨 현황을 한눈에 확인하는 운영 메인 화면입니다.</div></div>',
+          '<div><div class="hero-kicker">PRIME KILL LEAGUE · ADMIN CENTER</div><div class="hero-title">PKL 운영 대시보드</div><div class="hero-sub">회원, 승인, 경고, 프라임 현황을 한눈에 확인하는 운영 메인 화면입니다.</div></div>',
           '<div class="hero-status">',
             '<div class="hero-mini"><span>현재 회원</span><b id="pdNow">0</b></div>',
             '<div class="hero-mini"><span>승인 대기</span><b id="pdPending">0</b></div>',
-            '<div class="hero-mini"><span>보유 치킨</span><b id="pdHeroChicken">0</b></div>',
+            '<div class="hero-mini"><span>보유 프라임</span><b id="pdHeroChicken">0</b></div>',
             '<div class="hero-mini"><span>현재 시간</span><b id="pdClock">--:--</b></div>',
           '</div>',
         '</div>',
         '<div class="premium-stats">',
           '<div class="premium-stat stat-purple"><div class="stat-label">전체 회원</div><div class="stat-value" id="pdTotalUsers">0</div><div class="stat-note">PKL 등록 회원</div></div>',
-          '<div class="premium-stat stat-gold"><div class="stat-label">보유 치킨 합계</div><div class="stat-value" id="pdChicken">0</div><div class="stat-note">전체 회원 보유량</div></div>',
+          '<div class="premium-stat stat-gold"><div class="stat-label">보유 프라임 합계</div><div class="stat-value" id="pdChicken">0</div><div class="stat-note">전체 회원 보유량</div></div>',
           '<div class="premium-stat stat-red"><div class="stat-label">현재 경고</div><div class="stat-value" id="pdWarns">0</div><div class="stat-note">현재 회원 경고 합산</div></div>',
           '<div class="premium-stat stat-blue"><div class="stat-label">수감자</div><div class="stat-value" id="pdPrisoners">0</div><div class="stat-note">제재 상태 회원</div></div>',
         '</div>',
@@ -7579,7 +7604,7 @@ document.addEventListener("DOMContentLoaded",renderRoleDropdownOptions);
     }
   };
 
-  function openDashboardOnLoad(){
+  function openDashboardOnLoad_DISABLED(){
     const dash=document.getElementById("dashboardManageTab");
     if(!dash) return;
     document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{el.style.display="none";});
@@ -7588,7 +7613,7 @@ document.addEventListener("DOMContentLoaded",renderRoleDropdownOptions);
     if(typeof renderPremiumDashboard === "function") renderPremiumDashboard();
     if(typeof updatePremiumDashboard === "function") updatePremiumDashboard();
   }
-  document.addEventListener("DOMContentLoaded",()=>setTimeout(openDashboardOnLoad,80));
+  /* PKL: 최초 진입은 회원관리 탭만 렌더하므로 대시보드 자동 렌더 금지 */
 })();
 </script>
 
@@ -7651,20 +7676,16 @@ function setAdminNavActiveByScreen(screenId){
 function getVisibleAdminScreenId(){
   const screens=[...document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen")];
   const visible=screens.find(el=>el && getComputedStyle(el).display!=="none");
-  return visible ? visible.id : "dashboardManageTab";
+  return visible ? visible.id : "userManageTab";
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
   setTimeout(()=>{
-    const dash=document.getElementById("dashboardManageTab");
-    if(dash){
-      document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{el.style.display="none";});
-      dash.style.display="block";
-      if(typeof renderPremiumDashboard === "function") renderPremiumDashboard();
-      if(typeof updatePremiumDashboard === "function") updatePremiumDashboard();
-      if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("dashboardManageTab");
-    }
-  },180);
+    const users=document.getElementById("userManageTab");
+    document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{el.style.display="none";});
+    if(users) users.style.display="grid";
+    if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("userManageTab");
+  },80);
 });
 </script>
 
@@ -7976,148 +7997,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   window.pklApplyAdminAccess=applyAccess;
 })();
 </script>
-<script type="module">
-
-import {
-  initializeApp,
-  getApps,
-  getApp
-}
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-
-import {
-  getFirestore,
-  collection,
-  getDocs
-}
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-const firebaseConfig = {
-
-  apiKey: "AIzaSyAeoucXoL2DKzbeMdEOTr1BXtStUWXhnvU",
-
-  authDomain:
-    "primekillleague.firebaseapp.com",
-
-  projectId: "primekillleague",
-
-  storageBucket:
-    "primekillleague.firebasestorage.app",
-
-  messagingSenderId: "775204287038",
-
-  appId: "1:775204287038:web:9c9429c4ed3a2715a6976f"
-
-};
-
-const app = getApps().length
-  ? getApp()
-  : initializeApp(firebaseConfig);
-
-const db = getFirestore(app);
-
-
-function normalizeFirestoreUserForAdmin(raw){
-  const u = raw || {};
-  const nick = u.nickname || u.nick || u.name || u.displayName || u.pubgId || "회원";
-  const role = u.memberRole || u.role || "user";
-  return {
-    ...u,
-    uid: u.uid || u.id || (u.discordId ? "discord-" + u.discordId : (u.firestoreId || "firestore-" + Date.now())),
-    id: u.id || u.uid || (u.discordId ? "discord-" + u.discordId : (u.firestoreId || "firestore-" + Date.now())),
-    nickname: nick,
-    nick: nick,
-    name: nick,
-    displayName: nick,
-    pubgId: u.pubgId || u.gameId || u.ref || "",
-    gameId: u.gameId || u.pubgId || u.ref || "",
-    ref: u.ref || u.pubgId || u.gameId || "",
-    memberRole: role,
-    role: u.gradeRole || u.tierRole || u.memberTier || u.tier || "none",
-    memberTier: u.memberTier || u.gradeRole || u.tierRole || "none",
-    gradeRole: u.gradeRole || u.memberTier || u.tierRole || "none",
-    status: u.status || "approved",
-    approved: u.approved !== false,
-    warnings: Number(u.warnings || 0),
-    memoList: Array.isArray(u.memoList) ? u.memoList : [],
-    history: Array.isArray(u.history) ? u.history : []
-  };
-}
-function mergeFirestoreUsersIntoAdminState(firestoreUsers){
-  try{
-    if(!Array.isArray(firestoreUsers) || !firestoreUsers.length) return;
-    state = state || seed();
-    state.users = Array.isArray(state.users) ? state.users : [];
-    const accountUsers = JSON.parse(localStorage.getItem("pklUsers") || "[]");
-    const accountList = Array.isArray(accountUsers) ? accountUsers : [];
-    firestoreUsers.forEach(raw=>{
-      const imported = normalizeFirestoreUserForAdmin(raw);
-      if(!imported || pklIsDeletedUser(imported) || imported.isBanned || imported.banned) return;
-      const account = accountList.find(x=>pklUserIdentityMatches(x, imported));
-      // Firestore users 컬렉션은 디스코드/가입자 보조 원본이다. 이미 pklUsers에 있는 회원은 pklUsers 값이 우선이다.
-      const u = account ? normalizeFirestoreUserForAdmin({...imported, ...account}) : imported;
-      const idx = state.users.findIndex(x=>pklUserIdentityMatches(x,u));
-      if(idx >= 0){
-        const old = state.users[idx] || {};
-        state.users[idx] = {
-          ...old,
-          ...u,
-          warnings:Number(old.warnings ?? u.warnings ?? 0),
-          dia:Number(old.dia ?? u.dia ?? 0),
-          chicken:Number(old.chicken ?? old.dia ?? u.dia ?? 0),
-          memoList:Array.isArray(old.memoList) ? old.memoList : u.memoList,
-          history:Array.isArray(old.history) ? old.history : u.history,
-          password:old.password || u.password || ""
-        };
-      }else state.users.push(u);
-    });
-    localStorage.setItem(dataKey, JSON.stringify(state));
-    const merged = accountList.slice();
-    state.users.forEach(u=>{
-      const idx = merged.findIndex(x=>pklUserIdentityMatches(x,u));
-      if(idx >= 0){
-        const old = merged[idx] || {};
-        merged[idx] = {...u, ...old, pubgId:old.pubgId||old.gameId||old.ref||u.pubgId||"", gameId:old.gameId||old.pubgId||u.gameId||u.pubgId||"", ref:old.ref||old.pubgId||u.ref||u.pubgId||""};
-      }else merged.push(u);
-    });
-    localStorage.setItem("pklUsers", JSON.stringify(merged));
-    if(typeof render === "function") render();
-  }catch(error){ console.error("Firestore users merge failed", error); }
-}
-
-async function loadFirestoreUsers(){
-
-  try{
-
-    const snapshot =
-      await getDocs(collection(db,"users"));
-
-    const users = [];
-
-    snapshot.forEach(docSnap=>{
-
-      users.push({
-        firestoreId: docSnap.id,
-        ...docSnap.data()
-      });
-
-    });
-
-    console.log(users);
-
-    window.firestoreUsers = users;
-    mergeFirestoreUsersIntoAdminState(users);
-
-  }catch(error){
-
-    console.error(error);
-
-  }
-}
-
-loadFirestoreUsers();
-
-</script>
+<script id="pkl-admin-firebase-disabled">/* Firebase disabled: admin users are loaded only from Supabase /api/pkl-users. */</script>
 <script id="pklAdminIdentityPklUsersFix">
 window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:function(list){return Array.isArray(list)?list:[]},upsertUser:function(user){return user},sameUser:function(){return false},mergeList:function(){return []}};
 </script>
@@ -8131,9 +8011,9 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   function fmtDate(v){
     if(!v) return '-';
     var d=new Date(v);
-    if(!isNaN(d.getTime())) return d.toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'.').replace(/\.$/,'.');
+    if(!isNaN(d.getTime())) return d.toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'.').replace(/\.$/,'');
     var raw=String(v), m=raw.match(/(\d{4})\D*(\d{1,2})\D*(\d{1,2})/);
-    return m ? (m[1]+'.'+String(m[2]).padStart(2,'0')+'.'+String(m[3]).padStart(2,'0')+'.') : raw;
+    return m ? (m[1]+'.'+String(m[2]).padStart(2,'0')+'.'+String(m[3]).padStart(2,'0')) : raw;
   }
   function mapUser(u){
     u=u||{};
@@ -8141,7 +8021,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     var pubg=clean(u.pubgId||u.gameId||u.pubg_id||u.pubgName||u.pubg_name||u.ref);
     var memberRole=clean(u.memberRole||u.member_role||u.role||(u.is_admin||u.admin?'admin':'user'))||'user';
     var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||u.memberTierName)||'none';
-    return Object.assign({},u,{nickname:nick,name:nick,pubgId:pubg,gameId:pubg,uid:clean(u.uid||u.id||u.discordId||u.discord_id||u.user_id),discordId:clean(u.discordId||u.discord_id||u.id),memberRole:memberRole,role:u.role||memberRole,gradeRole:tier,tierRole:tier,memberTier:tier,baseRole:tier,join:fmtDate(u.join||u.joinDate||u.joined_at||u.created_at||u.createdAt),last:fmtDate(u.last||u.lastLogin||u.updated_at||u.updatedAt),warnings:Number(u.warnings||u.warning_count||0),dia:Number(u.dia||u.money||u.point||u.points||u.prime||0),history:Array.isArray(u.history)?u.history:[],memoList:Array.isArray(u.memoList)?u.memoList:[]});
+    return Object.assign({},u,{nickname:nick,name:nick,pubgId:pubg,gameId:pubg,uid:clean(u.uid||u.id||u.discordId||u.discord_id||u.user_id),discordId:clean(u.discordId||u.discord_id||u.id),memberRole:memberRole,role:u.role||memberRole,gradeRole:tier,tierRole:tier,memberTier:tier,baseRole:tier,join:fmtDate(u.join||u.joinDate||u.joined_at||u.created_at||u.createdAt),last:fmtDate(u.last||u.lastLogin||u.updated_at||u.updatedAt),warnings:Number(u.warnings||u.warning_count||0),dia:Number(u.prime||u.points||u.dia||u.money||u.point||0),prime:Number(u.prime||u.points||u.dia||0),points:Number(u.points||u.prime||u.dia||0),history:Array.isArray(u.history)?u.history:(Array.isArray(u.raw&&u.raw.history)?u.raw.history:[]),memoList:Array.isArray(u.memoList)?u.memoList:(Array.isArray(u.raw&&u.raw.memoList)?u.raw.memoList:[]),mailbox:Array.isArray(u.mailbox)?u.mailbox:(Array.isArray(u.raw&&u.raw.mailbox)?u.raw.mailbox:[])});
   }
   async function loadUsers(){
     try{
@@ -8178,5 +8058,19 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     </div>
   </div>
 </div>
+
+<script id="pkl-admin-users-first-supabase-only-final">
+(function(){
+  function showUsersFirst(){
+    var ids=["dashboardManageTab","userManageTab","pendingManageTab","warningsManageTab","bansManageTab","settingsManageTab"];
+    ids.forEach(function(id){var el=document.getElementById(id); if(el) el.style.display="none";});
+    var users=document.getElementById("userManageTab"); if(users) users.style.display="grid";
+    document.querySelectorAll(".nav-btn").forEach(function(b){b.classList.remove("active");});
+    var btn=document.querySelector('[data-tab="users"]'); if(btn) btn.classList.add("active");
+  }
+  document.addEventListener("DOMContentLoaded",function(){setTimeout(showUsersFirst,0);setTimeout(showUsersFirst,120);});
+  window.addEventListener("load",function(){setTimeout(showUsersFirst,0);});
+})();
+</script>
 </body>
 </html>
