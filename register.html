@@ -982,7 +982,7 @@ e.preventDefault();
 await client.auth.signInWithOAuth({
 provider:'discord',
 options:{
-redirectTo:'https://pkl-blush.vercel.app/register.html'
+redirectTo: window.location.origin + '/register.html'
 }
 });
 

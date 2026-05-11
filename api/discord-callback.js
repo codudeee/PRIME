@@ -19,7 +19,7 @@ function escapeHtml(value) {
   return String(value == null ? "" : value).replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
 }
 
-const PRODUCTION_HOST = "pkl-blush.vercel.app";
+const PRODUCTION_HOST = "prime-theta-five.vercel.app";
 const PRODUCTION_REDIRECT_URI = `https://${PRODUCTION_HOST}/api/discord-callback`;
 
 function env(name) { return String(process.env[name] || "").trim(); }
@@ -32,7 +32,7 @@ function getRedirectUri(event) {
   const configured = env("DISCORD_REDIRECT_URI");
   const siteUrl = currentSiteUrl(event);
   const host = String(event.headers.host || event.headers.Host || "");
-  if (/localhost|127\.0\.0\.1/i.test(host)) return `${siteUrl}/api/discord-callback`;
+  if (host && !/localhost|127\.0\.0\.1/i.test(host)) return `${siteUrl}/api/discord-callback`;
   if (configured && !/localhost|127\.0\.0\.1/i.test(configured)) return configured.replace(/\/$/, "");
   return PRODUCTION_REDIRECT_URI;
 }
