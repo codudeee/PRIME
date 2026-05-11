@@ -1,6 +1,6 @@
 let supabaseStore;
 try{ supabaseStore = require("./pkl-supabase-store"); }catch(e){ supabaseStore = null; }
-let memoryUsers = [];
+// memoryUsers removed
 
 function mergeUsers(base, incoming){
   if (supabaseStore && supabaseStore.mergeUsers) return supabaseStore.mergeUsers(base, incoming);
@@ -12,11 +12,10 @@ function mergeUsers(base, incoming){
 module.exports = async function handler(req, res) {
   try {
     if (req.method === "GET") {
-      const users = supabaseStore
-        ? (supabaseStore.readUserDocs
-            ? await supabaseStore.readUserDocs(20,0)
-            : await supabaseStore.readUsers())
-        : memoryUsers;
+      const users = await supabaseStore.readUserDocs(
+        Number(req.query?.limit || 20),
+        Number(req.query?.offset || 0)
+      );
       memoryUsers = mergeUsers(memoryUsers, users);
       return res.status(200).json({ ok: true, users: memoryUsers });
     }
