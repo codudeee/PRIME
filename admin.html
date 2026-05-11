@@ -7409,15 +7409,16 @@ document.addEventListener("DOMContentLoaded",renderRoleDropdownOptions);
     }
   };
 
-  function openUsersOnLoad(){
-    const users=document.getElementById("userManageTab");
-    if(!users) return;
+  function openDashboardOnLoad(){
+    const dash=document.getElementById("dashboardManageTab");
+    if(!dash) return;
     document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{el.style.display="none";});
-    users.style.display="grid";
-    if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("userManageTab");
-    if(typeof render === "function") render();
+    dash.style.display="block";
+    if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("dashboardManageTab");
+    if(typeof renderPremiumDashboard === "function") renderPremiumDashboard();
+    if(typeof updatePremiumDashboard === "function") updatePremiumDashboard();
   }
-  document.addEventListener("DOMContentLoaded",()=>setTimeout(openUsersOnLoad,80));
+  document.addEventListener("DOMContentLoaded",()=>setTimeout(openDashboardOnLoad,80));
 })();
 </script>
 
@@ -7485,12 +7486,13 @@ function getVisibleAdminScreenId(){
 
 document.addEventListener("DOMContentLoaded",()=>{
   setTimeout(()=>{
-    const users=document.getElementById("userManageTab");
-    if(users){
+    const dash=document.getElementById("dashboardManageTab");
+    if(dash){
       document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{el.style.display="none";});
-      users.style.display="grid";
-      if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("userManageTab");
-      if(typeof render === "function") render();
+      dash.style.display="block";
+      if(typeof renderPremiumDashboard === "function") renderPremiumDashboard();
+      if(typeof updatePremiumDashboard === "function") updatePremiumDashboard();
+      if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("dashboardManageTab");
     }
   },180);
 });
