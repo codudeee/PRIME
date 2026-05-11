@@ -1783,16 +1783,6 @@ button, a, .btn, .card, .clickable, [onclick] {
     line-height: 1.4 !important;
     letter-spacing: 0 !important;
 }
-
-
-/* =========================================================
-   PKL DESKTOP CANVAS / HORIZONTAL SCROLL FIX
-   - Fullscreen: no unnecessary bottom scrollbar
-   - Smaller window: keep desktop layout and allow horizontal scroll
-   ========================================================= */
-html{
-  overflow-x:auto !important;
-}
 body{
   min-width:1280px !important;
   overflow-x:auto !important;

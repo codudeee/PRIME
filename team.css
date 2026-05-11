@@ -5802,16 +5802,6 @@ body.pkl-team-private-locked .control-panel{display:none !important;}
 body.pkl-team-private-locked .builder-layout{display:block !important;}
 body.pkl-team-private-locked .pkl-team-privacy-message{display:block !important;}
 /* PKL_TEAM_PRIVACY_LOCK_FINAL_END */
-
-
-/* =========================================================
-   PKL TEAM DESKTOP CANVAS / HORIZONTAL SCROLL FIX
-   ========================================================= */
-html,body{
-  min-width:1440px !important;
-  overflow-x:auto !important;
-  overflow-y:hidden !important;
-}
 .team-page{
   min-width:1440px !important;
   width:100% !important;
