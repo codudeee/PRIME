@@ -266,23 +266,173 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   return { user: rowToUser(savedRow), before: current, after: next, amount: delta, mail: mailText };
 }
 
-async function writeAdminLog(log={}){
-  const payload = {
-    action: clean(log.type || log.action || 'member_edit'),
-    actor: clean(log.admin || log.actor || 'ADMIN'),
-    target: clean(log.nickname || log.target || log.pubgId || ''),
-    detail: {
-      reason: clean(log.reason || ''),
-      nickname: clean(log.nickname || ''),
-      pubg_id: clean(log.pubgId || ''),
-      before: log.before || null,
-      after: log.after || null,
-      changes: Array.isArray(log.changes) ? log.changes : [],
-      date: log.date || new Date().toISOString()
-    }
+
+function isoToKstText(value){
+  const d = value ? new Date(value) : new Date();
+  const parts = new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(d);
+  const out={}; parts.forEach(p=>{ if(p.type!=='literal') out[p.type]=p.value; });
+  if(out.hour==='24') out.hour='00';
+  return `${out.year}.${out.month}.${out.day} ${out.hour}:${out.minute}`;
+}
+function addKstDays(days){
+  return isoToKstText(new Date(Date.now() + (Number(days)||0)*86400000).toISOString());
+}
+function penaltyDaysByWarning(count){
+  const n=Number(count)||0;
+  if(n>=3) return 14;
+  if(n>=2) return 7;
+  return 0;
+}
+function makeMail(row, type, title, message, reason, actor, extra={}){
+  const now=new Date().toISOString();
+  const raw=row.raw&&typeof row.raw==='object'?row.raw:{};
+  return {
+    id:`admin-${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    type,
+    title,
+    body:message,
+    message,
+    reason:message,
+    date:isoToKstText(now),
+    createdAt:now,
+    created_at:now,
+    admin:clean(actor||'PKL 운영진'),
+    from:clean(actor||'PKL 운영진'),
+    read:false,
+    isRead:false,
+    toNickname:row.nickname||raw.nickname||'',
+    targetNickname:row.nickname||raw.nickname||'',
+    nickname:row.nickname||raw.nickname||'',
+    toPubgId:row.pubg_id||raw.pubgId||raw.gameId||'',
+    targetPubgId:row.pubg_id||raw.pubgId||raw.gameId||'',
+    pubgId:row.pubg_id||raw.pubgId||raw.gameId||'',
+    uid:raw.uid||raw.id||raw.userId||(row.discord_id?`discord-${row.discord_id}`:''),
+    toUid:raw.uid||raw.id||raw.userId||(row.discord_id?`discord-${row.discord_id}`:''),
+    targetUid:raw.uid||raw.id||raw.userId||(row.discord_id?`discord-${row.discord_id}`:''),
+    discordId:row.discord_id||raw.discordId||'',
+    reasonText:clean(reason),
+    ...extra
   };
-  await insertAdminLogSafe(payload);
-  return payload;
+}
+function normalizeRawForDiscipline(row){
+  const raw=row.raw&&typeof row.raw==='object'?{...row.raw}:{};
+  raw.history=Array.isArray(raw.history)?raw.history:[];
+  raw.memoList=Array.isArray(raw.memoList)?raw.memoList:[];
+  raw.mailbox=Array.isArray(raw.mailbox)?raw.mailbox:[];
+  return raw;
+}
+async function patchUserRow(row, body){
+  async function patch(obj){
+    const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
+      method:'PATCH',
+      headers:{ Prefer:'return=representation' },
+      body:JSON.stringify(obj)
+    });
+    return json;
+  }
+  try{ return await patch(body); }
+  catch(e){
+    const msg=String(e&&e.message||e);
+    const fallback={...body};
+    for(const key of ['points','warnings','role','raw','updated_at','jailed','banned']){
+      if(new RegExp(key,'i').test(msg)) delete fallback[key];
+    }
+    if(JSON.stringify(fallback)===JSON.stringify(body)) throw e;
+    return await patch(fallback);
+  }
+}
+async function applyUserDiscipline(identity={}, action='', reason='', actor=''){
+  const row=await readUserRowByIdentity(identity);
+  const raw=normalizeRawForDiscipline(row);
+  const nowIso=new Date().toISOString();
+  const nowText=isoToKstText(nowIso);
+  const admin=clean(actor||'ADMIN');
+  const beforeWarnings=Number(row.warnings ?? raw.warnings ?? 0)||0;
+  const baseTarget=row.nickname||row.pubg_id||row.discord_id||'';
+  let nextWarnings=beforeWarnings;
+  let role=row.role||raw.memberRole||raw.role||'user';
+  let banned=!!(row.banned||raw.banned||raw.isBanned);
+  let jailed=!!(row.jailed||raw.jailed||raw.isPrisoner);
+  let mail=null;
+  let adminAction='member_action';
+  let logReason=clean(reason)||'관리자 처리';
+  let extraDetail={};
+
+  if(action==='warn'){
+    nextWarnings=beforeWarnings+1;
+    adminAction='warn';
+    raw.warnings=nextWarnings;
+    raw.history.unshift({type:'warn',reason:logReason,date:nowText,admin,warningCount:nextWarnings,before:beforeWarnings,after:nextWarnings});
+    mail=makeMail(row,'warning',`경고 ${nextWarnings}회 부여 안내`,`경고 사유:\n${logReason}\n\n현재 누적 경고: ${nextWarnings}회`,logReason,admin,{warningCount:nextWarnings});
+    raw.mailbox.unshift(mail);
+
+    const days=penaltyDaysByWarning(nextWarnings);
+    if(nextWarnings>=4){
+      banned=true; jailed=false; role='banned';
+      const banReason=`경고 4회 누적 자동 영구추방 · ${logReason}`;
+      raw.banned=true; raw.isBanned=true; raw.banReason=banReason; raw.bannedAt=nowIso;
+      raw.history.unshift({type:'ban',reason:banReason,date:nowText,admin,auto:true,warningCount:nextWarnings});
+      const banMail=makeMail(row,'ban','경고 4회 누적 영구추방 안내',`처리 사유:\n${banReason}\n\nPKL 운영 규정에 따라 계정 이용이 제한되었습니다.`,banReason,admin,{warningCount:nextWarnings,permanent:true});
+      raw.mailbox.unshift(banMail);
+      extraDetail.penalty='permanent_ban';
+      extraDetail.ban_reason=banReason;
+    }else if(days>0){
+      jailed=true; role='prisoner';
+      const until=addKstDays(days);
+      raw.memberRole='prisoner'; raw.userRole='prisoner'; raw.authRole='prisoner'; raw.role='prisoner'; raw.isPrisoner=true; raw.jailed=true;
+      raw.penalty={type:'prisoner',label:'수감자',days,until,reason:`경고 ${nextWarnings}회 누적 · ${logReason}`,date:nowText,admin};
+      raw.history.unshift({type:'penalty',reason:`경고 ${nextWarnings}회 누적 · 수감자 ${days}일 자동 적용`,date:nowText,admin,warningCount:nextWarnings,days,until});
+      const jailMail=makeMail(row,'penalty',`수감자 역할 ${days}일 자동 적용 안내`,`경고 ${nextWarnings}회 누적으로 수감자 역할이 ${days}일 적용되었습니다.\n해제 예정: ${until}\n사유: ${logReason}`,logReason,admin,{warningCount:nextWarnings,days,until});
+      raw.mailbox.unshift(jailMail);
+      extraDetail.penalty='prisoner'; extraDetail.days=days; extraDetail.until=until;
+    }
+  }else if(action==='minus'){
+    nextWarnings=Math.max(0,beforeWarnings-1);
+    adminAction='warning_minus';
+    raw.warnings=nextWarnings;
+    raw.history.unshift({type:'minus',reason:logReason,date:nowText,admin,warningCount:nextWarnings,before:beforeWarnings,after:nextWarnings});
+    mail=makeMail(row,'warning-minus','경고 차감 안내',`경고 차감 내용:\n${logReason}\n\n현재 누적 경고: ${nextWarnings}회`,logReason,admin,{warningCount:nextWarnings});
+    raw.mailbox.unshift(mail);
+    const days=penaltyDaysByWarning(nextWarnings);
+    if(days>0){
+      jailed=true; role='prisoner';
+      const until=addKstDays(days);
+      raw.memberRole='prisoner'; raw.userRole='prisoner'; raw.authRole='prisoner'; raw.role='prisoner'; raw.isPrisoner=true; raw.jailed=true;
+      raw.penalty={type:'prisoner',label:'수감자',days,until,reason:`경고 ${nextWarnings}회 상태 유지`,date:nowText,admin};
+    }else{
+      jailed=false;
+      if(String(raw.memberRole||raw.role||'')==='prisoner'){
+        const back=raw.beforePrisonerMemberRole||'user';
+        raw.memberRole=back==='prisoner'?'user':back; raw.userRole=raw.memberRole; raw.authRole=raw.memberRole; raw.role=raw.memberRole;
+      }
+      raw.isPrisoner=false; raw.jailed=false; raw.penalty=null;
+      role=raw.role||'user';
+    }
+  }else if(action==='ban'){
+    adminAction='ban';
+    banned=true; jailed=false; role='banned';
+    raw.banned=true; raw.isBanned=true; raw.banReason=logReason; raw.bannedAt=nowIso;
+    raw.history.unshift({type:'ban',reason:logReason,date:nowText,admin,warningCount:beforeWarnings,permanent:true});
+    mail=makeMail(row,'ban','영구추방 안내',`처리 사유:\n${logReason}\n\nPKL 운영 규정에 따라 계정 이용이 제한되었습니다.`,logReason,admin,{warningCount:beforeWarnings,permanent:true});
+    raw.mailbox.unshift(mail);
+    extraDetail.penalty='permanent_ban';
+  }else{
+    throw new Error('지원하지 않는 discipline action입니다.');
+  }
+
+  raw.updatedAt=nowIso;
+  raw.pklProfileUpdatedAt=nowIso;
+  raw.__pklProfileWrite=true;
+  const body={warnings:nextWarnings, role, jailed, banned, raw, updated_at:nowIso};
+  const json=await patchUserRow(row, body);
+  await insertAdminLogSafe({
+    action:adminAction,
+    actor:admin,
+    target:baseTarget,
+    detail:{reason:logReason,before_warnings:beforeWarnings,after_warnings:nextWarnings,discord_id:row.discord_id||'',pubg_id:row.pubg_id||'',mail:mail&&mail.title,...extraDetail}
+  });
+  const savedRow=Array.isArray(json)&&json[0]?json[0]:{...row,warnings:nextWarnings,role,jailed,banned,raw};
+  return { user: rowToUser(savedRow), beforeWarnings, afterWarnings:nextWarnings, banned, jailed, mail };
 }
 
 async function readUsers(options={}){
@@ -299,4 +449,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, writeAdminLog };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, applyUserDiscipline };

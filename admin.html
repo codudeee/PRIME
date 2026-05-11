@@ -1560,19 +1560,6 @@ button,input,select,textarea{font-family:inherit}button{cursor:pointer}input,sel
 .member-data-kind.release{color:#bbf7d0;border-color:rgba(74,222,128,.24);background:rgba(34,197,94,.09);}
 .member-data-kind.ban{color:#fecaca;border-color:rgba(248,113,113,.28);background:rgba(239,68,68,.10);}
 .member-data-kind.edit{color:#ddd6fe;border-color:rgba(167,139,250,.26);background:rgba(124,58,237,.10);}
-.member-data-kind.join{color:#bbf7d0;border-color:rgba(34,197,94,.34);background:rgba(22,163,74,.13);}
-.member-data-kind.reject,.member-data-kind.delete{color:#fecaca;border-color:rgba(248,113,113,.38);background:rgba(239,68,68,.13);}
-.member-data-kind.tier{color:#f5d0fe;border-color:rgba(217,70,239,.36);background:rgba(168,85,247,.14);}
-.member-data-kind.nickname{color:#bfdbfe;border-color:rgba(96,165,250,.36);background:rgba(59,130,246,.13);}
-.member-data-kind.prime{color:#fde68a;border-color:rgba(251,191,36,.38);background:rgba(217,119,6,.14);}
-.member-data-kind.warn{color:#fde68a;border-color:rgba(251,191,36,.38);background:rgba(251,191,36,.12);}
-.member-data-kind.minus{color:#bae6fd;border-color:rgba(56,189,248,.35);background:rgba(14,165,233,.12);}
-.member-data-kind.prison{color:#fbcfe8;border-color:rgba(244,114,182,.34);background:rgba(219,39,119,.12);}
-.member-data-kind.release{color:#a7f3d0;border-color:rgba(52,211,153,.34);background:rgba(16,185,129,.12);}
-.member-data-kind.ban{color:#fecaca;border-color:rgba(248,113,113,.42);background:rgba(185,28,28,.18);}
-.member-data-change-list{display:grid;gap:4px;margin-top:6px;color:rgba(231,225,255,.78);font-size:12px;font-weight:850;line-height:1.45;}
-.member-data-change-list span{display:block;}
-
 .member-data-main{min-width:0;}
 .member-data-main strong{display:block;color:#fff;font-size:14px;font-weight:1000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .member-data-main p{margin:5px 0 0;color:rgba(231,225,255,.68);font-size:12px;font-weight:800;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -5955,7 +5942,7 @@ a,
         </div>
         <div class="dash-grid">
           <div class="dash-card"><small>금일 누적 접속자</small><strong id="dashTodayUsers">0</strong></div>
-          <div class="dash-card"><small>승인 대기</small><strong id="dashPendingCount">0</strong></div>
+          <div class="dash-card"><small>회원 데이터</small><strong id="dashPendingCount">-</strong></div>
           <div class="dash-card"><small>전체 회원</small><strong id="dashUserCount">0</strong></div>
         </div>
       </div>
@@ -6216,40 +6203,9 @@ function mergeAccountUsersIntoState(st){
 
 function syncPendingSignupUsers(st){
   st = st || seed();
-  st.pending = Array.isArray(st.pending) ? st.pending : [];
-  try{
-    const signupPending = JSON.parse(localStorage.getItem("pklPendingUsers") || "[]");
-    if(Array.isArray(signupPending)){
-      signupPending.forEach((p,i)=>{
-        if(!p) return;
-        const nick = p.nickname || p.nick || p.name || "";
-        const pubg = p.pubgId || p.ref || p.gameId || "";
-        if(!nick && !pubg) return;
-        const exists = st.pending.some(x =>
-          (nick && (x.nickname === nick || x.nick === nick || x.name === nick)) ||
-          (pubg && (x.ref === pubg || x.pubgId === pubg || x.gameId === pubg))
-        );
-        const alreadyUser = Array.isArray(st.users) && st.users.some(x =>
-          (nick && (x.nickname === nick || x.nick === nick || x.name === nick)) ||
-          (pubg && x.pubgId === pubg)
-        );
-        if(!exists && !alreadyUser){
-          st.pending.push({
-            nickname:nick,
-            ref:pubg,
-            pubgId:pubg,
-            password:p.password || "",
-            date:p.date || p.createdAt || nowText(),
-            status:"pending",
-            role:"user",
-            memberRole:"user",
-            approved:false,
-            uid:p.uid || ("pending-"+Date.now()+"-"+i)
-          });
-        }
-      });
-    }
-  }catch(e){}
+  /* PKL: 승인제 폐지. Discord 로그인 회원은 승인대기 없이 바로 users/Supabase 기준으로 관리한다. */
+  st.pending = [];
+  try{ localStorage.removeItem("pklPendingUsers"); }catch(e){}
   return st;
 }
 function load(){pklPurgeNonTierUsersFromStorage();try{const raw=localStorage.getItem(dataKey);if(raw){const parsed=JSON.parse(raw);return normalizeState(syncPendingSignupUsers(mergeAccountUsersIntoState(parsed)));}}catch(e){} return normalizeState(syncPendingSignupUsers(mergeAccountUsersIntoState(seed())))}
@@ -6257,15 +6213,15 @@ function save(){state=normalizeState(state);window.state=state;syncUsersToAccoun
 function normalizeState(s){
   s=s||seed();
   s.users=Array.isArray(s.users)?s.users:[];
-  s.pending=Array.isArray(s.pending)?s.pending:[];
+  s.pending=[];
   s.bans=Array.isArray(s.bans)?s.bans:[];
   s.warningRecords=Array.isArray(s.warningRecords)?s.warningRecords:[];
   const isLegacyTesterUser = u => !!u && (u.uid==="pkl_tester_user" || u.id==="pkl_tester_user" || u.pubgId==="PKL_TESTER" || u.gameId==="PKL_TESTER" || u.nickname==="테스터" || u.nick==="테스터" || u.name==="테스터");
   s.users = s.users.filter(u => !isLegacyTesterUser(u));
-  s.pending = s.pending.filter(u => !isLegacyTesterUser(u));
+  s.pending = [];
   s.users = s.users.filter(u => !pklIsDeletedUser(u));
   s.users = s.users.filter(u => pklHasAssignedTier(u));
-  s.pending = s.pending.filter(u => !pklIsDeletedUser(u));
+  s.pending = [];
   s.users = s.users.filter(u => !(Array.isArray(s.bans) && s.bans.some(b => pklUserIdentityMatches(u,b))));
   const keep=[];
   s.users.forEach((u,i)=>{
@@ -6772,7 +6728,7 @@ function renderProfile(){
   if(activeDetailTab!=="detail")renderDetailLog(activeDetailTab);
 }
 
-function renderStats(){const active=state.users.filter(u=>u.role!=="prisoner").length;["sTodayUsers","dashTodayUsers"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=state.users.length});["sCurrentUsers","dashCurrentUsers"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=active});["navPending","pendingBoardCount","dashPendingCount"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=state.pending.length});const uc=document.getElementById("userCount");if(uc)uc.textContent=state.users.length+"명";const du=document.getElementById("dashUserCount");if(du)du.textContent=state.users.length;const bc=document.getElementById("banCount");if(bc)bc.textContent=state.bans.length;}
+function renderStats(){const active=state.users.filter(u=>u.role!=="prisoner"&&!u.banned&&!u.isBanned).length;["sTodayUsers","dashTodayUsers"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=state.users.length});["sCurrentUsers","dashCurrentUsers"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=active});["navPending","dashPendingCount"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=""});const pbc=document.getElementById("pendingBoardCount");if(pbc)pbc.textContent=pklMemberDataLogs().length;const uc=document.getElementById("userCount");if(uc)uc.textContent=state.users.length+"명";const du=document.getElementById("dashUserCount");if(du)du.textContent=state.users.length;const bc=document.getElementById("banCount");if(bc)bc.textContent=state.bans.length;}
 function renderCurrentScreen(){const visible=[...document.querySelectorAll('.admin-screen, #userManageTab')].find(el=>getComputedStyle(el).display!=="none");if(!visible)return;if(visible.id==="pendingManageTab")renderPendingList();if(visible.id==="bansManageTab")renderBanRecords();if(visible.id==="warningsManageTab")renderWarnRecords();if(visible.id==="dashboardManageTab")renderStats();}
 function selectUser(i){current=i;activeDetailTab="detail";restoreDetailBody();document.querySelectorAll('.tab').forEach((b,idx)=>b.classList.toggle('active',idx===0));render();}
 
@@ -6812,60 +6768,88 @@ function openMemoDeleteModal(i){if(!pklIsSuperAdmin()){pklAlert("관리자만 �
 function closeMemoDeleteModal(){pendingMemoDeleteIndex=null;document.getElementById("memoDeleteModal").classList.remove("open");}
 function confirmMemoDelete(){const u=state.users[current];if(u?.memoList?.[pendingMemoDeleteIndex]!=null){u.memoList.splice(pendingMemoDeleteIndex,1);save();renderMemoList();}closeMemoDeleteModal();}
 
+
+async function pklApiDiscipline(kind,u,reason){
+  const res=await fetch("/api/pkl-users",{
+    method:"PATCH",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action:"discipline",kind,user:pklUserPayloadForApi(u),reason,actor:adminName()})
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||!data.ok) throw new Error(data.message||"Supabase 처리 실패");
+  return data;
+}
+function pklMergeSavedUserLocal(target,saved){
+  if(!target||!saved)return target;
+  const keepIndex=state.users.indexOf(target);
+  Object.assign(target,saved);
+  target.history=Array.isArray(saved.history)?saved.history:(Array.isArray(saved.raw&&saved.raw.history)?saved.raw.history:(Array.isArray(target.history)?target.history:[]));
+  target.memoList=Array.isArray(saved.memoList)?saved.memoList:(Array.isArray(saved.raw&&saved.raw.memoList)?saved.raw.memoList:(Array.isArray(target.memoList)?target.memoList:[]));
+  target.mailbox=Array.isArray(saved.mailbox)?saved.mailbox:(Array.isArray(saved.raw&&saved.raw.mailbox)?saved.raw.mailbox:(Array.isArray(target.mailbox)?target.mailbox:[]));
+  target.warnings=Number(saved.warnings??target.warnings??0)||0;
+  target.memberRole=saved.memberRole||saved.role||target.memberRole;
+  target.role=saved.role||target.role;
+  if(keepIndex>=0) state.users[keepIndex]=target;
+  return target;
+}
+
 function action(type){if(type==="ban"&&!pklIsSuperAdmin()){pklAlert("영구추방은 관리자만 사용할 수 있습니다.","권한 제한");return;}if(type!=="ban"&&!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}pendingAction=type;const u=state.users[current];const id=type==="warn"?"warnText":type==="minus"?"minusText":"banText";const reason=(document.getElementById(id)?.value||"").trim();const input=document.getElementById("modalReasonInput"),view=document.getElementById("modalReasonView"),yes=document.querySelector("#modal .confirm-yes"),no=document.querySelector("#modal .confirm-no");if(!u)return;document.getElementById("modalTitle").textContent=type==="warn"?"경고 부여 확인":type==="minus"?"경고 차감 확인":"영구추방 확인";document.getElementById("modalQuestion").innerHTML=`<b>${esc(u.nickname)}</b> 님을 처리하시겠습니까?`;view.textContent=reason;view.style.display=reason?"block":"none";input.value=reason;input.placeholder=type==="ban"?"영구추방 사유를 입력하세요.":"처리 사유를 입력하세요.";input.style.display=reason?"none":"block";yes.style.display="";yes.textContent=reason?"예":"처리";no.textContent=reason?"아니오":"취소";document.getElementById("modal").classList.add("open");}
 function closeModal(){document.getElementById("modal").classList.remove("open");}
-function confirmModal(){
+async function confirmModal(){
   const u=state.users[current];
   if(!u)return closeModal();
   const input=document.getElementById("modalReasonInput");
   const typed=input.style.display!=="none"?input.value.trim():"";
   if(input.style.display!=="none"&&!typed){input.focus();return;}
   const reason=typed||document.getElementById("modalReasonView").textContent.trim()||"관리자 처리";
-  const record={type:pendingAction,reason,date:nowText(),admin:adminName()};
-  if(pendingAction==="warn"){
-    u.warnings=Math.max(0,Number(u.warnings)||0)+1;
-    u.logs=(Number(u.logs)||0)+1;
-    u.history.unshift(record);
+  const actionMap={warn:"warn",minus:"minus",ban:"ban"};
+  const apiKind=actionMap[pendingAction];
+  if(!apiKind){closeModal();return;}
+  const beforeWarnings=Number(u.warnings)||0;
+  try{
+    const data=await pklApiDiscipline(apiKind,u,reason);
+    if(data.user) pklMergeSavedUserLocal(u,data.user);
+    const savedUser=data.user||u;
+    const afterWarnings=Number(data.afterWarnings ?? savedUser.warnings ?? u.warnings ?? beforeWarnings)||0;
+    const now=nowText();
     state.warningRecords=Array.isArray(state.warningRecords)?state.warningRecords:[];
-    state.warningRecords.unshift({...record,nickname:u.nickname,pubgId:u.pubgId,role:primaryRole(u),uid:u.uid});
-    sendAdminWarningMail(u,reason,u.warnings);
-    if(u.warnings>=4){
-      const banReason="경고 4회 누적 · "+reason;
-      const banRecord=permanentBanRecord(u,banReason,true);
-      u.history.unshift({type:"ban",reason:banReason,date:banRecord.date,admin:banRecord.admin});
-      state.bans.unshift(banRecord);
-      sendAdminBanMail(u,banReason,true);
-      pklPurgeDeletedUserFromStorage(u);
-      state.users.splice(current,1);
-      current=Math.max(0,Math.min(current,state.users.length-1));
-    }else{
-      applyWarningPenalty(u,reason);
-      if(u.warnings>=2){
-        const days=penaltyDaysByWarning(u.warnings);
-        u.history.unshift({type:"penalty",reason:`경고 ${u.warnings}회 누적 · ${days}일 킬내기 참여 제한 · 수감자 딱지 부여`,date:nowText(),admin:adminName()});
+    state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];
+
+    if(pendingAction==="warn"){
+      const warnRecord={type:"warn",reason,date:now,admin:adminName(),nickname:savedUser.nickname||u.nickname,pubgId:savedUser.pubgId||u.pubgId,role:primaryRole(savedUser),uid:savedUser.uid||u.uid,warningCount:afterWarnings,before:beforeWarnings,after:afterWarnings};
+      state.warningRecords.unshift(warnRecord);
+      state.memberDataLogs.unshift({...warnRecord});
+      if(afterWarnings>=4){
+        const banReason="경고 4회 누적 자동 영구추방 · "+reason;
+        const banRecord=permanentBanRecord({...u,...savedUser},banReason,true);
+        state.bans.unshift(banRecord);
+        state.memberDataLogs.unshift({type:"ban",nickname:banRecord.nickname,pubgId:banRecord.pubgId,reason:banReason,date:now,admin:adminName(),warningCount:afterWarnings});
+        state.users.splice(current,1);
+        current=Math.max(0,Math.min(current,state.users.length-1));
+      }else if(afterWarnings>=2){
+        const days=penaltyDaysByWarning(afterWarnings);
+        state.memberDataLogs.unshift({type:"penalty",nickname:savedUser.nickname||u.nickname,pubgId:savedUser.pubgId||u.pubgId,reason:`경고 ${afterWarnings}회 누적 · 수감자 ${days}일 자동 적용`,date:now,admin:adminName(),warningCount:afterWarnings});
       }
     }
+    if(pendingAction==="minus"){
+      const minusRecord={type:"minus",reason,date:now,admin:adminName(),nickname:savedUser.nickname||u.nickname,pubgId:savedUser.pubgId||u.pubgId,role:primaryRole(savedUser),uid:savedUser.uid||u.uid,warningCount:afterWarnings,before:beforeWarnings,after:afterWarnings};
+      state.warningRecords.unshift(minusRecord);
+      state.memberDataLogs.unshift({...minusRecord});
+    }
+    if(pendingAction==="ban"){
+      const banRecord=permanentBanRecord({...u,...savedUser},reason,false);
+      state.bans.unshift(banRecord);
+      state.memberDataLogs.unshift({type:"ban",nickname:banRecord.nickname,pubgId:banRecord.pubgId,reason,date:now,admin:adminName(),warningCount:beforeWarnings});
+      state.users.splice(current,1);
+      current=Math.max(0,Math.min(current,state.users.length-1));
+    }
+    ["warnText","minusText","banText"].forEach(id=>{const el=document.getElementById(id);if(el)el.value=""});
+    closeModal();
+    save();render();renderPendingList();renderWarnRecords();renderBanRecords();
+  }catch(err){
+    console.error(err);
+    await pklAlert(err.message||"Supabase 처리 중 오류가 발생했습니다.","처리 실패");
   }
-  if(pendingAction==="minus"){
-    u.warnings=Math.max(0,(Number(u.warnings)||0)-1);
-    u.logs=(Number(u.logs)||0)+1;
-    u.history.unshift(record);
-    state.warningRecords=Array.isArray(state.warningRecords)?state.warningRecords:[];
-    state.warningRecords.unshift({...record,nickname:u.nickname,pubgId:u.pubgId,role:primaryRole(u),uid:u.uid});
-    sendAdminWarningMinusMail(u,reason,u.warnings);
-    applyWarningPenalty(u,reason);
-  }
-  if(pendingAction==="ban"){
-    u.history.unshift(record);
-    state.bans.unshift(permanentBanRecord(u,reason,false));
-    sendAdminBanMail(u,reason,false);
-    pklPurgeDeletedUserFromStorage(u);
-    state.users.splice(current,1);
-    current=Math.max(0,Math.min(current,state.users.length-1));
-  }
-  ["warnText","minusText","banText"].forEach(id=>{const el=document.getElementById(id);if(el)el.value=""});
-  closeModal();autoClearTempRoleWhenGradeSet(u);
-  save();render();
 }
 
 async function switchAdminTab(tab,btn){
@@ -6888,47 +6872,26 @@ function removeApprovedFromPendingStorage(p){try{const pending=JSON.parse(localS
 function pklMemberDataLabel(type){
   const t=String(type||"log").toLowerCase();
   if(t==="join"||t==="signup"||t==="approve")return "가입";
-  if(t==="reject")return "가입거절";
   if(t==="leave"||t==="withdraw"||t==="delete")return "탈퇴";
   if(t==="warn"||t==="warning")return "경고";
   if(t==="minus"||t==="warning-minus"||t==="warning_reduce"||t==="reduce")return "차감";
   if(t==="penalty"||t==="prison"||t==="jail")return "수감";
   if(t==="release"||t==="unjail")return "해제";
   if(t==="ban"||t==="banned")return "추방";
-  if(t==="tier"||t==="tier-change"||t==="member_tier")return "티어변동";
+  if(t==="tier"||t==="tier-change")return "티어변동";
   if(t==="nickname"||t==="nickname-change")return "닉네임변경";
-  if(t==="prime_grant")return "프라임지급";
-  if(t==="prime_seize")return "프라임압수";
-  if(t==="edit"||t==="member_edit"||t==="profile_edit")return "정보수정";
+  if(t==="edit")return "정보수정";
   return "기록";
 }
 function pklMemberDataClass(type){
-  const t=String(type||"log").toLowerCase();
   const label=pklMemberDataLabel(type);
-  if(label==="가입")return "join";
-  if(label==="가입거절")return "reject";
-  if(label==="탈퇴")return "delete";
   if(label==="경고")return "warn";
   if(label==="차감")return "minus";
   if(label==="수감")return "prison";
   if(label==="해제")return "release";
   if(label==="추방")return "ban";
-  if(label==="티어변동")return "tier";
-  if(label==="닉네임변경")return "nickname";
-  if(label==="프라임지급"||label==="프라임압수")return "prime";
-  if(label==="정보수정")return "edit";
+  if(label==="티어변동"||label==="닉네임변경"||label==="정보수정")return "edit";
   return "";
-}
-function pklMemberDataFieldName(key){
-  const map={nickname:"닉네임",pubgId:"배그아이디",gameId:"배그아이디",memberTier:"회원 티어",gradeRole:"회원 티어",tierRole:"회원 티어",tier:"회원 티어",memberRole:"권한/역할",role:"권한/역할",memberTitle:"칭호",titleBadge:"칭호",prime:"보유 프라임",points:"보유 프라임",dia:"보유 프라임",chicken:"보유 프라임",warnings:"경고",password:"비밀번호"};
-  return map[key]||key;
-}
-function pklFormatChangeLine(c){
-  if(!c||typeof c!=="object")return "";
-  const field=pklMemberDataFieldName(c.field||c.key||c.name||"항목");
-  const before=(c.before===undefined||c.before===null||c.before==="")?"-":String(c.before);
-  const after=(c.after===undefined||c.after===null||c.after==="")?"-":String(c.after);
-  return `${field}: ${before} → ${after}`;
 }
 function pklMemberDataLogs(){
   const logs=[];
@@ -6941,8 +6904,7 @@ function pklMemberDataLogs(){
     admin:x.admin||x.moderator||x.moderatorTag||x.by||x.actor||"-",
     warningCount:x.warningCount||x.warnings||x.count||"",
     before:x.before||x.oldValue||x.old||"",
-    after:x.after||x.newValue||x.new||"",
-    changes:Array.isArray(x.changes)?x.changes:(x.detail&&Array.isArray(x.detail.changes)?x.detail.changes:[])
+    after:x.after||x.newValue||x.new||""
   });};
   [state.memberDataLogs,state.memberActivityLogs,state.activityLogs,state.adminLogs].forEach(arr=>{if(Array.isArray(arr))arr.forEach(push);});
   (state.users||[]).forEach(u=>{
@@ -6961,24 +6923,23 @@ function pklMemberDataLogs(){
 }
 function renderPendingList(){
   const wrap=document.getElementById("pendingList");if(!wrap)return;
+  state.pending=[];
   const logs=pklMemberDataLogs();
-  const pending=Array.isArray(state.pending)?state.pending:[];
   const warnCount=logs.filter(x=>pklMemberDataLabel(x.type)==="경고").length;
   const prisonCount=logs.filter(x=>pklMemberDataLabel(x.type)==="수감").length;
   const banCount=logs.filter(x=>pklMemberDataLabel(x.type)==="추방").length;
+  const editCount=logs.filter(x=>pklMemberDataLabel(x.type)==="정보수정"||pklMemberDataLabel(x.type)==="티어변동"||pklMemberDataLabel(x.type)==="닉네임변경").length;
   const count=document.getElementById("pendingBoardCount");if(count)count.textContent=logs.length;
-  const pendingHtml=pending.length?`<div class="member-data-section-title">승인 대기</div>`+pending.map((p,i)=>`<div class="pending-card"><div class="pending-no">${i+1}</div><div class="pending-info"><strong>${esc(p.nickname)}</strong><span>가입일자 : ${esc(p.date||'-')}</span><span>배그아이디 : ${esc(p.ref||p.pubgId||'-')}</span></div><div class="pending-actions"><button class="pending-approve" data-min-role="operator" onclick="approvePending(${i})">승인</button><button class="pending-reject" data-min-role="operator" onclick="rejectPending(${i})">거절</button></div></div>`).join(""):"";
   const logHtml=logs.length?logs.map(x=>{
     const label=pklMemberDataLabel(x.type), cls=pklMemberDataClass(x.type);
     const extra=x.warningCount!==""&&x.warningCount!=null?` · 누적 경고 ${esc(x.warningCount)}회`:"";
     const change=(x.before||x.after)?` · ${esc(x.before||'-')} → ${esc(x.after||'-')}`:"";
-    const changeList=Array.isArray(x.changes)&&x.changes.length?`<div class="member-data-change-list">${x.changes.map(c=>`<span>${esc(pklFormatChangeLine(c))}</span>`).join("")}</div>`:"";
-    return `<div class="member-data-log-card"><div class="member-data-kind ${cls}">${label}</div><div class="member-data-main"><strong>${esc(x.nickname||'-')} / ${esc(x.pubgId||'-')}${extra}</strong><p>${esc(x.reason||'-')}${change}</p>${changeList}</div><div class="member-data-meta">${esc(x.date||'-')}<br>처리자 ${esc(x.admin||'-')}</div></div>`;
+    return `<div class="member-data-log-card"><div class="member-data-kind ${cls}">${label}</div><div class="member-data-main"><strong>${esc(x.nickname||'-')} / ${esc(x.pubgId||'-')}${extra}</strong><p>${esc(x.reason||'-')}${change}</p></div><div class="member-data-meta">${esc(x.date||'-')}<br>처리자 ${esc(x.admin||'-')}</div></div>`;
   }).join(""):`<div class="pending-empty">회원 데이터 로그가 없습니다.</div>`;
-  wrap.innerHTML=`<div class="member-data-summary"><div class="member-data-stat"><small>승인 대기</small><strong>${pending.length}</strong></div><div class="member-data-stat"><small>경고 로그</small><strong>${warnCount}</strong></div><div class="member-data-stat"><small>수감 로그</small><strong>${prisonCount}</strong></div><div class="member-data-stat"><small>추방 로그</small><strong>${banCount}</strong></div></div>${pendingHtml}<div class="member-data-section-title">회원 활동 로그</div>${logHtml}`;
+  wrap.innerHTML=`<div class="member-data-summary"><div class="member-data-stat"><small>정보수정</small><strong>${editCount}</strong></div><div class="member-data-stat"><small>경고 로그</small><strong>${warnCount}</strong></div><div class="member-data-stat"><small>수감 로그</small><strong>${prisonCount}</strong></div><div class="member-data-stat"><small>추방 로그</small><strong>${banCount}</strong></div></div><div class="member-data-section-title">회원 활동 로그</div>${logHtml}`;
 }
-function approvePending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const p=state.pending[i];if(!p)return;state.users.push({nickname:p.nickname,pubgId:p.ref||p.pubgId||p.nickname,password:p.password||"",tier:"없음",role:"user",baseRole:"none",gradeRole:"none",memberRole:"user",status:"approved",approved:true,warnings:0,uid:"approved-"+Date.now(),join:nowText().split(' ')[0],last:"-",logs:0,memoList:[],history:[{type:"approve",reason:"가입 승인",date:nowText(),admin:adminName()}]});state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];state.memberDataLogs.unshift({type:"approve",nickname:p.nickname,pubgId:p.ref||p.pubgId||"",reason:"가입 승인",date:nowText(),admin:adminName()});removeApprovedFromPendingStorage(p);state.pending.splice(i,1);save();render();renderPendingList();}
-function rejectPending(i){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const p=state.pending[i];if(!p)return;state.memberDataLogs=Array.isArray(state.memberDataLogs)?state.memberDataLogs:[];state.memberDataLogs.unshift({type:"reject",nickname:p.nickname,pubgId:p.ref||p.pubgId||"",reason:"가입 거절",date:nowText(),admin:adminName()});state.pending.splice(i,1);save();render();renderPendingList();}
+function approvePending(i){pklAlert("승인제는 폐지되었습니다. Discord 로그인 회원은 바로 이용 가능합니다.","승인제 폐지");}
+function rejectPending(i){pklAlert("승인제는 폐지되었습니다. Discord 로그인 회원은 바로 이용 가능합니다.","승인제 폐지");}
 function renderBanRecords(){const list=document.getElementById("banRecordList"),count=document.getElementById("banBoardCount");state.bans=Array.isArray(state.bans)?state.bans:[];if(count)count.textContent=state.bans.length;if(!list)return;list.innerHTML=state.bans.length?state.bans.map((b,i)=>`<div class="record-card"><div class="record-badge red">영구추방</div><div><strong>${esc(b.nickname)} / ${esc(b.pubgId||'-')}</strong><p>${esc(b.reason)}</p></div><div class="record-meta">${esc(b.date)}<br>처리자 ${esc(b.admin)}</div>${recordDeleteButton('ban',i)}</div>`).join(""):`<div class="pending-empty">추방 기록이 없습니다.</div>`;}
 function renderWarnRecords(){
   state.warningRecords=Array.isArray(state.warningRecords)?state.warningRecords:[];
@@ -7159,16 +7120,6 @@ async function saveMemberEdit(){
   const u=state.users[current];
   if(!u)return;
 
-  const before={
-    nickname:u.nickname||u.nick||u.name||"",
-    pubgId:u.pubgId||u.gameId||u.ref||"",
-    memberTier:u.memberTier||u.gradeRole||u.tierRole||u.tier||"none",
-    memberRole:u.memberRole||u.role||"guest",
-    memberTitle:u.memberTitle||u.titleBadge||"none",
-    prime:Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0,
-    warnings:Number(u.warnings||0)||0
-  };
-
   const nick=document.getElementById("editNick")?.value.trim() || "";
   const pubg=document.getElementById("editPubg")?.value.trim() || (u.pubgId||u.gameId||u.ref||"");
   const selectedGradeRaw=document.getElementById("editRole")?.value || "none";
@@ -7180,6 +7131,9 @@ async function saveMemberEdit(){
 
   if(!nick)return;
 
+
+  u.history=Array.isArray(u.history)?u.history:[];
+  u.history.unshift({type:"edit",reason:"회원 정보 수정",date:nowText(),admin:adminName()});
   u.nickname=nick;
   u.pubgId=pubg;
   u.dia=dia;
@@ -7220,28 +7174,8 @@ async function saveMemberEdit(){
   u.updatedAt=new Date().toISOString();
   u.pklProfileUpdatedAt=u.updatedAt;
   u.__pklProfileWrite=true;
-
-  const after={
-    nickname:u.nickname||"",
-    pubgId:u.pubgId||"",
-    memberTier:u.memberTier||u.gradeRole||u.tierRole||"none",
-    memberRole:u.memberRole||u.role||"guest",
-    memberTitle:u.memberTitle||u.titleBadge||"none",
-    prime:Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0,
-    warnings:Number(u.warnings||0)||0
-  };
-  const compareFields=["nickname","pubgId","memberTier","memberRole","memberTitle","prime","warnings"];
-  const changes=compareFields.filter(k=>String(before[k]??"")!==String(after[k]??"")).map(k=>({field:k,before:before[k]??"",after:after[k]??""}));
-  if(pw)changes.push({field:"password",before:"기존 비밀번호",after:"변경됨"});
-  const tierChanged=changes.some(c=>["memberTier","memberRole"].includes(c.field));
-  const logType=tierChanged && changes.length===1 ? "tier" : "edit";
-  const changeSummary=changes.length ? changes.map(pklFormatChangeLine).filter(Boolean).join(" / ") : "변경된 항목 없음";
-  const historyLog={type:logType,reason:`회원 정보 수정 · ${changeSummary}`,date:nowText(),admin:adminName(),changes,before,after};
-  u.history=Array.isArray(u.history)?u.history:[];
-  u.history.unshift(historyLog);
-
   try{
-    const res=await fetch("/api/pkl-users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user:u,actor:adminName(),adminLog:historyLog})});
+    const res=await fetch("/api/pkl-users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user:u})});
     const data=await res.json().catch(()=>({}));
     if(!res.ok||!data.ok)throw new Error(data.message||"Supabase 저장 실패");
     if(data.user){
@@ -7260,6 +7194,12 @@ async function saveMemberEdit(){
       window.PKLUserProfile.upsert(u);
     }
   }catch(e){}
+
+  save();
+  try{localStorage.setItem(dataKey,JSON.stringify(state));}catch(e){}
+  try{syncUsersToAccountStorage();}catch(e){}
+  try{window.dispatchEvent(new CustomEvent("pkl-role-data-updated"));}catch(e){}
+  try{window.dispatchEvent(new StorageEvent("storage",{key:dataKey,newValue:JSON.stringify(state)}));}catch(e){}
 
   closeMemberEditModal();
   renderUserList();
@@ -7569,7 +7509,7 @@ document.addEventListener("DOMContentLoaded",renderRoleDropdownOptions);
           '<div><div class="hero-kicker">PRIME KILL LEAGUE · ADMIN CENTER</div><div class="hero-title">PKL 운영 대시보드</div><div class="hero-sub">회원, 승인, 경고, 프라임 현황을 한눈에 확인하는 운영 메인 화면입니다.</div></div>',
           '<div class="hero-status">',
             '<div class="hero-mini"><span>현재 회원</span><b id="pdNow">0</b></div>',
-            '<div class="hero-mini"><span>승인 대기</span><b id="pdPending">0</b></div>',
+            '<div class="hero-mini"><span>회원 데이터</span><b id="pdPending">-</b></div>',
             '<div class="hero-mini"><span>보유 프라임</span><b id="pdHeroChicken">0</b></div>',
             '<div class="hero-mini"><span>현재 시간</span><b id="pdClock">--:--</b></div>',
           '</div>',
@@ -7677,7 +7617,7 @@ document.addEventListener("DOMContentLoaded",renderRoleDropdownOptions);
 
 <script>
 function updatePendingBadgeVisibility(){
-  const count = (typeof state!=="undefined" && Array.isArray(state.pending)) ? state.pending.length : 0;
+  const count = 0;
   const badge = document.getElementById("navPending");
   if(!badge) return;
   badge.dataset.count = String(count);

@@ -30,6 +30,11 @@ module.exports = async function handler(req, res) {
         const result = await supabaseStore.adjustUserPrime(body.user || body.identity || {}, Number(body.amount || 0), String(body.reason || ''), String(body.actor || 'ADMIN'));
         return res.status(200).json({ ok: true, ...result });
       }
+      if (body.action === 'discipline') {
+        if (typeof supabaseStore.applyUserDiscipline !== 'function') throw new Error('Supabase discipline function missing');
+        const result = await supabaseStore.applyUserDiscipline(body.user || body.identity || {}, String(body.kind || body.type || ''), String(body.reason || ''), String(body.actor || 'ADMIN'));
+        return res.status(200).json({ ok: true, ...result });
+      }
       return res.status(400).json({ ok: false, message: '지원하지 않는 PATCH action입니다.' });
     }
     if (req.method === 'POST') {
@@ -37,16 +42,6 @@ module.exports = async function handler(req, res) {
       const input = body.user || (Array.isArray(body.users) ? body.users[0] : null);
       if (!input || typeof input !== 'object') return res.status(400).json({ ok: false, message: '저장할 user가 없습니다.' });
       const user = await supabaseStore.writeUserDoc(input, !!body.forceAdmin);
-      if (body.adminLog && typeof supabaseStore.writeAdminLog === 'function') {
-        const log = body.adminLog || {};
-        await supabaseStore.writeAdminLog({
-          ...log,
-          actor: body.actor || log.actor || log.admin || 'ADMIN',
-          admin: body.actor || log.admin || log.actor || 'ADMIN',
-          nickname: user.nickname || input.nickname || '',
-          pubgId: user.pubgId || input.pubgId || ''
-        });
-      }
       return res.status(200).json({ ok: true, user, users: [user] });
     }
     res.setHeader('Allow', 'GET, POST, PATCH');
