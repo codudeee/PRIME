@@ -6037,10 +6037,16 @@ function safeJson(key, fallback){
 (function(){
   function readState(){
     try{
+      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.state === "function"){
+        const current = window.PKLJoinRealtime.state();
+        if(current && current.recruitState && current.recruitState.state) return current.recruitState.state;
+      }
+    }catch(e){}
+    try{
       const raw = JSON.parse(localStorage.getItem("pklJoinRecruitState") || "null");
       if(raw && raw.state) return raw.state;
     }catch(e){}
-    return localStorage.getItem("pklJoinRecruitState") || "waiting";
+    return "waiting";
   }
 
   function apply(){
@@ -6071,6 +6077,7 @@ function safeJson(key, fallback){
   }
 
   document.addEventListener("DOMContentLoaded", apply);
+  window.addEventListener("pkl-join-state-updated", apply);
   /* 2차 청소: pklJoinRecruitState storage 이벤트로 버튼 상태 재계산 금지. */
   document.addEventListener("click", function(e){
     if(e.target.closest("#openRecruitBtn,#closeRecruitBtn,#joinResetBtn")){

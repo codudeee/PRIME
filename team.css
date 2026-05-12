@@ -5809,3 +5809,39 @@ body .modal-layer [class*="streak"]{
 .builder-layout.pkl-mode-duo .team-slot{
   min-height:64px !important;
 }
+
+
+/* pklModeLayoutFinal */
+.builder-layout.pkl-mode-10{
+  grid-template-columns:minmax(520px,.86fr) minmax(760px,1.14fr) 150px !important;
+}
+.builder-layout.pkl-mode-20{
+  grid-template-columns:minmax(280px,.46fr) minmax(1040px,1.54fr) 150px !important;
+}
+.builder-layout.pkl-mode-10 .team-grid{
+  grid-template-columns:repeat(5,minmax(140px,1fr)) !important;
+  align-content:start !important;
+}
+.builder-layout.pkl-mode-20 .team-grid{
+  grid-template-columns:repeat(10,minmax(104px,1fr)) !important;
+  align-content:start !important;
+}
+.builder-layout.pkl-mode-20 .tier-pools{
+  grid-template-columns:1fr !important;
+}
+.builder-layout.pkl-mode-20 .tier-box{
+  min-height:112px !important;
+}
+.builder-layout.pkl-mode-duo .slot-list{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+}
+.builder-layout.pkl-mode-duo .team-slot:nth-child(n+3){
+  display:none !important;
+}
+.builder-layout.pkl-mode-buddy .team-card:nth-child(odd) .team-head::after{
+  content:"깐부 " attr(data-buddy-label);
+  margin-left:auto;
+  font-size:10px;
+  color:#facc15;
+  opacity:.9;
+}

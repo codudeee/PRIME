@@ -102,10 +102,14 @@
 
   
   const PKL_TEAM_MODE_CONFIG = {
-    squad10: { key:'squad10', label:'10팀 스쿼드', teams:10, slots:4, modeClass:'pkl-mode-10 pkl-mode-squad' },
-    squad20: { key:'squad20', label:'20팀 스쿼드', teams:20, slots:4, modeClass:'pkl-mode-20 pkl-mode-squad' },
-    duo10: { key:'duo10', label:'10팀 듀오', teams:10, slots:2, modeClass:'pkl-mode-10 pkl-mode-duo' },
-    duo20: { key:'duo20', label:'20팀 듀오', teams:20, slots:2, modeClass:'pkl-mode-20 pkl-mode-duo' }
+    squad10: { key:'squad10', label:'10팀 스쿼드', teams:10, slots:4, buddy:false, modeClass:'pkl-mode-10 pkl-mode-squad' },
+    squad20: { key:'squad20', label:'20팀 스쿼드', teams:20, slots:4, buddy:false, modeClass:'pkl-mode-20 pkl-mode-squad' },
+    squad10Buddy: { key:'squad10Buddy', label:'10팀 스쿼드 깐부', teams:10, slots:4, buddy:true, modeClass:'pkl-mode-10 pkl-mode-squad pkl-mode-buddy' },
+    squad20Buddy: { key:'squad20Buddy', label:'20팀 스쿼드 깐부', teams:20, slots:4, buddy:true, modeClass:'pkl-mode-20 pkl-mode-squad pkl-mode-buddy' },
+    duo10: { key:'duo10', label:'10팀 듀오', teams:10, slots:2, buddy:false, modeClass:'pkl-mode-10 pkl-mode-duo' },
+    duo20: { key:'duo20', label:'20팀 듀오', teams:20, slots:2, buddy:false, modeClass:'pkl-mode-20 pkl-mode-duo' },
+    duo10Buddy: { key:'duo10Buddy', label:'10팀 듀오 깐부', teams:10, slots:2, buddy:true, modeClass:'pkl-mode-10 pkl-mode-duo pkl-mode-buddy' },
+    duo20Buddy: { key:'duo20Buddy', label:'20팀 듀오 깐부', teams:20, slots:2, buddy:true, modeClass:'pkl-mode-20 pkl-mode-duo pkl-mode-buddy' }
   };
 
   function getTeamModeConfig(modeKey){
@@ -137,7 +141,7 @@
     if(teamModeSelect && teamModeSelect.value !== cfg.key) teamModeSelect.value = cfg.key;
     if(teamBoardModeText) teamBoardModeText.textContent = cfg.label;
     if(builderLayout){
-      builderLayout.classList.remove('pkl-mode-10','pkl-mode-20','pkl-mode-duo','pkl-mode-squad');
+      builderLayout.classList.remove('pkl-mode-10','pkl-mode-20','pkl-mode-duo','pkl-mode-squad','pkl-mode-buddy');
       cfg.modeClass.split(/\s+/).forEach(cls => cls && builderLayout.classList.add(cls));
     }
 
@@ -149,7 +153,7 @@
     render();
     try{
       window.dispatchEvent(new CustomEvent('pkl-team-mode-changed', {
-        detail:{mode:cfg.key, teams:cfg.teams, slots:cfg.slots, label:cfg.label}
+        detail:{mode:cfg.key, teams:cfg.teams, slots:cfg.slots, label:cfg.label, buddy:!!cfg.buddy}
       }));
     }catch(error){}
   }
@@ -279,7 +283,7 @@ if (rerollListModal) {
 
       return `
         <section class="team-card">
-          <div class="team-head">
+          <div class="team-head" data-buddy-label="${(state.teamMode||'').includes('Buddy') ? ((teamIndex % 2 === 0 ? (teamIndex+1) + '＋' + (teamIndex+2) + '팀' : (teamIndex) + '＋' + (teamIndex+1) + '팀')) : ''}">
             <span class="team-name">${team.name}</span>
           </div>
           <div class="slot-list">${slots}</div>

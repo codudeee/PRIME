@@ -269,3 +269,15 @@ window.addEventListener('pkl-team-mode-changed', function(e){
     document.documentElement.dataset.pklTeamSlots = String(d.slots || 4);
   }catch(error){}
 });
+
+
+// pklTeamModeScoreboardRuntimeFinal
+window.addEventListener('pkl-team-mode-changed', function(e){
+  var d=e.detail||{};
+  try{
+    document.documentElement.dataset.pklTeamMode=d.mode||'squad10';
+    document.documentElement.dataset.pklTeamCount=String(d.teams||10);
+    document.documentElement.dataset.pklTeamSlots=String(d.slots||4);
+    document.documentElement.dataset.pklBuddyMode=d.buddy?'true':'false';
+  }catch(_){}
+});

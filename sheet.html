@@ -6279,6 +6279,27 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 }
 </style>
 
+
+<style id="pklBuddyScoreboardLayoutFinal">
+:root[data-pkl-team-count="20"] .scoreboard-team-grid,
+:root[data-pkl-team-count="20"] .team-grid{
+  grid-template-columns:repeat(10,minmax(0,1fr)) !important;
+}
+:root[data-pkl-team-count="10"] .scoreboard-team-grid,
+:root[data-pkl-team-count="10"] .team-grid{
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+}
+:root[data-pkl-buddy-mode="true"] .score-card:nth-child(odd)::after,
+:root[data-pkl-buddy-mode="true"] .team-score-card:nth-child(odd)::after{
+  content:"깐부";
+  position:absolute;
+  right:8px;
+  top:6px;
+  font-size:10px;
+  color:#facc15;
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -12627,6 +12648,17 @@ window.addEventListener('pkl-team-mode-changed', function(e){
   document.documentElement.dataset.pklTeamMode = d.mode || '';
   document.documentElement.dataset.pklTeamCount = String(d.teams || 10);
   document.documentElement.dataset.pklTeamSlots = String(d.slots || 4);
+});
+</script>
+
+
+<script id="pklTeamModeScoreboardListenerFinal">
+window.addEventListener('pkl-team-mode-changed', function(e){
+  var d=e.detail||{};
+  document.documentElement.dataset.pklTeamMode=d.mode||'squad10';
+  document.documentElement.dataset.pklTeamCount=String(d.teams||10);
+  document.documentElement.dataset.pklTeamSlots=String(d.slots||4);
+  document.documentElement.dataset.pklBuddyMode=d.buddy?'true':'false';
 });
 </script>
 
