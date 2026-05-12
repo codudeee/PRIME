@@ -3328,15 +3328,10 @@ document.addEventListener("DOMContentLoaded", function(){
   window.renderPklTierMembers=function(){renderSupabaseTierMembers();};
   window.pklTierSetUserRole=function(userKey,targetLane){setUserTierSupabase(userKey,targetLane); return true;};
   document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){renderSupabaseTierMembers(false);},0);});
-  window.addEventListener('pkl-user-updated',function(ev){
-    var user=ev&&ev.detail&&ev.detail.user;
-    if(!user) return;
-    var mapped=mapUser(user);
-    var k=keyOf(mapped);
-    var idx=cache.findIndex(function(u,i){return keyOf(u,i)===k;});
-    if(idx>=0) cache[idx]=Object.assign({},cache[idx],mapped); else cache.push(mapped);
-    renderSupabaseTierMembers();
-  });
+  /* 3차 청소: 다른 화면의 메모리 유저 이벤트를 티어표에 병합하지 않는다.
+     Supabase에 1명인데 화면에 2명 뜨는 원인은 pkl-user-updated 이벤트가
+     캐시에 append되며 서버 결과와 섞이는 흐름이었다.
+     티어표는 페이지 진입/수동 렌더/티어 이동 저장 후의 Supabase fetch 결과만 그린다. */
   /* pkl-users-updated는 다른 화면의 메모리 캐시 이벤트일 수 있으므로 티어표 렌더 소스로 사용하지 않는다.
      티어표는 renderSupabaseTierMembers()의 Supabase fetch 결과만 그린다. */
 })();

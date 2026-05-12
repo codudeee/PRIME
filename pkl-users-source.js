@@ -273,6 +273,9 @@
   function updateCachedUser(user, options){
     options = options || {};
     var normalized = normalize(user || {});
+    /* 3차 청소: discord_id 없는 유저 객체는 화면 캐시에 append하지 않는다.
+       닉네임만 있는 이벤트 객체가 들어오면 Supabase의 실제 유저와 별개 항목으로 떠서 중복이 된다. */
+    if(!id(normalized)) return cache.slice();
     var idx = cache.findIndex(function(x){ return same(x, normalized); });
     if(idx >= 0) cache[idx] = Object.assign({}, cache[idx], normalized);
     else cache.push(normalized);
@@ -288,5 +291,5 @@
   }
   window.PKLUsersSource = { __supabasePagedUsers20260512Fix: true, load: load, loadMore: loadMore, search: search, saveUser: saveUser, updateCachedUser: updateCachedUser, refresh: function(){ cache=[]; meta.offset=0; return load({limit:meta.limit,offset:0,q:meta.q||'',append:false}); }, invalidate: function(){ cache=[]; meta.loadedAt=0; }, localUsers: function(){ return cache.slice(); }, normalize: normalize, same: same, meta: meta };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
-  window.addEventListener('pkl-role-data-updated', patchProfile);
+  /* 3차 청소: role-data 이벤트마다 프로필 패치/렌더를 다시 타지 않는다. */
 })();
