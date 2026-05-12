@@ -556,7 +556,11 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function isJoinRecruitClosed() {
-    return String(readJoinRecruitState().state || '').toLowerCase() === 'closed';
+    const st = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === 'function'
+      ? window.PKLJoinRealtime.getState()
+      : null;
+    const state = st && st.recruitState ? st.recruitState.state : '';
+    return state === 'closed';
   }
 
   function parsePrisonUntilMs(text) {
@@ -577,10 +581,11 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
 
   function readJoinWaitList() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(JOIN_WAITLIST_STORAGE_KEY) || '[]');
-      return Array.isArray(saved) ? saved : [];
-    } catch (error) {
+    const st = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === 'function'
+      ? window.PKLJoinRealtime.getState()
+      : null;
+    return st && Array.isArray(st.waitList) ? st.waitList : [];
+  } catch (error) {
       return [];
     }
   }
@@ -3011,70 +3016,4 @@ function startClock() {
   });
 
 
-})();
-
-
-const PKL_TEAM_MODES = {
-  squad10:{teams:10,slots:4},
-  squad20:{teams:20,slots:4},
-  duo10:{teams:10,slots:2},
-  duo20:{teams:20,slots:2}
-};
-
-(function(){
-  const modeSelect=document.getElementById('pklModeSelect');
-  if(!modeSelect) return;
-
-  function applyMode(modeKey){
-    const mode=PKL_TEAM_MODES[modeKey] || PKL_TEAM_MODES.squad10;
-    const grids=document.querySelectorAll('.team-grid,.teams-grid,.team-board');
-
-    grids.forEach(grid=>{
-      if(!grid) return;
-
-      let cards=[...grid.querySelectorAll('.team-box,.team-card,.team-slot')];
-
-      if(cards.length===0) return;
-
-      const sample=cards[0];
-
-      while(cards.length < mode.teams){
-        const clone=sample.cloneNode(true);
-        grid.appendChild(clone);
-        cards=[...grid.querySelectorAll('.team-box,.team-card,.team-slot')];
-      }
-
-      cards.forEach((card,index)=>{
-        card.style.display=index < mode.teams ? '' : 'none';
-
-        const title=card.querySelector('.team-title,.team-name,h2,h3');
-        if(title){
-          title.textContent='TEAM ' + (index+1);
-        }
-
-        const members=[...card.querySelectorAll('.member,.player,.team-member,li')];
-
-        members.forEach((m,i)=>{
-          m.style.display=i < mode.slots ? '' : 'none';
-        });
-      });
-
-      grid.dataset.mode=modeKey;
-      grid.style.gridTemplateColumns = mode.teams >= 20
-        ? 'repeat(4,minmax(260px,1fr))'
-        : 'repeat(2,minmax(320px,1fr))';
-    });
-
-    localStorage.setItem('pklTeamMode', modeKey);
-
-    window.dispatchEvent(new CustomEvent('pkl-team-mode-change',{
-      detail:{mode:modeKey,teams:mode.teams,slots:mode.slots}
-    }));
-  }
-
-  modeSelect.addEventListener('change',e=>{
-    applyMode(e.target.value);
-  });
-
-  applyMode(localStorage.getItem('pklTeamMode') || 'squad10');
 })();
