@@ -1040,7 +1040,7 @@ async function withdrawAccount(){
       JSON.parse(localStorage.getItem("discordUser") || "null");
 
     const users =
-      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+      [] /* pklUsers local restore blocked */;
 
     const filtered = users.filter(user=>{
       if(!loginUser) return true;
@@ -1051,10 +1051,7 @@ async function withdrawAccount(){
       return a !== b;
     });
 
-    localStorage.setItem(
-      "pklUsers",
-      JSON.stringify(filtered)
-    );
+    /* pklUsers local write blocked */
 
     const adminState =
       JSON.parse(localStorage.getItem(adminKey) || "{}");
@@ -1119,7 +1116,7 @@ async function withdrawAccount(){
       JSON.parse(localStorage.getItem("discordUser") || "null");
 
     const users =
-      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+      [] /* pklUsers local restore blocked */;
 
     const filtered = users.filter(user=>{
       if(!loginUser) return true;
@@ -1130,10 +1127,7 @@ async function withdrawAccount(){
       return a !== b;
     });
 
-    localStorage.setItem(
-      "pklUsers",
-      JSON.stringify(filtered)
-    );
+    /* pklUsers local write blocked */
 
     const adminState =
       JSON.parse(localStorage.getItem(adminKey) || "{}");
@@ -1198,7 +1192,7 @@ async function withdrawAccount(){
       JSON.parse(localStorage.getItem("discordUser") || "null");
 
     const users =
-      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+      [] /* pklUsers local restore blocked */;
 
     const filtered = users.filter(user=>{
       if(!loginUser) return true;
@@ -1209,10 +1203,7 @@ async function withdrawAccount(){
       return a !== b;
     });
 
-    localStorage.setItem(
-      "pklUsers",
-      JSON.stringify(filtered)
-    );
+    /* pklUsers local write blocked */
 
     const adminState =
       JSON.parse(localStorage.getItem(adminKey) || "{}");
@@ -1277,7 +1268,7 @@ async function withdrawAccount(){
       JSON.parse(localStorage.getItem("discordUser") || "null");
 
     const users =
-      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+      [] /* pklUsers local restore blocked */;
 
     const filtered = users.filter(user=>{
       if(!loginUser) return true;
@@ -1288,10 +1279,7 @@ async function withdrawAccount(){
       return a !== b;
     });
 
-    localStorage.setItem(
-      "pklUsers",
-      JSON.stringify(filtered)
-    );
+    /* pklUsers local write blocked */
 
     const adminState =
       JSON.parse(localStorage.getItem(adminKey) || "{}");
@@ -1400,16 +1388,15 @@ function safeParse(raw, fallback){
 }
 
 function getUsers(){
-  const users = safeParse(localStorage.getItem("pklUsers"), []);
-  return Array.isArray(users) ? users : [];
+  /* Supabase 단일 원본: 내정보에서 pklUsers localStorage 복원 금지. */
+  try{ if(window.PKLUsersSource && typeof window.PKLUsersSource.localUsers === "function") return window.PKLUsersSource.localUsers(); }catch(e){}
+  return [];
 }
 
 function saveUsers(users){
+  /* pklUsers/PKL_USERS localStorage 저장 금지. 개별 저장은 /api/pkl-users 또는 PKLUsersSource.saveUser만 사용. */
   const arr = Array.isArray(users) ? users : [];
-  localStorage.setItem("pklUsers", JSON.stringify(arr));
-  localStorage.setItem("PKL_USERS", JSON.stringify(arr));
-  try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.setUsers === "function") window.PKLUserProfile.setUsers(arr, true); }catch(e){}
-  try{ if(window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.setShared) window.PKLSupabaseDataSync.setShared("pklUsers", arr); }catch(e){}
+  try{ if(window.PKLUsersSource && typeof window.PKLUsersSource.saveUser === "function") arr.forEach(u=>window.PKLUsersSource.saveUser(u)); }catch(e){}
 }
 
 function getLoginUser(){
@@ -1588,7 +1575,7 @@ function saveMyInfo(e){
   const stored = updateAccountStorage(Object.assign({}, updated, {__pklProfileWrite:true,pklProfileUpdatedAt:new Date().toISOString()}));
   updateAdminStorage(stored);
   try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function") window.PKLUserProfile.upsert(stored, true); }catch(e){}
-  try{ if(window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.setShared) window.PKLSupabaseDataSync.setShared("pklUsers", JSON.parse(localStorage.getItem("pklUsers")||"[]")); }catch(e){}
+  try{ false }catch(e){}
   setEveryLoginUser(stored);
   originalUser = {...stored};
   nicknameCheckedValue = nickname;
@@ -1645,7 +1632,7 @@ async function withdrawAccount(){
       JSON.parse(localStorage.getItem("discordUser") || "null");
 
     const users =
-      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+      [] /* pklUsers local restore blocked */;
 
     const filtered = users.filter(user=>{
       if(!loginUser) return true;
@@ -1656,10 +1643,7 @@ async function withdrawAccount(){
       return a !== b;
     });
 
-    localStorage.setItem(
-      "pklUsers",
-      JSON.stringify(filtered)
-    );
+    /* pklUsers local write blocked */
 
     const adminState =
       JSON.parse(localStorage.getItem(adminKey) || "{}");
@@ -1742,7 +1726,7 @@ async function withdrawAccount(){
       JSON.parse(localStorage.getItem("discordUser") || "null");
 
     const users =
-      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+      [] /* pklUsers local restore blocked */;
 
     const filtered = users.filter(user=>{
       if(!loginUser) return true;
@@ -1753,10 +1737,7 @@ async function withdrawAccount(){
       return a !== b;
     });
 
-    localStorage.setItem(
-      "pklUsers",
-      JSON.stringify(filtered)
-    );
+    /* pklUsers local write blocked */
 
     const adminState =
       JSON.parse(localStorage.getItem(adminKey) || "{}");
@@ -1852,7 +1833,7 @@ async function withdrawAccount(){
       JSON.parse(localStorage.getItem("discordUser") || "null");
 
     const users =
-      JSON.parse(localStorage.getItem("pklUsers") || "[]");
+      [] /* pklUsers local restore blocked */;
 
     const filtered = users.filter(user=>{
       if(!loginUser) return true;
@@ -1863,10 +1844,7 @@ async function withdrawAccount(){
       return a !== b;
     });
 
-    localStorage.setItem(
-      "pklUsers",
-      JSON.stringify(filtered)
-    );
+    /* pklUsers local write blocked */
 
     const adminState =
       JSON.parse(localStorage.getItem(adminKey) || "{}");
@@ -1937,17 +1915,14 @@ async function withdrawAccount(){
       if(window.PKLAdminIdentity){
         await window.PKLAdminIdentity.upsertUser(updated);
       }else{
-        const users = parse(localStorage.getItem("pklUsers"), []);
+        const users = [] /* pklUsers local restore blocked */;
         const id = clean(updated.discordId || updated.uid || updated.id || updated.userId || updated.key);
         let idx = users.findIndex(u => clean(u.discordId || u.uid || u.id || u.userId || u.key) === id);
         if(idx < 0) idx = users.findIndex(u => clean(u.nickname || u.nick || u.name) === n);
         if(idx >= 0) users[idx] = {...users[idx], ...updated};
         else users.push(updated);
-        localStorage.setItem("pklUsers", JSON.stringify(users));
-        localStorage.setItem("PKL_USERS", JSON.stringify(users));
-        if(window.PKLSupabaseDataSync && window.PKLSupabaseDataSync.setShared){
-          await window.PKLSupabaseDataSync.setShared("pklUsers", users);
-        }
+        /* pklUsers localStorage write blocked */
+        /* pklUsers shared restore sync blocked */
       }
     }catch(e){ console.warn("[PKL] myinfo final pklUsers save failed", e); }
   }
@@ -2007,8 +1982,8 @@ async function withdrawAccount(){
     const login=getLogin(); if(!login){location.href='login.html';return;}
     const date=nowText(); const expiresAt=addDaysIso(30);
     const ban={type:'selfWithdraw',selfWithdrawal:true,nickname:nickOf(login)||'-',pubgId:pubgOf(login)||'',discordId:login.discordId||'',uid:login.uid||login.id||'',reason:'본인 회원탈퇴 · 30일 재가입 제한',date,createdAt:new Date().toISOString(),expiresAt,admin:'SELF'};
-    const users=(parse('pklUsers',[])||[]).filter(u=>!same(u,login));
-    write('pklUsers',users);write('PKL_USERS',users);
+    const users=([] /* pklUsers local restore blocked */||[]).filter(u=>!same(u,login));
+    /* pklUsers localStorage write blocked */
     const st=parse('pklAdminState_v3',{users:[],pending:[],bans:[],warningRecords:[],memberEvents:[]});
     st.users=Array.isArray(st.users)?st.users.filter(u=>!same(u,login)):[];
     st.pending=Array.isArray(st.pending)?st.pending.filter(u=>!same(u,login)):[];
@@ -2017,8 +1992,8 @@ async function withdrawAccount(){
     st.memberEvents=Array.isArray(st.memberEvents)?st.memberEvents:[];
     st.memberEvents.unshift({type:'withdraw',nickname:ban.nickname,pubgId:ban.pubgId,discordId:ban.discordId,uid:ban.uid,date,createdAt:ban.createdAt,source:'myinfo'});
     write('pklAdminState_v3',st);
-    const banned=parse('pklBannedUsers',[]); if(Array.isArray(banned)&&!banned.some(b=>same(b,login))){banned.unshift(ban);write('pklBannedUsers',banned);await syncShared('pklBannedUsers',banned);} 
-    await syncShared('pklUsers',users); await syncShared('PKL_USERS',users); await syncShared('pklAdminState_v3',st);
+    const banned=parse('pklBannedUsers',[]); if(Array.isArray(banned)&&!banned.some(b=>same(b,login))){banned.unshift(ban);write('pklBannedUsers',banned);/* pklBannedUsers local restore sync blocked */} 
+    /* Supabase users/admin state local restore sync blocked. */
     LOGIN_KEYS.forEach(k=>{try{localStorage.removeItem(k);sessionStorage.removeItem(k);}catch(e){}});
     alert('회원탈퇴가 완료되었습니다. 30일간 재가입할 수 없습니다.');
     location.href='index.html';
@@ -2033,15 +2008,15 @@ window.PKL_MYINFO_HOTFIX=true;
 (function(){
 function syncUserEverywhere(user){
  try{
-  const arr=JSON.parse(localStorage.getItem('pklUsers')||'[]');
+  const arr=[] /* pklUsers local restore blocked */;
   const next=arr.map(v=>String(v.discordId||v.uid||'')===String(user.discordId||user.uid||'')?({...v,...user}):v);
-  localStorage.setItem('pklUsers',JSON.stringify(next));
-  const admin=JSON.parse(localStorage.getItem('pklAdminState_v3')||'{}');
+  /* pklUsers local write blocked */
+  const admin={}; /* pklAdminState_v3 local restore blocked */
   if(Array.isArray(admin.users)){
    admin.users=admin.users.map(v=>String(v.discordId||v.uid||'')===String(user.discordId||user.uid||'')?({...v,...user}):v);
-   localStorage.setItem('pklAdminState_v3',JSON.stringify(admin));
+   /* pklAdminState_v3 local write blocked */
   }
-  if(window.PKLSupabaseDataSync?.setShared){window.PKLSupabaseDataSync.setShared('pklUsers',next);}
+  /* pklUsers shared restore sync blocked */
  }catch(e){console.error(e)}
 }
  const oldSave=window.saveMyInfo;
@@ -2059,12 +2034,12 @@ function syncUserEverywhere(user){
   if(!confirm('정말 회원탈퇴 하시겠습니까?')) return;
   const login=JSON.parse(localStorage.getItem('pklLoginUser')||localStorage.getItem('pklCurrentUser')||'null');
   const id=String(login?.discordId||login?.uid||'');
-  const users=JSON.parse(localStorage.getItem('pklUsers')||'[]').filter(v=>String(v.discordId||v.uid||'')!==id);
-  localStorage.setItem('pklUsers',JSON.stringify(users));
+  const users=[] /* pklUsers local restore blocked */.filter(v=>String(v.discordId||v.uid||'')!==id);
+  /* pklUsers local write blocked */
   localStorage.removeItem('pklLoginUser');
   localStorage.removeItem('pklCurrentUser');
   localStorage.removeItem('discordUser');
-  if(window.PKLSupabaseDataSync?.setShared){await window.PKLSupabaseDataSync.setShared('pklUsers',users);}
+  /* pklUsers shared restore sync blocked */
   alert('회원탈퇴 완료');
   location.href='index.html';
  }
@@ -2118,8 +2093,8 @@ function syncUserEverywhere(user){
     const login=getLogin(); if(!login){location.href='login.html';return;}
     const date=nowText(); const createdAt=new Date().toISOString(); const expiresAt=addDaysIso(30);
     const ban={type:'selfWithdraw',selfWithdrawal:true,nickname:nickOf(login)||'-',pubgId:pubgOf(login)||'',discordId:login.discordId||'',uid:login.uid||login.id||'',reason:'본인 회원탈퇴 · 30일 재가입 제한',date,createdAt,expiresAt,admin:'SELF'};
-    const users=(parseKey('pklUsers',[])||[]).filter(u=>!same(u,login));
-    setKey('pklUsers',users); setKey('PKL_USERS',users);
+    const users=([] /* pklUsers local restore blocked */||[]).filter(u=>!same(u,login));
+    /* pklUsers localStorage write blocked */
     const st=parseKey('pklAdminState_v3',{users:[],pending:[],bans:[],warningRecords:[],memberEvents:[]});
     st.users=Array.isArray(st.users)?st.users.filter(u=>!same(u,login)):[];
     st.pending=Array.isArray(st.pending)?st.pending.filter(u=>!same(u,login)):[];
@@ -2129,8 +2104,8 @@ function syncUserEverywhere(user){
     st.memberEvents.unshift({type:'withdraw',nickname:ban.nickname,pubgId:ban.pubgId,discordId:ban.discordId,uid:ban.uid,date,createdAt,source:'myinfo'});
     setKey('pklAdminState_v3',st);
     const banned=parseKey('pklBannedUsers',[]);
-    if(Array.isArray(banned)&&!banned.some(b=>same(b,login))){banned.unshift(ban);setKey('pklBannedUsers',banned);await syncShared('pklBannedUsers',banned);}
-    await syncShared('pklUsers',users); await syncShared('PKL_USERS',users); await syncShared('pklAdminState_v3',st);
+    if(Array.isArray(banned)&&!banned.some(b=>same(b,login))){banned.unshift(ban);setKey('pklBannedUsers',banned);/* pklBannedUsers local restore sync blocked */}
+    /* Supabase users/admin state local restore sync blocked. */
     LOGIN_KEYS.forEach(k=>{try{localStorage.removeItem(k);sessionStorage.removeItem(k);}catch(e){}});
     alert('회원탈퇴가 완료되었습니다. 30일간 재가입할 수 없습니다.');
     location.href='index.html';

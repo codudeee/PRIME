@@ -6174,41 +6174,9 @@ function mergeAccountUsersIntoState(st){
 }
 
 function syncPendingSignupUsers(st){
+  /* Supabase 단일 원본: pklPendingUsers localStorage 승인대기 복원 금지. */
   st = st || seed();
   st.pending = Array.isArray(st.pending) ? st.pending : [];
-  try{
-    const signupPending = JSON.parse(localStorage.getItem("pklPendingUsers") || "[]");
-    if(Array.isArray(signupPending)){
-      signupPending.forEach((p,i)=>{
-        if(!p) return;
-        const nick = p.nickname || p.nick || p.name || "";
-        const pubg = p.pubgId || p.ref || p.gameId || "";
-        if(!nick && !pubg) return;
-        const exists = st.pending.some(x =>
-          (nick && (x.nickname === nick || x.nick === nick || x.name === nick)) ||
-          (pubg && (x.ref === pubg || x.pubgId === pubg || x.gameId === pubg))
-        );
-        const alreadyUser = Array.isArray(st.users) && st.users.some(x =>
-          (nick && (x.nickname === nick || x.nick === nick || x.name === nick)) ||
-          (pubg && x.pubgId === pubg)
-        );
-        if(!exists && !alreadyUser){
-          st.pending.push({
-            nickname:nick,
-            ref:pubg,
-            pubgId:pubg,
-            password:p.password || "",
-            date:p.date || p.createdAt || nowText(),
-            status:"pending",
-            role:"user",
-            memberRole:"user",
-            approved:false,
-            uid:p.uid || ("pending-"+Date.now()+"-"+i)
-          });
-        }
-      });
-    }
-  }catch(e){}
   return st;
 }
 function load(){
@@ -6295,16 +6263,10 @@ function pklIsDeletedUser(u){
   if(u && (u.discordId || u.discord_id || /^discord-/i.test(String(u.uid||u.id||u.userId||'')))) return false;
   const deleted=pklDeletedUserKeys();if(!deleted.length||!u)return false;return pklDeletedKeysForUser(u).some(k=>deleted.includes(k));
 }
-function pklRememberDeletedUser(u){const keys=pklDeletedKeysForUser(u);if(!keys.length)return;const next=Array.from(new Set([...pklDeletedUserKeys(),...keys]));localStorage.setItem(pklDeletedUserStorageKey(),JSON.stringify(next));}
-function pklRemoveDeletedMark(u){const keys=pklDeletedKeysForUser(u);if(!keys.length)return;const next=pklDeletedUserKeys().filter(k=>!keys.includes(k));localStorage.setItem(pklDeletedUserStorageKey(),JSON.stringify(next));}
+function pklRememberDeletedUser(u){/* Supabase 삭제/추방 기록만 사용. 로컬 삭제표식 저장 금지. */}
+function pklRemoveDeletedMark(u){/* Supabase 삭제/추방 기록만 사용. 로컬 삭제표식 저장 금지. */}
 function pklPurgeDeletedUserFromStorage(u){
-  pklRememberDeletedUser(u);
-  const keys=pklDeletedKeysForUser(u);
-  const shouldRemove=x=>x&&pklDeletedKeysForUser(x).some(k=>keys.includes(k));
-  ["pklUsers","pklAdminUsers","PKL_ADMIN_USERS","PKL_USERS","pklUserList","pklPendingUsers"].forEach(key=>{
-    try{const arr=JSON.parse(localStorage.getItem(key)||"[]");if(Array.isArray(arr))localStorage.setItem(key,JSON.stringify(arr.filter(x=>!shouldRemove(x))));}catch(e){}
-  });
-  ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"].forEach(key=>{try{const cur=JSON.parse(localStorage.getItem(key)||"null");if(shouldRemove(cur))localStorage.removeItem(key);}catch(e){}});
+  /* 운영 데이터 로컬 purge/복구 금지. 로그인 세션만 본인 탈퇴 시 별도 처리. */
 }
 function pklTierBadgeSnapshot(role){
   if(window.PKLTierBadge&&typeof window.PKLTierBadge.snapshot==="function"){
@@ -6539,7 +6501,7 @@ function isPenaltyActive(u){
 }
 function penaltyBadgeHtml(u){if(!isPenaltyActive(u))return "";const until=u.penalty?.until?` title="${esc(u.penalty.until)}까지 킬내기 참여 제한"`:"";return `<span class="pkl-prisoner-sticker"${until}>수감자</span>`;}
 function permanentBanRecord(u,reason,auto){const role=normalizeRole(u.role);return {nickname:u.nickname,pubgId:u.pubgId,discordId:u.discordId||"",role:role,reason:reason,date:nowText(),admin:adminName(),auto:!!auto,permanent:true,ip:u.ip||u.lastIp||"",clientId:u.clientId||"",uid:u.uid||u.id||""};}
-function syncPermanentBanStorage(){try{const old=JSON.parse(localStorage.getItem("pklBannedUsers")||"[]");const merged=[...old];(state.bans||[]).forEach(b=>{const same=merged.some(x=>(x.uid&&b.uid&&x.uid===b.uid)||(x.discordId&&b.discordId&&x.discordId===b.discordId)||(x.nickname&&x.nickname===b.nickname)||(x.pubgId&&x.pubgId===b.pubgId)||(x.ip&&b.ip&&x.ip===b.ip));if(!same)merged.push({nickname:b.nickname,pubgId:b.pubgId,discordId:b.discordId||"",uid:b.uid||"",ip:b.ip||"",clientId:b.clientId||"",reason:b.reason||"영구추방",date:b.date||nowText(),admin:b.admin||adminName(),permanent:b.permanent!==false});});localStorage.setItem("pklBannedUsers",JSON.stringify(merged));}catch(e){}}
+function syncPermanentBanStorage(){/* Supabase ban_records/admin_logs 기준. localStorage pklBannedUsers 복원 금지. */}
 
 function render(){
   renderUserList();
@@ -6781,7 +6743,7 @@ async function switchAdminTab(tab,btn){
   if(tab==="dashboard" && typeof renderPremiumDashboard === "function") renderPremiumDashboard();
   render();
 }
-function removeApprovedFromPendingStorage(p){try{const pending=JSON.parse(localStorage.getItem("pklPendingUsers")||"[]");if(!Array.isArray(pending))return;const nick=p?.nickname||"";const pubg=p?.ref||p?.pubgId||"";const next=pending.filter(x=>!((nick&&(x.nickname===nick||x.nick===nick||x.name===nick))||(pubg&&(x.pubgId===pubg||x.ref===pubg||x.gameId===pubg))));localStorage.setItem("pklPendingUsers",JSON.stringify(next));}catch(e){}}
+function removeApprovedFromPendingStorage(p){/* Supabase 기준: pklPendingUsers localStorage 정리/복원 금지. */}
 function pklMemberDataLabel(type){
   const t=String(type||"log").toLowerCase();
   if(t==="join"||t==="signup"||t==="approve")return "가입";
@@ -7274,15 +7236,10 @@ function renderWelcome(){
   const saved=loginUsers[0]||{};
   const loginKeySet=new Set(loginUsers.flatMap(userKeys));
 
-  const accountUsers=(()=>{
-    try{
-      const arr=JSON.parse(localStorage.getItem("pklUsers")||"[]");
-      return Array.isArray(arr)?arr:[];
-    }catch(e){return [];}
-  })();
+  const accountUsers=[]; /* Supabase 단일 원본: localStorage pklUsers 병합 금지 */
 
   const adminUsers=Array.isArray(state?.users)?state.users:[];
-  const allUsers=[...adminUsers,...accountUsers];
+  const allUsers=[...adminUsers];
   let matchedUser=allUsers.find(u=>userKeys(u).some(k=>loginKeySet.has(k)));
 
 
@@ -7873,14 +7830,7 @@ document.addEventListener("DOMContentLoaded",()=>{
     var r=String(u.memberRole||u.userRole||u.authRole||u.adminRole||u.role||"").toLowerCase();
     if(["admin","administrator","owner","master","superadmin"].indexOf(r)>=0||String(u.memberRole||u.role||"").indexOf("관리자")>=0) return "admin";
     if(["operator","staff","moderator","mod"].indexOf(r)>=0||String(u.memberRole||u.role||"").indexOf("운영")>=0) return "operator";
-    try{
-      var users=JSON.parse(localStorage.getItem("pklUsers")||localStorage.getItem("PKL_USERS")||"[]");
-      var key=String(u.discordId||u.uid||u.id||u.userId||u.loginId||u.username||u.nickname||u.pubgId||"").toLowerCase();
-      var f=(Array.isArray(users)?users:[]).find(function(x){return [x.discordId,x.uid,x.id,x.userId,x.loginId,x.username,x.nickname,x.nick,x.name,x.pubgId,x.gameId].some(function(v){return v&&String(v).toLowerCase()===key;});});
-      var fr=String(f&&(f.memberRole||f.userRole||f.authRole||f.adminRole||f.role)||"").toLowerCase();
-      if(["admin","administrator","owner","master","superadmin"].indexOf(fr)>=0||String(f&&f.memberRole||"").indexOf("관리자")>=0)return "admin";
-      if(["operator","staff","moderator","mod"].indexOf(fr)>=0||String(f&&f.memberRole||"").indexOf("운영")>=0)return "operator";
-    }catch(e){}
+    /* localStorage pklUsers 역할 fallback 금지: Supabase/current session 기준만 사용. */
     return "";
   }
   window.pklIsSuperAdmin=function(){return (sys().currentHasRole&&sys().currentHasRole("admin")) || fallbackRoleFromLogin()==="admin" || (typeof isSuperAdmin==="function" ? isSuperAdmin() : false);};

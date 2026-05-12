@@ -16,6 +16,10 @@
   ];
   var KEY_SET=KEY_LIST.reduce(function(a,k){a[k]=true;return a;},{});
   var USER_KEYS={pklUsers:true,PKL_USERS:true,pklAdminUsers:true,PKL_ADMIN_USERS:true};
+  var BLOCKED_LOCAL_KEYS={
+    pklUsers:true, PKL_USERS:true, pklAdminUsers:true, PKL_ADMIN_USERS:true, pklUserList:true,
+    pklAdminState_v3:true, pklPendingUsers:true, pklBannedUsers:true, PKL_DELETED_USER_KEYS_V1:true
+  };
   var RESULT_MATCH_KEY="PKL_RESULT_MATCHES_V1";
   var SHEET_LIVE_KEY="PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1";
   var originalGet=Storage.prototype.getItem;
@@ -40,6 +44,7 @@
   function parse(raw,fb){try{var v=JSON.parse(String(raw));return v==null?fb:v;}catch(e){return fb;}}
   function raw(k){
     k=String(k||"");
+    if(BLOCKED_LOCAL_KEYS[k]) return null;
     if(Object.prototype.hasOwnProperty.call(memoryStore,k)) return memoryStore[k];
     try{return originalGet.call(localStorage,k);}catch(e){return null;}
   }
@@ -52,7 +57,11 @@
   function forgetDiskKey(key){try{originalRemove.call(localStorage,String(key||""));}catch(e){}}
   function emit(name,detail){try{window.dispatchEvent(new CustomEvent(name,{detail:detail||{}}));}catch(e){}}
   function emitKey(key){emit("pkl-supabase-data-updated",{key:key});}
-  function rememberShared(key,value){key=String(key||""); if(!key) return; sharedCache[key]=value; silentSet(key, value); forgetDiskKey(key); emitKey(key);}
+  function rememberShared(key,value){
+    key=String(key||""); if(!key) return;
+    if(BLOCKED_LOCAL_KEYS[key]){ forgetDiskKey(key); delete memoryStore[key]; delete sharedCache[key]; return; }
+    sharedCache[key]=value; silentSet(key, value); forgetDiskKey(key); emitKey(key);
+  }
 
   function isTier(v){var c=clean(v).replace(/[\s_-]+/g,"").toLowerCase();return /^(tier[0-4](high|mid|low)?|[0-4]티어(상|중|하)?|beast|짐승|temp|임시|prisoner|수감자)$/.test(c);}
   function roleKey(v){
@@ -127,13 +136,13 @@
     });
   }
   async function fetchShared(key){
-    key=String(key||""); if(!isKey(key)) return null;
+    key=String(key||""); if(!isKey(key) || BLOCKED_LOCAL_KEYS[key]) return null;
     var data=await getJSON("/api/pkl-data-store?type=shared&key="+encodeURIComponent(key));
     if(data && data.item && Object.prototype.hasOwnProperty.call(data.item,"value") && data.item.value!==null){rememberShared(key,data.item.value); return data.item.value;}
     return null;
   }
   function saveShared(key,value){
-    key=String(key||""); if(!isKey(key)) return Promise.resolve(null);
+    key=String(key||""); if(!isKey(key) || BLOCKED_LOCAL_KEYS[key]) return Promise.resolve({ok:true, skipped:true, reason:"blocked local restore key"});
     return postJSON("/api/pkl-data-store",{type:"shared",key:key,value:value}).then(function(result){
       rememberShared(key,value);
       return result;
@@ -146,7 +155,7 @@
     return Promise.all(list.map(function(match,idx){var id=clean(match && (match.id||match.title||match.name)) || ("match_"+idx);return postJSON("/api/pkl-data-store",{type:"match",id:id,payload:match});}));
   }
   function queueSave(key,value){
-    key=String(key||""); if(!isKey(key)) return;
+    key=String(key||""); if(!isKey(key) || BLOCKED_LOCAL_KEYS[key]) return;
     clearTimeout(saving[key]);
     saving[key]=setTimeout(function(){
       if(USER_KEYS[key]) saveUsers(parse(value,[]));
@@ -156,19 +165,21 @@
   }
 
   Storage.prototype.getItem=function(key){
+    key=String(key||"");
+    if(this===localStorage && BLOCKED_LOCAL_KEYS[key]) return null;
     if(this===localStorage && isKey(key)) return raw(key);
     return originalGet.apply(this,arguments);
   };
   Storage.prototype.setItem=function(key,value){
     key=String(key||"");
+    if(this===localStorage && BLOCKED_LOCAL_KEYS[key]){
+      delete memoryStore[key]; delete sharedCache[key]; forgetDiskKey(key);
+      return undefined;
+    }
     if(this===localStorage && isKey(key)){
       var text=typeof value==="string"?value:JSON.stringify(value);
       memoryStore[key]=text;
       forgetDiskKey(key);
-      if(USER_KEYS[key]){
-        writeUserAliases([]);
-        return undefined;
-      }
       if(!applying){
         queueSave(key,text);
         emitKey(key);
@@ -199,8 +210,8 @@
     getShared:fetchShared,
     setShared:function(key,value){
       key=String(key||""); if(!isKey(key)) return;
+      if(BLOCKED_LOCAL_KEYS[key]){ forgetDiskKey(key); delete memoryStore[key]; delete sharedCache[key]; return Promise.resolve({ok:true, skipped:true, reason:"blocked local restore key"}); }
       var text=typeof value==="string"?value:JSON.stringify(value);
-      if(USER_KEYS[key]) return Promise.resolve({ok:true, skipped:true, reason:"user local aliases disabled"});
       if(key===RESULT_MATCH_KEY) return saveMatchList(text);
       return saveShared(key, parse(text,text));
     },
