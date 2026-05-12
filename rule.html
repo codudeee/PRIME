@@ -657,13 +657,9 @@ padding-right:66px;
   if(editBtn) editBtn.addEventListener("click",startEdit);
   if(saveBtn) saveBtn.addEventListener("click",saveEdit);
   if(cancelBtn) cancelBtn.addEventListener("click",function(){stopEdit(true);});
-  window.addEventListener("pkl-supabase-data-updated",function(e){
-    if(e && e.detail && e.detail.key && e.detail.key!==STORAGE_KEY) return;
-    if(detail.classList.contains("editing")) return;
-    if(e && e.detail && e.detail.local){applySaved();setRule(activeId,true);return;}
-    hydrateRules(true);
-  });
-  window.addEventListener("pkl-supabase-sync-ready",function(){if(!detail.classList.contains("editing")) hydrateRules(true);});
+  // NOTE: 킬내기룰도 background sync / reconnect 이벤트로 자동 재렌더하지 않는다.
+  // 자동 재렌더가 본문 스크롤을 위로 되돌리고, 저장값을 다시 덮어쓰는 원인이 될 수 있어
+  // 최초 1회 fetch + 관리자 저장 클릭 기준으로만 화면을 갱신한다.
   setRule(activeId,true);
   hydrateRules(true);
 })();

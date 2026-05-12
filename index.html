@@ -927,14 +927,10 @@ font-weight:700;
   writeBtn.addEventListener("click",function(){if(!isNoticeAdmin()) return; editingId="new";pendingDeleteId=null;renderModal();});
   modal.addEventListener("click",function(e){if(e.target===modal) closeModal();});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&modal.classList.contains("open")) closeModal();});
-  function handleNoticeDataUpdated(e){
-    if(e && e.detail && e.detail.key && e.detail.key!==STORAGE_KEY) return;
-    if(editingId) return;
-    if(e && e.detail && e.detail.local){renderPreview(); if(modal.classList.contains("open")) renderModal(); return;}
-    hydrateNotices(true);
-  }
-  window.addEventListener("pkl-supabase-data-updated",handleNoticeDataUpdated);
-  window.addEventListener("pkl-supabase-sync-ready",function(){if(!editingId) hydrateNotices(true);});
+  // NOTE: 공지 모달이 열린 상태에서 background sync 이벤트로 renderModal()이 다시 실행되면
+  // 본문 스크롤이 위로 튀는 문제가 생긴다.
+  // 공지는 최초 1회 Supabase fetch + 관리자 저장 클릭 시에만 부분 갱신한다.
+  // 외부 자동복원/자동재렌더 이벤트는 사용하지 않는다.
   syncNoticeAdminState();
   renderPreview();
   hydrateNotices(true);
