@@ -175,11 +175,25 @@
     bindRerollModeDropdown();
     bindTeamModeDropdown();
     fillMatchTimeSelects();
+    bindUserSyncEvents();
     syncJoinWaitListIntoTeamBoard(true);
     syncPlayersWithUserSources();
     render();
     startClock();
-    bindUserSyncEvents();
+    refreshJoinWaitListFromSupabaseOnce();
+  }
+
+  function refreshJoinWaitListFromSupabaseOnce() {
+    const realtime = window.PKLJoinRealtime;
+    if (!realtime || typeof realtime.fetchNow !== 'function') return;
+    realtime.fetchNow().then(() => {
+      syncJoinWaitListIntoTeamBoard(true);
+      syncPlayersWithUserSources();
+      renderTierPools();
+      renderTeams();
+      renderSummary();
+      saveState();
+    }).catch(() => {});
   }
 
   function fillTierSelect() {
@@ -608,9 +622,21 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
 
   function bindUserSyncEvents() {
-    /* 2차 청소: storage 이벤트 기반 팀구성 전체 재렌더 금지. */
-    // join 대기자 정보는 팀구성 페이지 진입/관리자 직접 불러오기 때만 반영한다.
-    // 실시간 이벤트마다 팀구성 전체 렌더를 돌리면 렉이 생기므로 자동 갱신은 막는다.
+    /* storage 이벤트 기반 팀구성 전체 재렌더 금지. */
+    // join 대기자 정보는 페이지 진입 시 1회 fetch, 또는 Supabase join_state 도착 이벤트 1회만 반영한다.
+    let joinStateAppliedOnce = false;
+    window.addEventListener('pkl-join-state-updated', event => {
+      if (joinStateAppliedOnce) return;
+      const list = event && event.detail && Array.isArray(event.detail.waitList) ? event.detail.waitList : [];
+      if (!list.length && getWaitingPlayerIds().length) return;
+      joinStateAppliedOnce = true;
+      syncJoinWaitListIntoTeamBoard(true);
+      syncPlayersWithUserSources();
+      renderTierPools();
+      renderTeams();
+      renderSummary();
+      saveState();
+    });
     window.addEventListener('pkl-role-data-updated', () => {
       hydratePlayersForDisplayOnly();
       renderTierPools();

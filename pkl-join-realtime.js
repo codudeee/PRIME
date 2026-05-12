@@ -22,7 +22,7 @@
   function apiRead(){return fetch('/api/pkl-data-store?type=live_scores&id=join_state&_='+Date.now(),{method:'GET',headers:{'Cache-Control':'no-store'}}).then(function(r){return r.ok?r.json().catch(function(){return null;}):null;}).then(function(data){var rows=data&&data.rows;var r=rows&&rows[0];return r&&r.payload?Object.assign({},r.payload,{updatedAt:r.payload.updatedAt||r.updated_at}):null;}).catch(function(){return null;});}
   function saveNow(){var st=stateFromLocal(), text=textOf(st); if(text===lastText)return; lastText=text; apiSave(st).then(function(ok){if(!ok){sb('live_scores?on_conflict=id',{method:'POST',body:JSON.stringify({id:'join_state',payload:st,updated_at:st.updatedAt})});}}); if(window.PKLSupabaseDataSync){window.PKLSupabaseDataSync.setShared(WAIT_KEY,st.waitList);window.PKLSupabaseDataSync.setShared(CANCEL_KEY,st.cancelList);window.PKLSupabaseDataSync.setShared(RECRUIT_KEY,st.recruitState);}}
   function queueSave(d){if(applying)return;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,d==null?500:d);}
-  function poll(){apiRead().then(function(st){if(st)applyState(st);else if(configured())sb('live_scores?id=eq.join_state&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){var r=rows&&rows[0]; if(r&&r.payload)applyState(Object.assign({},r.payload,{updatedAt:r.payload.updatedAt||r.updated_at}));});});}
+  function poll(){return apiRead().then(function(st){if(st){applyState(st);return st;} if(configured())return sb('live_scores?id=eq.join_state&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){var r=rows&&rows[0]; if(r&&r.payload){var next=Object.assign({},r.payload,{updatedAt:r.payload.updatedAt||r.updated_at});applyState(next);return next;} return null;}); return null;});}
   function start(){
     apiRead().then(function(st){
       if(st){
@@ -37,5 +37,5 @@
   if(!Storage.prototype.__pklJoinRealtimePatched){Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();queueSave(String(k)===RECRUIT_KEY?350:500);emit(stateFromLocal());}}catch(e){}return ret;};Storage.prototype.__pklJoinRealtimePatched=true;}
   try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();queueSave(500);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
   /* 2차 청소: storage 이벤트 기반 자동 join 재렌더 금지. 클릭/저장 흐름에서만 emit한다. */
-  window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,queueSave:queueSave,state:stateFromLocal,apply:applyState,fetchNow:poll}; start();
+  window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,queueSave:queueSave,state:stateFromLocal,getState:stateFromLocal,apply:applyState,fetchNow:poll}; start();
 })();
