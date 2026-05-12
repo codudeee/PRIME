@@ -7153,7 +7153,9 @@ function openPrimeAdjustModal(){
   const u=state.users[current];
   if(!u){pklAlert("선택된 회원이 없습니다.","처리 불가");return;}
   const target=document.getElementById("primeAdjustTarget");
-  if(target)target.textContent=`${u.nickname||u.name||"회원"} · 현재 ${Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0} 프라임`;
+  const targetText=`${u.nickname||u.name||"회원"} · 현재 ${Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0} 프라임`;
+  if(target)target.textContent=targetText;
+  const targetView=document.getElementById("primeAdjustTargetView"); if(targetView)targetView.value=targetText;
   const amount=document.getElementById("primeAdjustAmount"); if(amount)amount.value="";
   const reason=document.getElementById("primeAdjustReason"); if(reason)reason.value="";
   const type=document.getElementById("primeAdjustType"); if(type)type.value="grant";
@@ -8066,10 +8068,10 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 
 
 <style id="pkl-prime-adjust-unify-20260513">
-/* 프라임 지급/압수 모달: 회원정보수정 모달과 동일한 결로 통일 */
+/* 프라임 지급/압수 모달 v17: 회원정보수정 모달과 같은 카드/필드/드롭박스 결 */
 #primeAdjustModal.prime-adjust-modal{
   z-index:2147483200!important;
-  display:none;
+  display:none!important;
   align-items:center!important;
   justify-content:center!important;
   place-items:initial!important;
@@ -8078,7 +8080,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 }
 #primeAdjustModal.prime-adjust-modal.open{display:flex!important;}
 #primeAdjustModal .prime-adjust-box{
-  width:min(620px,calc(100vw - 34px))!important;
+  width:min(820px,calc(100vw - 34px))!important;
   border-radius:22px!important;
   border:1px solid rgba(216,180,254,.22)!important;
   background:linear-gradient(180deg,rgba(22,18,38,.98),rgba(8,7,16,.98))!important;
@@ -8087,11 +8089,13 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 }
 #primeAdjustModal .prime-adjust-head{
   position:relative!important;
-  display:block!important;
-  text-align:center!important;
-  margin-bottom:16px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:44px!important;
+  margin:0 0 18px!important;
   padding:0 46px!important;
-  min-height:38px!important;
+  text-align:center!important;
 }
 #primeAdjustModal .prime-adjust-head h2{
   margin:0!important;
@@ -8122,10 +8126,16 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   line-height:1!important;
   cursor:pointer!important;
   box-shadow:0 0 16px rgba(124,58,237,.14),inset 0 1px 0 rgba(255,255,255,.08)!important;
+  transition:.15s!important;
+}
+#primeAdjustModal .prime-adjust-close:hover{
+  border-color:rgba(233,213,255,.54)!important;
+  background:linear-gradient(180deg,rgba(124,58,237,.20),rgba(49,20,88,.54))!important;
+  box-shadow:0 0 22px rgba(167,139,250,.28)!important;
 }
 #primeAdjustModal .prime-adjust-grid{
   display:grid!important;
-  grid-template-columns:1fr!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
   gap:14px!important;
   margin-top:16px!important;
 }
@@ -8137,6 +8147,10 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   padding:12px!important;
   box-shadow:inset 0 0 18px rgba(255,255,255,.025)!important;
 }
+#primeAdjustModal .prime-adjust-field.prime-adjust-reason-field{
+  grid-column:1/-1!important;
+  min-height:132px!important;
+}
 #primeAdjustModal .prime-adjust-field label{
   display:block!important;
   margin:0 0 8px!important;
@@ -8146,8 +8160,8 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   text-align:center!important;
 }
 #primeAdjustModal .prime-adjust-field input,
-#primeAdjustModal .prime-adjust-field textarea,
-#primeAdjustModal .pkl-prime-type-select .pkl-role-select-btn{
+#primeAdjustModal .prime-adjust-field select,
+#primeAdjustModal .prime-adjust-field textarea{
   width:100%!important;
   border-radius:14px!important;
   border:1px solid rgba(168,139,250,.35)!important;
@@ -8157,77 +8171,47 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   font-weight:1000!important;
   letter-spacing:.2px!important;
   box-shadow:0 0 18px rgba(124,58,237,.15),inset 0 0 12px rgba(255,255,255,.04)!important;
+  outline:none!important;
 }
 #primeAdjustModal .prime-adjust-field input,
-#primeAdjustModal .pkl-prime-type-select .pkl-role-select-btn{
+#primeAdjustModal .prime-adjust-field select{
   height:44px!important;
   min-height:44px!important;
+  padding:0 14px!important;
+}
+#primeAdjustModal .prime-adjust-field select{
+  display:block!important;
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  -moz-appearance:none!important;
   padding:0 40px 0 14px!important;
+  cursor:pointer!important;
+  background-image:url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>"),linear-gradient(180deg,rgba(124,58,237,.35),rgba(0,0,0,.25))!important;
+  background-repeat:no-repeat,no-repeat!important;
+  background-position:right 10px center,center!important;
+  background-size:20px,100% 100%!important;
+}
+#primeAdjustModal .prime-adjust-field select option{
+  background:#0f0b1f!important;
+  color:#fff!important;
+  font-weight:900!important;
 }
 #primeAdjustModal .prime-adjust-field textarea{
-  min-height:82px!important;
+  min-height:84px!important;
   padding:14px!important;
   resize:vertical!important;
 }
+#primeAdjustModal .prime-adjust-field input:hover,
+#primeAdjustModal .prime-adjust-field select:hover,
+#primeAdjustModal .prime-adjust-field textarea:hover{
+  border-color:#a78bfa!important;
+  box-shadow:0 0 22px rgba(167,139,250,.25),inset 0 0 12px rgba(255,255,255,.04)!important;
+}
 #primeAdjustModal .prime-adjust-field input:focus,
-#primeAdjustModal .prime-adjust-field textarea:focus,
-#primeAdjustModal .pkl-prime-type-select.open .pkl-role-select-btn{
-  outline:none!important;
+#primeAdjustModal .prime-adjust-field select:focus,
+#primeAdjustModal .prime-adjust-field textarea:focus{
   border-color:#c4b5fd!important;
   box-shadow:0 0 26px rgba(196,181,253,.35),inset 0 0 12px rgba(255,255,255,.04)!important;
-}
-#primeAdjustModal .pkl-prime-type-select{position:relative!important;width:100%!important;}
-#primeAdjustModal .pkl-prime-type-select .pkl-role-select-arrow{
-  position:absolute!important;
-  right:14px!important;
-  top:50%!important;
-  transform:translateY(-50%)!important;
-  color:#e9d5ff!important;
-}
-#primeAdjustModal .pkl-prime-type-select.open .pkl-role-select-arrow{transform:translateY(-50%) rotate(180deg)!important;}
-#primeAdjustModal .pkl-prime-type-select .pkl-role-select-menu{
-  position:absolute!important;
-  left:0!important;
-  right:0!important;
-  top:calc(100% + 8px)!important;
-  z-index:2147483250!important;
-  display:grid!important;
-  gap:6px!important;
-  max-height:220px!important;
-  overflow-y:auto!important;
-  padding:8px!important;
-  border-radius:14px!important;
-  border:1px solid rgba(168,85,247,.52)!important;
-  background:rgba(8,7,22,.98)!important;
-  box-shadow:0 22px 44px rgba(0,0,0,.62),0 0 28px rgba(168,85,247,.38)!important;
-  backdrop-filter:blur(14px)!important;
-  opacity:0!important;
-  visibility:hidden!important;
-  transform:translateY(-6px) scale(.985)!important;
-  pointer-events:none!important;
-  transition:opacity .14s ease,transform .14s ease,visibility .14s ease!important;
-}
-#primeAdjustModal .pkl-prime-type-select.open .pkl-role-select-menu,
-#primeAdjustModal .pkl-prime-type-select-menu.open{
-  opacity:1!important;
-  visibility:visible!important;
-  transform:translateY(0) scale(1)!important;
-  pointer-events:auto!important;
-}
-#primeAdjustModal .pkl-prime-type-select .pkl-role-select-menu button{
-  height:36px!important;
-  border:0!important;
-  border-radius:10px!important;
-  background:rgba(255,255,255,.045)!important;
-  color:#fff!important;
-  font-weight:900!important;
-  cursor:pointer!important;
-}
-#primeAdjustModal .pkl-prime-type-select .pkl-role-select-menu button:hover,
-#primeAdjustModal .pkl-prime-type-select .pkl-role-select-menu button.active{
-  background:rgba(168,85,247,.24)!important;
-  color:#fff!important;
-  box-shadow:inset 0 0 14px rgba(34,211,238,.12)!important;
 }
 #primeAdjustModal .prime-adjust-actions{
   display:grid!important;
@@ -8246,13 +8230,20 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   font-weight:1000!important;
   box-shadow:0 0 24px rgba(124,58,237,.24),inset 0 1px 0 rgba(255,255,255,.09)!important;
   cursor:pointer!important;
+  transition:.15s!important;
 }
 #primeAdjustModal .prime-adjust-save:hover{
   border-color:rgba(233,213,255,.72)!important;
   box-shadow:0 0 32px rgba(167,139,250,.34)!important;
   transform:translateY(-1px)!important;
 }
-@media(max-width:760px){#primeAdjustModal .prime-adjust-box{width:calc(100vw - 24px)!important}#primeAdjustModal .prime-adjust-head{padding:0 42px!important}}
+#primeAdjustModal .prime-adjust-cancel{display:none!important;}
+@media(max-width:760px){
+  #primeAdjustModal .prime-adjust-box{width:calc(100vw - 24px)!important;}
+  #primeAdjustModal .prime-adjust-grid{grid-template-columns:1fr!important;}
+  #primeAdjustModal .prime-adjust-field.prime-adjust-reason-field{grid-column:auto!important;}
+  #primeAdjustModal .prime-adjust-head{padding:0 42px!important;}
+}
 </style>
 
 <div id="primeAdjustModal" class="prime-adjust-modal" aria-hidden="true">
@@ -8263,20 +8254,11 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     </div>
     <div class="prime-adjust-grid">
       <div class="prime-adjust-field"><label>처리 유형</label>
-        <select id="primeAdjustType" style="display:none;"><option value="grant">지급</option><option value="seize">압수</option></select>
-        <div class="pkl-role-select pkl-prime-type-select" id="primeAdjustTypeCustom">
-          <button type="button" class="pkl-role-select-btn pkl-prime-type-select-btn" onclick="togglePrimeAdjustTypeCustom(event)">
-            <span class="pkl-role-select-text" id="primeAdjustTypeCustomText">지급</span>
-            <span class="pkl-role-select-arrow">▾</span>
-          </button>
-          <div class="pkl-role-select-menu pkl-prime-type-select-menu" id="primeAdjustTypeCustomMenu">
-            <button type="button" data-prime-type="grant" onclick="setPrimeAdjustTypeCustom('grant')">지급</button>
-            <button type="button" data-prime-type="seize" onclick="setPrimeAdjustTypeCustom('seize')">압수</button>
-          </div>
-        </div>
+        <select id="primeAdjustType"><option value="grant">지급</option><option value="seize">압수</option></select>
       </div>
       <div class="prime-adjust-field"><label>프라임 수량</label><input id="primeAdjustAmount" type="number" min="1" step="1" placeholder="숫자만 입력"></div>
-      <div class="prime-adjust-field"><label>사유 / 우편 내용</label><textarea id="primeAdjustReason" placeholder="예: 이벤트 보상 지급"></textarea></div>
+      <div class="prime-adjust-field"><label>현재 회원</label><input id="primeAdjustTargetView" type="text" readonly placeholder="선택 회원"></div>
+      <div class="prime-adjust-field prime-adjust-reason-field"><label>사유 / 우편 내용</label><textarea id="primeAdjustReason" placeholder="예: 이벤트 보상 지급"></textarea></div>
     </div>
     <div class="prime-adjust-actions">
       <button class="prime-adjust-save" type="button" onclick="submitPrimeAdjust()">저장하고 우편 발송</button>
