@@ -4948,11 +4948,18 @@ function safeJson(key, fallback){
 
   function getUserIdentity(user){
     user = user || {};
-    return user.uid || user.id || user.userId || user.key || user.memberId || user.uuid || "";
+    return user.uid || user.id || user.userId || user.key || user.memberId || user.uuid || user.discord_id || user.discordId || "";
+  }
+
+  function getUserDiscordId(user){
+    user = user || {};
+    return user.discord_id || user.discordId || user.discordID || user.userDiscordId || user.discord || "";
   }
 
   function identityMatches(seed, target){
     if(!seed || !target) return false;
+    const seedDiscord = getUserDiscordId(seed);
+    const targetDiscord = getUserDiscordId(target);
     const seedId = getUserIdentity(seed);
     const targetId = getUserIdentity(target);
     const seedNick = getUserNickname(seed) || seed.name || "";
@@ -4960,7 +4967,8 @@ function safeJson(key, fallback){
     const seedPubg = getUserPubgId(seed) || seed.pubgId || "";
     const targetPubg = getUserPubgId(target) || target.pubgId || "";
 
-    return (seedId && targetId && String(seedId) === String(targetId)) ||
+    return (seedDiscord && targetDiscord && String(seedDiscord) === String(targetDiscord)) ||
+           (seedId && targetId && String(seedId) === String(targetId)) ||
            (seedPubg && targetPubg && String(seedPubg) === String(targetPubg)) ||
            (seedNick && targetNick && String(seedNick) === String(targetNick));
   }
@@ -4989,7 +4997,7 @@ function safeJson(key, fallback){
 
   function getGradeRole(user){
     user = user || {};
-    return user.memberTier || "";
+    return user.tier || user.memberTier || user.gradeRole || user.tierRole || user.grade || "";
   }
 
   function getCurrentUserData(){
@@ -4998,17 +5006,22 @@ function safeJson(key, fallback){
     const pklUser = findPklUser(adminUser) || findPklUser(loginUser) || {};
     const nickname = getUserNickname(adminUser) || getUserNickname(loginUser) || "참가자";
     const pubgId = getUserPubgId(adminUser) || getUserPubgId(loginUser);
-    const identity = getUserIdentity(adminUser) || getUserIdentity(loginUser) || nickname || pubgId;
+    const discordId = getUserDiscordId(adminUser) || getUserDiscordId(loginUser) || getUserDiscordId(pklUser);
+    const identity = discordId || getUserIdentity(adminUser) || getUserIdentity(loginUser) || nickname || pubgId;
 
     return {
       key:String(identity),
       userId:String(identity),
       uid:String(identity),
+      discord_id:String(discordId || ""),
+      discordId:String(discordId || ""),
+      discord_username:String((adminUser && (adminUser.discord_username || adminUser.discordUsername)) || (loginUser && (loginUser.discord_username || loginUser.discordUsername)) || ""),
       name:String(nickname),
       nickname:String(nickname),
       pubgId:String(pubgId || ""),
       memberRole:String(getMemberRole(adminUser)),
-      gradeRole:String(getGradeRole(pklUser)),
+      gradeRole:String(getGradeRole(pklUser) || getGradeRole(adminUser) || getGradeRole(loginUser)),
+      tier:String(getGradeRole(pklUser) || getGradeRole(adminUser) || getGradeRole(loginUser)),
       wins:String(adminUser.wins || adminUser.winCount || pklUser.wins || pklUser.winCount || 0),
       avgKills:String(adminUser.avgKills || adminUser.averageKills || adminUser.killAvg || adminUser.avgKill || pklUser.avgKills || pklUser.averageKills || pklUser.killAvg || pklUser.avgKill || 0),
       joinedAt:new Date().toISOString()
@@ -5027,12 +5040,18 @@ function safeJson(key, fallback){
       merged.userId = String(identity);
       merged.uid = String(identity);
     }
+    const discordId = getUserDiscordId(adminUser) || getUserDiscordId(pklUser) || getUserDiscordId(item);
+    if(discordId){
+      merged.discord_id = String(discordId);
+      merged.discordId = String(discordId);
+    }
 
     merged.name = getUserNickname(adminUser) || item.name || item.nickname || getUserNickname(pklUser) || "참가자";
     merged.nickname = merged.name;
     merged.pubgId = getUserPubgId(adminUser) || item.pubgId || getUserPubgId(pklUser) || "";
     merged.memberRole = getMemberRole(adminUser) || item.memberRole || item.role || "";
-    merged.gradeRole = getGradeRole(pklUser) || "";
+    merged.gradeRole = getGradeRole(pklUser) || getGradeRole(adminUser) || item.gradeRole || item.tier || "";
+    merged.tier = merged.gradeRole || item.tier || "";
     merged.wins = adminUser?.wins || adminUser?.winCount || item.wins || item.winCount || pklUser?.wins || pklUser?.winCount || 0;
     merged.avgKills = adminUser?.avgKills || adminUser?.averageKills || adminUser?.killAvg || adminUser?.avgKill || item.avgKills || item.averageKills || pklUser?.avgKills || pklUser?.averageKills || pklUser?.killAvg || pklUser?.avgKill || 0;
     return merged;

@@ -304,7 +304,8 @@ if (rerollListModal) {
     const cfg = getTeamModeConfig(state.teamMode || 'squad20');
     if (!cfg.modeClass || !cfg.modeClass.includes('pkl-mode-partner')) return '';
     const pairIndex = Math.floor(teamIndex / 2);
-    return `is-partner-team is-partner-${pairIndex % 2 === 0 ? 'a' : 'b'}`;
+    const tone = pairIndex % 6;
+    return `is-partner-team is-partner-${teamIndex % 2 === 0 ? 'left' : 'right'} is-partner-tone-${tone}`;
   }
 
   function renderTeams() {
@@ -711,11 +712,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function getJoinWaitItemKey(item) {
     if (!item) return '';
-    return String(
-      item.discord_id || item.discordId || item.discordID || item.userDiscordId ||
-      item.userId || item.uid || item.key || item.accountId || item.id || item.pubgId || item.gameId ||
-      item.nickname || item.name || item.discord_username || ''
-    ).trim();
+    return String(item.userId || item.uid || item.key || item.accountId || item.id || item.pubgId || item.name || item.nickname || '').trim();
   }
 
   function findAdminUserForJoinItem(item) {
@@ -763,23 +760,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function getSupabaseRestConfig() {
     const cfg = window.PKL_SUPABASE_CONFIG || {};
-    const readLocal = (keys) => {
-      for (const key of keys) {
-        try {
-          const value = localStorage.getItem(key) || sessionStorage.getItem(key);
-          if (value) return value;
-        } catch (error) {}
-      }
-      return '';
-    };
-    const url = String(
-      cfg.url || cfg.supabaseUrl || cfg.SUPABASE_URL ||
-      readLocal(['SUPABASE_URL','PKL_SUPABASE_URL','VITE_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_URL']) || ''
-    ).replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
-    const key = String(
-      cfg.anonKey || cfg.anon_key || cfg.supabaseAnonKey || cfg.SUPABASE_ANON_KEY ||
-      readLocal(['SUPABASE_ANON_KEY','PKL_SUPABASE_ANON_KEY','VITE_SUPABASE_ANON_KEY','NEXT_PUBLIC_SUPABASE_ANON_KEY']) || ''
-    );
+    const url = String(cfg.url || '').replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+    const key = String(cfg.anonKey || cfg.anon_key || '');
     return { url, key };
   }
 
@@ -818,23 +800,44 @@ const teamIndex = Number(slot.dataset.teamIndex);
     return Array.isArray(supabaseUsersCache) ? supabaseUsersCache : [];
   }
 
+  function getUserDisplayNames(user) {
+    if (!user) return [];
+    return [user.nickname, user.nick, user.name, user.discord_username, user.discordUsername, user.displayName]
+      .map(value => normalizeName(value))
+      .filter(Boolean);
+  }
+
+  function findSupabaseUserByLooseName(name) {
+    const target = normalizeName(name);
+    if (!target) return null;
+    const users = readSupabaseUsers();
+    const exact = users.find(user => getUserDisplayNames(user).includes(target));
+    if (exact) return exact;
+
+    // join 대기값이 닉네임 일부만 저장된 이전 데이터 보정용.
+    // 여러 명이 걸리면 오인식 방지를 위해 사용하지 않는다.
+    const loose = users.filter(user => getUserDisplayNames(user).some(nameValue => {
+      if (!nameValue || nameValue.length < 2 || target.length < 2) return false;
+      return nameValue.endsWith(target) || target.endsWith(nameValue) || nameValue.includes(target) || target.includes(nameValue);
+    }));
+    return loose.length === 1 ? loose[0] : null;
+  }
+
   function findSupabaseUserForJoinItem(item, adminUser, accountUser) {
     const users = readSupabaseUsers();
-    const seed = accountUser || adminUser || item;
-    const identityMatch = users.find(user => isSameUserIdentity(seed, user)) || users.find(user => isSameUserIdentity(item, user));
-    if (identityMatch) return identityMatch;
-    const candidates = [
-      item && (item.discord_id || item.discordId || item.discordID || item.userDiscordId),
-      adminUser && (adminUser.discord_id || adminUser.discordId || adminUser.id || adminUser.uid),
-      accountUser && (accountUser.discord_id || accountUser.discordId || accountUser.id || accountUser.uid),
-      adminUser && (adminUser.nickname || adminUser.nick || adminUser.name),
-      accountUser && (accountUser.nickname || accountUser.nick || accountUser.name),
-      item && (item.nickname || item.name || item.discord_username || item.discordUsername)
-    ].filter(Boolean);
-    for (const value of candidates) {
-      const found = users.find(user => isSameUserIdentity({ discord_id:value, id:value, uid:value, userId:value, nickname:value, name:value }, user)) ||
-        users.find(user => sameName(user, value));
-      if (found) return found;
+    const candidates = [item, accountUser, adminUser].filter(Boolean);
+    for (const seed of candidates) {
+      const matched = users.find(user => isSameUserIdentity(seed, user));
+      if (matched) return matched;
+    }
+
+    const names = [];
+    candidates.forEach(seed => {
+      names.push(seed.nickname, seed.nick, seed.name, seed.discord_username, seed.discordUsername, seed.displayName);
+    });
+    for (const name of names) {
+      const matched = findSupabaseUserByLooseName(name);
+      if (matched) return matched;
     }
     return null;
   }
@@ -857,8 +860,9 @@ const teamIndex = Number(slot.dataset.teamIndex);
       if (identity) activeKeys.add(identity);
 
       const sourceUser = supabaseUser || accountUser || adminUser || item;
-      const displayName = (sourceUser && (sourceUser.nickname || sourceUser.nick || sourceUser.name || sourceUser.discord_username)) || item.name || item.nickname || '참가자';
-      const tier = resolveUserTierKey(sourceUser) !== 'none' ? resolveUserTierKey(sourceUser) : 'tier0';
+      const displayName = (sourceUser && (sourceUser.nickname || sourceUser.nick || sourceUser.name || sourceUser.discord_username || sourceUser.discordUsername)) || item.name || item.nickname || '참가자';
+      const resolvedTier = resolveUserTierKey(sourceUser);
+      const tier = TIERS.some(t => t.id === resolvedTier) ? resolvedTier : 'tier0';
       const player = findPlayerForJoinItem(item, supabaseUser || adminUser, accountUser);
 
       if (player) {
@@ -921,14 +925,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
     state.players.forEach(player => {
       hydratePlayerIdentity(player);
       const displayName = resolvePlayerDisplayName(player);
-      const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || readSupabaseUsers().find(user => sameName(user, displayName || player.name));
-      const accountUser = supabaseUser || resolvePlayerAccountUser(player, displayName);
-      if (supabaseUser) {
-        player.userUid = player.userUid || supabaseUser.discord_id || supabaseUser.id || '';
-        player.discordId = player.discordId || supabaseUser.discord_id || '';
-        player.accountId = player.accountId || supabaseUser.id || supabaseUser.discord_id || '';
-        player.name = supabaseUser.nickname || supabaseUser.discord_username || player.name;
-      }
+      const accountUser = resolvePlayerAccountUser(player, displayName);
       const syncedTier = resolvePlayerPklTier(player, accountUser);
       if (syncedTier) player.tier = syncedTier;
     });
@@ -1074,19 +1071,25 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function hydratePlayerIdentity(player) {
     if (!player) return player;
+    const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || findSupabaseUserByLooseName(player.name);
     const adminUser = resolvePlayerAdminUser(player);
-    const accountUser = resolvePlayerAccountUser(player, adminUser ? adminUser.nickname : player.name);
-    const linkedUser = adminUser || accountUser;
+    const accountUser = resolvePlayerAccountUser(player, supabaseUser ? (supabaseUser.nickname || supabaseUser.discord_username) : (adminUser ? adminUser.nickname : player.name));
+    const linkedUser = supabaseUser || accountUser || adminUser;
     if (!linkedUser) return player;
 
-    player.userUid = player.userUid || linkedUser.uid || linkedUser.id || '';
-    player.accountId = player.accountId || linkedUser.id || linkedUser.uid || '';
+    player.userUid = player.userUid || linkedUser.discord_id || linkedUser.uid || linkedUser.id || '';
+    player.discordId = player.discordId || linkedUser.discord_id || linkedUser.discordId || '';
+    player.accountId = player.accountId || linkedUser.id || linkedUser.uid || linkedUser.discord_id || '';
     player.pubgId = player.pubgId || linkedUser.pubgId || linkedUser.gameId || '';
-    player.name = linkedUser.nickname || linkedUser.nick || linkedUser.name || player.name;
+    player.name = linkedUser.nickname || linkedUser.nick || linkedUser.name || linkedUser.discord_username || player.name;
+    const tierKey = resolveUserTierKey(linkedUser);
+    if (TIERS.some(tier => tier.id === tierKey)) player.tier = tierKey;
     return player;
   }
 
   function resolvePlayerDisplayName(player) {
+    const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || findSupabaseUserByLooseName(player && player.name);
+    if (supabaseUser) return supabaseUser.nickname || supabaseUser.nick || supabaseUser.name || supabaseUser.discord_username || player.name;
     const adminUser = resolvePlayerAdminUser(player);
     if (adminUser) return adminUser.nickname || adminUser.nick || adminUser.name || player.name;
     return player.name || '알 수 없음';
@@ -1148,17 +1151,15 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function isSameUserIdentity(a, b) {
     if (!a || !b) return false;
-    const clean = value => String(value || '').trim();
-    const discordA = clean(a.discord_id || a.discordId || a.discordID || a.userDiscordId || '');
-    const discordB = clean(b.discord_id || b.discordId || b.discordID || b.userDiscordId || '');
-    if (discordA && discordB && discordA === discordB) return true;
-    const uidA = clean(a.userUid || a.uid || a.userId || a.accountId || a.key || a.id || a.discord_id || a.discordId || '');
-    const uidB = clean(b.uid || b.userUid || b.userId || b.accountId || b.key || b.id || b.discord_id || b.discordId || '');
-    if (uidA && uidB && uidA === uidB) return true;
-    const pubgA = clean(a.pubgId || a.gameId || '');
-    const pubgB = clean(b.pubgId || b.gameId || '');
-    if (pubgA && pubgB && pubgA === pubgB) return true;
-    return false;
+    const discordA = a.discord_id || a.discordId || a.discordID || a.userDiscordId || a.discord || '';
+    const discordB = b.discord_id || b.discordId || b.discordID || b.userDiscordId || b.discord || '';
+    if (discordA && discordB && String(discordA) === String(discordB)) return true;
+    const uidA = a.userUid || a.uid || a.userId || a.accountId || a.key || a.id || a.discord_id || a.discordId || '';
+    const uidB = b.uid || b.userUid || b.userId || b.accountId || b.key || b.id || b.discord_id || b.discordId || '';
+    if (uidA && uidB && String(uidA) === String(uidB)) return true;
+    const pubgA = a.pubgId || a.gameId || '';
+    const pubgB = b.pubgId || b.gameId || '';
+    return !!(pubgA && pubgB && pubgA === pubgB);
   }
 
   function sameName(user, name) {
