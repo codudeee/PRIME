@@ -175,15 +175,25 @@
 
   <!-- 운영 -->
   <div class="control-section-box">
-    <div class="section-title">운영</div>
     <div class="team-mode-select-box">
-      <div class="section-title">모드선택</div>
-      <select id="pklTeamModeSelect" class="team-mode-select" aria-label="팀구성 모드선택">
-        <option value="squad10">10팀 스쿼드</option>
-        <option value="squad20" selected>20팀 스쿼드</option>
-        <option value="duo10">10팀 듀오</option>
-        <option value="duo20">20팀 듀오</option>
+      <select id="pklTeamModeSelect" class="team-mode-select pkl-native-hidden-select" aria-label="팀구성 모드선택">
+        <option value="squad20" selected>스쿼드</option>
+        <option value="squadPartner20">스쿼드 깐부</option>
+        <option value="duo20">듀오</option>
+        <option value="duoPartner20">듀오 깐부</option>
       </select>
+      <div class="pkl-custom-select pkl-mode-custom-select" id="teamModeDropdown" data-value="">
+        <button class="pkl-custom-select-trigger" id="teamModeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span id="teamModeText">모드선택</span>
+          <span class="pkl-custom-select-arrow" aria-hidden="true"></span>
+        </button>
+        <div class="pkl-custom-select-list" id="teamModeList" role="listbox" aria-label="팀구성 모드선택">
+          <button class="pkl-custom-select-option pkl-mode-custom-option" type="button" role="option" data-value="squad20"><span class="pkl-option-check"></span><span>스쿼드</span></button>
+          <button class="pkl-custom-select-option pkl-mode-custom-option" type="button" role="option" data-value="squadPartner20"><span class="pkl-option-check"></span><span>스쿼드 깐부</span></button>
+          <button class="pkl-custom-select-option pkl-mode-custom-option" type="button" role="option" data-value="duo20"><span class="pkl-option-check"></span><span>듀오</span></button>
+          <button class="pkl-custom-select-option pkl-mode-custom-option" type="button" role="option" data-value="duoPartner20"><span class="pkl-option-check"></span><span>듀오 깐부</span></button>
+        </div>
+      </div>
     </div>
     <button id="ruleButton" class="control-big-button" type="button" aria-disabled="true">룰 설정</button>
     <button id="loadWaitingButton" class="control-big-button" type="button">불러오기</button>
