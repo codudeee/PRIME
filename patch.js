@@ -109,12 +109,17 @@
   function stopPatchEditorEventBubble(){
     [els.patchEditorModal, els.patchInputVersion, els.patchInputDate, els.patchInputTitle, els.patchInputItems].forEach(el => {
       if(!el) return;
-      ["pointerdown","mousedown","click","focusin","keydown"].forEach(type => {
-        el.addEventListener(type, ev => {
-          if(ev.target && ev.target.closest && ev.target.closest('input,textarea,.pkl-patch-modal-card')) ev.stopPropagation();
-        }, true);
-      });
+      el.addEventListener("click", ev => {
+        if(ev.target && ev.target.closest && ev.target.closest('input,textarea,.pkl-patch-modal-card')) ev.stopPropagation();
+      }, false);
+      el.addEventListener("wheel", ev => {
+        if(ev.target && ev.target.closest && ev.target.closest('textarea')) ev.stopPropagation();
+      }, {passive:true});
     });
+    if(els.patchInputItems){
+      els.patchInputItems.style.overflowY = "auto";
+      els.patchInputItems.style.touchAction = "auto";
+    }
   }
 
   function bindEvents(){

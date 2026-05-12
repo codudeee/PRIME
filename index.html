@@ -894,10 +894,15 @@ font-weight:700;
     var body=document.getElementById("pklNoticeBodyInput");
     [form,title,body].forEach(function(el){
       if(!el) return;
-      ["pointerdown","mousedown","click","focusin","keydown"].forEach(function(type){
-        el.addEventListener(type,function(ev){ev.stopPropagation();},true);
+      ["click"].forEach(function(type){
+        el.addEventListener(type,function(ev){ev.stopPropagation();},false);
       });
     });
+    if(body){
+      body.style.overflowY="auto";
+      body.style.touchAction="auto";
+      body.addEventListener("wheel",function(ev){ev.stopPropagation();},{passive:true});
+    }
     title.focus({preventScroll:true});
     document.getElementById("pklNoticeFormCancel").addEventListener("click",function(){editingId=null;renderModal();});
     form.addEventListener("submit",function(e){
