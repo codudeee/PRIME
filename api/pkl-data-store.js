@@ -87,7 +87,7 @@ async function writeShared(key, value){
 
 async function bootstrap(){
   const out = { ok:true, source:'supabase', shared_data:{} };
-  const sharedKeys = ['pklNoticeBoardItems','PKL_RULE_PAGE_CONTENT_V1','pklJoinWaitList','pklJoinCancelList','pklJoinRecruitState','pklJoinFeeInfo','pklJoinDepositRequests'];
+  const sharedKeys = ['pklNoticeBoardItems','pklPatchNotes_v2','PKL_RULE_PAGE_CONTENT_V1','PKL_RESULT_MATCHES_V1','PKL_USER_MATCH_STATS_V1','PKL_TIER_DATA_V1','PKL_SURRENDER_CONSENT_STORE_V1','PKL_FIRE_CONSENT_STORE_V1','PKL_SHEET_RESET_LOCK_V2','pklTeamBuilderState.v1','pklTierScoreConfig','pklTierScoreLastSync','pklSideListItems','pklSideList','pklSideBets','pklItemHistoryCounts','pklPendingUsers','pklBannedUsers','PKL_DELETED_USER_KEYS_V1','pklJoinWaitList','pklJoinCancelList','pklJoinRecruitState','pklJoinFeeInfo','pklJoinDepositRequests','pklJoinWarningRequests','pklMails','pklMailbox','pklMailboxUnread','pklDiscordRecruitMessage','PKL_DISCORD_RECRUIT_MESSAGE_V1','pklDiscordBotMessage'];
   for(const key of sharedKeys){
     const item = await readShared(key).catch(()=>null);
     if(item && item.value !== null) out.shared_data[key] = item.value;

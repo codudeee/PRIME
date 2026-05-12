@@ -2885,7 +2885,7 @@ function pklTeamSyncServerClock() {
   }
 function startClock() {
     pklTeamSyncServerClock();
-    setInterval(pklTeamSyncServerClock, 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", function(){ if(!document.hidden) pklTeamSyncServerClock(); });
     let lastSecond = '';
     const update = () => {
       const correctedNow = Date.now() + pklTeamClockOffsetMs;

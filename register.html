@@ -801,7 +801,7 @@ function checkAdminAccess(role){
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
-    setInterval(scan,700);
+    /* 반복 스캔 제거: MutationObserver/click 시점에만 정렬 */
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();

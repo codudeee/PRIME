@@ -7049,7 +7049,7 @@ function pklStartPreciseTopTimeTicker(){
   if(window.__pklPreciseTopTimeTickerStarted) return;
   window.__pklPreciseTopTimeTickerStarted=true;
   pklSheetSyncServerClock();
-  setInterval(pklSheetSyncServerClock,5*60*1000);
+  document.addEventListener("visibilitychange",function(){if(!document.hidden) pklSheetSyncServerClock();});
   var lastSecond='';
   function tick(){
     var correctedNow=Date.now()+pklSheetClockOffsetMs;
@@ -7059,7 +7059,7 @@ function pklStartPreciseTopTimeTicker(){
     setTimeout(tick, Math.max(80, Math.min(1000, delay)));
   }
   tick();
-  setInterval(updateEndTimeWarningEffect,5000);
+  document.addEventListener("click",updateEndTimeWarningEffect,true);
 }
 
 
@@ -8455,7 +8455,7 @@ window.PKLSheetLiveBridge={
 };
 render();
 pklStartPreciseTopTimeTicker();
-setInterval(updateTopBetJackpot, 3500);
+document.addEventListener("visibilitychange",function(){if(!document.hidden) updateTopBetJackpot();});
 window.addEventListener('storage', (e)=>{ if(e.key==='pklSideListItems'||e.key===STORAGE_KEY) updateTopBetJackpot(); });
 })();
 

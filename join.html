@@ -6772,7 +6772,7 @@ function removeWaitCount(){}
   });
 
   updateNowText();
-  setInterval(updateNowText, 1000);
+  document.addEventListener("visibilitychange",function(){if(!document.hidden) updateNowText();});
 })();
 </script>
 

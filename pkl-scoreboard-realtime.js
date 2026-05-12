@@ -231,7 +231,7 @@
   function startFallbackPoll(){
     if(fallbackPollTimer) return;
     var tick=function(){try{sb('live_scores?id=eq.live_scoreboard&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){var doc=rows&&rows[0];var snap=readRemotePayload(doc);if(snap){writeLocalSnapshot(snap);renderSnapshot(snap);}applySheetFromDoc(doc);}).catch(function(){});}catch(e){}};
-    tick(); fallbackPollTimer=setInterval(tick, 2500);
+    tick(); fallbackPollTimer=null;
   }
   function applySheetFromDoc(doc){
     var bridge=window.PKLSheetLiveBridge;

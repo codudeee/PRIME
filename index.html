@@ -713,7 +713,7 @@ font-weight:700;
   window.addEventListener("storage",function(e){if(!e||e.key===MATCHES_KEY) rerenderSoon();});
   window.addEventListener("pkl-supabase-data-updated",function(e){if(!e.detail||!e.detail.key||e.detail.key===MATCHES_KEY) rerenderSoon();});
   window.addEventListener("pkl-supabase-sync-ready",rerenderSoon);
-  setInterval(render,2500);
+  /* 반복 렌더 제거: 저장/이벤트/복귀 시에만 렌더 */
   document.addEventListener("visibilitychange",function(){if(!document.hidden) render();});
 })();
 </script>
@@ -1104,7 +1104,7 @@ font-weight:700;
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
-    setInterval(scan,700);
+    /* 반복 스캔 제거: MutationObserver/click 시점에만 정렬 */
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();

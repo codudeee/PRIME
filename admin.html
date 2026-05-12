@@ -5832,7 +5832,7 @@ a,
     <section class="grid user-tab" id="userManageTab">
       <section class="glass user-panel">
         <div class="panel-title"><h2>유저 목록</h2><small id="userCount">0명</small></div>
-        <div class="search-row"><input id="search" placeholder="닉네임 / ID 검색" oninput="render()"><button class="filter-btn">≡</button></div>
+        <div class="search-row"><input id="search" placeholder="닉네임 / ID 검색" oninput="pklAdminSearchInputChanged()"><button class="filter-btn">≡</button></div>
         <div class="user-list" id="userList"></div>
       </section>
 
@@ -6121,7 +6121,7 @@ function seed(){return {users:[],pending:[],bans:[],warningRecords:[]};}
 
 
 function pklHasAssignedTier(u){
-  // 회원목록은 Firebase/가입 데이터 기준으로 보여야 하므로 티어가 없어도 제거하지 않는다.
+  // 회원목록은 Supabase users 데이터 기준으로 보여야 하므로 티어가 없어도 제거하지 않는다.
   // 티어 값은 권한이 아니라 회원 티어 표시용 데이터다.
   return !!(u && !pklIsDeletedUser(u));
 }
@@ -6575,6 +6575,13 @@ function render(){
     if(typeof updatePremiumDashboard==='function') updatePremiumDashboard();
   }
 }
+
+let __pklAdminSearchTimer=null;
+function pklAdminSearchInputChanged(){
+  clearTimeout(__pklAdminSearchTimer);
+  __pklAdminSearchTimer=setTimeout(function(){renderUserList();},180);
+}
+
 function renderUserList(){
   normalizeAllUserRoles();
   const q=(document.getElementById("search")?.value||"").trim().toLowerCase();
@@ -7319,11 +7326,11 @@ function renderWelcome(){
   if(settingsBtn)settingsBtn.style.display=isSuperAdmin()?"":"none";
 
   if(!window.__pklWelcomeUserSyncTimer){
-    window.__pklWelcomeUserSyncTimer=setInterval(renderWelcome,800);
+    window.__pklWelcomeUserSyncTimer=null;
   }
 }
 function initActionPlaceholders(){document.querySelectorAll(".action-panel textarea").forEach(el=>{if(!el.dataset.placeholderText)el.dataset.placeholderText=el.getAttribute("placeholder")||"";const hide=()=>{el.setAttribute("placeholder","")};const show=()=>{if(!el.matches(":focus")&&!el.value.trim())el.setAttribute("placeholder",el.dataset.placeholderText)};el.addEventListener("mouseenter",hide);el.addEventListener("focus",hide);el.addEventListener("mouseleave",show);el.addEventListener("blur",show);});}
-setInterval(tick,1000);tick();renderWelcome();initActionPlaceholders();save();render();
+tick();renderWelcome();initActionPlaceholders();save();render();
 
 function pklSeoulTimeOnly(value){
   return String(value || '')
@@ -7938,7 +7945,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   window.pklApplyAdminAccess=applyAccess;
 })();
 </script>
-<script id="pkl-admin-firebase-disabled">/* Firebase disabled: admin users are loaded only from Supabase /api/pkl-users. */</script>
+<script id="pkl-admin-supabase-only">/* Supabase only: admin users are loaded from /api/pkl-users. */</script>
 <script id="pklAdminIdentityPklUsersFix">
 window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:function(list){return Array.isArray(list)?list:[]},upsertUser:function(user){return user},sameUser:function(){return false},mergeList:function(){return []}};
 </script>
@@ -7974,7 +7981,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   }
   async function loadUsers(){
     try{
-      var res=await fetch('/api/pkl-users?limit=1000&offset=0',{cache:'no-store'});
+      var res=await fetch('/api/pkl-users?limit=20&offset=0',{cache:'no-store'});
       var data=await res.json();
       var list=unique((Array.isArray(data.users)?data.users:[]).map(mapUser)).filter(function(u){return !!keyOf(u);});
       list.sort(function(a,b){return String(a.nickname||'').localeCompare(String(b.nickname||''),'ko');});
