@@ -287,6 +287,11 @@ if (rerollListModal) {
   }
 
   function renderTierPools() {
+    if (!canViewTeamParticipants()) {
+      tierPools.innerHTML = renderTeamPrivacyLock('tier', getJoinWaitingCount());
+      return;
+    }
+
     tierPools.innerHTML = TIERS.map(tier => {
       const players = state.waiting[tier.id].map(playerId => renderPlayerCard(playerId)).join('');
       return `
@@ -316,6 +321,11 @@ if (rerollListModal) {
 
   function renderTeams() {
     ensureTeamModeState(state.teamMode || 'squad20');
+    if (!canViewTeamParticipants()) {
+      teamGrid.innerHTML = renderTeamPrivacyLock('team', getJoinWaitingCount());
+      return;
+    }
+
     teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
       const slots = team.slots.map((playerId, slotIndex) => `
         <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
@@ -336,6 +346,77 @@ if (rerollListModal) {
     bindDropZones();
     bindPlayerCards();
     bindSlotSelection();
+  }
+
+  function renderTeamPrivacyLock(kind, count) {
+    const title = kind === 'team' ? '팀구성 비공개' : '티어 대기칸 비공개';
+    const desc = kind === 'team'
+      ? '참가하기 이후 팀구성을 확인할 수 있습니다.'
+      : '참가하기 이후 대기자 리스트를 확인할 수 있습니다.';
+    const safeCount = Math.max(0, Number(count || 0));
+    return `
+      <div class="team-preview-lock-box" data-lock-kind="${kind}">
+        <b>${escapeHtml(title)}</b>
+        <span>${escapeHtml(desc)}</span>
+        <small>현재 대기 인원 수 <strong>${safeCount}명</strong></small>
+      </div>
+    `;
+  }
+
+  function getJoinWaitingCount() {
+    const list = readJoinWaitList();
+    if (Array.isArray(list) && list.length) return list.length;
+    return Object.values(state.waiting || {}).reduce((sum, ids) => sum + (Array.isArray(ids) ? ids.length : 0), 0);
+  }
+
+  function canViewTeamParticipants() {
+    return isTeamManagerViewer() || isCurrentUserInJoinWaitingList();
+  }
+
+  function isTeamManagerViewer() {
+    const loginUser = readCurrentLoginUser();
+    const user = findFullUserForViewer(loginUser) || loginUser || {};
+    const rawRole = String(getViewerRoleValue(user) || '').trim();
+    const role = rawRole.toLowerCase();
+    return !!(
+      user.isAdmin || user.admin || user.manager ||
+      role === 'admin' || role === 'manager' || role === 'owner' || role === 'operator' ||
+      ['관리자', '총관리자', '운영자', '운영진'].includes(rawRole)
+    );
+  }
+
+  function getViewerRoleValue(user) {
+    if (!user) return '';
+    if (window.PKLRoleSystem && typeof window.PKLRoleSystem.accessRoleFromUser === 'function') {
+      const role = window.PKLRoleSystem.accessRoleFromUser(user);
+      if (role) return role;
+    }
+    return user.memberRole || user.role || user.userRole || user.authRole || user.permission || user.type || '';
+  }
+
+  function readCurrentLoginUser() {
+    const keys = ['pklLoginUser', 'pklCurrentUser', 'pklUser', 'pklLoggedInUser', 'pkl_current_user'];
+    for (const key of keys) {
+      try {
+        const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (!raw) continue;
+        const user = JSON.parse(raw);
+        if (user && typeof user === 'object') return user;
+      } catch (error) {}
+    }
+    return null;
+  }
+
+  function findFullUserForViewer(loginUser) {
+    if (!loginUser) return null;
+    const users = readSupabaseUsers().concat(readAccountUsers(), readAdminUsers());
+    return users.find(user => isSameUserIdentity(loginUser, user)) || users.find(user => sameName(user, loginUser.nickname || loginUser.nick || loginUser.name || loginUser.discord_username || loginUser.discordUsername)) || null;
+  }
+
+  function isCurrentUserInJoinWaitingList() {
+    const currentUser = findFullUserForViewer(readCurrentLoginUser()) || readCurrentLoginUser();
+    if (!currentUser) return false;
+    return readJoinWaitList().some(item => isSameUserIdentity(currentUser, item) || sameName(item, currentUser.nickname || currentUser.nick || currentUser.name || currentUser.discord_username || currentUser.discordUsername));
   }
 
   function renderPlayerCard(playerId) {
@@ -912,6 +993,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
       insertPlayerIntoWaitingTier(nextPlayer.id, nextPlayer.tier);
     });
 
+    cleanupDuplicateJoinWaitPlayers();
+
     const removableIds = new Set();
     state.players.forEach(player => {
       if (player.source !== 'joinWaitList') return;
@@ -933,6 +1016,37 @@ const teamIndex = Number(slot.dataset.teamIndex);
       hydratePlayerIdentity(player);
       const displayName = resolvePlayerDisplayName(player);
       if (displayName) player.name = displayName;
+    });
+  }
+
+  function cleanupDuplicateJoinWaitPlayers() {
+    const keepByKey = new Map();
+    const removeIds = new Set();
+
+    state.players.forEach(player => {
+      if (!player || player.source !== 'joinWaitList') return;
+      const key = String(player.joinWaitKey || player.discordId || player.accountId || player.userUid || player.pubgId || normalizeName(player.name) || '').trim();
+      if (!key) return;
+      const previousId = keepByKey.get(key);
+      if (!previousId) {
+        keepByKey.set(key, player.id);
+        return;
+      }
+
+      const previousPlaced = isPlayerPlacedInTeam(previousId);
+      const currentPlaced = isPlayerPlacedInTeam(player.id);
+      if (currentPlaced && !previousPlaced) {
+        removeIds.add(previousId);
+        keepByKey.set(key, player.id);
+      } else {
+        removeIds.add(player.id);
+      }
+    });
+
+    if (!removeIds.size) return;
+    state.players = state.players.filter(player => !removeIds.has(player.id));
+    Object.keys(state.waiting || {}).forEach(tierId => {
+      state.waiting[tierId] = (state.waiting[tierId] || []).filter(playerId => !removeIds.has(playerId));
     });
   }
 
