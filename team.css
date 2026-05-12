@@ -5886,3 +5886,154 @@ body .modal-layer [class*="streak"]{
 .builder-layout.pkl-mode-20.pkl-mode-buddy .team-grid{
   grid-template-columns:repeat(10,minmax(96px,1fr)) !important;
 }
+
+
+/* PKL team layout fix 2 - no control shrink, tighter team area */
+.control-panel{
+  width:170px !important;
+  min-width:170px !important;
+  max-width:170px !important;
+}
+.current-time-card,
+.time-panel,
+.current-time-box{
+  width:170px !important;
+  min-width:170px !important;
+  max-width:170px !important;
+}
+
+/* 20팀은 티어대기칸을 세로 1열로, 닉네임 보이게 */
+.builder-layout.pkl-mode-20{
+  grid-template-columns:minmax(270px,300px) minmax(1160px,1fr) 170px !important;
+  gap:8px !important;
+}
+.builder-layout.pkl-mode-20 .tier-panel{
+  min-width:270px !important;
+  max-width:300px !important;
+}
+.builder-layout.pkl-mode-20 .tier-pools{
+  grid-template-columns:1fr !important;
+  gap:8px !important;
+}
+.builder-layout.pkl-mode-20 .tier-box{
+  min-height:104px !important;
+}
+.builder-layout.pkl-mode-20 .player-card{
+  grid-template-columns:minmax(0,1fr) auto !important;
+}
+.builder-layout.pkl-mode-20 .player-name{
+  display:block !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}
+
+/* 10팀은 기존 느낌 유지하되 여백만 정리 */
+.builder-layout.pkl-mode-10{
+  grid-template-columns:minmax(520px,.9fr) minmax(790px,1.1fr) 170px !important;
+  gap:8px !important;
+}
+.builder-layout.pkl-mode-10 .team-grid{
+  grid-template-columns:repeat(5,minmax(145px,1fr)) !important;
+  gap:10px !important;
+}
+.builder-layout.pkl-mode-20 .team-grid{
+  grid-template-columns:repeat(10,minmax(106px,1fr)) !important;
+  gap:8px !important;
+}
+
+/* 듀오 슬롯 */
+.builder-layout.pkl-mode-duo .slot-list{
+  grid-template-columns:1fr !important;
+}
+.builder-layout.pkl-mode-duo .team-slot{
+  min-height:74px !important;
+}
+
+/* 깐부: 금색 테두리 칠이 아니라 2팀씩 한 묶음처럼 보이게 */
+.builder-layout.pkl-mode-buddy .team-card{
+  border-color:rgba(216,180,254,.28) !important;
+  box-shadow:inset 0 0 18px rgba(168,85,247,.04) !important;
+}
+.builder-layout.pkl-mode-buddy .team-card.buddy-first{
+  border-top-right-radius:6px !important;
+  border-bottom-right-radius:6px !important;
+  margin-right:-4px !important;
+  position:relative !important;
+}
+.builder-layout.pkl-mode-buddy .team-card.buddy-second{
+  border-top-left-radius:6px !important;
+  border-bottom-left-radius:6px !important;
+  margin-left:-4px !important;
+  position:relative !important;
+}
+.builder-layout.pkl-mode-buddy .team-card.buddy-first::after{
+  content:"";
+  position:absolute;
+  right:-6px;
+  top:16px;
+  bottom:16px;
+  width:12px;
+  border-top:1px solid rgba(216,180,254,.26);
+  border-bottom:1px solid rgba(216,180,254,.26);
+  background:linear-gradient(180deg,rgba(168,85,247,.18),rgba(168,85,247,.04));
+  z-index:4;
+  pointer-events:none;
+}
+.builder-layout.pkl-mode-buddy .buddy-label{
+  margin-left:auto;
+  padding:3px 7px;
+  border-radius:999px;
+  border:1px solid rgba(216,180,254,.30);
+  background:rgba(168,85,247,.18);
+  color:#eadbff;
+  font-size:10px;
+  font-weight:1000;
+  white-space:nowrap;
+}
+
+/* 10팀 깐부는 위 6팀 / 아래 4팀. 아래 4팀은 같은 카드 모션/크기 유지 */
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-grid{
+  grid-template-columns:repeat(6,minmax(118px,1fr)) !important;
+  gap:10px 8px !important;
+}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(n+7){
+  grid-row:2 !important;
+  transform:none !important;
+}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(7){
+  grid-column:2 !important;
+}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(8){
+  grid-column:3 !important;
+}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(9){
+  grid-column:4 !important;
+}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(10){
+  grid-column:5 !important;
+}
+
+/* 모드선택 드롭박스는 지정칸 선택 드롭박스와 같은 스타일 */
+.pkl-team-mode-dropdown{
+  position:relative !important;
+  width:100% !important;
+}
+.pkl-team-mode-dropdown .pkl-custom-select-trigger{
+  width:100% !important;
+}
+.pkl-team-mode-dropdown .pkl-custom-select-list{
+  z-index:9999 !important;
+  max-height:320px !important;
+  overflow:auto !important;
+}
+.pkl-team-mode-dropdown:not(.is-open) .pkl-custom-select-list{
+  display:none !important;
+}
+.pkl-team-mode-dropdown.is-open .pkl-custom-select-list{
+  display:grid !important;
+}
+.team-mode-select{
+  display:none !important;
+}

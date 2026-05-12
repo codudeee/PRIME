@@ -57,7 +57,19 @@
 
   const tierPools = document.getElementById('tierPools');
   const teamGrid = document.getElementById('teamGrid');
-  const teamModeSelect = document.getElementById('pklTeamModeSelect');
+  const teamModeDropdown = document.getElementById('pklTeamModeDropdown');
+  const teamModeTrigger = document.getElementById('pklTeamModeTrigger');
+  const teamModeText = document.getElementById('pklTeamModeText');
+  const teamModeList = document.getElementById('pklTeamModeList');
+  const teamModeOptions = Array.from(document.querySelectorAll('#pklTeamModeList .pkl-custom-select-option'));
+  const teamModeSelect = {
+    get value(){
+      return teamModeDropdown ? teamModeDropdown.dataset.value || 'squad10' : 'squad10';
+    },
+    set value(nextValue){
+      setTeamModeDropdownValue(nextValue || 'squad10', false);
+    }
+  };
   const teamBoardModeText = document.getElementById('teamBoardModeText');
   const builderLayout = document.querySelector('.builder-layout');
   const boardSummary = document.getElementById('boardSummary');
@@ -112,6 +124,41 @@
     duo20Buddy: { key:'duo20Buddy', label:'20팀 듀오 깐부', teams:20, slots:2, buddy:true, modeClass:'pkl-mode-20 pkl-mode-duo pkl-mode-buddy' }
   };
 
+  function setTeamModeDropdownValue(modeKey, shouldApply){
+    const cfg = getTeamModeConfig(modeKey);
+    if(teamModeDropdown) teamModeDropdown.dataset.value = cfg.key;
+    if(teamModeText) teamModeText.textContent = cfg.label;
+    teamModeOptions.forEach(option => {
+      const active = option.dataset.value === cfg.key;
+      option.classList.toggle('is-active', active);
+      option.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    if(shouldApply) changeTeamMode(cfg.key);
+  }
+
+  function bindTeamModeDropdown(){
+    if(!teamModeDropdown || !teamModeTrigger || !teamModeList) return;
+    teamModeTrigger.addEventListener('click', function(event){
+      event.preventDefault();
+      const open = teamModeDropdown.classList.toggle('is-open');
+      teamModeTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    teamModeOptions.forEach(option => {
+      option.addEventListener('click', function(event){
+        event.preventDefault();
+        setTeamModeDropdownValue(option.dataset.value || 'squad10', true);
+        teamModeDropdown.classList.remove('is-open');
+        teamModeTrigger.setAttribute('aria-expanded','false');
+      });
+    });
+    document.addEventListener('click', function(event){
+      if(!teamModeDropdown.contains(event.target)){
+        teamModeDropdown.classList.remove('is-open');
+        teamModeTrigger.setAttribute('aria-expanded','false');
+      }
+    });
+  }
+
   function getTeamModeConfig(modeKey){
     return PKL_TEAM_MODE_CONFIG[modeKey] || PKL_TEAM_MODE_CONFIG.squad10;
   }
@@ -138,7 +185,7 @@
       ? state.selectedSlots.filter(slot => slot && slot.teamIndex < cfg.teams && slot.slotIndex < cfg.slots)
       : [];
 
-    if(teamModeSelect && teamModeSelect.value !== cfg.key) teamModeSelect.value = cfg.key;
+    if(teamModeSelect && teamModeSelect.value !== cfg.key) setTeamModeDropdownValue(cfg.key, false);
     if(teamBoardModeText) teamBoardModeText.textContent = cfg.label;
     if(builderLayout){
       builderLayout.classList.remove('pkl-mode-10','pkl-mode-20','pkl-mode-duo','pkl-mode-squad','pkl-mode-buddy');
@@ -196,9 +243,7 @@ const saveMemoButton = document.getElementById('saveMemoButton');
     if (startButton) startButton.addEventListener('click', openMatchTimeModal);
     if (saveMatchTimeButton) saveMatchTimeButton.addEventListener('click', saveMatchTimeSettings);
     if (rerollListButton) rerollListButton.addEventListener('click', openRerollListModal);
-    if (teamModeSelect) teamModeSelect.addEventListener('change', function(){
-      changeTeamMode(teamModeSelect.value);
-    });
+    bindTeamModeDropdown();
     if (addRerollUserButton) addRerollUserButton.addEventListener('click', addManualRerollUser);
     if (rerollUserInput) {
       rerollUserInput.addEventListener('focus', refreshRerollUserAutocomplete);
@@ -290,7 +335,7 @@ if (rerollListModal) {
       const buddyIndex = Math.floor(teamIndex / 2) + 1;
       const buddyLabel = cfg.buddy ? `깐부 ${buddyIndex}` : '';
       return `
-        <section class="team-card ${cfg.buddy ? 'is-buddy-team' : ''}" data-buddy-index="${buddyIndex}">
+        <section class="team-card ${cfg.buddy ? `is-buddy-team ${teamIndex % 2 === 0 ? "buddy-first" : "buddy-second"}` : ""}" data-buddy-index="${buddyIndex}">
           <div class="team-head">
             <span class="team-name">${team.name}</span>
             ${buddyLabel ? `<span class="buddy-label">${buddyLabel}</span>` : ''}
