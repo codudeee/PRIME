@@ -7519,7 +7519,13 @@ document.addEventListener("DOMContentLoaded",()=>{
 
 const _pklOldRenderStats = window.renderStats;
 window.renderStats = function(){
-  if(typeof _pklOldRenderStats === "function") _pklOldRenderStats();
+  /* 2026-05 admin 렉 6차:
+     대시보드가 보이지 않는 상태에서 renderStats()가 호출되면
+     통계/활동 로그/역할 분포 DOM까지 불필요하게 갱신하던 흐름을 차단한다.
+     회원관리 화면에서는 pending 배지만 가볍게 갱신한다. */
+  const dash=document.getElementById("dashboardManageTab");
+  const dashVisible=!!(dash && getComputedStyle(dash).display!=="none");
+  if(dashVisible && typeof _pklOldRenderStats === "function") _pklOldRenderStats();
   updatePendingBadgeVisibility();
 };
 
