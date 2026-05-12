@@ -6678,8 +6678,9 @@ async function confirmModal(){
           const days=penaltyDaysByWarning(u.warnings);
           u.history.unshift({type:"penalty",reason:`경고 ${u.warnings}회 누적 · ${days}일 킬내기 참여 제한 · 수감자 딱지 부여`,date:nowText(),admin:adminName()});
         }
-        const savedUser=await pklSaveUserWithLogToSupabase(u, originalUser, {type:"warn",reason,actor:adminName()});
-        pklReplaceCurrentUserFromApi(savedUser);
+        pklSaveUserWithLogToSupabase(u, originalUser, {type:"warn",reason,actor:adminName()})
+          .then(savedUser=>{ try{ pklReplaceCurrentUserFromApi(savedUser); pklRenderOperationalPanels(state.users[current], {logs:true, memo:true}); }catch(e){} })
+          .catch(err=>{ console.error(err); try{ pklAlert(err.message||"Supabase 저장 중 오류가 발생했습니다.","저장 실패"); }catch(e){} });
       }
     }
     if(pendingAction==="minus"){
@@ -6691,8 +6692,9 @@ async function confirmModal(){
       state.warningRecords.unshift({...record,nickname:u.nickname,pubgId:u.pubgId,role:primaryRole(u),uid:u.uid,discordId:u.discordId,warningCount:u.warnings});
       sendAdminWarningMinusMail(u,reason,u.warnings);
       applyWarningPenalty(u,reason);
-      const savedUser=await pklSaveUserWithLogToSupabase(u, originalUser, {type:"minus",reason,actor:adminName()});
-      pklReplaceCurrentUserFromApi(savedUser);
+      pklSaveUserWithLogToSupabase(u, originalUser, {type:"minus",reason,actor:adminName()})
+        .then(savedUser=>{ try{ pklReplaceCurrentUserFromApi(savedUser); pklRenderOperationalPanels(state.users[current], {logs:true, memo:true}); }catch(e){} })
+        .catch(err=>{ console.error(err); try{ pklAlert(err.message||"Supabase 저장 중 오류가 발생했습니다.","저장 실패"); }catch(e){} });
     }
     if(pendingAction==="ban"){
       u.history=Array.isArray(u.history)?u.history:[];
@@ -7164,16 +7166,26 @@ async function submitPrimeAdjust(){
   const signedAmount=type==="seize"?-amount:amount;
   closePrimeAdjustModal();
   try{
-    const res=await fetch("/api/pkl-users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"adjustPrime",user:pklUserPayloadForApi(u),amount:signedAmount,reason,actor:adminName()})});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok||!data.ok)throw new Error(data.message||"Supabase 저장 실패");
-    const saved=data.user||{};
-    const updated=pklReplaceCurrentUserFromApi(saved)||u;
-    const nextPrime=Number(updated.prime ?? updated.points ?? updated.dia ?? updated.chicken ?? saved.prime ?? saved.points ?? saved.dia ?? saved.chicken ?? 0)||0;
-    updated.prime=nextPrime; updated.points=nextPrime; updated.dia=nextPrime; updated.chicken=nextPrime;
-    pklRenderOperationalPanels(updated,{logs:true,memo:true});
-    try{window.dispatchEvent(new CustomEvent("pkl-mailbox-updated",{detail:{user:updated}}));}catch(e){}
-    await pklAlert(`${updated.nickname||u.nickname||"회원"}님에게 ${amount} 프라임이 ${type==="grant"?"지급":"압수"} 처리되었습니다.`,"처리 완료");
+    const beforePrime=Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0;
+    const nextPrime=Math.max(0,beforePrime+signedAmount);
+    u.prime=nextPrime; u.points=nextPrime; u.dia=nextPrime; u.chicken=nextPrime;
+    u.history=Array.isArray(u.history)?u.history:[];
+    u.history.unshift({type:type==="grant"?"prime_grant":"prime_seize",reason,amount:signedAmount,before:beforePrime,after:nextPrime,date:nowText(),admin:adminName()});
+    pklRenderOperationalPanels(u,{logs:true,memo:true});
+    try{window.dispatchEvent(new CustomEvent("pkl-mailbox-updated",{detail:{user:u}}));}catch(e){}
+    pklAlert(`${u.nickname||"회원"}님에게 ${amount} 프라임이 ${type==="grant"?"지급":"압수"} 처리되었습니다.`,"처리 완료");
+    fetch("/api/pkl-users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"adjustPrime",user:pklUserPayloadForApi(u),amount:signedAmount,reason,actor:adminName()})})
+      .then(res=>res.json().catch(()=>({})).then(data=>({res,data})))
+      .then(({res,data})=>{
+        if(!res.ok||!data.ok)throw new Error(data.message||"Supabase 저장 실패");
+        const saved=data.user||{};
+        const updated=pklReplaceCurrentUserFromApi(saved)||u;
+        const confirmed=Number(updated.prime ?? updated.points ?? updated.dia ?? updated.chicken ?? saved.prime ?? saved.points ?? saved.dia ?? saved.chicken ?? nextPrime)||0;
+        updated.prime=confirmed; updated.points=confirmed; updated.dia=confirmed; updated.chicken=confirmed;
+        pklRenderOperationalPanels(updated,{logs:true,memo:true});
+        try{window.dispatchEvent(new CustomEvent("pkl-mailbox-updated",{detail:{user:updated}}));}catch(e){}
+      })
+      .catch(err=>{ console.error(err); try{ pklAlert(err.message||"프라임 처리 중 오류가 발생했습니다.","처리 실패"); }catch(e){} });
   }catch(err){
     console.error(err);
     await pklAlert(err.message||"프라임 처리 중 오류가 발생했습니다.","처리 실패");
@@ -8196,13 +8208,18 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     addChange('회원 역할',before.memberRole||before.role,selectedMemberRole);
     addChange('보유 프라임',before.prime??before.points??before.dia,prime);
     try{
-      var res=await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'updateUserWithLog',originalIdentity:before,before:before,user:after,log:{type:selectedTier!==normalizeTierValue(before.memberTier||before.gradeRole||before.tierRole||before.tier)?'tier_change':'profile_edit',reason:logReason.length?logReason.join(' / '):'회원 정보 수정',actor:(typeof adminName==='function'?adminName():'ADMIN')}})});
-      var data=await res.json().catch(function(){return {};});
-      if(!res.ok||!data.ok) throw new Error(data.message||'Supabase 저장 실패');
-      var saved=data.user||after;
-      list[idx]=Object.assign({},after,saved,{memberTier:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),gradeRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tierRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),baseRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tier:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),memberTierName:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier)});
+      list[idx]=Object.assign({},after,{memberTier:selectedTier,gradeRole:selectedTier,tierRole:selectedTier,baseRole:selectedTier,tier:tierName,memberTierName:tierName});
       updateUserDomOnly(list[idx]);
       if(typeof closeMemberEditModal==='function') closeMemberEditModal();
+      fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'updateUserWithLog',originalIdentity:before,before:before,user:after,log:{type:selectedTier!==normalizeTierValue(before.memberTier||before.gradeRole||before.tierRole||before.tier)?'tier_change':'profile_edit',reason:logReason.length?logReason.join(' / '):'회원 정보 수정',actor:(typeof adminName==='function'?adminName():'ADMIN')}})})
+        .then(function(res){return res.json().catch(function(){return {};}).then(function(data){return {res:res,data:data};});})
+        .then(function(pair){
+          if(!pair.res.ok||!pair.data.ok) throw new Error(pair.data.message||'Supabase 저장 실패');
+          var saved=pair.data.user||after;
+          list[idx]=Object.assign({},list[idx],saved,{memberTier:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),gradeRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tierRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),baseRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tier:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),memberTierName:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier)});
+          updateUserDomOnly(list[idx]);
+        })
+        .catch(function(err){ console.error(err); list[idx]=before; updateUserDomOnly(list[idx]); if(typeof pklAlert==='function') pklAlert(err.message||'회원 정보를 Supabase에 저장하지 못했습니다.','저장 실패'); });
     }catch(err){
       console.error(err);
       if(typeof pklAlert==='function') await pklAlert(err.message||'회원 정보를 Supabase에 저장하지 못했습니다.','저장 실패');
