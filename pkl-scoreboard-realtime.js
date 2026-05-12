@@ -40,7 +40,7 @@
       var out=[];teams.forEach(function(t,i){var ms=Array.isArray(t.members)?t.members:[];out.push({id:(t.id||('team'+(i+1)))+'a',realId:t.id||('team'+(i+1)),memberOffset:0,members:ms.slice(0,2)});out.push({id:(t.id||('team'+(i+1)))+'b',realId:t.id||('team'+(i+1)),memberOffset:2,members:ms.slice(2,4)});});
       return out.filter(function(t){return t.members.some(function(m){return memberName(m)&&memberName(m)!=='-';});});
     }
-    return teams.slice(0,20).map(function(t,i){return {id:t.id||('team'+(i+1)),realId:t.id||('team'+(i+1)),memberOffset:0,members:(Array.isArray(t.members)?t.members:[]).slice(0,4)};}).filter(function(t){return t.members.some(function(m){return memberName(m)&&memberName(m)!=='-';});});
+    return teams.slice(0,10).map(function(t,i){return {id:t.id||('team'+(i+1)),realId:t.id||('team'+(i+1)),memberOffset:0,members:(Array.isArray(t.members)?t.members:[]).slice(0,4)};}).filter(function(t){return t.members.some(function(m){return memberName(m)&&memberName(m)!=='-';});});
   }
   function calc(state,team){var kills=[0,0,0,0],deaths=[0,0,0,0],chicken=0,stop=0,chickenCount=0,offset=team.memberOffset||0;(Array.isArray(state.rounds)?state.rounds:[]).forEach(function(r){var d=teamData(r,team.realId||realTeamId(team.id));(d.kills||[]).forEach(function(v,i){if(i>=offset&&i<offset+4) kills[i-offset]+=num(v);});(d.deaths||[]).forEach(function(v,i){if(i>=offset&&i<offset+4) deaths[i-offset]+=num(v);});var cs=chickenScore(r,d);chicken+=cs;if(cs)chickenCount+=1;stop+=num(d.stop);});var target=team.members.reduce(function(s,m){return s+num(memberTier(m).target);},0);var pure=kills.slice(0,team.members.length).reduce(function(a,b){return a+b;},0);var deathPenalty=team.members.reduce(function(s,m,i){return s+num(memberTier(m).death)*num(deaths[i]);},0);var score=pure+chicken+stop+deathPenalty;var percent=target>0?Math.round(score/target*100):(score>0?100:(score<0?-100:0));return {kills:kills,deaths:deaths,target:target,score:score,percent:percent,gauge:Math.max(0,Math.min(100,percent)),pure:pure,chicken:chicken,chickenCount:chickenCount,stop:stop};}
 
@@ -162,7 +162,7 @@
   function renderSnapshot(snap){
     var grid=document.getElementById('grid'); if(!grid||!snap) return;
     var teams=Array.isArray(snap.teams)?snap.teams:[];
-    grid.setAttribute('data-count', String(Math.max(0, Math.min(20, teams.length))));
+    grid.setAttribute('data-count', String(Math.max(0, Math.min(10, teams.length))));
     if(!teams.length){grid.innerHTML='<div class="pkl-empty">표시할 팀 스코어보드가 없습니다.</div>';syncLiveScoreboardSize();return;}
     grid.innerHTML=teams.map(function(t,rank){return '<article class="pkl-team-card '+(rank===0?'first':'')+'"><div class="pkl-score" style="--gauge:'+num(t.gauge)+'%"><span>'+num(t.score)+' / '+num(t.target)+' ('+num(t.percent)+'%)</span></div><div class="pkl-members">'+(Array.isArray(t.members)?t.members:[]).map(function(m,i){var kill=num((t.kills||[])[i]);var death=Math.abs(num(m.death)*num((t.deaths||[])[i]));return '<div class="pkl-member"><span class="pkl-name">'+esc(m.name)+'</span><span class="pkl-kd">'+(kill-death)+' ('+kill+'/'+death+')</span></div>';}).join('')+'</div><div class="pkl-team-footer"><span class="pkl-foot-stat chicken">'+num(t.chicken||0)+'</span><span class="pkl-foot-stat stop">'+num(t.stop||0)+'</span></div></article>';}).join('');
     syncLiveScoreboardSize();
@@ -258,3 +258,10 @@
   if(document.getElementById('recordBody')){ bindSheetPublisher(); startSheetMirror(); }
   if(document.getElementById('grid') && /pkl-scoreboard-live/i.test(location.pathname)) startViewer();
 })();
+
+
+<script>
+window.addEventListener('pkl-team-mode-change', function(e){
+  document.documentElement.dataset.teamMode = e.detail.mode || 'squad10';
+});
+</script>

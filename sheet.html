@@ -79,7 +79,7 @@ button{cursor:pointer}
 .panel-title{display:flex;align-items:center;gap:10px;font-size:19px;font-weight: 900;font-size:26px;font-style:italic;text-shadow:0 0 14px rgba(155,92,255,.55)}
 .panel-title span,.side-title span{color:var(--purple2)}
 .panel-note{color:var(--muted);font-size:16px;font-weight:800}
-.team-grid{min-height:0;flex:1;padding:12px;display:grid;grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(2,1fr);gap:7px}
+.team-grid{min-height:0;flex:1;padding:12px;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(2,1fr);gap:10px}
 .team-grid.duo{grid-template-rows:repeat(4,1fr)}
 .team-card{
   min-height:0;
@@ -6265,48 +6265,6 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 .pkl-score-url-output{min-height:78px !important;height:auto !important;}
 </style>
 
-
-<style id="pkl-sheet-20team-scoreboard-layout">
-/* PKL sheet scoreboard 20 teams: top 10 / bottom 10 */
-#teamGrid.team-grid{
-  grid-template-columns:repeat(10,minmax(112px,1fr)) !important;
-  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
-  gap:7px !important;
-  padding:9px !important;
-}
-#teamGrid .team-card{
-  border-radius:12px !important;
-  padding:5px 6px !important;
-}
-#teamGrid .card-score-main{
-  min-height:30px !important;
-  height:30px !important;
-  font-size:14px !important;
-  border-radius:9px !important;
-  margin-bottom:4px !important;
-}
-#teamGrid .score-gauge-text{
-  font-size:13px !important;
-}
-#teamGrid .member-list{
-  padding:4px 5px !important;
-  gap:3px !important;
-}
-#teamGrid .member-row{
-  grid-template-columns:minmax(0,1fr) auto !important;
-  gap:4px !important;
-  min-height:18px !important;
-  font-size:11px !important;
-}
-#teamGrid .member-name,
-#teamGrid .member-kd{
-  font-size:11px !important;
-}
-#teamGrid .team-extra-row .member-name,
-#teamGrid .team-extra-row .member-kd{
-  font-size:10px !important;
-}
-</style>
 </head>
 <body>
 <div class="app">
@@ -6482,7 +6440,7 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 const STORAGE_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
 const MAPS=['','에','미','사','태','론','비','데'];
 
-const baseTeams=Array.from({length:20},(_,i)=>({
+const baseTeams=Array.from({length:10},(_,i)=>({
   id:'team'+(i+1),
   target:0,
   members:Array.from({length:4},(_,mi)=>({name:'',tier:''}))
@@ -6523,17 +6481,12 @@ function load(){
         endTime:saved.endTime || '',
         resetNonce:Number(saved.resetNonce||0)
       };
-      const savedTeams = Array.isArray(next.teams) ? next.teams : [];
-      next.teams = baseTeams.map((baseTeam,index)=>{
-        const team = savedTeams[index] || {};
-        return {
-          ...baseTeam,
-          ...team,
-          id: team.id || ('team'+(index+1)),
-          target: Number(team.target || baseTeam.target || 0),
-          members: Array.isArray(team.members) && team.members.length ? team.members : baseTeam.members
-        };
-      });
+      next.teams=next.teams.map((team,index)=>({
+        ...baseTeams[index],
+        ...team,
+        id:team.id || ('team'+(index+1)),
+        members:Array.isArray(team.members) && team.members.length ? team.members : (baseTeams[index]?.members || [])
+      }));
       return next;
     }
   }catch(e){}
@@ -12655,3 +12608,10 @@ window.addEventListener('DOMContentLoaded',()=>{
 
 </body>
 </html>
+
+
+<script>
+window.addEventListener('pkl-team-mode-change', function(e){
+  document.documentElement.dataset.teamMode = e.detail.mode || 'squad10';
+});
+</script>

@@ -5779,80 +5779,22 @@ body .modal-layer [class*="streak"]{
 
 
 
-/* === PKL 20 TEAM COMPOSITION LAYOUT FINAL ===
-   대기칸은 절반 수준으로 줄이고, 팀 박스 영역을 넓혀 20팀(상단 10 / 하단 10)을 한 화면 기준으로 배치한다.
-   기능 로직은 team.js의 TEAM_COUNT=20 기준 그대로 사용한다. */
-.builder-layout{
-  grid-template-columns:minmax(170px,1.25fr) minmax(1180px,8.8fr) minmax(168px,1fr) !important;
-  gap:8px !important;
+.mode-select-wrap{
+ display:flex;
+ flex-direction:column;
+ gap:8px;
+ margin-top:12px;
+ padding:14px;
+ border-radius:16px;
+ border:1px solid rgba(255,255,255,.12);
+ background:rgba(10,10,18,.72);
 }
-.tier-panel{
-  min-width:0 !important;
-}
-.tier-pools{
-  gap:6px !important;
-}
-.tier-box{
-  min-width:0 !important;
-}
-.tier-head{
-  padding:5px 7px !important;
-}
-.tier-head span:first-child,
-.tier-count{
-  font-size:10px !important;
-}
-.tier-list{
-  padding:5px !important;
-  gap:4px !important;
-}
-.tier-list .player-card{
-  min-width:0 !important;
-  padding:5px 6px !important;
-}
-.tier-list .player-name{
-  font-size:10px !important;
-}
-.team-board{
-  min-width:1180px !important;
-}
-.team-grid{
-  grid-template-columns:repeat(10,minmax(104px,1fr)) !important;
-  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
-  gap:6px !important;
-}
-.team-card{
-  border-radius:11px !important;
-}
-.team-head{
-  min-height:28px !important;
-  padding:5px 6px !important;
-}
-.team-name{
-  font-size:11px !important;
-}
-.team-score{
-  font-size:10px !important;
-}
-.slot-list{
-  gap:4px !important;
-  padding:5px !important;
-}
-.team-slot{
-  min-height:0 !important;
-  border-radius:8px !important;
-}
-.team-slot .player-card{
-  padding:5px 6px !important;
-}
-.team-slot .player-name{
-  font-size:10px !important;
-}
-.team-slot .player-tier.member-role-badge{
-  transform:scale(.84) !important;
-  transform-origin:center !important;
-}
-@media (max-width:1500px){
-  .team-page{overflow:auto !important;}
-  .builder-layout{min-width:1540px !important;}
+.mode-select{
+ height:44px;
+ border-radius:12px;
+ background:#141420;
+ color:#fff;
+ border:1px solid rgba(168,85,247,.35);
+ padding:0 12px;
+ font-weight:700;
 }
