@@ -5854,3 +5854,66 @@ body .modal-layer [class*="streak"]{
   height:100%;
   min-height:100%;
 }
+
+
+/* PKL minimal slot fix */
+.team-card{
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+.team-card .slot-list{
+  flex:1 1 auto;
+  display:grid;
+  gap:8px;
+  min-height:0;
+}
+
+.builder-layout:not(.pkl-mode-duo) .team-card .slot-list{
+  grid-template-rows:repeat(4,minmax(0,1fr));
+}
+
+.builder-layout.pkl-mode-duo .team-card .slot-list{
+  grid-template-rows:repeat(2,minmax(0,1fr));
+}
+
+.team-card .team-slot{
+  min-height:0 !important;
+  height:auto !important;
+  overflow:hidden;
+  display:flex;
+  align-items:stretch;
+}
+
+.team-card .player-card,
+.team-card .empty-slot{
+  flex:1 1 auto;
+  width:100%;
+  height:100%;
+  min-height:0;
+  box-sizing:border-box;
+}
+
+.team-card .player-name{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* buddy center divider remove */
+.builder-layout.pkl-mode-buddy .team-card.buddy-first{
+  border-right-color:transparent !important;
+  margin-right:-4px;
+}
+
+.builder-layout.pkl-mode-buddy .team-card.buddy-second{
+  border-left-color:transparent !important;
+  margin-left:-4px;
+}
+
+.builder-layout.pkl-mode-buddy .team-card.buddy-first::after,
+.builder-layout.pkl-mode-buddy .team-card.buddy-second::before{
+  display:none !important;
+  content:none !important;
+}
