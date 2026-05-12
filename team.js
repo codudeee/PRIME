@@ -40,6 +40,63 @@
 
   let state = loadState();
   let draggedPlayerId = null;
+  let pklSupabaseUsersCache = [];
+
+  function normalizeIdentityValue(value){
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function getUserDiscordId(user){
+    user = user || {};
+    return normalizeIdentityValue(user.discord_id || user.discordId || user.discord || user.user_id || user.userId || user.uid || user.id || '');
+  }
+
+  function getUserAnyName(user){
+    user = user || {};
+    return normalizeIdentityValue(user.nickname || user.nick || user.name || user.displayName || user.discord_username || user.discordUsername || '');
+  }
+
+  function normalizeSupabaseUser(row){
+    row = row || {};
+    return {
+      ...row,
+      uid: row.id || row.uid || row.user_id || row.discord_id || row.discordId || '',
+      id: row.id || row.uid || row.user_id || row.discord_id || row.discordId || '',
+      discord_id: row.discord_id || row.discordId || '',
+      discordId: row.discord_id || row.discordId || '',
+      nickname: row.nickname || row.nick || row.name || row.discord_username || row.discordUsername || '',
+      name: row.nickname || row.nick || row.name || row.discord_username || row.discordUsername || '',
+      pubgId: row.pubg_id || row.pubgId || row.game_id || row.gameId || '',
+      gameId: row.pubg_id || row.pubgId || row.game_id || row.gameId || '',
+      tier: row.tier || row.member_tier || row.grade || row.title || ''
+    };
+  }
+
+  async function loadSupabaseUsersForTeam(){
+    try{
+      const res = await fetch('/api/pkl-users?limit=500&_=' + Date.now(), {headers:{'Cache-Control':'no-store'}});
+      if(!res.ok) return [];
+      const data = await res.json().catch(()=>null);
+      const rows = Array.isArray(data) ? data : (Array.isArray(data?.users) ? data.users : (Array.isArray(data?.rows) ? data.rows : []));
+      pklSupabaseUsersCache = rows.map(normalizeSupabaseUser).filter(u => u.discord_id || u.nickname);
+      return pklSupabaseUsersCache;
+    }catch(error){
+      return [];
+    }
+  }
+
+  function findSupabaseUserForJoinItem(item){
+    item = item || {};
+    const discord = getUserDiscordId(item);
+    const name = getUserAnyName(item);
+    return pklSupabaseUsersCache.find(user => {
+      const userDiscord = getUserDiscordId(user);
+      if(discord && userDiscord && discord === userDiscord) return true;
+      const userName = getUserAnyName(user);
+      return !!(name && userName && name === userName);
+    }) || null;
+  }
+
 
   function pklTeamCanEdit(){
     return !!(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentHasRole === "function" && window.PKLRoleSystem.currentHasRole("operator"));
@@ -206,18 +263,20 @@
   }
 
 
-  function init() {
+  async function init() {
     fillTierSelect();
     bindControls();
     bindNewPlayerTierDropdown();
     bindRerollModeDropdown();
     fillMatchTimeSelects();
+    await loadSupabaseUsersForTeam();
     syncJoinWaitListIntoTeamBoard(true);
     syncPlayersWithUserSources();
     render();
     startClock();
     bindUserSyncEvents();
-    window.addEventListener('pkl-join-state-updated', function(){
+    window.addEventListener('pkl-join-state-updated', async function(){
+      await loadSupabaseUsersForTeam();
       syncJoinWaitListIntoTeamBoard(true);
       syncPlayersWithUserSources();
       render();
@@ -763,21 +822,23 @@ const teamIndex = Number(slot.dataset.teamIndex);
   function syncJoinWaitListIntoTeamBoard(forceLoad) {
     if (!forceLoad && isJoinRecruitClosed()) return;
     const joinList = readJoinWaitList().filter(item => {
-      const adminUser = findAdminUserForJoinItem(item);
-      const accountUser = findAccountUserForJoinItem(item, adminUser);
+      const supabaseUser = findSupabaseUserForJoinItem(item);
+      const adminUser = supabaseUser || findAdminUserForJoinItem(item);
+      const accountUser = supabaseUser || findAccountUserForJoinItem(item, adminUser);
       return !isPrisonerForJoin(adminUser) && !isPrisonerForJoin(accountUser) && !isPrisonerForJoin(item);
     });
     /* join 대기 명단은 pklJoinState/current가 원본이다. team 페이지는 읽기/분류만 하고 대기 명단을 다시 저장하지 않는다. */
     const activeKeys = new Set();
 
     joinList.forEach(item => {
-      const adminUser = findAdminUserForJoinItem(item);
-      const accountUser = findAccountUserForJoinItem(item, adminUser);
+      const supabaseUser = findSupabaseUserForJoinItem(item);
+      const adminUser = supabaseUser || findAdminUserForJoinItem(item);
+      const accountUser = supabaseUser || findAccountUserForJoinItem(item, adminUser);
       const identity = getJoinWaitItemKey(accountUser || adminUser || item);
       if (identity) activeKeys.add(identity);
 
       const displayName = (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname || (accountUser && (accountUser.nickname || accountUser.nick || accountUser.name)) || '참가자';
-      const tier = resolveUserTierKey(accountUser) !== 'none' ? resolveUserTierKey(accountUser) : (resolveUserTierKey(item) !== 'none' ? resolveUserTierKey(item) : 'tier0');
+      const tier = resolveUserTierKey(accountUser) !== 'none' ? resolveUserTierKey(accountUser) : (resolveUserTierKey(adminUser) !== 'none' ? resolveUserTierKey(adminUser) : (resolveUserTierKey(item) !== 'none' ? resolveUserTierKey(item) : 'tier0'));
       const player = findPlayerForJoinItem(item, adminUser, accountUser);
 
       if (player) {

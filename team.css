@@ -6037,3 +6037,105 @@ body .modal-layer [class*="streak"]{
 .team-mode-select{
   display:none !important;
 }
+
+
+/* PKL team box polish only */
+.builder-layout.pkl-mode-10 .team-board,
+.builder-layout.pkl-mode-20 .team-board{
+  overflow:hidden !important;
+}
+
+.builder-layout.pkl-mode-10 .team-grid{
+  grid-template-columns:repeat(5,minmax(150px,1fr)) !important;
+  gap:10px !important;
+  align-items:stretch !important;
+}
+
+.builder-layout.pkl-mode-20 .team-grid{
+  grid-template-columns:repeat(10,minmax(112px,1fr)) !important;
+  gap:8px !important;
+  align-items:stretch !important;
+}
+
+.builder-layout .team-card{
+  min-width:0 !important;
+}
+
+.builder-layout.pkl-mode-10 .team-card{
+  min-height:278px !important;
+}
+
+.builder-layout.pkl-mode-20 .team-card{
+  min-height:278px !important;
+}
+
+.builder-layout.pkl-mode-10 .slot-list,
+.builder-layout.pkl-mode-20 .slot-list{
+  gap:7px !important;
+}
+
+.builder-layout.pkl-mode-10 .team-slot,
+.builder-layout.pkl-mode-20 .team-slot{
+  min-height:58px !important;
+}
+
+.builder-layout.pkl-mode-duo .team-slot{
+  min-height:82px !important;
+}
+
+/* 깐부 묶음: 두 팀 사이를 하나의 페어처럼 연결 */
+.builder-layout.pkl-mode-buddy .team-card.buddy-first{
+  border-right-color:rgba(216,180,254,.10) !important;
+  border-top-right-radius:8px !important;
+  border-bottom-right-radius:8px !important;
+  margin-right:-5px !important;
+}
+.builder-layout.pkl-mode-buddy .team-card.buddy-second{
+  border-left-color:rgba(216,180,254,.10) !important;
+  border-top-left-radius:8px !important;
+  border-bottom-left-radius:8px !important;
+  margin-left:-5px !important;
+}
+.builder-layout.pkl-mode-buddy .team-card.buddy-first::after{
+  content:"";
+  position:absolute;
+  top:42px;
+  right:-7px;
+  bottom:12px;
+  width:14px;
+  border-top:1px solid rgba(216,180,254,.24);
+  border-bottom:1px solid rgba(216,180,254,.24);
+  background:
+    linear-gradient(180deg,rgba(168,85,247,.18),rgba(168,85,247,.035));
+  pointer-events:none;
+  z-index:4;
+}
+.builder-layout.pkl-mode-buddy .team-card.buddy-second::before{
+  content:"";
+  position:absolute;
+  top:42px;
+  left:-7px;
+  bottom:12px;
+  width:14px;
+  background:linear-gradient(180deg,rgba(168,85,247,.10),rgba(168,85,247,.02));
+  pointer-events:none;
+  z-index:3;
+}
+.builder-layout.pkl-mode-buddy .buddy-label{
+  border-color:rgba(216,180,254,.30) !important;
+  background:rgba(168,85,247,.22) !important;
+  color:#eadbff !important;
+}
+
+/* 10팀 깐부 아래줄 7~10팀 같은 모션/크기 유지 */
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-grid{
+  grid-template-columns:repeat(6,minmax(126px,1fr)) !important;
+}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(n+7){
+  transform:none !important;
+  margin-top:0 !important;
+}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(7){grid-column:2 !important;}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(8){grid-column:3 !important;}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(9){grid-column:4 !important;}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(10){grid-column:5 !important;}
