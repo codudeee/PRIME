@@ -123,8 +123,8 @@ function pklCanChangeRole() {
 #pklCommonHeader .mail-badge{
   position:absolute !important;
   left:auto !important;
-  top:-12px !important;
-  right:-8px !important;
+  top:-10px !important;
+  right:-10px !important;
   min-width:20px !important;
   height:20px !important;
   padding:0 6px !important;
@@ -236,6 +236,7 @@ input,textarea,[contenteditable="true"],[contenteditable="true"] *{
   font-weight:1000 !important;
 }
 #pklCommonHeader .pkl-header-badge-stack{
+  position:relative !important;
   display:inline-flex !important;
   align-items:center !important;
   gap:5px !important;
@@ -403,8 +404,15 @@ if(node.nodeType===Node.TEXT_NODE){
     const badgeHtml=getHeaderUserBadgeHtml(target);
     const mailBadge=button.querySelector("#mailBadge");
     button.innerHTML='<span class="pkl-header-user-name">'+name+'</span>'+badgeHtml;
-    if(mailBadge) button.appendChild(mailBadge);
-    else button.insertAdjacentHTML("beforeend",'<span class="mail-badge" id="mailBadge" style="display:none"></span>');
+    const badgeStack=button.querySelector(".pkl-header-badge-stack");
+    if(mailBadge){
+      if(badgeStack) badgeStack.appendChild(mailBadge);
+      else button.appendChild(mailBadge);
+    }else if(badgeStack){
+      badgeStack.insertAdjacentHTML("beforeend",'<span class="mail-badge" id="mailBadge" style="display:none"></span>');
+    }else{
+      button.insertAdjacentHTML("beforeend",'<span class="mail-badge" id="mailBadge" style="display:none"></span>');
+    }
   }
 
   function escapeHtml(v){

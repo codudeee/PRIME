@@ -8,7 +8,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 
 <link rel="stylesheet" href="pkl-main-common.css">
-<link rel="preload" as="image" href="pkl_index_bg.webp">
+<link rel="preload" as="image" href="pkl_index_bg.webp" fetchpriority="high">
 <style id="pkl-index-boot-fix">
 html,body{
   background:
@@ -593,7 +593,6 @@ font-weight:700;
 </style>
 <script id="pkl-index-first-paint-fix">
 (function(){
-  try{document.documentElement.style.background="#050507";}catch(e){}
   function revealIndex(){
     if(!document.body) return;
     requestAnimationFrame(function(){
