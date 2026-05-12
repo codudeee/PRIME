@@ -5794,6 +5794,14 @@ a,
 .prime-adjust-head h2{margin:0;font-size:19px;letter-spacing:-.4px}.prime-adjust-head p{margin:5px 0 0;color:#c4b5fd;font-size:12px;font-weight:850;line-height:1.45}.prime-adjust-close{width:32px;height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#fff;font-weight:1000;cursor:pointer}
 .prime-adjust-grid{display:grid;gap:10px}.prime-adjust-field label{display:block;margin:0 0 7px;color:#ddd6fe;font-size:12px;font-weight:1000}.prime-adjust-field input,.prime-adjust-field textarea,.prime-adjust-field select{width:100%;border:1px solid rgba(216,180,254,.18);border-radius:12px;background:rgba(0,0,0,.28);color:#fff;font-weight:900;outline:none}.prime-adjust-field input,.prime-adjust-field select{height:42px;padding:0 12px}.prime-adjust-field textarea{min-height:76px;padding:12px;resize:vertical}.prime-adjust-actions{display:flex;gap:8px;margin-top:14px}.prime-adjust-actions button{flex:1;height:42px;border-radius:12px;border:1px solid rgba(216,180,254,.26);color:#fff;font-weight:1000;cursor:pointer}.prime-adjust-save{background:linear-gradient(180deg,rgba(124,58,237,.34),rgba(59,7,100,.78))}.prime-adjust-cancel{background:rgba(255,255,255,.06)}
 </style>
+
+<style id="pkl-admin-modal-speed-layer-20260513">
+/* 2026-05 관리자 모달 체감 보정: 완료/확인 모달은 항상 최상단, blur 최소화 */
+#pklNoticeLayer{z-index:2147483647!important;backdrop-filter:blur(2px)!important;background:rgba(4,3,10,.34)!important}
+#modal.modal{z-index:2147483300!important}
+#primeAdjustModal.prime-adjust-modal,.prime-adjust-modal{z-index:2147483200!important}
+.memo-delete-modal,.temp-edit-modal{z-index:2147483100!important}
+</style>
 </head>
 <body>
 <div class="app">
@@ -6091,6 +6099,10 @@ function openPklNotice({title="알림",message="",mode="alert",ok="확인",cance
     const layer=document.getElementById("pklNoticeLayer"),card=document.getElementById("pklNoticeCard"),cancelBtn=document.getElementById("pklNoticeCancel"),okBtn=document.getElementById("pklNoticeOk");
     if(!layer||!card||!okBtn){resolve(true);return;}
     pklNoticeResolver=resolve;
+    try{
+      if(layer.parentElement!==document.body) document.body.appendChild(layer);
+      layer.style.zIndex="2147483647";
+    }catch(e){}
     document.getElementById("pklNoticeTitle").textContent=title;
     document.getElementById("pklNoticeMessage").textContent=message;
     document.getElementById("pklNoticeKicker").textContent=kicker;
@@ -6621,7 +6633,7 @@ function openMemoDeleteModal(i){if(!pklIsSuperAdmin()){pklAlert("관리자만 �
 function closeMemoDeleteModal(){pendingMemoDeleteIndex=null;document.getElementById("memoDeleteModal").classList.remove("open");}
 function confirmMemoDelete(){const u=state.users[current];if(u?.memoList?.[pendingMemoDeleteIndex]!=null){u.memoList.splice(pendingMemoDeleteIndex,1);save();renderMemoList();}closeMemoDeleteModal();}
 
-function action(type){if(type==="ban"&&!pklIsSuperAdmin()){pklAlert("영구추방은 관리자만 사용할 수 있습니다.","권한 제한");return;}if(type!=="ban"&&!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}pendingAction=type;const u=state.users[current];const id=type==="warn"?"warnText":type==="minus"?"minusText":"banText";const reason=(document.getElementById(id)?.value||"").trim();const input=document.getElementById("modalReasonInput"),view=document.getElementById("modalReasonView"),yes=document.querySelector("#modal .confirm-yes"),no=document.querySelector("#modal .confirm-no");if(!u)return;document.getElementById("modalTitle").textContent=type==="warn"?"경고 부여 확인":type==="minus"?"경고 차감 확인":"영구추방 확인";document.getElementById("modalQuestion").innerHTML=`<b>${esc(u.nickname)}</b> 님을 처리하시겠습니까?`;view.textContent=reason;view.style.display=reason?"block":"none";input.value=reason;input.placeholder=type==="ban"?"영구추방 사유를 입력하세요.":"처리 사유를 입력하세요.";input.style.display=reason?"none":"block";yes.style.display="";yes.textContent=reason?"예":"처리";no.textContent=reason?"아니오":"취소";document.getElementById("modal").classList.add("open");}
+function action(type){if(type==="ban"&&!pklIsSuperAdmin()){pklAlert("영구추방은 관리자만 사용할 수 있습니다.","권한 제한");return;}if(type!=="ban"&&!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}pendingAction=type;const u=state.users[current];const id=type==="warn"?"warnText":type==="minus"?"minusText":"banText";const reason=(document.getElementById(id)?.value||"").trim();const input=document.getElementById("modalReasonInput"),view=document.getElementById("modalReasonView"),yes=document.querySelector("#modal .confirm-yes"),no=document.querySelector("#modal .confirm-no");if(!u)return;document.getElementById("modalTitle").textContent=type==="warn"?"경고 부여 확인":type==="minus"?"경고 차감 확인":"영구추방 확인";document.getElementById("modalQuestion").innerHTML=`<b>${esc(u.nickname)}</b> 님을 처리하시겠습니까?`;view.textContent=reason;view.style.display=reason?"block":"none";input.value=reason;input.placeholder=type==="ban"?"영구추방 사유를 입력하세요.":"처리 사유를 입력하세요.";input.style.display=reason?"none":"block";yes.style.display="";yes.disabled=false;yes.textContent=reason?"예":"처리";if(no)no.disabled=false;no.textContent=reason?"아니오":"취소";document.getElementById("modal").classList.add("open");}
 function closeModal(){document.getElementById("modal").classList.remove("open");}
 async function confirmModal(){
   const u=state.users[current];
@@ -6631,6 +6643,13 @@ async function confirmModal(){
   const typed=input.style.display!=="none"?input.value.trim():"";
   if(input.style.display!=="none"&&!typed){input.focus();return;}
   const reason=typed||document.getElementById("modalReasonView").textContent.trim()||"관리자 처리";
+  try{
+    const yes=document.querySelector("#modal .confirm-yes");
+    const no=document.querySelector("#modal .confirm-no");
+    if(yes){yes.disabled=true;yes.textContent="처리 중";}
+    if(no)no.disabled=true;
+  }catch(e){}
+  closeModal();
   const record={type:pendingAction,reason,date:nowText(),admin:adminName()};
   let removed=false;
   try{
@@ -7130,6 +7149,7 @@ async function submitPrimeAdjust(){
   const reason=(document.getElementById("primeAdjustReason")?.value||"").trim() || (type==="grant"?"프라임 지급":"프라임 압수");
   if(!amount){pklAlert("프라임 수량을 입력해주세요.","입력 필요");return;}
   const signedAmount=type==="seize"?-amount:amount;
+  closePrimeAdjustModal();
   try{
     const res=await fetch("/api/pkl-users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"adjustPrime",user:pklUserPayloadForApi(u),amount:signedAmount,reason,actor:adminName()})});
     const data=await res.json().catch(()=>({}));
@@ -7138,7 +7158,6 @@ async function submitPrimeAdjust(){
     const updated=pklReplaceCurrentUserFromApi(saved)||u;
     const nextPrime=Number(updated.prime ?? updated.points ?? updated.dia ?? updated.chicken ?? saved.prime ?? saved.points ?? saved.dia ?? saved.chicken ?? 0)||0;
     updated.prime=nextPrime; updated.points=nextPrime; updated.dia=nextPrime; updated.chicken=nextPrime;
-    closePrimeAdjustModal();
     pklRenderOperationalPanels(updated,{logs:true,memo:true});
     try{window.dispatchEvent(new CustomEvent("pkl-mailbox-updated",{detail:{user:updated}}));}catch(e){}
     await pklAlert(`${updated.nickname||u.nickname||"회원"}님에게 ${amount} 프라임이 ${type==="grant"?"지급":"압수"} 처리되었습니다.`,"처리 완료");
