@@ -205,14 +205,22 @@ button,input,select,textarea{font-family:inherit}button{cursor:pointer}input,sel
   width:84px;
   height:38px;
   border-radius:12px;
-  border:1px solid rgba(167,139,250,.34);
-  background:linear-gradient(180deg,rgba(124,58,237,.62),rgba(76,29,149,.48));
-  color:#fff;
+  border:1px solid rgba(216,180,254,.30);
+  background:linear-gradient(180deg,rgba(124,58,237,.54),rgba(76,29,149,.38));
+  color:#f8f3ff;
   font-size:13px;
   font-weight:1000;
   cursor:pointer;
+  box-shadow:0 0 14px rgba(124,58,237,.14),inset 0 1px 0 rgba(255,255,255,.07);
+  transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease,background .15s ease,color .15s ease;
 }
-.memo-submit:hover{filter:brightness(1.12)}
+.memo-submit:hover{
+  transform:translateY(-1px);
+  border-color:rgba(233,213,255,.50);
+  background:linear-gradient(180deg,rgba(139,92,246,.66),rgba(76,29,149,.46));
+  color:#fff;
+  box-shadow:0 0 22px rgba(124,58,237,.24),inset 0 1px 0 rgba(255,255,255,.10);
+}
 .memo-list{
   display:flex;
   flex-direction:column;
@@ -269,29 +277,41 @@ button,input,select,textarea{font-family:inherit}button{cursor:pointer}input,sel
   gap:6px;
 }
 .memo-actions button{
-  width:44px;
+  min-width:44px;
   height:28px;
+  padding:0 10px;
   border-radius:9px;
   background:rgba(0,0,0,.22);
   font-size:11px;
   font-weight:1000;
   cursor:pointer;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+  transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease,background .15s ease,color .15s ease;
+}
+.memo-actions button:hover{
+  transform:translateY(-1px);
 }
 .memo-edit{
-  border:1px solid rgba(216,180,254,.25);
-  color:#ddd6fe;
+  border:1px solid rgba(216,180,254,.28);
+  color:#e9d5ff;
+  background:linear-gradient(180deg,rgba(124,58,237,.34),rgba(76,29,149,.24));
 }
 .memo-edit:hover{
-  background:rgba(124,58,237,.30);
+  border-color:rgba(233,213,255,.48);
+  background:linear-gradient(180deg,rgba(139,92,246,.52),rgba(76,29,149,.34));
   color:#fff;
+  box-shadow:0 0 16px rgba(124,58,237,.22),inset 0 1px 0 rgba(255,255,255,.09);
 }
 .memo-delete{
-  border:1px solid rgba(255,75,95,.70);
-  color:#ff5f6d;
+  border:1px solid rgba(248,113,113,.46);
+  color:#fecaca;
+  background:linear-gradient(180deg,rgba(127,29,29,.38),rgba(69,10,10,.28));
 }
 .memo-delete:hover{
-  background:rgba(255,75,95,.28);
+  border-color:rgba(248,113,113,.70);
+  background:linear-gradient(180deg,rgba(153,27,27,.52),rgba(69,10,10,.36));
   color:#fff;
+  box-shadow:0 0 16px rgba(248,113,113,.18),inset 0 1px 0 rgba(255,255,255,.08);
 }
 .memo-list::-webkit-scrollbar{width:7px}
 .memo-list::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:99px}
@@ -428,12 +448,15 @@ button,input,select,textarea{font-family:inherit}button{cursor:pointer}input,sel
   box-shadow:0 0 14px rgba(124,58,237,.18);
 }
 .memo-edit.apply{
-  border-color:rgba(74,222,128,.45);
-  color:#86efac;
+  border-color:rgba(74,222,128,.48);
+  color:#bbf7d0;
+  background:linear-gradient(180deg,rgba(22,101,52,.42),rgba(20,83,45,.30));
 }
 .memo-edit.apply:hover{
-  background:rgba(34,197,94,.22);
+  border-color:rgba(134,239,172,.72);
+  background:linear-gradient(180deg,rgba(34,197,94,.38),rgba(22,101,52,.34));
   color:#fff;
+  box-shadow:0 0 16px rgba(74,222,128,.18),inset 0 1px 0 rgba(255,255,255,.08);
 }
 
 
@@ -2199,19 +2222,25 @@ letter-spacing:0.3px;
   position:absolute;
   top:12px;
   right:12px;
-  height:28px;
-  padding:0 12px;
-  border-radius:999px;
-  border:1px solid rgba(216,180,254,.22);
-  background:rgba(124,58,237,.18);
-  color:#ddd6fe;
+  min-width:62px;
+  height:30px;
+  padding:0 14px;
+  border-radius:11px;
+  border:1px solid rgba(216,180,254,.28);
+  background:linear-gradient(180deg,rgba(124,58,237,.46),rgba(76,29,149,.34));
+  color:#f4edff;
   font-size:12px;
   font-weight:1000;
   cursor:pointer;
+  box-shadow:0 0 14px rgba(124,58,237,.14),inset 0 1px 0 rgba(255,255,255,.07);
+  transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease,background .15s ease,color .15s ease;
 }
 .basic-edit-btn:hover{
-  background:rgba(124,58,237,.28);
+  transform:translateY(-1px);
+  border-color:rgba(233,213,255,.50);
+  background:linear-gradient(180deg,rgba(139,92,246,.62),rgba(76,29,149,.44));
   color:#fff;
+  box-shadow:0 0 22px rgba(124,58,237,.26),inset 0 1px 0 rgba(255,255,255,.10);
 }
 
 /* 각 행 오른쪽 개별 수정 버튼 숨김 */
@@ -6902,7 +6931,7 @@ function setRoleFromDropdown(role){
 }
 document.addEventListener("click",e=>{const box=document.getElementById("roleDropdown");if(box&&!box.contains(e.target))box.classList.remove("open");});
 function addMemo(){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const u=state.users[current],input=document.getElementById("memo");if(!u||!input||!input.value.trim())return;u.memoList.unshift({date:nowText(),admin:adminName(),text:input.value.trim()});input.value="";save();renderMemoList();}
-function renderMemoList(){const u=state.users[current],list=document.getElementById("memoList");if(!u||!list)return;list.innerHTML=(u.memoList||[]).map((m,i)=>`<div class="memo-item" data-memo-index="${i}"><div class="memo-left"><span class="memo-date">${esc((m.date||'').split(' ')[0])}</span><span class="memo-time">${esc((m.date||'').split(' ')[1]||'')}</span><span class="memo-admin">${esc(m.admin)}</span><input class="memo-inline-input" value="${esc(m.text)}" readonly onkeydown="memoInlineKey(event,${i},this)"></div><div class="memo-actions"><button class="memo-edit" data-action="edit" onclick="toggleMemoEdit(${i},this)">수정</button><button class="memo-delete" onclick="openMemoDeleteModal(${i})">회원데이터삭제</button></div></div>`).join("")||`<div class="detail-log-empty">메모가 없습니다.</div>`;}
+function renderMemoList(){const u=state.users[current],list=document.getElementById("memoList");if(!u||!list)return;list.innerHTML=(u.memoList||[]).map((m,i)=>`<div class="memo-item" data-memo-index="${i}"><div class="memo-left"><span class="memo-date">${esc((m.date||'').split(' ')[0])}</span><span class="memo-time">${esc((m.date||'').split(' ')[1]||'')}</span><span class="memo-admin">${esc(m.admin)}</span><input class="memo-inline-input" value="${esc(m.text)}" readonly onkeydown="memoInlineKey(event,${i},this)"></div><div class="memo-actions"><button class="memo-edit" data-action="edit" onclick="toggleMemoEdit(${i},this)">수정</button><button class="memo-delete" onclick="openMemoDeleteModal(${i})">삭제</button></div></div>`).join("")||`<div class="detail-log-empty">메모가 없습니다.</div>`;}
 function toggleMemoEdit(i,btn){if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}const item=document.querySelector(`.memo-item[data-memo-index="${i}"]`),input=item?.querySelector('.memo-inline-input');if(!input)return;if(btn.dataset.action==="edit"){input.removeAttribute('readonly');input.focus();input.select();btn.dataset.action="apply";btn.textContent="적용";btn.classList.add('apply');return;}saveMemoInline(i,input.value);}
 function saveMemoInline(i,value){const u=state.users[current];if(!u?.memoList?.[i])return;const text=String(value||"").trim();if(text)u.memoList[i].text=text;save();renderMemoList();}
 function memoInlineKey(e,i,input){if(e.key==="Enter"){e.preventDefault();saveMemoInline(i,input.value)}if(e.key==="Escape"){e.preventDefault();renderMemoList()}}
