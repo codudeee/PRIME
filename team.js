@@ -711,7 +711,11 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function getJoinWaitItemKey(item) {
     if (!item) return '';
-    return String(item.userId || item.uid || item.key || item.accountId || item.id || item.pubgId || item.name || item.nickname || '').trim();
+    return String(
+      item.discord_id || item.discordId || item.discordID || item.userDiscordId ||
+      item.userId || item.uid || item.key || item.accountId || item.id || item.pubgId || item.gameId ||
+      item.nickname || item.name || item.discord_username || ''
+    ).trim();
   }
 
   function findAdminUserForJoinItem(item) {
@@ -759,8 +763,23 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function getSupabaseRestConfig() {
     const cfg = window.PKL_SUPABASE_CONFIG || {};
-    const url = String(cfg.url || '').replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
-    const key = String(cfg.anonKey || cfg.anon_key || '');
+    const readLocal = (keys) => {
+      for (const key of keys) {
+        try {
+          const value = localStorage.getItem(key) || sessionStorage.getItem(key);
+          if (value) return value;
+        } catch (error) {}
+      }
+      return '';
+    };
+    const url = String(
+      cfg.url || cfg.supabaseUrl || cfg.SUPABASE_URL ||
+      readLocal(['SUPABASE_URL','PKL_SUPABASE_URL','VITE_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_URL']) || ''
+    ).replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+    const key = String(
+      cfg.anonKey || cfg.anon_key || cfg.supabaseAnonKey || cfg.SUPABASE_ANON_KEY ||
+      readLocal(['SUPABASE_ANON_KEY','PKL_SUPABASE_ANON_KEY','VITE_SUPABASE_ANON_KEY','NEXT_PUBLIC_SUPABASE_ANON_KEY']) || ''
+    );
     return { url, key };
   }
 
@@ -804,7 +823,20 @@ const teamIndex = Number(slot.dataset.teamIndex);
     const seed = accountUser || adminUser || item;
     const identityMatch = users.find(user => isSameUserIdentity(seed, user)) || users.find(user => isSameUserIdentity(item, user));
     if (identityMatch) return identityMatch;
-    return users.find(user => sameName(user, (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname || item.discord_username));
+    const candidates = [
+      item && (item.discord_id || item.discordId || item.discordID || item.userDiscordId),
+      adminUser && (adminUser.discord_id || adminUser.discordId || adminUser.id || adminUser.uid),
+      accountUser && (accountUser.discord_id || accountUser.discordId || accountUser.id || accountUser.uid),
+      adminUser && (adminUser.nickname || adminUser.nick || adminUser.name),
+      accountUser && (accountUser.nickname || accountUser.nick || accountUser.name),
+      item && (item.nickname || item.name || item.discord_username || item.discordUsername)
+    ].filter(Boolean);
+    for (const value of candidates) {
+      const found = users.find(user => isSameUserIdentity({ discord_id:value, id:value, uid:value, userId:value, nickname:value, name:value }, user)) ||
+        users.find(user => sameName(user, value));
+      if (found) return found;
+    }
+    return null;
   }
 
   function syncJoinWaitListIntoTeamBoard(forceLoad) {
@@ -889,7 +921,14 @@ const teamIndex = Number(slot.dataset.teamIndex);
     state.players.forEach(player => {
       hydratePlayerIdentity(player);
       const displayName = resolvePlayerDisplayName(player);
-      const accountUser = resolvePlayerAccountUser(player, displayName);
+      const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || readSupabaseUsers().find(user => sameName(user, displayName || player.name));
+      const accountUser = supabaseUser || resolvePlayerAccountUser(player, displayName);
+      if (supabaseUser) {
+        player.userUid = player.userUid || supabaseUser.discord_id || supabaseUser.id || '';
+        player.discordId = player.discordId || supabaseUser.discord_id || '';
+        player.accountId = player.accountId || supabaseUser.id || supabaseUser.discord_id || '';
+        player.name = supabaseUser.nickname || supabaseUser.discord_username || player.name;
+      }
       const syncedTier = resolvePlayerPklTier(player, accountUser);
       if (syncedTier) player.tier = syncedTier;
     });
@@ -1109,15 +1148,17 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function isSameUserIdentity(a, b) {
     if (!a || !b) return false;
-    const discordA = a.discord_id || a.discordId || a.discordID || a.userDiscordId || '';
-    const discordB = b.discord_id || b.discordId || b.discordID || b.userDiscordId || '';
-    if (discordA && discordB && String(discordA) === String(discordB)) return true;
-    const uidA = a.userUid || a.uid || a.userId || a.accountId || a.key || a.id || a.discord_id || a.discordId || '';
-    const uidB = b.uid || b.userUid || b.userId || b.accountId || b.key || b.id || b.discord_id || b.discordId || '';
-    if (uidA && uidB && String(uidA) === String(uidB)) return true;
-    const pubgA = a.pubgId || a.gameId || '';
-    const pubgB = b.pubgId || b.gameId || '';
-    return !!(pubgA && pubgB && pubgA === pubgB);
+    const clean = value => String(value || '').trim();
+    const discordA = clean(a.discord_id || a.discordId || a.discordID || a.userDiscordId || '');
+    const discordB = clean(b.discord_id || b.discordId || b.discordID || b.userDiscordId || '');
+    if (discordA && discordB && discordA === discordB) return true;
+    const uidA = clean(a.userUid || a.uid || a.userId || a.accountId || a.key || a.id || a.discord_id || a.discordId || '');
+    const uidB = clean(b.uid || b.userUid || b.userId || b.accountId || b.key || b.id || b.discord_id || b.discordId || '');
+    if (uidA && uidB && uidA === uidB) return true;
+    const pubgA = clean(a.pubgId || a.gameId || '');
+    const pubgB = clean(b.pubgId || b.gameId || '');
+    if (pubgA && pubgB && pubgA === pubgB) return true;
+    return false;
   }
 
   function sameName(user, name) {
