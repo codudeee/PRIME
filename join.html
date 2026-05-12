@@ -5120,6 +5120,20 @@ function safeJson(key, fallback){
     return user.tier || user.memberTier || user.gradeRole || user.tierRole || user.grade || "";
   }
 
+  function hasValidMemberTier(user){
+    const raw = String(getGradeRole(user) || "").trim();
+    if(!raw) return false;
+    const low = raw.toLowerCase();
+    return !["none", "no", "null", "undefined", "role-none", "tier-none", "notier", "no-tier", "없음", "티어없음", "무티어"].includes(low);
+  }
+
+  function isTierRequiredUser(user){
+    if(isManagerViewer()) return false;
+    const role = String(getMemberRole(user) || "").trim().toLowerCase();
+    if(["admin", "manager", "operator", "운영자", "관리자"].includes(role)) return false;
+    return true;
+  }
+
   function getCurrentUserData(){
     const loginUser = getLoginUser();
     const adminUser = findAdminUser(loginUser) || loginUser || {};
@@ -5791,6 +5805,12 @@ function safeJson(key, fallback){
     let userData = getCurrentUserData();
     userData = await ensureItemTier(userData);
     const fullUser = findFullUser(userData) || userData;
+    const tierSource = Object.assign({}, userData, fullUser || {});
+    if(isTierRequiredUser(tierSource) && !hasValidMemberTier(tierSource)){
+      openJoinNotice("회원 티어를 부여받은 뒤 참여할 수 있습니다.");
+      renderAll();
+      return;
+    }
     if(isPrisonerUser(fullUser)){
       removePrisonersFromWaitList();
       renderAll();
