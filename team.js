@@ -39,7 +39,6 @@
   });
 
   let state = loadState();
-  ensureTeamModeState(state.teamMode || 'squad10');
   let draggedPlayerId = null;
 
   function pklTeamCanEdit(){
@@ -162,6 +161,7 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
+    ensureTeamModeState(state.teamMode || 'squad10');
     fillTierSelect();
     bindControls();
     bindNewPlayerTierDropdown();
