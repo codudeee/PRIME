@@ -170,6 +170,11 @@
     render();
     startClock();
     bindUserSyncEvents();
+    window.addEventListener('pkl-join-state-updated', function(){
+      syncJoinWaitListIntoTeamBoard(true);
+      syncPlayersWithUserSources();
+      render();
+    });
   }
 
   function fillTierSelect() {
@@ -281,10 +286,14 @@ if (rerollListModal) {
         </div>
       `).join('');
 
+      const cfg = getTeamModeConfig(state.teamMode || 'squad10');
+      const buddyIndex = Math.floor(teamIndex / 2) + 1;
+      const buddyLabel = cfg.buddy ? `깐부 ${buddyIndex}` : '';
       return `
-        <section class="team-card">
-          <div class="team-head" data-buddy-label="${(state.teamMode||'').includes('Buddy') ? ((teamIndex % 2 === 0 ? (teamIndex+1) + '＋' + (teamIndex+2) + '팀' : (teamIndex) + '＋' + (teamIndex+1) + '팀')) : ''}">
+        <section class="team-card ${cfg.buddy ? 'is-buddy-team' : ''}" data-buddy-index="${buddyIndex}">
+          <div class="team-head">
             <span class="team-name">${team.name}</span>
+            ${buddyLabel ? `<span class="buddy-label">${buddyLabel}</span>` : ''}
           </div>
           <div class="slot-list">${slots}</div>
         </section>
@@ -644,6 +653,12 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
 
   function readJoinWaitList() {
+    try {
+      if (window.PKLJoinRealtime && typeof window.PKLJoinRealtime.state === 'function') {
+        const current = window.PKLJoinRealtime.state();
+        if (current && Array.isArray(current.waitList)) return current.waitList;
+      }
+    } catch (error) {}
     try {
       const saved = JSON.parse(localStorage.getItem(JOIN_WAITLIST_STORAGE_KEY) || '[]');
       return Array.isArray(saved) ? saved : [];
