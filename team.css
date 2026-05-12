@@ -6227,3 +6227,170 @@ body .modal-layer [class*="streak"]{
     overflow:visible !important;
   }
 }
+
+/* === PKL FINAL GRID CENTER FIX: no overlap, no manual layering ===
+   좌측 티어대기칸 / 중앙 팀박스 / 우측 컨트롤을 하나의 CSS Grid로 고정 배치.
+   팀박스는 남은 중앙 영역 안에서만 10열 x 2줄로 자동 분배한다. */
+html,
+body{
+  overflow:hidden !important;
+}
+.team-page{
+  width:100vw !important;
+  min-width:0 !important;
+  max-width:100vw !important;
+  overflow:hidden !important;
+}
+.team-page > .builder-layout{
+  display:grid !important;
+  grid-template-columns:180px minmax(0,1fr) 168px !important;
+  column-gap:10px !important;
+  row-gap:0 !important;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+  align-items:stretch !important;
+  isolation:isolate !important;
+}
+.team-page > .builder-layout > .tier-panel{
+  grid-column:1 !important;
+  width:180px !important;
+  min-width:180px !important;
+  max-width:180px !important;
+  margin:0 !important;
+  position:relative !important;
+  z-index:1 !important;
+  overflow:hidden !important;
+}
+.team-page > .builder-layout > .team-board{
+  grid-column:2 !important;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  margin:0 !important;
+  position:relative !important;
+  z-index:1 !important;
+  overflow:hidden !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+.team-page > .builder-layout > .control-panel{
+  grid-column:3 !important;
+  width:168px !important;
+  min-width:168px !important;
+  max-width:168px !important;
+  margin:0 !important;
+  position:relative !important;
+  z-index:1 !important;
+  overflow:hidden !important;
+}
+.tier-panel .tier-pools{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  height:auto !important;
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  grid-template-rows:repeat(6,minmax(0,1fr)) !important;
+  gap:6px !important;
+  overflow:hidden !important;
+}
+.tier-panel .tier-box{
+  min-width:0 !important;
+  min-height:0 !important;
+  max-height:none !important;
+}
+.tier-panel .tier-list{
+  min-height:0 !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:5px !important;
+}
+.team-board .team-grid,
+.team-page > .builder-layout.pkl-mode-20 > .team-board .team-grid,
+.team-page > .builder-layout.pkl-mode-10 > .team-board .team-grid{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  padding:2px 0 6px 0 !important;
+  margin:0 !important;
+  display:grid !important;
+  grid-template-columns:repeat(10,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+  grid-auto-rows:minmax(0,1fr) !important;
+  gap:8px !important;
+  align-items:stretch !important;
+  align-content:stretch !important;
+  justify-items:stretch !important;
+  overflow:hidden !important;
+}
+.team-board .team-card{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  min-height:0 !important;
+  height:100% !important;
+  margin:0 !important;
+  overflow:hidden !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+.team-board .team-head{
+  flex:0 0 34px !important;
+  min-height:34px !important;
+  height:34px !important;
+  padding:7px 8px !important;
+  overflow:hidden !important;
+}
+.team-board .team-name{
+  font-size:15px !important;
+  line-height:1 !important;
+  white-space:nowrap !important;
+}
+.team-board .slot-list{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  grid-template-rows:repeat(4,minmax(0,1fr)) !important;
+  gap:6px !important;
+  padding:6px !important;
+  overflow:hidden !important;
+}
+.team-board .team-slot{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  height:100% !important;
+  padding:5px !important;
+  overflow:hidden !important;
+}
+.team-page > .builder-layout.pkl-mode-duo > .team-board .slot-list{
+  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+}
+.team-board .team-slot .empty-slot,
+.team-board .team-slot .player-card{
+  width:100% !important;
+  height:100% !important;
+  min-width:0 !important;
+}
+@media (max-width:1500px){
+  html,body{
+    overflow:auto !important;
+  }
+  .team-page{
+    min-width:1500px !important;
+    width:1500px !important;
+    max-width:none !important;
+    overflow:visible !important;
+  }
+  .team-page > .builder-layout{
+    grid-template-columns:180px minmax(1114px,1fr) 168px !important;
+    overflow:visible !important;
+  }
+}
