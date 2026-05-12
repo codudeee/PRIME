@@ -6165,39 +6165,11 @@ function accountUserToAdminUser(u,i){
   };
 }
 function mergeAccountUsersIntoState(st){
+  /* Supabase 단일 원본: localStorage pklUsers를 admin state에 병합하지 않는다.
+     이 병합이 남아 있으면 Supabase에는 1명인 회원도 브라우저 캐시/구버전 배열과 합쳐져
+     회원목록/티어표에 중복 표시될 수 있다. */
   st = st || seed();
   st.users = Array.isArray(st.users) ? st.users : [];
-  try{
-    const accountUsers = JSON.parse(localStorage.getItem("pklUsers") || "[]");
-    if(Array.isArray(accountUsers)){
-      accountUsers.forEach((au,i)=>{
-        if(!au) return;
-        const nick = au.nickname || au.nick || au.name;
-        const pubg = au.pubgId || au.gameId || "";
-        if(!nick && !pubg) return;
-        if(au.uid==="pkl_tester_user" || au.id==="pkl_tester_user" || pubg==="PKL_TESTER" || nick==="테스터") return;
-        if(au.isBanned || au.banned || pklIsDeletedUser(au) || !pklHasAssignedTier(au)) return;
-        const existsIndex = st.users.findIndex(x => pklUserIdentityMatches(x, au));
-        const converted = accountUserToAdminUser(au,i);
-        if(existsIndex >= 0){
-          const oldUser = st.users[existsIndex] || {};
-          // pklUsers가 단일 원본이므로 adminState의 오래된 역할/티어/배그닉이 다시 덮지 못하게 한다.
-          st.users[existsIndex] = {
-            ...oldUser,
-            ...converted,
-            warnings:Number(oldUser.warnings ?? converted.warnings ?? 0),
-            dia:Number(oldUser.dia ?? converted.dia ?? 0),
-            chicken:Number(oldUser.chicken ?? oldUser.dia ?? converted.dia ?? 0),
-            memoList:Array.isArray(oldUser.memoList) ? oldUser.memoList : converted.memoList,
-            history:Array.isArray(oldUser.history) ? oldUser.history : converted.history,
-            password:oldUser.password || converted.password || ""
-          };
-        }else{
-          st.users.push(converted);
-        }
-      });
-    }
-  }catch(e){}
   return st;
 }
 
@@ -6591,10 +6563,18 @@ function renderUserList(){
   normalizeAllUserRoles();
   const q=(document.getElementById("search")?.value||"").trim().toLowerCase();
   const seen=new Set();
+  const makeKeys=(u)=>{
+    u=u||{};
+    const clean=v=>String(v??"").trim().toLowerCase();
+    const did=clean(u.discordId||u.discord_id||u.uid||u.id||u.userId).replace(/^discord-/,"");
+    const pubg=clean(u.pubgId||u.gameId||u.pubg_id||u.pubgName||u.ref);
+    const nick=clean(u.nickname||u.nick||u.name);
+    return [did&&"d:"+did,pubg&&"p:"+pubg,nick&&"n:"+nick].filter(Boolean);
+  };
   const source=(Array.isArray(state.users)?state.users:[]).map((u,i)=>({u,i})).filter(({u})=>{
-    const key=String(u.discordId||u.discord_id||u.uid||u.id||u.userId||u.pubgId||u.gameId||u.nickname||"").trim().toLowerCase();
-    if(key && seen.has(key)) return false;
-    if(key) seen.add(key);
+    const keys=makeKeys(u);
+    if(keys.some(k=>seen.has(k))) return false;
+    keys.forEach(k=>seen.add(k));
     return true;
   });
   const list=source.filter(({u})=>!q||String(u.nickname||u.name||"").toLowerCase().includes(q)||String(u.pubgId||u.gameId||"").toLowerCase().includes(q)||String(roleName(u.role)||"").toLowerCase().includes(q));
@@ -7967,7 +7947,18 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     for(var i=0;i<keys.length;i++){var raw=clean(u[keys[i]]);if(/^discord-/i.test(raw)) return raw.toLowerCase().replace(/^discord-/, '');}
     return '';
   }
-  function unique(list){const out=[],seen=new Set();(Array.isArray(list)?list:[]).forEach(u=>{const k=keyOf(u);if(k&&seen.has(k))return;if(k)seen.add(k);out.push(u);});return out;}
+  function unique(list){
+    const out=[],seen=new Set();
+    function keysOf(u){
+      u=u||{};
+      var did=keyOf(u);
+      var pubg=clean(u.pubgId||u.gameId||u.pubg_id||u.pubgName||u.ref).toLowerCase();
+      var nick=clean(u.nickname||u.nick||u.name).toLowerCase();
+      return [did&&'d:'+did,pubg&&'p:'+pubg,nick&&'n:'+nick].filter(Boolean);
+    }
+    (Array.isArray(list)?list:[]).forEach(u=>{const ks=keysOf(u);if(ks.some(k=>seen.has(k)))return;ks.forEach(k=>seen.add(k));out.push(u);});
+    return out;
+  }
   function fmtDate(v){
     if(!v) return '-';
     var d=new Date(v);

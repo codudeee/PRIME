@@ -94,12 +94,12 @@
     for(var i=0;i<arguments.length;i++) add(arguments[i]);
     return out;
   }
-  function localUsers(){return mergeUsers(parse(raw("pklUsers"),[]),parse(raw("PKL_USERS"),[]),parse(raw("pklAdminUsers"),[]),parse(raw("PKL_ADMIN_USERS"),[]));}
+  function localUsers(){return [];}
   function writeUserAliases(users){
-    users=mergeUsers(users);
-    silentSet("pklUsers",users); silentSet("PKL_USERS",users); forgetDiskKey("pklUsers"); forgetDiskKey("PKL_USERS");
-    emit("pkl-users-updated",{users:users}); emit("pkl-role-data-updated",{users:users});
-    return users;
+    /* Supabase 단일 원본: pklUsers/PKL_USERS 로컬 별칭을 만들거나 이벤트로 뿌리지 않는다.
+       구버전 코드가 pklUsers를 setItem해도 디스크에서 제거만 하고 화면 데이터로 병합하지 않는다. */
+    forgetDiskKey("pklUsers"); forgetDiskKey("PKL_USERS"); forgetDiskKey("pklAdminUsers"); forgetDiskKey("PKL_ADMIN_USERS");
+    return [];
   }
   function hydrateFromBootstrap(data){
     if(!data||typeof data!=="object") return;
@@ -139,7 +139,7 @@
       return result;
     });
   }
-  function saveUsers(users){users=mergeUsers(users);writeUserAliases(users);return postJSON("/api/pkl-data-store",{type:"users",users:users});}
+  function saveUsers(users){writeUserAliases(users);return Promise.resolve({ok:true, skipped:true, reason:"Supabase users API is the only writable user source"});}
   function saveMatchList(list){
     list=Array.isArray(list)?list:parse(list,[]);
     if(!Array.isArray(list)) return Promise.resolve(null);
@@ -165,8 +165,11 @@
       var text=typeof value==="string"?value:JSON.stringify(value);
       memoryStore[key]=text;
       forgetDiskKey(key);
+      if(USER_KEYS[key]){
+        writeUserAliases([]);
+        return undefined;
+      }
       if(!applying){
-        if(USER_KEYS[key]) writeUserAliases(parse(text,[]));
         queueSave(key,text);
         emitKey(key);
       }
@@ -197,11 +200,11 @@
     setShared:function(key,value){
       key=String(key||""); if(!isKey(key)) return;
       var text=typeof value==="string"?value:JSON.stringify(value);
-      if(USER_KEYS[key]) return saveUsers(parse(text,[]));
+      if(USER_KEYS[key]) return Promise.resolve({ok:true, skipped:true, reason:"user local aliases disabled"});
       if(key===RESULT_MATCH_KEY) return saveMatchList(text);
       return saveShared(key, parse(text,text));
     },
-    syncUsers:function(){return saveUsers(localUsers());},
+    syncUsers:function(){return Promise.resolve({ok:true, skipped:true, reason:"Supabase users API only"});},
     normalizeUser:normalize,
     mergeUsers:mergeUsers
   };

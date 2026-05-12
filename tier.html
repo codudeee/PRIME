@@ -2555,16 +2555,8 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
   };
 
   function pklTierReadAdminState(){
-    try{
-      if(window.PKLUsersSource && typeof window.PKLUsersSource.localUsers === "function"){
-        const users = window.PKLUsersSource.localUsers();
-        if(Array.isArray(users) && users.length) return { users, pending:[], bans:[], warningRecords:[] };
-      }
-      if(window.PKLUserProfile && typeof window.PKLUserProfile.users === "function"){
-        const users = window.PKLUserProfile.users();
-        if(Array.isArray(users) && users.length) return { users, pending:[], bans:[], warningRecords:[] };
-      }
-    }catch(e){}
+    /* Supabase 단일 원본: 티어표는 PKLUsersSource/PKLUserProfile 메모리 캐시를 seed로 쓰지 않는다.
+       캐시 seed가 남아 있으면 예전 localStorage/복원 배열과 Supabase 결과가 합쳐져 같은 닉네임이 중복 표시된다. */
     return { users:[], pending:[], bans:[], warningRecords:[] };
   }
 
@@ -3114,8 +3106,7 @@ document.addEventListener("DOMContentLoaded", function(){
   if(window.__PKL_TIER_PKLUSERS_FINAL_READ_FIX__) return;
   window.__PKL_TIER_PKLUSERS_FINAL_READ_FIX__ = true;
   window.PKLGetUnifiedTierUsers = function(){
-    if(window.PKLUsersSource && typeof window.PKLUsersSource.localUsers === "function") return window.PKLUsersSource.localUsers();
-    if(window.PKLUserProfile && typeof window.PKLUserProfile.users === "function") return window.PKLUserProfile.users();
+    /* 티어표 초기 표시도 Supabase fetch 결과만 사용한다. */
     return [];
   };
 })();
@@ -3263,11 +3254,8 @@ document.addEventListener("DOMContentLoaded", function(){
     }).sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
   }
   function seedUsers(){
-    var pools=[];
-    try{ if(Array.isArray(window.PKLSupabaseUsers)) pools=pools.concat(window.PKLSupabaseUsers); }catch(e){}
-    try{ if(window.PKLUsersSource && typeof window.PKLUsersSource.localUsers==='function') pools=pools.concat(window.PKLUsersSource.localUsers()||[]); }catch(e){}
-    try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.users==='function') pools=pools.concat(window.PKLUserProfile.users()||[]); }catch(e){}
-    return uniqueTierUsers(pools);
+    /* 캐시/로컬 seed 금지. 티어표는 /api/pkl-users?tierOnly=1 fetch 결과만 렌더한다. */
+    return [];
   }
   function paintTierUsers(users){
     var lists=document.querySelectorAll('.pkl-lane-list[data-tier]');
@@ -3352,10 +3340,8 @@ document.addEventListener("DOMContentLoaded", function(){
     if(idx>=0) cache[idx]=Object.assign({},cache[idx],mapped); else cache.push(mapped);
     renderSupabaseTierMembers();
   });
-  window.addEventListener('pkl-users-updated',function(ev){
-    var users=ev&&ev.detail&&ev.detail.users;
-    if(Array.isArray(users)){ cache=uniqueTierUsers(users); paintTierUsers(cache); }
-  });
+  /* pkl-users-updated는 다른 화면의 메모리 캐시 이벤트일 수 있으므로 티어표 렌더 소스로 사용하지 않는다.
+     티어표는 renderSupabaseTierMembers()의 Supabase fetch 결과만 그린다. */
 })();
 </script>
 
