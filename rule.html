@@ -194,6 +194,28 @@ padding-right:66px;
 <script src="pkl-page-permissions.js"></script>
 <script src="pkl-common-role-badge.js"></script>
 <script src="pkl-common-tier-badge.js"></script>
+
+<style id="pkl-rule-no-default-flash-fix">
+/* Supabase 룰을 불러오기 전 기본 예시 문구가 먼저 보이는 플래시 방지 */
+body:not(.pkl-rule-ready) .rule-layout{
+  visibility:hidden !important;
+}
+body:not(.pkl-rule-ready) .rule-hero::after{
+  content:"저장된 킬내기 룰을 불러오는 중입니다.";
+  display:block;
+  margin-top:14px;
+  width:max-content;
+  max-width:100%;
+  padding:10px 14px;
+  border-radius:14px;
+  border:1px solid rgba(216,180,254,.24);
+  background:rgba(9,8,20,.72);
+  color:rgba(248,244,255,.70);
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:-.2px;
+}
+</style>
 </head>
 <body>
 <div class="site">
@@ -400,6 +422,9 @@ padding-right:66px;
   function loadSaved(){
     return Object.assign({}, savedRulesCache || {});
   }
+  function markRuleReady(){
+    try{document.body.classList.add("pkl-rule-ready");}catch(e){}
+  }
   function hydrateRules(force){
     if(rulesHydrating && !force) return rulesHydrating;
     rulesHydrating=(async function(){
@@ -421,6 +446,7 @@ padding-right:66px;
       }
       applySaved();
       setRule(activeId,true);
+      markRuleReady();
       return savedRulesCache;
     })();
     return rulesHydrating;
@@ -662,6 +688,7 @@ padding-right:66px;
   // 최초 1회 fetch + 관리자 저장 클릭 기준으로만 화면을 갱신한다.
   setRule(activeId,true);
   hydrateRules(true);
+  setTimeout(function(){ if(!document.body.classList.contains("pkl-rule-ready")) markRuleReady(); }, 2500);
 })();
 </script>
 <script src="pkl-common-header.js"></script>
