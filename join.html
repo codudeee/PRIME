@@ -4629,6 +4629,43 @@ body.pkl-recruit-loading #joinDeadlineText{
 }
 </style>
 
+
+<style id="pklJoinFinal10ReasonAlignAndLoadingFix">
+/* JOIN 10차: 대기취소 사유 버튼을 카드 오른쪽 끝에 고정 */
+#joinCancelList .join-cancel-row{
+  position:relative !important;
+  width:100% !important;
+  min-height:38px !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  padding:0 86px 0 10px !important;
+  box-sizing:border-box !important;
+}
+#joinCancelList .join-cancel-name{
+  flex:1 1 auto !important;
+  min-width:0 !important;
+}
+#joinCancelList .join-reason-view-btn{
+  position:absolute !important;
+  right:10px !important;
+  top:50% !important;
+  transform:translateY(-50%) !important;
+  width:64px !important;
+  min-width:64px !important;
+  max-width:64px !important;
+}
+/* 상태 확인 전에는 모집대기중/모집마감으로 먼저 보이지 않게 고정 */
+body.pkl-recruit-loading #joinStatus{
+  background:linear-gradient(180deg,rgba(148,163,184,.16),rgba(15,23,42,.62)) !important;
+  border-color:rgba(203,213,225,.24) !important;
+  color:rgba(255,255,255,.72) !important;
+}
+body.pkl-recruit-loading #joinDeadlineText{
+  color:rgba(255,255,255,.62) !important;
+}
+</style>
+
 </head>
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -5308,7 +5345,7 @@ function safeJson(key, fallback){
 
     waitList.innerHTML = list.length
       ? list.map(function(rawItem, index){
-          const item = hydrateItem(rawItem);
+          const item = enrichItemTier(hydrateItem(rawItem));
           return '<div class="join-wait-row">' +
             '<span class="join-wait-number">' + String(index + 1).padStart(2, "0") + '</span>' +
             renderAdminBadge(item) +
@@ -5342,7 +5379,7 @@ function safeJson(key, fallback){
 
     cancelListEl.innerHTML = list.length
       ? list.map(function(rawItem, index){
-          const item = hydrateItem(rawItem);
+          const item = enrichItemTier(hydrateItem(rawItem));
           const canOpen = canOpenCancelReason(item);
           return '<div class="join-cancel-row">' +
             renderAdminBadge(item) +
@@ -5600,14 +5637,49 @@ function safeJson(key, fallback){
     closeDepositConfirm();
   }
 
-  function addCurrentUser(){
+
+  async function fetchUserTierByProfile(seed){
+    seed = seed || {};
+    const queries = [getUserDiscordId(seed), getUserNickname(seed), seed.name, getUserPubgId(seed)]
+      .map(function(v){ return String(v || '').trim(); })
+      .filter(Boolean);
+    for(const q of queries){
+      try{
+        const res = await fetch('/api/pkl-users?limit=10&q=' + encodeURIComponent(q), {cache:'no-store'});
+        if(!res.ok) continue;
+        const data = await res.json();
+        const users = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
+        const found = users.find(function(u){ return identityMatches(seed, u); }) || users[0];
+        if(found){
+          rememberTierUser(found);
+          const tier = getGradeRole(found);
+          if(tier) return tier;
+        }
+      }catch(e){}
+    }
+    return '';
+  }
+
+  async function ensureItemTier(item){
+    item = enrichItemTier(item || {});
+    if(item && (item.gradeRole || item.tier || item.memberTier || item.tierRole || item.grade)) return item;
+    const tier = await fetchUserTierByProfile(item);
+    if(tier){
+      item.gradeRole = tier;
+      item.tier = tier;
+    }
+    return item;
+  }
+
+  async function addCurrentUser(){
     const recruitState = readRecruitState();
     if(!recruitState || recruitState.state !== "open"){
       openJoinNotice("현재 모집중이 아닙니다.");
       return;
     }
 
-    const userData = getCurrentUserData();
+    let userData = getCurrentUserData();
+    userData = await ensureItemTier(userData);
     const fullUser = findFullUser(userData) || userData;
     if(isPrisonerUser(fullUser)){
       removePrisonersFromWaitList();
@@ -6175,10 +6247,8 @@ function safeJson(key, fallback){
   [deadlineAmpm, deadlineHour, deadlineMinute].forEach(function(el){
     if(el) el.addEventListener("change", updateDeadlinePreview);
   });
-  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "모집대기중";
-
-  restoreRecruitState();
-  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "모집대기중";
+  /* JOIN 10차: 초기 진입 때 오래된 local waiting 값을 먼저 렌더하지 않는다. */
+  applyRecruitLoadingState();
 })();
 </script>
 
@@ -6186,6 +6256,9 @@ function safeJson(key, fallback){
 <script id="pklJoinRecruitStateSync">
 (function(){
   const RECRUIT_KEY = "pklJoinRecruitState";
+
+  let joinStateBooting = true;
+  setTimeout(function(){ joinStateBooting = false; }, 1800);
 
   function readLocalRecruitState(){
     try{
@@ -6262,7 +6335,10 @@ function safeJson(key, fallback){
   document.addEventListener("DOMContentLoaded", refreshRemoteThenApply);
   window.addEventListener("pkl-join-state-updated", function(event){
     const state = event && event.detail && event.detail.recruitState && event.detail.recruitState.state;
-    applyState(state || readLocalRecruitState() || readRealtimeRecruitState());
+    if(joinStateBooting && (!state || state === "waiting")){
+      return;
+    }
+    applyState(state || readRealtimeRecruitState() || readLocalRecruitState());
   });
   document.addEventListener("click", function(e){
     if(e.target.closest("#openRecruitBtn,#closeRecruitBtn,#joinResetBtn")){
