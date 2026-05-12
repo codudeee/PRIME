@@ -131,7 +131,19 @@ async function registerServerUser(discordUser, nickname){
   const finalNickname = normalizeNickname(nickname || saved?.nickname || discordUser.nickname);
   if (!saved && !isKoreanNickname(finalNickname)) return { ok:false, statusCode:400, message:"닉네임은 한글만 사용해서 1~4글자로 입력해주세요." };
   const merged = createUser(discordUser, finalNickname, saved || {});
-  if (!saved && Array.isArray(users) && users.length===0){ merged.role="admin"; merged.memberRole="admin"; merged.memberRoleName="관리자"; }
+  if (!saved){
+    merged.role = "user";
+    merged.memberRole = "user";
+    merged.userRole = "user";
+    merged.authRole = "user";
+    merged.adminRole = "일반";
+    merged.memberRoleName = "일반";
+    merged.is_admin = false;
+    merged.isAdmin = false;
+    merged.admin = false;
+    merged.manager = false;
+    merged.operator = false;
+  }
   if (!saved && nicknameTaken(users, finalNickname, merged)) return { ok:false, statusCode:409, message:"이미 사용 중인 닉네임입니다." };
   if (existingIndex >= 0) users[existingIndex] = merged; else users.push(merged);
   await writeServerUser(merged);

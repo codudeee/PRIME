@@ -139,10 +139,18 @@ async function handler(req,res){
     }
 
     const user=buildApprovedUser(discordUser, nickname, pubgId, shouldResetAfterBanRelease(existing)?resetReleasedUserBase(existing):existing||{});
-    if(!existing && Array.isArray(serverUsers) && serverUsers.length===0){
-      user.role="admin";
-      user.memberRole="admin";
-      user.memberRoleName="관리자";
+    if(!existing){
+      user.role="user";
+      user.memberRole="user";
+      user.userRole="user";
+      user.authRole="user";
+      user.adminRole="일반";
+      user.memberRoleName="일반";
+      user.is_admin=false;
+      user.isAdmin=false;
+      user.admin=false;
+      user.manager=false;
+      user.operator=false;
     }
     const savedUser = supabaseStore.writeUserDoc ? await supabaseStore.writeUserDoc(user) : user;
     const savedUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(allUsers, [savedUser]) : allUsers.concat([savedUser]);

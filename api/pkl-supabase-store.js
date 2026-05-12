@@ -22,6 +22,22 @@ function normalizeRole(v){
   if(['guest','temp','temporary'].includes(low) || ['임시','준회원'].includes(raw)) return 'guest';
   return raw || 'user';
 }
+
+function forceGeneralMember(user){
+  const out = Object.assign({}, user || {});
+  out.role = 'user';
+  out.memberRole = 'user';
+  out.userRole = 'user';
+  out.authRole = 'user';
+  out.adminRole = '일반';
+  out.memberRoleName = '일반';
+  out.is_admin = false;
+  out.isAdmin = false;
+  out.admin = false;
+  out.manager = false;
+  out.operator = false;
+  return out;
+}
 function normalizeTier(v){
   const raw = clean(v);
   if(!raw || raw === '없음' || raw.toLowerCase() === 'none') return 'none';
@@ -169,10 +185,10 @@ async function readUserDocs(options={}){
   return { users, count: users.length, limit, offset, q };
 }
 async function writeUserDoc(user, forceAdmin=false){
-  const u = normalizeUser(user);
+  const u = normalizeUser(forceAdmin ? user : forceGeneralMember(user));
   const discordId = explicitDiscordId(u);
   if(!discordId) throw new Error('discord_id가 없어 저장할 수 없습니다.');
-  const role = forceAdmin ? 'admin' : normalizeRole(u.memberRole || u.role);
+  const role = forceAdmin ? 'admin' : normalizeRole(u.memberRole || u.role || 'user');
   const body = {
     discord_id: discordId,
     discord_username: clean(u.discordUsername || u.username || u.displayName || u.nickname),
