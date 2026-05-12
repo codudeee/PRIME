@@ -6147,3 +6147,48 @@ body .modal-layer [class*="streak"]{
   text-overflow:ellipsis !important;
   white-space:nowrap !important;
 }
+
+
+/* PKL dropdown layer fix */
+#rerollModeDropdown,
+#rerollModeDropdown .pkl-custom-select-list{
+  z-index:30000 !important;
+}
+#rerollModeDropdown.is-open .pkl-custom-select-list,
+#rerollModeList{
+  z-index:30001 !important;
+}
+#pklTeamModeDropdown,
+#pklTeamModeDropdown .pkl-custom-select-list{
+  z-index:20000 !important;
+}
+
+/* restore team cards visibility if previous buddy-pair CSS affected layout */
+.team-grid .team-card{
+  display:block !important;
+  visibility:visible !important;
+}
+.builder-layout.pkl-mode-buddy .team-card.buddy-first,
+.builder-layout.pkl-mode-buddy .team-card.buddy-second{
+  position:relative !important;
+}
+.builder-layout.pkl-mode-buddy .team-card.buddy-first{
+  border-right-color:rgba(216,180,254,.12) !important;
+  margin-right:-4px !important;
+}
+.builder-layout.pkl-mode-buddy .team-card.buddy-second{
+  border-left-color:rgba(216,180,254,.12) !important;
+  margin-left:-4px !important;
+}
+.builder-layout.pkl-mode-buddy .team-card.buddy-first::after{
+  content:"";
+  position:absolute;
+  top:42px;
+  right:-6px;
+  bottom:14px;
+  width:12px;
+  background:linear-gradient(180deg,rgba(168,85,247,.18),rgba(168,85,247,.04));
+  border-top:1px solid rgba(216,180,254,.22);
+  border-bottom:1px solid rgba(216,180,254,.22);
+  pointer-events:none;
+}

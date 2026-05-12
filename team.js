@@ -387,42 +387,24 @@ if (rerollListModal) {
 
   function renderTeams() {
     const cfg = ensureTeamModeState(state.teamMode || 'squad10');
-
-    function renderSingleTeam(team, teamIndex, pairIndex){
+    teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
       const slots = team.slots.map((playerId, slotIndex) => `
         <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
           ${playerId ? renderPlayerCard(playerId) : '<div class="empty-slot">비어있음</div>'}
         </div>
       `).join('');
-
+      const buddyIndex = Math.floor(teamIndex / 2) + 1;
+      const buddyClass = cfg.buddy ? (teamIndex % 2 === 0 ? 'is-buddy-team buddy-first' : 'is-buddy-team buddy-second') : '';
       return `
-        <section class="team-card ${cfg.buddy ? (teamIndex % 2 === 0 ? 'buddy-first' : 'buddy-second') : ''}" data-team-number="${teamIndex + 1}" data-buddy-index="${pairIndex || ''}">
+        <section class="team-card ${buddyClass}" data-team-number="${teamIndex + 1}" data-buddy-index="${cfg.buddy ? buddyIndex : ''}">
           <div class="team-head">
             <span class="team-name">${team.name}</span>
-            ${cfg.buddy ? `<span class="buddy-label">깐부 ${pairIndex}</span>` : ''}
+            ${cfg.buddy ? `<span class="buddy-label">깐부 ${buddyIndex}</span>` : ''}
           </div>
           <div class="slot-list">${slots}</div>
         </section>
       `;
-    }
-
-    if(cfg.buddy){
-      const pairs = [];
-      for(let i = 0; i < state.teams.length; i += 2){
-        const pairIndex = Math.floor(i / 2) + 1;
-        const first = state.teams[i];
-        const second = state.teams[i + 1];
-        pairs.push(`
-          <div class="buddy-pair" data-buddy-index="${pairIndex}">
-            ${first ? renderSingleTeam(first, i, pairIndex) : ''}
-            ${second ? renderSingleTeam(second, i + 1, pairIndex) : ''}
-          </div>
-        `);
-      }
-      teamGrid.innerHTML = pairs.join('');
-    }else{
-      teamGrid.innerHTML = state.teams.map((team, teamIndex) => renderSingleTeam(team, teamIndex, '')).join('');
-    }
+    }).join('');
 
     bindDropZones();
     bindPlayerCards();
@@ -782,14 +764,6 @@ const teamIndex = Number(slot.dataset.teamIndex);
         const current = window.PKLJoinRealtime.state();
         if (current && Array.isArray(current.waitList)) return current.waitList;
       }
-    } catch (error) {}
-    try {
-      const saved = JSON.parse(localStorage.getItem(JOIN_WAITLIST_STORAGE_KEY) || '[]');
-      return Array.isArray(saved) ? saved : [];
-    } catch (error) {
-      return [];
-    }
-  }
     } catch (error) {}
     try {
       const saved = JSON.parse(localStorage.getItem(JOIN_WAITLIST_STORAGE_KEY) || '[]');
