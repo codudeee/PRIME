@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
       }
       if (body.action === 'updateUserWithLog') {
         if (typeof supabaseStore.updateUserWithLog !== 'function') throw new Error('Supabase user log function missing');
-        const user = await supabaseStore.updateUserWithLog(body.user || body.identity || {}, body.log || {}, body.originalIdentity || body.before || {});
+        const user = await supabaseStore.updateUserWithLog(body.user || body.identity || {}, body.log || {}, body.originalIdentity || body.before || {}, body.before || body.originalIdentity || {});
         return res.status(200).json({ ok: true, user });
       }
       if (body.action === 'recordBan') {

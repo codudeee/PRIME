@@ -212,6 +212,36 @@ async function writeUserDoc(user, forceAdmin=false){
   return await upsert(body);
 }
 
+
+function clientRowFromUser(src={}){
+  const did = explicitDiscordId(src || {});
+  if(!did) return null;
+  const raw = src.raw && typeof src.raw === 'object' ? {...src.raw, ...src} : {...src};
+  return {
+    id: clean(src.supabase_id || src.row_id || src.db_id || ''),
+    discord_id: did,
+    discord_username: clean(src.discordUsername || src.discord_username || raw.discordUsername || raw.discord_username || src.username || ''),
+    nickname: clean(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name),
+    pubg_id: clean(src.pubgId || src.pubg_id || src.gameId || src.ref || raw.pubgId || raw.pubg_id || raw.gameId || raw.ref),
+    tier: normalizeTier(src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : raw.tier)))),
+    role: normalizeRole(src.memberRole || src.role || src.userRole || raw.memberRole || raw.role || 'user'),
+    prime: Number(src.prime ?? src.points ?? src.dia ?? src.chicken ?? raw.prime ?? raw.points ?? raw.dia ?? raw.chicken ?? 0) || 0,
+    points: Number(src.points ?? src.prime ?? src.dia ?? src.chicken ?? raw.points ?? raw.prime ?? 0) || 0,
+    warnings: Number(src.warnings ?? raw.warnings ?? 0) || 0,
+    raw
+  };
+}
+function hasClientSnapshot(src={}){
+  if(!explicitDiscordId(src || {})) return false;
+  return !!(src.nickname || src.nick || src.name || src.pubgId || src.pubg_id || src.gameId || src.raw || src.prime != null || src.points != null || src.warnings != null);
+}
+function patchPathForRow(row){
+  if(row && clean(row.id) && !/^discord-/i.test(clean(row.id))) return `users?id=eq.${encodeURIComponent(clean(row.id))}`;
+  const did = cleanId(row && row.discord_id);
+  if(!did) throw new Error('discord_id가 없어 수정할 수 없습니다.');
+  return `users?discord_id=eq.${encodeURIComponent(did)}`;
+}
+
 async function readUserRowByIdentity(identity={}){
   const discordId = explicitDiscordId(identity || {});
   if(!discordId) throw new Error('Discord ID가 없는 회원 데이터는 수정할 수 없습니다.');
@@ -253,7 +283,7 @@ async function insertPointLogSafe(payload){
 async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   const delta = Number(amount) || 0;
   if(!delta) throw new Error('프라임 수량이 없습니다.');
-  const row = await readUserRowByIdentity(identity);
+  const row = hasClientSnapshot(identity) ? clientRowFromUser(identity) : await readUserRowByIdentity(identity);
   const current = Number(row.prime ?? row.points ?? (row.raw && (row.raw.prime ?? row.raw.points ?? row.raw.dia ?? row.raw.chicken)) ?? 0) || 0;
   const next = Math.max(0, current + delta);
   const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
@@ -276,7 +306,7 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   const body = { prime: next, raw, updated_at: now };
   async function patchUser(obj){
     // 운영 버튼 체감속도 개선: 저장 본문은 이미 확정되어 있으므로 Supabase representation 반환을 기다리지 않는다.
-    await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
+    await supabaseFetch(patchPathForRow(row), {
       method:'PATCH',
       headers:{ Prefer:'return=minimal' },
       body:JSON.stringify(obj)
@@ -291,8 +321,9 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
 }
 
 
-async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
-  const row = await readUserRowByIdentity(originalIdentity && explicitDiscordId(originalIdentity) ? originalIdentity : identity);
+async function updateUserWithLog(identity={}, log={}, originalIdentity={}, beforeSnapshot={}){
+  const sourceBefore = hasClientSnapshot(beforeSnapshot) ? beforeSnapshot : (hasClientSnapshot(originalIdentity) ? originalIdentity : null);
+  const row = sourceBefore ? clientRowFromUser(sourceBefore) : await readUserRowByIdentity(originalIdentity && explicitDiscordId(originalIdentity) ? originalIdentity : identity);
   const beforeUser = rowToUser(row);
   const nextInput = normalizeUser({...beforeUser, ...(identity || {})});
   const now = new Date().toISOString();
@@ -331,7 +362,7 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
   };
   async function patch(obj){
     // 회원 수정/티어 변경 체감속도 개선: 변경값을 기준으로 즉시 응답하고 representation 재수신을 생략한다.
-    await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(obj)});
+    await supabaseFetch(patchPathForRow(row), {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(obj)});
     return {...row, ...obj};
   }
   const saved = await patch(body);

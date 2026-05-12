@@ -7026,7 +7026,7 @@ function pklReplaceCurrentUserFromApi(apiUser){
   return state.users[targetIndex];
 }
 async function pklSaveUserWithLogToSupabase(user, originalUser, log){
-  const res=await fetch("/api/pkl-users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"updateUserWithLog",user:user,originalIdentity:originalUser||user,log:log||{}})});
+  const res=await fetch("/api/pkl-users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"updateUserWithLog",user:user,originalIdentity:originalUser||user,before:originalUser||user,log:log||{}})});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||!data.ok)throw new Error(data.message||"Supabase 저장 실패");
   return data.user||user;
@@ -7117,11 +7117,24 @@ async function saveMemberEdit(){
 }
 
 function pklUserPayloadForApi(u){
+  u=u||{};
+  var prime=Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0;
   return {
-    discordId:u&& (u.discordId||u.discord_id||u.uid||u.id||u.userId||u.key),
-    pubgId:u&& (u.pubgId||u.pubg_id||u.gameId||u.ref),
-    nickname:u&& (u.nickname||u.nick||u.name),
-    id:u&&u.id
+    discordId:u.discordId||u.discord_id||u.uid||u.id||u.userId||u.key,
+    pubgId:u.pubgId||u.pubg_id||u.gameId||u.ref,
+    nickname:u.nickname||u.nick||u.name,
+    id:u.id,
+    prime:prime,
+    points:prime,
+    dia:prime,
+    chicken:prime,
+    warnings:Number(u.warnings||0)||0,
+    memberTier:u.memberTier||u.gradeRole||u.tierRole||u.tier||'none',
+    gradeRole:u.gradeRole||u.memberTier||u.tierRole||'none',
+    tierRole:u.tierRole||u.memberTier||u.gradeRole||'none',
+    memberRole:u.memberRole||u.role||'user',
+    role:u.role||u.memberRole||'user',
+    raw:(u.raw&&typeof u.raw==='object')?u.raw:{}
   };
 }
 function openPrimeAdjustModal(){
@@ -8183,7 +8196,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     addChange('회원 역할',before.memberRole||before.role,selectedMemberRole);
     addChange('보유 프라임',before.prime??before.points??before.dia,prime);
     try{
-      var res=await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'updateUserWithLog',originalIdentity:identityOf(before),user:after,log:{type:selectedTier!==normalizeTierValue(before.memberTier||before.gradeRole||before.tierRole||before.tier)?'tier_change':'profile_edit',reason:logReason.length?logReason.join(' / '):'회원 정보 수정',actor:(typeof adminName==='function'?adminName():'ADMIN')}})});
+      var res=await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'updateUserWithLog',originalIdentity:before,before:before,user:after,log:{type:selectedTier!==normalizeTierValue(before.memberTier||before.gradeRole||before.tierRole||before.tier)?'tier_change':'profile_edit',reason:logReason.length?logReason.join(' / '):'회원 정보 수정',actor:(typeof adminName==='function'?adminName():'ADMIN')}})});
       var data=await res.json().catch(function(){return {};});
       if(!res.ok||!data.ok) throw new Error(data.message||'Supabase 저장 실패');
       var saved=data.user||after;
