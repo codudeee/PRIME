@@ -109,7 +109,7 @@
     key=String(key||""); if(!isKey(key)) return null;
     var data=await getJSON("/api/pkl-data-store?type=shared&key="+encodeURIComponent(key)).catch(function(){return null;});
     if(data && data.item && Object.prototype.hasOwnProperty.call(data.item,"value") && data.item.value!==null){rememberShared(key,data.item.value); return data.item.value;}
-    return sharedCache.hasOwnProperty(key)?sharedCache[key]:parse(raw(key),null);
+    return sharedCache.hasOwnProperty(key)?sharedCache[key]:null;
   }
   function saveShared(key,value){
     key=String(key||""); if(!isKey(key)||key===SHEET_LIVE_KEY) return Promise.resolve(null);

@@ -722,7 +722,9 @@ font-weight:700;
 (function(){
   "use strict";
   var STORAGE_KEY="pklNoticeBoardItems";
-  var BACKUP_KEY=STORAGE_KEY+"_backup";
+  var noticeItemsCache=[];
+  var noticeHydrated=false;
+  var noticeHydrating=null;
   var preview=document.getElementById("pklNoticePreviewList");
   var moreBtn=document.getElementById("pklNoticeMoreBtn");
   var modal=document.getElementById("pklNoticeModal");
@@ -776,27 +778,54 @@ font-weight:700;
   function normalizeItems(items){
     return Array.isArray(items)?items.filter(function(item){return item && typeof item === "object";}):[];
   }
-  function load(){
-    var raw=localStorage.getItem(STORAGE_KEY);
-    if(raw===null) raw=localStorage.getItem(BACKUP_KEY);
-    if(raw!==null){
-      try{
-        var parsed=normalizeItems(JSON.parse(raw));
-        if(parsed.length || raw === "[]") return parsed;
-      }catch(e){}
+  function normalizeSharedValue(value){
+    if(typeof value === "string"){
+      try{return normalizeItems(JSON.parse(value));}catch(e){return [];}
     }
-    return [];
+    return normalizeItems(value);
   }
-  function save(items){
+  function load(){
+    return noticeItemsCache.slice();
+  }
+  function hydrateNotices(force){
+    if(noticeHydrating && !force) return noticeHydrating;
+    noticeHydrating=(async function(){
+      var next=[];
+      try{
+        if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === "function"){
+          next=normalizeSharedValue(await window.PKLSupabaseDataSync.getShared(STORAGE_KEY));
+        }else{
+          var res=await fetch("/api/pkl-data-store?type=shared&key="+encodeURIComponent(STORAGE_KEY),{cache:"no-store"});
+          if(res.ok){
+            var data=await res.json();
+            next=normalizeSharedValue(data && data.item ? data.item.value : null);
+          }
+        }
+        noticeItemsCache=next;
+        noticeHydrated=true;
+      }catch(e){
+        if(!noticeHydrated) noticeItemsCache=[];
+      }
+      renderPreview();
+      if(modal.classList.contains("open")) renderModal();
+      return noticeItemsCache;
+    })();
+    return noticeHydrating;
+  }
+  async function save(items){
     var clean=normalizeItems(items);
-    var text=JSON.stringify(clean);
-    localStorage.setItem(STORAGE_KEY,text);
-    localStorage.setItem(BACKUP_KEY,text);
+    noticeItemsCache=clean;
+    noticeHydrated=true;
+    renderPreview();
     try{
-      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === "function") window.PKLSupabaseDataSync.setShared(STORAGE_KEY,text);
-      else if(typeof window.saveSharedData === "function") window.saveSharedData(STORAGE_KEY,text);
-    }catch(e){}
-    try{window.dispatchEvent(new CustomEvent("pkl-supabase-data-updated",{detail:{key:STORAGE_KEY}}));}catch(e){}
+      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === "function") await window.PKLSupabaseDataSync.setShared(STORAGE_KEY,clean);
+      else if(typeof window.saveSharedData === "function") await window.saveSharedData(STORAGE_KEY,clean);
+      else await fetch("/api/pkl-data-store",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"shared",key:STORAGE_KEY,value:clean})});
+    }catch(e){
+      alert("Supabase 저장에 실패했습니다. 새로고침하지 말고 다시 저장해주세요.");
+      return;
+    }
+    try{window.dispatchEvent(new CustomEvent("pkl-supabase-data-updated",{detail:{key:STORAGE_KEY,local:true}}));}catch(e){}
   }
   function sortItems(items){return items.slice().sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});}
   function esc(v){return String(v||"").replace(/[&<>"]/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch];});}
@@ -890,17 +919,14 @@ font-weight:700;
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&modal.classList.contains("open")) closeModal();});
   function handleNoticeDataUpdated(e){
     if(e && e.detail && e.detail.key && e.detail.key!==STORAGE_KEY) return;
-    renderPreview();
-    if(modal.classList.contains("open")) renderModal();
+    if(e && e.detail && e.detail.local){renderPreview(); if(modal.classList.contains("open")) renderModal(); return;}
+    hydrateNotices(true);
   }
-  window.addEventListener("storage",function(e){if(!e || e.key===STORAGE_KEY) handleNoticeDataUpdated(e);});
   window.addEventListener("pkl-supabase-data-updated",handleNoticeDataUpdated);
-  window.addEventListener("pkl-supabase-sync-ready",handleNoticeDataUpdated);
-  setTimeout(function(){try{if(window.PKLSupabaseDataSync&&typeof window.PKLSupabaseDataSync.refresh==='function')window.PKLSupabaseDataSync.refresh();}catch(e){}},120);
+  window.addEventListener("pkl-supabase-sync-ready",function(){hydrateNotices(true);});
   syncNoticeAdminState();
   renderPreview();
-  setTimeout(handleNoticeDataUpdated,700);
-  setTimeout(handleNoticeDataUpdated,1600);
+  hydrateNotices(true);
 })();
 </script>
 

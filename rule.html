@@ -321,7 +321,9 @@ padding-right:66px;
 (function(){
   "use strict";
   var STORAGE_KEY="PKL_RULE_PAGE_CONTENT_V1";
-  var BACKUP_KEY=STORAGE_KEY+"_backup";
+  var savedRulesCache={};
+  var rulesHydrated=false;
+  var rulesHydrating=null;
   var tabs=[];
   var panels=[];
   var nav=document.querySelector(".rule-nav");
@@ -378,25 +380,52 @@ padding-right:66px;
     return hasAdminRole(current);
   }
   function syncAdmin(){document.body.classList.toggle("rule-admin",isRuleAdmin());}
-  function loadSaved(){
-    var raw=localStorage.getItem(STORAGE_KEY);
-    if(raw===null) raw=localStorage.getItem(BACKUP_KEY);
-    if(!raw) return {};
-    try{
-      var parsed=JSON.parse(raw);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-    }catch(e){return {};}
+  function normalizeRules(value){
+    if(typeof value === "string"){
+      try{value=JSON.parse(value);}catch(e){value={};}
+    }
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   }
-  function saveAll(data){
+  function loadSaved(){
+    return Object.assign({}, savedRulesCache || {});
+  }
+  function hydrateRules(force){
+    if(rulesHydrating && !force) return rulesHydrating;
+    rulesHydrating=(async function(){
+      var next={};
+      try{
+        if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === "function"){
+          next=normalizeRules(await window.PKLSupabaseDataSync.getShared(STORAGE_KEY));
+        }else{
+          var res=await fetch("/api/pkl-data-store?type=shared&key="+encodeURIComponent(STORAGE_KEY),{cache:"no-store"});
+          if(res.ok){
+            var data=await res.json();
+            next=normalizeRules(data && data.item ? data.item.value : null);
+          }
+        }
+        savedRulesCache=next;
+        rulesHydrated=true;
+      }catch(e){
+        if(!rulesHydrated) savedRulesCache={};
+      }
+      applySaved();
+      setRule(activeId,true);
+      return savedRulesCache;
+    })();
+    return rulesHydrating;
+  }
+  async function saveAll(data){
     var safe=data && typeof data === "object" && !Array.isArray(data) ? data : {};
-    var text=JSON.stringify(safe);
-    localStorage.setItem(STORAGE_KEY,text);
-    localStorage.setItem(BACKUP_KEY,text);
+    savedRulesCache=safe;
     try{
-      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === "function") window.PKLSupabaseDataSync.setShared(STORAGE_KEY, safe);
-      else if(typeof window.saveSharedData === "function") window.saveSharedData(STORAGE_KEY, safe);
-    }catch(e){}
-    try{window.dispatchEvent(new CustomEvent("pkl-supabase-data-updated",{detail:{key:STORAGE_KEY}}));}catch(e){}
+      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === "function") await window.PKLSupabaseDataSync.setShared(STORAGE_KEY, safe);
+      else if(typeof window.saveSharedData === "function") await window.saveSharedData(STORAGE_KEY, safe);
+      else await fetch("/api/pkl-data-store",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"shared",key:STORAGE_KEY,value:safe})});
+    }catch(e){
+      alert("Supabase 저장에 실패했습니다. 새로고침하지 말고 다시 저장해주세요.");
+      return;
+    }
+    try{window.dispatchEvent(new CustomEvent("pkl-supabase-data-updated",{detail:{key:STORAGE_KEY,local:true}}));}catch(e){}
   }
 
   function refreshNodes(){
@@ -615,11 +644,14 @@ padding-right:66px;
   if(editBtn) editBtn.addEventListener("click",startEdit);
   if(saveBtn) saveBtn.addEventListener("click",saveEdit);
   if(cancelBtn) cancelBtn.addEventListener("click",function(){stopEdit(true);});
-  window.addEventListener("storage",function(e){if(e.key===STORAGE_KEY){applySaved();setRule(activeId,true);}});
-  window.addEventListener("pkl-supabase-data-updated",function(e){if(!e || !e.detail || !e.detail.key || e.detail.key===STORAGE_KEY){applySaved();setRule(activeId,true);}});
-  window.addEventListener("pkl-supabase-sync-ready",function(){applySaved();setRule(activeId,true);});
-  setTimeout(function(){try{if(window.PKLSupabaseDataSync&&typeof window.PKLSupabaseDataSync.refresh==='function')window.PKLSupabaseDataSync.refresh();}catch(e){}},120);
+  window.addEventListener("pkl-supabase-data-updated",function(e){
+    if(e && e.detail && e.detail.key && e.detail.key!==STORAGE_KEY) return;
+    if(e && e.detail && e.detail.local){applySaved();setRule(activeId,true);return;}
+    hydrateRules(true);
+  });
+  window.addEventListener("pkl-supabase-sync-ready",function(){hydrateRules(true);});
   setRule(activeId,true);
+  hydrateRules(true);
 })();
 </script>
 <script src="pkl-common-header.js"></script>
