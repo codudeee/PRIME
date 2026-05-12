@@ -227,6 +227,39 @@ input,textarea,[contenteditable="true"],[contenteditable="true"] *{
   padding:0 9px !important;
   font-size:10.5px !important;
   line-height:22px !important;
+}
+#pklCommonHeader .main-nav a{
+  position:relative !important;
+}
+#pklCommonHeader .main-nav a.active{
+  color:#fff !important;
+  text-shadow:0 0 10px rgba(233,213,255,.90),0 0 22px rgba(168,85,247,.70) !important;
+}
+#pklCommonHeader .main-nav a.active::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:-18px;
+  width:54px;
+  height:2px;
+  transform:translateX(-50%);
+  border-radius:999px;
+  background:linear-gradient(90deg,transparent,rgba(233,213,255,.98),transparent);
+  box-shadow:0 0 14px rgba(168,85,247,.88),0 0 28px rgba(168,85,247,.52);
+  pointer-events:none;
+}
+#pklCommonHeader .main-nav a.active::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  bottom:-20px;
+  width:46px;
+  height:2px;
+  transform:translateX(-50%);
+  border-radius:999px;
+  background:linear-gradient(90deg,transparent,rgba(216,180,254,.95),transparent);
+  box-shadow:0 0 12px rgba(168,85,247,.70);
+  pointer-events:none;
 }`;
     document.head.appendChild(style);
   }

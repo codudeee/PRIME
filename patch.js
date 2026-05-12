@@ -2,46 +2,12 @@
   "use strict";
 
   const STORAGE_KEY = "pklPatchNotes_v2";
-  const seedNotes = [
-    {
-      version:"v3.2",
-      title:"랭크 시스템 개편",
-      date:"2026.05.07",
-      summary:"티어 배지 · TOP KILLER · 검색 속도 개선",
-      live:true,
-      items:[
-        {tag:"NEW", title:"티어 배지 디자인 리뉴얼", lines:["배지 크기 및 정렬 최적화","가독성 향상"]},
-        {tag:"IMPROVE", title:"TOP KILLER UI 개선", lines:["닉네임 간격 최적화","랭킹 디자인 개선"]},
-        {tag:"FIX", title:"일부 UI 오류 수정", lines:["모바일 레이아웃 수정","스크롤 이슈 수정"]}
-      ]
-    },
-    {
-      version:"v3.1",
-      title:"검색 기능 개선",
-      date:"2026.04.16",
-      summary:"전적검색 반응 속도 및 검색 안정성 개선",
-      live:false,
-      items:[
-        {tag:"IMPROVE", title:"검색 결과 표시 개선", lines:["닉네임 검색 정확도 향상","결과 카드 간격 최적화"]},
-        {tag:"FIX", title:"검색 오류 수정", lines:["빈 검색어 처리 개선","일부 유저 누락 현상 수정"]}
-      ]
-    },
-    {
-      version:"v3.0",
-      title:"시즌 3 시작",
-      date:"2026.03.28",
-      summary:"PKL 시즌 3 데이터 및 티어 기준 적용",
-      live:false,
-      items:[
-        {tag:"NEW", title:"시즌 3 오픈", lines:["신규 시즌 랭킹 초기화","참가 데이터 기준 갱신"]},
-        {tag:"IMPROVE", title:"페이지 UI 정리", lines:["메인 카드 디자인 조정","모바일 기본 대응"]}
-      ]
-    }
-  ];
 
-  let notes = loadNotes();
+  let notes = [];
   let selected = 0;
   let editingIndex = null;
+  let loaded = false;
+  let loading = false;
 
   const $ = (id) => document.getElementById(id);
   const els = {};
@@ -59,57 +25,79 @@
     ].forEach(id => els[id] = $(id));
 
     bindEvents();
-    bindSupabasePatchSync();
-    render();
-  }
-
-  function bindSupabasePatchSync(){
-    if(window.PKL_PATCH_SUPABASE_SYNC_FINAL) return;
-    window.PKL_PATCH_SUPABASE_SYNC_FINAL = true;
-    const reloadFromShared = () => {
-      const fresh = loadNotes();
-      if(!fresh) return;
-      notes = fresh;
-      if(selected < 0 || selected >= notes.length) selected = 0;
-      render();
-    };
-    window.addEventListener("pkl-supabase-data-updated", e => {
-      if(e && e.detail && e.detail.key === STORAGE_KEY) reloadFromShared();
-    });
-    window.addEventListener("pkl-supabase-sync-ready", () => setTimeout(reloadFromShared, 80));
-    window.addEventListener("storage", e => {
-      if(e && e.key === STORAGE_KEY) reloadFromShared();
-    });
+    renderLoading();
+    loadNotesFromSupabase();
   }
 
   function normalizeNotes(value){
-    return Array.isArray(value) ? value.filter(note => note && typeof note === "object") : null;
+    return Array.isArray(value) ? value.filter(note => note && typeof note === "object") : [];
   }
 
-  function loadNotes(){
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw !== null){
-      try{
-        const stored = normalizeNotes(JSON.parse(raw));
-        if(stored) return stored;
-      }catch(e){}
+  async function requestShared(method, body){
+    if(method === "GET"){
+      const res = await fetch("/api/pkl-data-store?type=shared&key=" + encodeURIComponent(STORAGE_KEY), {
+        method:"GET",
+        cache:"no-store",
+        headers:{"Accept":"application/json","Cache-Control":"no-store"}
+      });
+      if(!res.ok) throw new Error("패치노트 불러오기 실패 " + res.status);
+      return await res.json();
     }
-    return seedNotes.map(note => ({...note, items:Array.isArray(note.items)?note.items.map(item=>({...item, lines:Array.isArray(item.lines)?item.lines.slice():[]})):[]}));
+    const res = await fetch("/api/pkl-data-store", {
+      method:"POST",
+      cache:"no-store",
+      headers:{"Content-Type":"application/json","Accept":"application/json","Cache-Control":"no-store"},
+      body:JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error("패치노트 저장 실패 " + res.status);
+    return await res.json();
   }
 
-  function saveNotes(){
-    const normalized = normalizeNotes(notes) || [];
-    const text = JSON.stringify(normalized);
-    localStorage.setItem(STORAGE_KEY, text);
+  async function loadNotesFromSupabase(){
+    if(loading) return;
+    loading = true;
     try{
-      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === "function"){
-        window.PKLSupabaseDataSync.setShared(STORAGE_KEY, normalized);
-      }else if(typeof window.saveSharedData === "function"){
-        window.saveSharedData(STORAGE_KEY, normalized);
-      }
-    }catch(e){}
+      const data = await requestShared("GET");
+      const item = data && data.item;
+      notes = normalizeNotes(item && Object.prototype.hasOwnProperty.call(item,"value") ? item.value : []);
+      selected = notes.length ? Math.min(selected, notes.length - 1) : 0;
+      loaded = true;
+      render();
+    }catch(e){
+      loaded = true;
+      notes = [];
+      renderLoadError();
+    }finally{
+      loading = false;
+    }
   }
 
+  async function saveNotes(){
+    const normalized = normalizeNotes(notes);
+    await requestShared("POST", {type:"shared", key:STORAGE_KEY, value:normalized});
+  }
+
+  function renderLoading(){
+    setText(els.patchHeroVersion, "-");
+    setText(els.patchHeroDate, "");
+    setText(els.patchHeroTitle, "패치노트 불러오는 중");
+    setText(els.patchMainVersion, "-");
+    setText(els.patchMainTitle, "패치노트 불러오는 중");
+    setText(els.patchMainDate, "");
+    if(els.patchVersionList) els.patchVersionList.innerHTML = '<div class="patch-empty">Supabase에서 패치노트를 불러오는 중입니다.</div>';
+    if(els.patchDetailList) els.patchDetailList.innerHTML = '<div class="patch-empty">잠시만 기다려주세요.</div>';
+  }
+
+  function renderLoadError(){
+    setText(els.patchHeroVersion, "-");
+    setText(els.patchHeroDate, "");
+    setText(els.patchHeroTitle, "패치노트 불러오기 실패");
+    setText(els.patchMainVersion, "-");
+    setText(els.patchMainTitle, "패치노트 불러오기 실패");
+    setText(els.patchMainDate, "");
+    if(els.patchVersionList) els.patchVersionList.innerHTML = '<div class="patch-empty">Supabase 연결을 확인해주세요. 기본값/로컬값으로 복구하지 않습니다.</div>';
+    if(els.patchDetailList) els.patchDetailList.innerHTML = '<div class="patch-empty">저장된 값을 덮어쓰지 않기 위해 빈값 저장이나 기본값 복원을 하지 않았습니다.</div>';
+  }
 
   function isPatchAdmin(){
     return !!(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentAccessRole === "function" && window.PKLRoleSystem.currentAccessRole() === "admin");
@@ -224,7 +212,7 @@
     els.patchEditorModal?.setAttribute("aria-hidden","true");
   }
 
-  function saveEditor(){
+  async function saveEditor(){
     if(!isPatchAdmin()){ denyPatchAdmin(); return; }
     const note = {
       version: els.patchInputVersion.value.trim() || nextPatchVersion(),
@@ -244,9 +232,13 @@
       notes[editingIndex] = note;
       selected = editingIndex;
     }
-    saveNotes();
-    closeEditor();
-    render();
+    try{
+      await saveNotes();
+      closeEditor();
+      render();
+    }catch(e){
+      if(window.PKLRoleSystem && typeof window.PKLRoleSystem.showAccessModal === "function") window.PKLRoleSystem.showAccessModal("Supabase 저장에 실패했습니다. 기존 값을 덮어쓰지 않았습니다.", "저장 실패");
+    }
   }
 
   function openConfirm(){
@@ -260,14 +252,22 @@
     els.patchConfirmModal?.setAttribute("aria-hidden","true");
   }
 
-  function deleteSelected(){
+  async function deleteSelected(){
     if(!isPatchAdmin()){ denyPatchAdmin(); return; }
     if(!notes.length) return;
+    const before = notes.slice();
+    const beforeSelected = selected;
     notes.splice(selected, 1);
     selected = notes.length ? Math.max(0, selected - 1) : 0;
-    saveNotes();
-    closeConfirm();
-    render();
+    try{
+      await saveNotes();
+      closeConfirm();
+      render();
+    }catch(e){
+      notes = before;
+      selected = beforeSelected;
+      if(window.PKLRoleSystem && typeof window.PKLRoleSystem.showAccessModal === "function") window.PKLRoleSystem.showAccessModal("Supabase 삭제 저장에 실패했습니다. 기존 값을 유지합니다.", "삭제 실패");
+    }
   }
 
   function emptyNote(){
@@ -322,14 +322,14 @@
 
   function nextPatchVersion(){
     const numbers = notes
-      .map(note => String(note.version || "").trim())
-      .filter(v => /^\d+\.\d$/.test(v))
+      .map(note => String(note.version || "").trim().replace(/^v/i,""))
+      .filter(v => /^\d+\.\d+$/.test(v))
       .map(v => {
         const parts = v.split(".").map(n => parseInt(n, 10));
-        return parts[0] * 10 + parts[1];
+        return (parts[0] || 0) * 10 + (parts[1] || 0);
       });
     const next = (numbers.length ? Math.max(...numbers) : 0) + 1;
-    return `${Math.floor(next / 10)}.${next % 10}`;
+    return `v${Math.floor(next / 10)}.${next % 10}`;
   }
 
   function todayText(){
