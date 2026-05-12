@@ -258,25 +258,3 @@
   if(document.getElementById('recordBody')){ bindSheetPublisher(); startSheetMirror(); }
   if(document.getElementById('grid') && /pkl-scoreboard-live/i.test(location.pathname)) startViewer();
 })();
-
-
-<script>
-window.addEventListener('pkl-team-mode-change', function(e){
-  document.documentElement.dataset.teamMode = e.detail.mode || 'squad10';
-});
-</script>
-
-
-// PKL_SCOREBOARD_MODE_HELPER
-(function(){
-  if(window.__PKL_SCOREBOARD_MODE_HELPER__) return;
-  window.__PKL_SCOREBOARD_MODE_HELPER__ = true;
-  window.addEventListener('pkl-team-mode-changed', function(e){
-    var d = e.detail || {};
-    try{
-      document.documentElement.dataset.pklTeamMode = d.mode || '';
-      document.documentElement.dataset.pklTeamCount = String(d.teams || 10);
-      document.documentElement.dataset.pklTeamSlots = String(d.slots || 4);
-    }catch(_){}
-  });
-})();

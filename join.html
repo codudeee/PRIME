@@ -5039,26 +5039,12 @@ function safeJson(key, fallback){
   }
 
   function readList(key){
-    const st = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function"
-      ? window.PKLJoinRealtime.getState()
-      : {waitList:[], cancelList:[]};
-    if(key === STORAGE_KEY) return Array.isArray(st.waitList) ? st.waitList : [];
-    if(key === CANCEL_KEY) return Array.isArray(st.cancelList) ? st.cancelList : [];
-    return [];
+    const data = safeJson(key, []);
+    return Array.isArray(data) ? data : [];
   }
 
   function saveList(key,list){
-    if(!window.PKLJoinRealtime) return;
-    if(key === STORAGE_KEY && typeof window.PKLJoinRealtime.setWaitList === "function"){
-      window.PKLJoinRealtime.setWaitList(Array.isArray(list) ? list : []);
-    }
-    if(key === CANCEL_KEY && typeof window.PKLJoinRealtime.setCancelList === "function"){
-      window.PKLJoinRealtime.setCancelList(Array.isArray(list) ? list : []);
-    }
-  }
-    if(key === CANCEL_KEY && typeof window.PKLJoinRealtime.setCancelList === "function"){
-      window.PKLJoinRealtime.setCancelList(Array.isArray(list) ? list : []);
-    }
+    localStorage.setItem(key, JSON.stringify(list));
   }
 
   function formatKoreanWon(value){
@@ -5244,9 +5230,20 @@ function safeJson(key, fallback){
   }
 
   function resetJoinPanel(){
-    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.reset === "function"){
-      window.PKLJoinRealtime.reset();
-    }
+    saveList(STORAGE_KEY, []);
+    saveList(CANCEL_KEY, []);
+    localStorage.setItem("pklJoinRecruitState", JSON.stringify({
+      state:"waiting",
+      hostHtml:"",
+      openTime:"",
+      deadlineText:"모집대기중",
+      feeText:"",
+      feeInput:"",
+      deadlineConfigured:false
+    }));
+    localStorage.removeItem("pklJoinFeeInfo");
+    Object.keys(localStorage).forEach(function(key){ if(key.indexOf("pklJoinDepositRequested_") === 0) localStorage.removeItem(key); });
+    localStorage.removeItem("pklJoinDepositRequests");
 
     if(waitCount) waitCount.textContent = "0명";
     if(currentCount) currentCount.textContent = "0";
@@ -5254,9 +5251,10 @@ function safeJson(key, fallback){
     if(openHost) openHost.textContent = "";
     if(openTime) openTime.textContent = "";
     if(feeText) feeText.textContent = "";
-    if(statusEl) statusEl.textContent = "모집대기중";
-    if(waitList) waitList.innerHTML = '<div class="join-empty-text">아직 대기자가 없습니다.</div>';
-    if(cancelListEl) cancelListEl.innerHTML = '<div class="join-empty-text small">대기취소자가 없습니다.</div>';
+    const deadlineTextEl = document.getElementById("joinDeadlineText");
+    if(deadlineTextEl) deadlineTextEl.textContent = "모집대기중";
+    const feeInputEl = document.getElementById("joinFeeInput");
+    if(feeInputEl) feeInputEl.value = "";
     applyRecruitStateVisual("waiting");
     document.body.classList.remove("pkl-recruit-open","pkl-recruit-closed");
     document.body.classList.add("pkl-recruit-waiting");
@@ -5274,11 +5272,9 @@ function safeJson(key, fallback){
   }
 
   function readRecruitState(){
-    const st = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function"
-      ? window.PKLJoinRealtime.getState()
-      : null;
-    return st && st.recruitState ? st.recruitState : {state:"waiting"};
-  }catch(e){
+    try{
+      return JSON.parse(localStorage.getItem("pklJoinRecruitState") || "null");
+    }catch(e){
       return null;
     }
   }
@@ -5814,11 +5810,9 @@ function safeJson(key, fallback){
   }
 
   function readRecruitState(){
-    const st = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function"
-      ? window.PKLJoinRealtime.getState()
-      : null;
-    return st && st.recruitState ? st.recruitState : {state:"waiting"};
-  }catch(e){
+    try{
+      return JSON.parse(localStorage.getItem(STATE_KEY) || "null");
+    }catch(e){
       return null;
     }
   }
@@ -6037,11 +6031,10 @@ function safeJson(key, fallback){
 <script id="pklJoinRecruitStateSync">
 (function(){
   function readState(){
-    const st = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function"
-      ? window.PKLJoinRealtime.getState()
-      : null;
-    return st && st.recruitState && st.recruitState.state ? st.recruitState.state : "waiting";
-  }catch(e){}
+    try{
+      const raw = JSON.parse(localStorage.getItem("pklJoinRecruitState") || "null");
+      if(raw && raw.state) return raw.state;
+    }catch(e){}
     return localStorage.getItem("pklJoinRecruitState") || "waiting";
   }
 
@@ -6514,11 +6507,11 @@ document.addEventListener("click",function(e){
     if(window.PKLJoinResetPanel && typeof window.PKLJoinResetPanel === "function"){
       window.PKLJoinResetPanel();
     }else{
-      if(window.PKLJoinRealtime){window.PKLJoinRealtime.setWaitList([]);}
-      if(window.PKLJoinRealtime){window.PKLJoinRealtime.setCancelList([]);}
-      if(window.PKLJoinRealtime){window.PKLJoinRealtime.setRecruitState({state:"waiting"});}
-      
-      
+      localStorage.setItem("pklJoinWaitList", "[]");
+      localStorage.setItem("pklJoinCancelList", "[]");
+      localStorage.setItem("pklJoinRecruitState", JSON.stringify({state:"waiting",hostHtml:"",openTime:"",deadlineText:"모집대기중",feeText:"",feeInput:"",deadlineConfigured:false}));
+      localStorage.removeItem("pklJoinFeeInfo");
+      localStorage.removeItem("pklJoinDepositRequests");
       Object.keys(localStorage).forEach(function(key){
         if(key.indexOf("pklJoinDepositRequested_") === 0) localStorage.removeItem(key);
       });
@@ -6962,5 +6955,6 @@ body.pkl-recruit-waiting #joinCancelBtn,
   },true);
 })();
 </script>
+
 </body>
 </html>
