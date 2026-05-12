@@ -118,7 +118,14 @@
     lastRefresh=Date.now();
     emit("pkl-supabase-sync-ready");
   }
-  function postJSON(url,body){return fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(res){if(!res.ok) throw new Error(String(res.status)); return res.json();});}
+  function postJSON(url,body){
+    return fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(res){
+      return res.json().catch(function(){return null;}).then(function(data){
+        if(!res.ok || (data && data.ok===false)) throw new Error((data && data.message) || String(res.status));
+        return data;
+      });
+    });
+  }
   async function fetchShared(key){
     key=String(key||""); if(!isKey(key)) return null;
     var data=await getJSON("/api/pkl-data-store?type=shared&key="+encodeURIComponent(key));
@@ -127,8 +134,10 @@
   }
   function saveShared(key,value){
     key=String(key||""); if(!isKey(key)) return Promise.resolve(null);
-    rememberShared(key,value);
-    return postJSON("/api/pkl-data-store",{type:"shared",key:key,value:value});
+    return postJSON("/api/pkl-data-store",{type:"shared",key:key,value:value}).then(function(result){
+      rememberShared(key,value);
+      return result;
+    });
   }
   function saveUsers(users){users=mergeUsers(users);writeUserAliases(users);return postJSON("/api/pkl-data-store",{type:"users",users:users});}
   function saveMatchList(list){
@@ -188,7 +197,6 @@
     setShared:function(key,value){
       key=String(key||""); if(!isKey(key)) return;
       var text=typeof value==="string"?value:JSON.stringify(value);
-      silentSet(key,text);
       if(USER_KEYS[key]) return saveUsers(parse(text,[]));
       if(key===RESULT_MATCH_KEY) return saveMatchList(text);
       return saveShared(key, parse(text,text));
