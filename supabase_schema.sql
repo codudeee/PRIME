@@ -150,3 +150,20 @@ exception when duplicate_object then null; end $$;
 alter table public.ban_records enable row level security;
 do $$ begin create policy "pkl public read ban_records" on public.ban_records for select using (true); exception when duplicate_object then null; end $$;
 do $$ begin create policy "pkl public upsert ban_records" on public.ban_records for all using (true) with check (true); exception when duplicate_object then null; end $$;
+
+
+-- 공지/킬내기 룰/운영 공용 문서 저장소: localStorage 초기화 방지용 Supabase 단일 원본
+create table if not exists public.pkl_shared_data (
+  key text primary key,
+  value jsonb,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+do $$ begin
+  create trigger touch_pkl_shared_data_updated_at before update on public.pkl_shared_data for each row execute function public.touch_updated_at();
+exception when duplicate_object then null; end $$;
+
+alter table public.pkl_shared_data enable row level security;
+do $$ begin create policy "pkl public read shared data" on public.pkl_shared_data for select using (true); exception when duplicate_object then null; end $$;
+do $$ begin create policy "pkl public upsert shared data" on public.pkl_shared_data for all using (true) with check (true); exception when duplicate_object then null; end $$;

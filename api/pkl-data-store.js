@@ -61,12 +61,41 @@ async function writePointLog(log){
     created_at: log.created_at || log.createdAt || new Date().toISOString()
   }) });
 }
+
+async function readShared(key){
+  const id = safeId(key);
+  try{
+    const rows = await sb(`pkl_shared_data?select=*&key=eq.${encodeURIComponent(id)}&limit=1`, { method:'GET' }) || [];
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if(row) return { key:id, value: row.value, updated_at: row.updated_at || row.created_at || null, table:'pkl_shared_data' };
+  }catch(e){
+    const rows = await sb(`live_scores?select=*&id=eq.${encodeURIComponent('shared_'+id)}&limit=1`, { method:'GET' }).catch(()=>[]) || [];
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if(row) return { key:id, value: row.payload && Object.prototype.hasOwnProperty.call(row.payload,'value') ? row.payload.value : row.payload, updated_at: row.updated_at || null, table:'live_scores' };
+  }
+  return { key:id, value:null, updated_at:null };
+}
+async function writeShared(key, value){
+  const id = safeId(key);
+  const now = new Date().toISOString();
+  try{
+    return await sb('pkl_shared_data?on_conflict=key', { method:'POST', body: JSON.stringify({ key:id, value:value == null ? null : value, updated_at:now }) });
+  }catch(e){
+    return await sb('live_scores?on_conflict=id', { method:'POST', body: JSON.stringify({ id:'shared_'+id, payload:{ key:id, value:value == null ? null : value }, updated_at:now }) });
+  }
+}
+
 async function bootstrap(){
-  const out = { ok:true, source:'supabase', users:[], live_scores:[], match_logs:[], point_logs:[] };
+  const out = { ok:true, source:'supabase', users:[], live_scores:[], match_logs:[], point_logs:[], shared_data:{} };
   if(userStore) out.users = await userStore.readUsers().catch(()=>[]);
   out.live_scores = await sb('live_scores?select=*').catch(()=>[]);
   out.match_logs = await sb('match_logs?select=*').catch(()=>[]);
   out.point_logs = await sb('point_logs?select=*&order=created_at.desc&limit=200').catch(()=>[]);
+  const sharedKeys = ['pklNoticeBoardItems','PKL_RULE_PAGE_CONTENT_V1'];
+  for(const key of sharedKeys){
+    const item = await readShared(key).catch(()=>null);
+    if(item && item.value !== null) out.shared_data[key] = item.value;
+  }
   return out;
 }
 module.exports = async function handler(req, res){
@@ -75,6 +104,7 @@ module.exports = async function handler(req, res){
       const q = req.query || {};
       if(q.bootstrap === '1') return json(res, 200, await bootstrap());
       if(q.type === 'users') return json(res, 200, { ok:true, users: userStore ? await userStore.readUsers() : [] });
+      if(q.type === 'shared') return json(res, 200, { ok:true, item: await readShared(q.key || q.id || '') });
       const rows = await readRows(q.type, q.id);
       return json(res, 200, { ok:true, rows });
     }
@@ -92,6 +122,7 @@ module.exports = async function handler(req, res){
       if(type === 'live_scores' || type === 'live') return json(res, 200, { ok:true, rows: await writeLive(body.id, body.payload) });
       if(type === 'match_logs' || type === 'match') return json(res, 200, { ok:true, rows: await writeMatch(body.id, body.payload) });
       if(type === 'point_logs' || type === 'point') return json(res, 200, { ok:true, rows: await writePointLog(body.log || body.payload || body) });
+      if(type === 'shared') return json(res, 200, { ok:true, rows: await writeShared(body.key || body.id || '', body.value != null ? body.value : body.payload) });
       return json(res, 400, { ok:false, message:'Unknown type' });
     }
     res.setHeader('Allow','GET, POST');

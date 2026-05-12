@@ -19,6 +19,7 @@
   var applying=false;
   var saving={};
   var lastRefresh=0;
+  var sharedCache={};
 
   function now(){return new Date().toISOString();}
   function isKey(k){return !!KEY_SET[String(k||"")];}
@@ -35,6 +36,7 @@
   }
   function emit(name,detail){try{window.dispatchEvent(new CustomEvent(name,{detail:detail||{}}));}catch(e){}}
   function emitKey(key){emit("pkl-supabase-data-updated",{key:key});}
+  function rememberShared(key,value){key=String(key||""); if(!key) return; sharedCache[key]=value; silentSet(key, value); emitKey(key);}
 
   function isTier(v){var c=clean(v).replace(/[\s_-]+/g,"").toLowerCase();return /^(tier[0-4](high|mid|low)?|[0-4]티어(상|중|하)?|beast|짐승|temp|임시|prisoner|수감자)$/.test(c);}
   function roleKey(v){
@@ -90,6 +92,9 @@
       var matches=data.match_logs.map(function(r){return (r && (r.snapshot || r.raw)) || r;}).filter(Boolean);
       if(matches.length){silentSet(RESULT_MATCH_KEY,matches);emitKey(RESULT_MATCH_KEY);}
     }
+    if(data.shared_data && typeof data.shared_data === "object"){
+      Object.keys(data.shared_data).forEach(function(key){rememberShared(key,data.shared_data[key]);});
+    }
   }
   async function getJSON(url,options){var res=await fetch(url,Object.assign({cache:"no-store"},options||{})); if(!res.ok) throw new Error(String(res.status)); return await res.json();}
   async function refresh(force){
@@ -100,6 +105,17 @@
     emit("pkl-supabase-sync-ready");
   }
   function postJSON(url,body){return fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(res){return res.ok?res.json():null;}).catch(function(){return null;});}
+  async function fetchShared(key){
+    key=String(key||""); if(!isKey(key)) return null;
+    var data=await getJSON("/api/pkl-data-store?type=shared&key="+encodeURIComponent(key)).catch(function(){return null;});
+    if(data && data.item && Object.prototype.hasOwnProperty.call(data.item,"value") && data.item.value!==null){rememberShared(key,data.item.value); return data.item.value;}
+    return sharedCache.hasOwnProperty(key)?sharedCache[key]:parse(raw(key),null);
+  }
+  function saveShared(key,value){
+    key=String(key||""); if(!isKey(key)||key===SHEET_LIVE_KEY) return Promise.resolve(null);
+    rememberShared(key,value);
+    return postJSON("/api/pkl-data-store",{type:"shared",key:key,value:value});
+  }
   function saveUsers(users){users=mergeUsers(users);writeUserAliases(users);return postJSON("/api/pkl-data-store",{type:"users",users:users});}
   function saveMatchList(list){
     list=Array.isArray(list)?list:parse(list,[]);
@@ -112,7 +128,7 @@
     saving[key]=setTimeout(function(){
       if(USER_KEYS[key]) saveUsers(parse(value,[]));
       else if(key===RESULT_MATCH_KEY) saveMatchList(value);
-      else emitKey(key);
+      else saveShared(key, parse(value,value));
     }, key===RESULT_MATCH_KEY ? 250 : 500);
   }
 
@@ -138,13 +154,14 @@
     keys:KEY_LIST,
     refresh:function(){return refresh(true);},
     save:function(key){key=String(key||""); if(isKey(key)) queueSave(key,raw(key));},
+    getShared:fetchShared,
     setShared:function(key,value){
       key=String(key||""); if(!isKey(key)||key===SHEET_LIVE_KEY) return;
       var text=typeof value==="string"?value:JSON.stringify(value);
       silentSet(key,text);
       if(USER_KEYS[key]) return saveUsers(parse(text,[]));
       if(key===RESULT_MATCH_KEY) return saveMatchList(text);
-      emitKey(key);
+      return saveShared(key, parse(text,text));
     },
     syncUsers:function(){return saveUsers(localUsers());},
     normalizeUser:normalize,

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <script src="./pkl-firebase-data-sync.js"></script>
+  <script src="./pkl-supabase-sync.js"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PKL 킬내기룰</title>
@@ -238,7 +238,7 @@ padding-right:66px;
             <label>카테고리 제목<input id="ruleEditTitle" type="text" maxlength="60" autocomplete="off"></label>
             <label>상단 설명<textarea id="ruleEditDesc" maxlength="300"></textarea></label>
           </div>
-          <div class="rule-edit-hint">수정할 본문을 직접 클릭해서 편집한 뒤 저장하세요. 저장된 룰은 이 브라우저에 유지됩니다.</div>
+          <div class="rule-edit-hint">수정할 본문을 직접 클릭해서 편집한 뒤 저장하세요. 저장된 룰은 Supabase에 유지됩니다.</div>
           <section class="rule-section active" data-rule-panel="basic" data-title="기본 진행 규칙" data-kicker="RULE 01" data-desc="경기 시작 전 확인해야 하는 기본 진행 안내입니다.">
             <div class="rule-block">
               <h3>기본 안내</h3>
@@ -392,6 +392,11 @@ padding-right:66px;
     var text=JSON.stringify(safe);
     localStorage.setItem(STORAGE_KEY,text);
     localStorage.setItem(BACKUP_KEY,text);
+    try{
+      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === "function") window.PKLSupabaseDataSync.setShared(STORAGE_KEY, safe);
+      else if(typeof window.saveSharedData === "function") window.saveSharedData(STORAGE_KEY, safe);
+    }catch(e){}
+    try{window.dispatchEvent(new CustomEvent("pkl-supabase-data-updated",{detail:{key:STORAGE_KEY}}));}catch(e){}
   }
 
   function refreshNodes(){
@@ -611,6 +616,9 @@ padding-right:66px;
   if(saveBtn) saveBtn.addEventListener("click",saveEdit);
   if(cancelBtn) cancelBtn.addEventListener("click",function(){stopEdit(true);});
   window.addEventListener("storage",function(e){if(e.key===STORAGE_KEY){applySaved();setRule(activeId,true);}});
+  window.addEventListener("pkl-supabase-data-updated",function(e){if(!e || !e.detail || !e.detail.key || e.detail.key===STORAGE_KEY){applySaved();setRule(activeId,true);}});
+  window.addEventListener("pkl-supabase-sync-ready",function(){applySaved();setRule(activeId,true);});
+  setTimeout(function(){try{if(window.PKLSupabaseDataSync&&typeof window.PKLSupabaseDataSync.refresh==='function')window.PKLSupabaseDataSync.refresh();}catch(e){}},120);
   setRule(activeId,true);
 })();
 </script>
