@@ -3070,8 +3070,6 @@ function startClock() {
     });
   }
 
-  ensureTeamModeState(state.teamMode || 'squad10');
-
 render();
   });
 

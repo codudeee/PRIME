@@ -4585,33 +4585,6 @@ body.pkl-recruit-closed #joinCancelBtn:hover{
 }
 .join-preview-lock-count{color:#ffd45a!important;font-size:inherit!important;}
 </style>
-
-<style id="pklJoinStatusColorGuard">
-body.pkl-recruit-waiting #joinStatus,
-#joinStatus.is-waiting,
-#joinStatus[data-recruit-state="waiting"]{
-  border-color:rgba(168,85,247,.38) !important;
-  background:rgba(18,14,28,.76) !important;
-  color:#d8b4fe !important;
-  box-shadow:inset 0 0 16px rgba(168,85,247,.08),0 0 16px rgba(168,85,247,.10) !important;
-}
-body.pkl-recruit-open #joinStatus,
-#joinStatus.is-open,
-#joinStatus[data-recruit-state="open"]{
-  border-color:rgba(250,204,21,.78) !important;
-  background:linear-gradient(180deg,rgba(146,99,8,.88),rgba(70,44,6,.92)) !important;
-  color:#fff4b0 !important;
-  box-shadow:0 0 22px rgba(250,204,21,.28),inset 0 0 18px rgba(250,204,21,.14) !important;
-}
-body.pkl-recruit-closed #joinStatus,
-#joinStatus.is-closed,
-#joinStatus[data-recruit-state="closed"]{
-  border-color:rgba(96,165,250,.58) !important;
-  background:linear-gradient(180deg,rgba(30,58,138,.72),rgba(10,20,50,.92)) !important;
-  color:#dbeafe !important;
-}
-</style>
-
 </head>
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -5666,9 +5639,6 @@ function safeJson(key, fallback){
     }
   });
 
-  window.PKLJoinRenderAll = renderAll;
-  window.addEventListener("pkl-join-state-render-request", renderAll);
-  window.addEventListener("pkl-join-state-updated", renderAll);
   renderAll();
   /* 2차 청소: storage 이벤트 기반 join 전체 재렌더 금지. 참가/취소/모집 버튼 클릭 흐름에서만 renderAll 실행. */
 })();
@@ -6992,60 +6962,5 @@ body.pkl-recruit-waiting #joinCancelBtn,
   },true);
 })();
 </script>
-
-
-<script id="pklJoinSupabaseOnlyStatusVisual">
-(function(){
-  function normalizeState(value){
-    value = String(value || 'waiting').toLowerCase();
-    return value === 'open' || value === 'closed' ? value : 'waiting';
-  }
-
-  function getRecruitState(){
-    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === 'function'){
-      var st = window.PKLJoinRealtime.getState();
-      if(st && st.recruitState) return st.recruitState;
-    }
-    return { state:'waiting' };
-  }
-
-  function applyJoinVisual(recruit){
-    recruit = recruit || getRecruitState();
-    var state = normalizeState(recruit.state);
-    var status = document.getElementById('joinStatus');
-
-    document.body.classList.remove('pkl-recruit-open','pkl-recruit-closed','pkl-recruit-waiting');
-    document.body.classList.add(state === 'open' ? 'pkl-recruit-open' : (state === 'closed' ? 'pkl-recruit-closed' : 'pkl-recruit-waiting'));
-
-    if(status){
-      status.classList.remove('is-open','is-closed','is-waiting','open','closed','waiting');
-      status.classList.add(state === 'open' ? 'is-open' : (state === 'closed' ? 'is-closed' : 'is-waiting'));
-      status.textContent = state === 'open' ? '모집중' : (state === 'closed' ? '모집마감' : '모집대기중');
-      status.dataset.recruitState = state;
-    }
-  }
-
-  window.PKLApplyJoinRecruitVisual = applyJoinVisual;
-
-  window.addEventListener('pkl-join-state-updated', function(e){
-    applyJoinVisual(e.detail && e.detail.recruitState);
-  });
-
-  document.addEventListener('DOMContentLoaded', function(){
-    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === 'function'){
-      window.PKLJoinRealtime.fetchNow().then(function(st){
-        applyJoinVisual(st && st.recruitState);
-      });
-    }else{
-      applyJoinVisual({state:'waiting'});
-    }
-  });
-
-  setTimeout(function(){
-    applyJoinVisual();
-  }, 0);
-})();
-</script>
-
 </body>
 </html>
