@@ -858,7 +858,9 @@ if(node.nodeType===Node.TEXT_NODE){
     bindLoginButton();
   }
 
-  document.addEventListener("DOMContentLoaded",()=>{
+  function bootHeaderOnce(){
+    if(window.__PKL_COMMON_HEADER_MOUNTED__) return;
+    window.__PKL_COMMON_HEADER_MOUNTED__=true;
     if(!window.__pklAccountMenuOutsideCloseBound){
       window.__pklAccountMenuOutsideCloseBound=true;
       bindAccountMenuOutsideClose();
@@ -866,7 +868,12 @@ if(node.nodeType===Node.TEXT_NODE){
     mount();
     setTimeout(syncLoginState,0);
     setTimeout(updateMailboxBadge,0);
-  });
+  }
+
+  // 스크립트가 body 하단에서 실행되는 페이지(index 포함)는 DOMContentLoaded까지 기다리지 않고 즉시 헤더를 붙인다.
+  // body가 아직 없는 예외 페이지만 DOMContentLoaded로 fallback.
+  if(document.body) bootHeaderOnce();
+  else document.addEventListener("DOMContentLoaded",bootHeaderOnce,{once:true});
   window.addEventListener("storage",()=>{ syncLoginState(); updateMailboxBadge(); });
   window.addEventListener("pkl-mailbox-updated",()=>{ syncLoginState(); updateMailboxBadge(); });
   window.addEventListener("pkl-role-data-updated",()=>{ syncLoginState(); updateMailboxBadge(); });
