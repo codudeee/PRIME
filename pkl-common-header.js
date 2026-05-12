@@ -122,8 +122,9 @@ function pklCanChangeRole() {
 #pklCommonHeader .mail-badge:not(.show){display:none !important}
 #pklCommonHeader .mail-badge{
   position:absolute !important;
-  top:-11px !important;
-  right:-13px !important;
+  left:50% !important;
+  top:-13px !important;
+  right:auto !important;
   min-width:20px !important;
   height:20px !important;
   padding:0 6px !important;
@@ -132,9 +133,10 @@ function pklCanChangeRole() {
   align-items:center !important;
   justify-content:center !important;
   line-height:20px !important;
-  transform:none !important;
+  transform:translateX(-50%) !important;
   margin:0 !important;
-  z-index:8 !important;
+  z-index:12 !important;
+  pointer-events:none !important;
 }
 #pklCommonHeader .mail-badge.show{display:inline-flex !important}
 #pklCommonHeader .account-trigger{position:relative !important; overflow:visible !important;}
@@ -597,6 +599,22 @@ if(node.nodeType===Node.TEXT_NODE){
     }catch(e){ return raw; }
   }
 
+  function mailTimeValue(mail){
+    const rawMail = mail && mail.raw && typeof mail.raw === "object" ? mail.raw : (mail || {});
+    const candidates = [
+      rawMail.created_at, rawMail.createdAt, rawMail.created, rawMail.sent_at, rawMail.sentAt,
+      rawMail.date, rawMail.time, rawMail.updated_at, rawMail.updatedAt, rawMail.readAt, rawMail.id
+    ];
+    for(const value of candidates){
+      const raw = String(value || "").trim();
+      if(!raw) continue;
+      const normalized = raw.replace(/^(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2}).*$/, "$1-$2-$3T$4:$5:00+09:00");
+      const t = Date.parse(normalized);
+      if(Number.isFinite(t)) return t;
+    }
+    return 0;
+  }
+
   function normalizeMail(mail,index){
     mail=applyPersistedMailState(mail,index);
     return {
@@ -800,7 +818,7 @@ if(node.nodeType===Node.TEXT_NODE){
     list.style.display="grid";
     if(actions) actions.style.display="flex";
 
-    const mails=visibleMails().slice().sort((a,b)=>String(b.date||b.createdAt||b.time||b.id||"").localeCompare(String(a.date||a.createdAt||a.time||a.id||"")));
+    const mails=visibleMails().slice().sort(function(a,b){ return mailTimeValue(b)-mailTimeValue(a); });
     if(!mails.length){
       list.innerHTML='<div class="mail-empty">우편함이 비어있습니다.</div>';
       return;

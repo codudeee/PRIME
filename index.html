@@ -8,13 +8,13 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 
 <link rel="stylesheet" href="pkl-main-common.css">
-<link rel="preload" as="image" href="bg.webp">
+<link rel="preload" as="image" href="pkl_index_bg.webp">
 <style id="pkl-index-boot-fix">
 html,body{
   background:
     radial-gradient(circle at 50% 0%, rgba(168,85,247,.20), transparent 34%),
     radial-gradient(circle at 18% 84%, rgba(88,28,135,.18), transparent 38%),
-    url("bg.webp") center center / cover no-repeat fixed,
+    url("pkl_index_bg.webp") center center / cover no-repeat fixed,
     #050507 !important;
 }
 body.pkl-index-preboot{visibility:visible;opacity:1;overflow-x:hidden;}
@@ -600,7 +600,7 @@ font-weight:700;
     });
   }
   var bg=new Image();
-  bg.src="bg.webp";
+  bg.src="pkl_index_bg.webp";
   if(bg.complete) revealIndex();
   else{
     bg.onload=revealIndex;
