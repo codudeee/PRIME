@@ -6500,9 +6500,9 @@ function renderUserList(){
     u=u||{};
     const clean=v=>String(v??"").trim().toLowerCase();
     const did=clean(u.discordId||u.discord_id||u.uid||u.id||u.userId).replace(/^discord-/,"");
-    const pubg=clean(u.pubgId||u.gameId||u.pubg_id||u.pubgName||u.ref);
-    const nick=clean(u.nickname||u.nick||u.name);
-    return [did&&"d:"+did,pubg&&"p:"+pubg,nick&&"n:"+nick].filter(Boolean);
+    // Supabase users의 단일 식별자는 discord_id다.
+    // nickname/pubg_id 기준 dedupe는 실제 행을 렌더 직전에 제거해 카운트와 목록이 어긋나는 원인이 된다.
+    return [did&&"d:"+did].filter(Boolean);
   };
   const source=(Array.isArray(state.users)?state.users:[]).map((u,i)=>({u,i})).filter(({u})=>{
     const keys=makeKeys(u);
@@ -6714,7 +6714,7 @@ async function switchAdminTab(tab,btn){
   if(tab==="dashboard" && typeof renderPremiumDashboard === "function") renderPremiumDashboard();
   render();
 }
-function removeApprovedFromPendingStorage(p){try{const pending=JSON.parse(localStorage.getItem("pklPendingUsers")||"[]");if(!Array.isArray(pending))return;const nick=p?.nickname||"";const pubg=p?.ref||p?.pubgId||"";const next=pending.filter(x=>!((nick&&(x.nickname===nick||x.nick===nick||x.name===nick))||(pubg&&(x.pubgId===pubg||x.ref===pubg||x.gameId===pubg))));localStorage.setItem("pklPendingUsers",JSON.stringify(next));}catch(e){}}
+function removeApprovedFromPendingStorage(p){/* Supabase 단일 원본: pklPendingUsers localStorage 운영 복구/정리 금지 */}
 function pklMemberDataLabel(type){
   const t=String(type||"log").toLowerCase();
   if(t==="join"||t==="signup"||t==="approve")return "가입";

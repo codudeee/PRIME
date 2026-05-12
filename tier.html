@@ -3222,7 +3222,7 @@ document.addEventListener("DOMContentLoaded", function(){
   var cache=[]; var loading=false; var backgroundRefreshStarted=false;
   function clean(v){return String(v==null?'':v).trim();}
   function didOf(u){u=u||{};var did=clean(u.discordId||u.discord_id); if(did)return did.replace(/^discord-/i,''); ['uid','id','userId','key'].some(function(k){var raw=clean(u[k]); if(/^discord-/i.test(raw)){did=raw.replace(/^discord-/i,''); return true;} return false;}); return did;}
-  function keyOf(u,i){return didOf(u)||clean(u.nickname||u.name||u.nick)||String(i);}
+  function keyOf(u,i){return didOf(u)||'';}
   function normalizeTier(v){
     if(window.PKLTierBadge&&typeof window.PKLTierBadge.normalize==='function') return window.PKLTierBadge.normalize(v);
     var raw=clean(v); if(!raw||raw==='없음'||raw.toLowerCase()==='none')return 'none'; return raw;
@@ -3244,17 +3244,12 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function uniqueTierUsers(list){
     var seen=new Set();
-    var seenNick=new Set();
     return (Array.isArray(list)?list:[]).map(mapUser).filter(function(u,i){
-      var k=keyOf(u,i);
-      var n=clean(u.nickname||u.name||u.nick).toLowerCase();
-      if(!k) return false;
+      var did=didOf(u);
+      if(!did) return false;
+      var k='d:'+did.toLowerCase();
       if(seen.has(k)) return false;
-      /* 운영 기준상 nickname 중복 생성 금지.
-         Supabase/이벤트/구버전 객체가 섞여 같은 닉네임이 한 번 더 들어와도 렌더 소스에서 제거한다. */
-      if(n && seenNick.has(n)) return false;
       seen.add(k);
-      if(n) seenNick.add(n);
       return tierOf(u) && tierOf(u)!=='none';
     }).sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
   }
