@@ -574,27 +574,6 @@ font-weight:600;
   background:rgba(255,255,255,.025) !important;
 }
 
-.join-wait-tier-badge,
-.join-cancel-tier-badge{
-  flex:0 0 auto;
-}
-.join-reason-private{
-  margin-left:auto;
-  min-width:112px;
-  height:30px;
-  padding:0 10px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  border-radius:999px;
-  border:1px solid rgba(216,180,254,.14);
-  background:rgba(255,255,255,.035);
-  color:rgba(226,214,255,.58);
-  font-size:11px;
-  font-weight:900;
-  white-space:nowrap;
-}
-
 .join-stat-inline{
   display:inline-flex;
   align-items:center;
@@ -1257,60 +1236,6 @@ font-weight:600;
 </style>
 
 
-<style id="reasonBtnSizeOnly">
-.join-cancel-row{
-  grid-template-columns:auto minmax(0,1fr) 72px !important;
-}
-.join-cancel-row .join-reason-view-btn{
-  justify-self:end !important;
-  width:72px !important;
-  min-width:72px !important;
-  max-width:72px !important;
-  height:26px !important;
-  padding:0 8px !important;
-  font-size:10px !important;
-  line-height:26px !important;
-  display:inline-flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  box-sizing:border-box !important;
-  white-space:nowrap !important;
-}
-.join-cancel-row .join-reason-view-btn-disabled{
-  width:72px !important;
-  min-width:72px !important;
-  max-width:72px !important;
-  pointer-events:none !important;
-}
-
-.back-home{
-  position:fixed;
-  left:28px;
-  top:24px;
-  z-index:99999;
-  min-width:120px;
-  height:46px;
-  padding:0 20px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border-radius:14px;
-  border:1px solid rgba(168,85,247,.65);
-  background:
-    radial-gradient(circle at 50% 0%,rgba(168,85,247,.55),transparent 55%),
-    linear-gradient(180deg,rgba(22,14,48,.95),rgba(6,6,14,.98));
-  color:#ffffff;
-  font-size:14px;
-  font-weight:1000;
-  letter-spacing:.6px;
-  text-shadow:0 0 16px rgba(168,85,247,1);
-  box-shadow:
-    0 0 28px rgba(168,85,247,.6),
-    0 18px 40px rgba(0,0,0,.45),
-    inset 0 0 18px rgba(255,255,255,.06);
-}
-
-</style>
 
 
 <style id="pklJoinRecruitStateVisual">
@@ -4660,30 +4585,50 @@ body.pkl-recruit-loading #joinCancelBtn{
 }
 </style>
 
-<style id="pklJoinReasonButtonAndLoadingFix6">
-.join-reason-view-btn-disabled,
-.join-reason-view-btn-disabled:hover{
-  opacity:.48!important;
-  cursor:not-allowed!important;
-  filter:grayscale(.25) brightness(.82)!important;
-  transform:none!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 0 1px rgba(216,180,254,.10)!important;
+<style id="pklJoinFinalReasonButtonAndBadgeFix">
+/* JOIN 9차: 대기취소 사유 버튼 정렬/폭 통일 + 덧칠성 미니 버튼 스타일 제거 */
+#joinCancelList .join-cancel-row{
+  width:100%;
+  display:grid !important;
+  grid-template-columns:auto minmax(0,1fr) 72px !important;
+  align-items:center !important;
+  column-gap:8px !important;
 }
-#joinStatus[data-state="loading"]{
-  background:linear-gradient(180deg,rgba(168,85,247,.18),rgba(30,20,55,.68))!important;
-  border-color:rgba(216,180,254,.38)!important;
-  color:rgba(245,240,255,.82)!important;
+#joinCancelList .join-reason-view-btn{
+  justify-self:end !important;
+  width:64px !important;
+  min-width:64px !important;
+  max-width:64px !important;
+  height:24px !important;
+  padding:0 !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border-radius:999px !important;
+  font-size:10px !important;
+  font-weight:1000 !important;
+  line-height:1 !important;
+  letter-spacing:-.2px !important;
+  white-space:nowrap !important;
+}
+#joinCancelList .join-reason-view-btn.is-disabled,
+#joinCancelList .join-reason-view-btn:disabled{
+  opacity:.52 !important;
+  cursor:not-allowed !important;
+  filter:saturate(.65) brightness(.82) !important;
+}
+#joinWaitList .join-wait-row .join-admin-role-badge,
+#joinWaitList .join-wait-row .pkl-tier-badge,
+#joinWaitList .join-wait-row .tier-mark{
+  display:inline-flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+body.pkl-recruit-loading #joinDeadlineText{
+  color:rgba(255,255,255,.68) !important;
 }
 </style>
 
-<style id="pklJoinCancelSelfAccessFixStyle">
-.join-reason-view-btn-disabled{
-  opacity:.55 !important;
-  cursor:not-allowed !important;
-  filter:grayscale(.25) !important;
-  pointer-events:none !important;
-}
-</style>
 </head>
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -5153,7 +5098,7 @@ function safeJson(key, fallback){
     merged.tier = merged.gradeRole || item.tier || "";
     merged.wins = adminUser?.wins || adminUser?.winCount || item.wins || item.winCount || pklUser?.wins || pklUser?.winCount || 0;
     merged.avgKills = adminUser?.avgKills || adminUser?.averageKills || adminUser?.killAvg || adminUser?.avgKill || item.avgKills || item.averageKills || pklUser?.avgKills || pklUser?.averageKills || pklUser?.killAvg || pklUser?.avgKill || 0;
-    return merged;
+    return enrichItemTier(merged);
   }
 
   function readList(key){
@@ -5171,6 +5116,56 @@ function safeJson(key, fallback){
 
   function readActiveWaitList(){
     return readList(STORAGE_KEY).filter(isActiveWaitItem);
+  }
+
+
+  let joinTierMap = new Map();
+  let joinTierFetchStarted = false;
+
+  function rememberTierUser(user){
+    if(!user) return;
+    const tier = getGradeRole(user);
+    if(!tier) return;
+    const keys = [getUserDiscordId(user), getUserIdentity(user), getUserPubgId(user), getUserNickname(user)]
+      .map(function(v){ return String(v || '').trim(); })
+      .filter(Boolean);
+    keys.forEach(function(key){ joinTierMap.set(key, tier); });
+  }
+
+  function seedJoinTierMap(){
+    readUsers().forEach(rememberTierUser);
+    [getLoginUser()].forEach(rememberTierUser);
+  }
+
+  function enrichItemTier(item){
+    if(!item) return item;
+    if(item.gradeRole || item.tier || item.memberTier || item.tierRole || item.grade) return item;
+    const keys = [getUserDiscordId(item), getUserIdentity(item), item.key, item.userId, item.uid, getUserPubgId(item), getUserNickname(item), item.name]
+      .map(function(v){ return String(v || '').trim(); })
+      .filter(Boolean);
+    for(const key of keys){
+      const tier = joinTierMap.get(key);
+      if(tier){
+        item.gradeRole = tier;
+        item.tier = tier;
+        break;
+      }
+    }
+    return item;
+  }
+
+  async function fetchJoinTierMapOnce(){
+    if(joinTierFetchStarted) return;
+    joinTierFetchStarted = true;
+    seedJoinTierMap();
+    try{
+      const res = await fetch('/api/pkl-users?limit=100&offset=0', {cache:'no-store'});
+      if(!res.ok) return;
+      const data = await res.json();
+      const users = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
+      users.forEach(rememberTierUser);
+      renderAll();
+    }catch(e){}
   }
 
   function saveList(key,list){
@@ -5234,66 +5229,9 @@ function safeJson(key, fallback){
     return raw;
   }
 
-  const __pklJoinTierCache = window.__pklJoinTierCache || (window.__pklJoinTierCache = new Map());
-
-  function cacheKeyForUser(user){
-    user = user || {};
-    return String(getUserDiscordId(user) || getUserPubgId(user) || getUserNickname(user) || getUserIdentity(user) || user.key || user.userId || user.uid || "").trim();
-  }
-
-  function readCachedTier(user){
-    const key = cacheKeyForUser(user);
-    if(!key) return "";
-    const cached = __pklJoinTierCache.get(key);
-    return cached && (cached.gradeRole || cached.tier || cached.memberTier) || "";
-  }
-
-  function writeCachedTier(seed, tier){
-    const key = cacheKeyForUser(seed);
-    if(!key || !tier) return;
-    __pklJoinTierCache.set(key, {gradeRole:tier, tier:tier, memberTier:tier});
-  }
-
-  function renderTierBadge(rawItem, extraClass){
-    const item = hydrateItem(rawItem);
-    const fullUser = findFullUser(item) || findFullUser(rawItem) || {};
-    let grade = item.gradeRole || item.tier || item.memberTier ||
-      fullUser.gradeRole || fullUser.tier || fullUser.memberTier ||
-      readCachedTier(item) || readCachedTier(rawItem) || "";
-
-    if(!grade && isCurrentUserItem(rawItem)){
-      const currentUser = getCurrentUserData();
-      grade = currentUser.gradeRole || currentUser.tier || currentUser.memberTier || readCachedTier(currentUser) || "";
-    }
-
-    if(grade){
-      writeCachedTier(item, grade);
-      writeCachedTier(rawItem, grade);
-    }
-
-    const cls = extraClass || "join-wait-tier-badge";
-
-    if(grade && window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
-      const badge = window.PKLTierBadge.render(grade, {extraClass:cls});
-      if(badge) return badge;
-    }
-
-    if(grade && window.PKLRoleSystem && typeof window.PKLRoleSystem.gradeBadge === "function"){
-      const badge = window.PKLRoleSystem.gradeBadge(grade, cls);
-      if(badge) return badge;
-    }
-
-    if(grade){
-      const label = normalizeGradeRole(grade);
-      if(label) return '<span class="pkl-tier-badge tier-mark ' + gradeRoleClass(grade) + ' ' + cls + '" data-pkl-tier-badge="' + escapeHtml(grade) + '">' + escapeHtml(label) + '</span>';
-    }
-
-    return '<span class="tier-mark role-none ' + cls + '">티어없음</span>';
-  }
-
   function renderAdminBadge(rawItem){
     const item = hydrateItem(rawItem);
-    const grade = item.gradeRole || "";
+    const grade = item.gradeRole || item.tier || item.memberTier || item.tierRole || item.grade || "";
 
     if(grade && window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
       const badge = window.PKLTierBadge.render(grade, {extraClass:"join-admin-role-badge"});
@@ -5305,24 +5243,12 @@ function safeJson(key, fallback){
       if(badge) return badge;
     }
 
-    const role = item.memberRole || item.role || item.userRole || item.authRole || item.adminRole || "";
-
-    if(role && window.PKLRoleBadge && typeof window.PKLRoleBadge.render === "function"){
-      const badge = window.PKLRoleBadge.render(role, {extraClass:"join-admin-role-badge"});
-      if(badge) return badge;
-    }
-
-    if(role && window.PKLRoleSystem && typeof window.PKLRoleSystem.memberBadge === "function"){
-      const badge = window.PKLRoleSystem.memberBadge(role);
-      if(badge) return badge;
-    }
-
     if(grade){
       const label = normalizeGradeRole(grade);
       if(label) return '<span class="pkl-tier-badge tier-mark ' + gradeRoleClass(grade) + ' join-admin-role-badge" data-pkl-tier-badge="' + escapeHtml(grade) + '">' + escapeHtml(label) + '</span>';
     }
 
-    return '<span class="tier-mark role-none join-admin-role-badge">등급없음</span>';
+    return '<span class="tier-mark role-none join-admin-role-badge">티어없음</span>';
   }
 
   function isManagerViewer(){
@@ -5338,11 +5264,6 @@ function safeJson(key, fallback){
     return list.some(function(item){ return identityMatches(userData, item) || item.key === userData.key || item.name === userData.name; });
   }
 
-  function isCurrentUserItem(item){
-    const userData = getCurrentUserData();
-    return !!item && (identityMatches(userData, item) || item.key === userData.key || item.name === userData.name);
-  }
-
   function isCurrentUserCanceled(list){
     const userData = getCurrentUserData();
     list = Array.isArray(list) ? list : readList(CANCEL_KEY);
@@ -5350,11 +5271,15 @@ function safeJson(key, fallback){
   }
 
   function canPreviewJoinParticipants(list){
-    return isManagerViewer() || isCurrentUserWaiting(list) || isCurrentUserCanceled();
+    return isManagerViewer() || isCurrentUserWaiting(list);
   }
 
-  function canPreviewCancelList(waitList, cancelList){
+  function canPreviewCancelParticipants(waitList, cancelList){
     return isManagerViewer() || isCurrentUserWaiting(waitList) || isCurrentUserCanceled(cancelList);
+  }
+
+  function canOpenCancelReason(item){
+    return isManagerViewer() || identityMatches(getCurrentUserData(), item);
   }
 
   function joinPreviewLockedHtml(kind){
@@ -5365,61 +5290,9 @@ function safeJson(key, fallback){
     return '<div class="join-preview-lock-box"><b>' + escapeHtml(title) + '</b><span>' + escapeHtml(desc) + '</span><small>현재 대기 인원 수는 공개됩니다.</small></div>';
   }
 
-  const __pklJoinTierHydrating = new Set();
-
-  function missingTier(item){
-    if(!item) return true;
-    return !(item.gradeRole || item.tier || item.memberTier);
-  }
-
-  function participantLookupKey(item){
-    item = item || {};
-    return String(getUserDiscordId(item) || getUserPubgId(item) || getUserNickname(item) || item.key || item.userId || item.uid || "").trim();
-  }
-
-  function hydrateMissingTierForList(storageKey, list){
-    if(!Array.isArray(list) || !list.length || typeof fetch !== "function") return;
-    list.forEach(function(item){
-      const key = participantLookupKey(item);
-      if(!key || __pklJoinTierHydrating.has(key)) return;
-      const cachedTier = readCachedTier(item);
-      if(cachedTier && !missingTier(item)) return;
-
-      __pklJoinTierHydrating.add(key);
-      fetch('/api/pkl-users?limit=8&q=' + encodeURIComponent(key), {cache:'no-store'})
-        .then(function(res){ return res && res.ok ? res.json() : null; })
-        .then(function(data){
-          const users = Array.isArray(data) ? data : (Array.isArray(data && data.users) ? data.users : []);
-          const matched = users.find(function(u){ return identityMatches(item, u); }) || users[0];
-          if(!matched) return;
-          const tier = getGradeRole(matched) || matched.tier || matched.memberTier || matched.gradeRole || "";
-          if(!tier) return;
-
-          writeCachedTier(item, tier);
-          writeCachedTier(matched, tier);
-
-          const current = readList(storageKey);
-          let changed = false;
-          current.forEach(function(row){
-            if(identityMatches(row, item) || identityMatches(row, matched)){
-              if(!row.gradeRole) row.gradeRole = tier;
-              if(!row.tier) row.tier = tier;
-              if(!row.memberTier) row.memberTier = tier;
-              changed = true;
-            }
-          });
-          if(changed) saveList(storageKey, current);
-          renderAll();
-        })
-        .catch(function(){})
-        .finally(function(){ __pklJoinTierHydrating.delete(key); });
-    });
-  }
-
   function renderWaitList(){
     if(!waitList) return;
     const list = readActiveWaitList();
-    hydrateMissingTierForList(STORAGE_KEY, list);
     const unlocked = canPreviewJoinParticipants(list);
     if(waitCount){
       waitCount.textContent = list.length + "명";
@@ -5438,7 +5311,7 @@ function safeJson(key, fallback){
           const item = hydrateItem(rawItem);
           return '<div class="join-wait-row">' +
             '<span class="join-wait-number">' + String(index + 1).padStart(2, "0") + '</span>' +
-            renderTierBadge(item, "join-wait-tier-badge") +
+            renderAdminBadge(item) +
             '<div class="join-wait-user">' +
               '<span class="join-wait-name">' + escapeHtml(item.name) + '</span>' +
             '</div>' +
@@ -5455,8 +5328,7 @@ function safeJson(key, fallback){
     if(!cancelListEl) return;
     const wait = readActiveWaitList();
     const list = readList(CANCEL_KEY);
-    hydrateMissingTierForList(CANCEL_KEY, list);
-    const unlocked = canPreviewCancelList(wait, list);
+    const unlocked = canPreviewCancelParticipants(wait, list);
     if(cancelCount){
       cancelCount.textContent = list.length + "명";
       cancelCount.classList.toggle("join-preview-lock-count", !unlocked);
@@ -5468,15 +5340,14 @@ function safeJson(key, fallback){
       return;
     }
 
-    const managerViewer = isManagerViewer();
     cancelListEl.innerHTML = list.length
       ? list.map(function(rawItem, index){
           const item = hydrateItem(rawItem);
-          const canViewReason = managerViewer || isCurrentUserItem(item);
+          const canOpen = canOpenCancelReason(item);
           return '<div class="join-cancel-row">' +
-            renderTierBadge(item, "join-cancel-tier-badge") +
+            renderAdminBadge(item) +
             '<span class="join-cancel-name">' + escapeHtml(item.name) + '</span>' +
-            (canViewReason ? '<button class="join-reason-view-btn" type="button" data-reason-index="' + index + '">사유</button>' : '<button class="join-reason-view-btn join-reason-view-btn-disabled" type="button" disabled aria-disabled="true">사유</button>') +
+            '<button class="join-reason-view-btn' + (canOpen ? '' : ' is-disabled') + '" type="button" data-reason-index="' + index + '" data-role-check="true"' + (canOpen ? '' : ' disabled aria-disabled="true"') + '>사유</button>' +
           '</div>';
         }).join("")
       : '<div class="join-empty-text small">대기취소자가 없습니다.</div>';
@@ -5492,6 +5363,8 @@ function safeJson(key, fallback){
   window.addEventListener("pkl-join-state-updated", function(){
     renderAll();
   });
+  seedJoinTierMap();
+  fetchJoinTierMapOnce();
 
   function resetJoinPanel(){
     saveList(STORAGE_KEY, []);
@@ -5795,12 +5668,10 @@ function safeJson(key, fallback){
 
   function openReasonView(index){
     const list = readList(CANCEL_KEY);
-    const raw = list[index];
-    const item = hydrateItem(raw);
+    const item = hydrateItem(list[index]);
     if(!item || !reasonViewModal) return;
-    if(!isManagerViewer() && !isCurrentUserItem(item)) return;
     if(reasonViewUser) reasonViewUser.textContent = item.name || "취소자";
-    if(reasonViewText) reasonViewText.textContent = raw.reason || "사유가 없습니다.";
+    if(reasonViewText) reasonViewText.textContent = list[index].reason || "사유가 없습니다.";
     reasonViewModal.classList.add("open");
     reasonViewModal.setAttribute("aria-hidden","false");
   }
@@ -5848,7 +5719,7 @@ function safeJson(key, fallback){
   if(cancelListEl){
     cancelListEl.addEventListener("click",function(e){
       const btn = e.target.closest(".join-reason-view-btn");
-      if(!btn || btn.disabled || btn.classList.contains("join-reason-view-btn-disabled")) return;
+      if(!btn || btn.disabled || btn.classList.contains("is-disabled")) return;
       openReasonView(Number(btn.dataset.reasonIndex || 0));
     });
   }
@@ -6105,12 +5976,9 @@ function safeJson(key, fallback){
     });
   }
 
-  function restoreRecruitStateFromData(data){
+  function restoreRecruitState(){
+    const data = readRecruitState();
     if(!data || !data.state){
-      applyRecruitLoadingState();
-      return;
-    }
-    if(data.state === "waiting" && data.__fromRemote !== true){
       applyRecruitLoadingState();
       return;
     }
@@ -6132,25 +6000,6 @@ function safeJson(key, fallback){
         deadlineText.textContent = getDeadlineDisplayText();
       }
     }
-  }
-
-  function restoreRecruitState(){
-    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === "function"){
-      applyRecruitLoadingState();
-      window.PKLJoinRealtime.fetchNow().then(function(st){
-        const data = st && st.recruitState ? Object.assign({__fromRemote:true}, st.recruitState) : readRecruitState();
-        restoreRecruitStateFromData(data);
-        if(window.PKLJoinRenderAll) window.PKLJoinRenderAll();
-      }).catch(function(){
-        const local = readRecruitState();
-        if(local && local.state === "waiting") applyRecruitLoadingState();
-        else restoreRecruitStateFromData(local);
-      });
-      return;
-    }
-    const local = readRecruitState();
-    if(local && local.state === "waiting") applyRecruitLoadingState();
-    else restoreRecruitStateFromData(local);
   }
 
   function setState(state){
@@ -6326,10 +6175,10 @@ function safeJson(key, fallback){
   [deadlineAmpm, deadlineHour, deadlineMinute].forEach(function(el){
     if(el) el.addEventListener("change", updateDeadlinePreview);
   });
-  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "상태 확인중";
+  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "모집대기중";
 
   restoreRecruitState();
-  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "상태 확인중";
+  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "모집대기중";
 })();
 </script>
 
@@ -6391,33 +6240,29 @@ function safeJson(key, fallback){
   }
 
   function apply(){
-    const realtimeState = readRealtimeRecruitState();
-    const localState = readLocalRecruitState();
-    applyState(realtimeState || (localState && localState !== "waiting" ? localState : "loading"));
+    applyState(readLocalRecruitState() || readRealtimeRecruitState());
   }
 
   function refreshRemoteThenApply(){
+    applyState("loading");
     try{
       if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === "function"){
-        applyState("loading");
         window.PKLJoinRealtime.fetchNow().then(function(st){
-          const state = st && st.recruitState && st.recruitState.state ? st.recruitState.state : (readRealtimeRecruitState() || (readLocalRecruitState() && readLocalRecruitState() !== "waiting" ? readLocalRecruitState() : "loading"));
+          const state = st && st.recruitState && st.recruitState.state ? st.recruitState.state : (readRealtimeRecruitState() || readLocalRecruitState());
           applyState(state);
-        }).catch(apply);
+        }).catch(function(){
+          applyState(readRealtimeRecruitState() || readLocalRecruitState());
+        });
         return;
       }
     }catch(e){}
-    apply();
+    applyState(readRealtimeRecruitState() || readLocalRecruitState());
   }
 
   document.addEventListener("DOMContentLoaded", refreshRemoteThenApply);
   window.addEventListener("pkl-join-state-updated", function(event){
     const state = event && event.detail && event.detail.recruitState && event.detail.recruitState.state;
-    if(state && state !== "waiting"){
-      applyState(state);
-    }else{
-      refreshRemoteThenApply();
-    }
+    applyState(state || readLocalRecruitState() || readRealtimeRecruitState());
   });
   document.addEventListener("click", function(e){
     if(e.target.closest("#openRecruitBtn,#closeRecruitBtn,#joinResetBtn")){
