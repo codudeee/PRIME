@@ -86,12 +86,8 @@ async function writeShared(key, value){
 }
 
 async function bootstrap(){
-  const out = { ok:true, source:'supabase', users:[], live_scores:[], match_logs:[], point_logs:[], shared_data:{} };
-  if(userStore) out.users = await userStore.readUsers().catch(()=>[]);
-  out.live_scores = await sb('live_scores?select=*').catch(()=>[]);
-  out.match_logs = await sb('match_logs?select=*').catch(()=>[]);
-  out.point_logs = await sb('point_logs?select=*&order=created_at.desc&limit=200').catch(()=>[]);
-  const sharedKeys = ['pklNoticeBoardItems','PKL_RULE_PAGE_CONTENT_V1'];
+  const out = { ok:true, source:'supabase', shared_data:{} };
+  const sharedKeys = ['pklNoticeBoardItems','PKL_RULE_PAGE_CONTENT_V1','pklJoinWaitList','pklJoinCancelList','pklJoinRecruitState','pklJoinFeeInfo','pklJoinDepositRequests'];
   for(const key of sharedKeys){
     const item = await readShared(key).catch(()=>null);
     if(item && item.value !== null) out.shared_data[key] = item.value;
