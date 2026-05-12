@@ -4585,6 +4585,30 @@ body.pkl-recruit-closed #joinCancelBtn:hover{
 }
 .join-preview-lock-count{color:#ffd45a!important;font-size:inherit!important;}
 </style>
+
+<style id="pkl-join-preview-center-lock-v2">
+/* join 참여 전 비공개 안내: 리스트 박스 안 정중앙 표시 */
+.join-list-body.join-preview-locked-area{
+  min-height:220px;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0!important;
+}
+.join-cancel-card .join-list-body.join-preview-locked-area{
+  min-height:168px;
+}
+.join-list-body.join-preview-locked-area .join-preview-lock-box{
+  width:min(340px, calc(100% - 28px));
+  min-height:0;
+  margin:auto;
+  padding:24px 22px;
+  border-radius:20px;
+}
+.join-list-body:not(.join-preview-locked-area){
+  display:block;
+}
+</style>
 </head>
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -5062,6 +5086,18 @@ function safeJson(key, fallback){
     return Array.isArray(data) ? data : [];
   }
 
+  function isActiveWaitItem(item){
+    if(!item || typeof item !== "object") return false;
+    const rawState = String(item.state || item.status || item.joinStatus || item.recruitStatus || "").trim().toLowerCase();
+    if(["cancel","cancelled","canceled","cancelled_wait","canceled_wait","대기취소","취소"].includes(rawState)) return false;
+    if(item.canceledAt || item.cancelledAt || item.cancelAt || item.cancelReason || item.reasonCanceled) return false;
+    return true;
+  }
+
+  function readActiveWaitList(){
+    return readList(STORAGE_KEY).filter(isActiveWaitItem);
+  }
+
   function saveList(key,list){
     localStorage.setItem(key, JSON.stringify(list));
   }
@@ -5184,7 +5220,7 @@ function safeJson(key, fallback){
 
   function renderWaitList(){
     if(!waitList) return;
-    const list = readList(STORAGE_KEY);
+    const list = readActiveWaitList();
     const unlocked = canPreviewJoinParticipants(list);
     if(waitCount){
       waitCount.textContent = list.length + "명";
@@ -5192,6 +5228,7 @@ function safeJson(key, fallback){
     }
     if(currentCount) currentCount.textContent = String(list.length);
 
+    waitList.classList.toggle("join-preview-locked-area", !unlocked);
     if(!unlocked){
       waitList.innerHTML = joinPreviewLockedHtml('wait');
       return;
@@ -5217,7 +5254,7 @@ function safeJson(key, fallback){
 
   function renderCancelList(){
     if(!cancelListEl) return;
-    const wait = readList(STORAGE_KEY);
+    const wait = readActiveWaitList();
     const list = readList(CANCEL_KEY);
     const unlocked = canPreviewJoinParticipants(wait);
     if(cancelCount){
@@ -5225,6 +5262,7 @@ function safeJson(key, fallback){
       cancelCount.classList.toggle("join-preview-lock-count", !unlocked);
     }
 
+    cancelListEl.classList.toggle("join-preview-locked-area", !unlocked);
     if(!unlocked){
       cancelListEl.innerHTML = joinPreviewLockedHtml('cancel');
       return;

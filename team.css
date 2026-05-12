@@ -6895,3 +6895,27 @@ body{
 .tier-pools > .team-preview-lock-box{
   min-height:220px;
 }
+
+/* 팀구성 참여 전 비공개 안내: 카드 생성 없이 영역 중앙 고정 */
+.tier-pools.team-board-locked,
+.team-grid.team-board-locked,
+.builder-layout.pkl-mode-10 .team-grid.team-board-locked,
+.builder-layout.pkl-mode-20 .team-grid.team-board-locked,
+.builder-layout.pkl-mode-40 .team-grid.team-board-locked,
+.builder-layout.pkl-mode-partner .team-grid.team-board-locked{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  min-height:320px !important;
+  width:100% !important;
+  padding:0 !important;
+}
+.tier-pools.team-board-locked{min-height:100% !important;}
+.team-preview-lock-box{
+  width:min(360px, calc(100% - 30px)) !important;
+  min-height:0 !important;
+  padding:26px 24px !important;
+  margin:auto !important;
+  border-radius:22px !important;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.018)),radial-gradient(circle at 50% 0%,rgba(168,85,247,.20),transparent 62%),rgba(12,8,25,.70) !important;
+}

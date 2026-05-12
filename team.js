@@ -288,10 +288,12 @@ if (rerollListModal) {
 
   function renderTierPools() {
     if (!canViewTeamParticipants()) {
+      tierPools.classList.add('team-board-locked');
       tierPools.innerHTML = renderTeamPrivacyLock('tier', getJoinWaitingCount());
       return;
     }
 
+    tierPools.classList.remove('team-board-locked');
     tierPools.innerHTML = TIERS.map(tier => {
       const players = state.waiting[tier.id].map(playerId => renderPlayerCard(playerId)).join('');
       return `
@@ -322,10 +324,12 @@ if (rerollListModal) {
   function renderTeams() {
     ensureTeamModeState(state.teamMode || 'squad20');
     if (!canViewTeamParticipants()) {
+      teamGrid.classList.add('team-board-locked');
       teamGrid.innerHTML = renderTeamPrivacyLock('team', getJoinWaitingCount());
       return;
     }
 
+    teamGrid.classList.remove('team-board-locked');
     teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
       const slots = team.slots.map((playerId, slotIndex) => `
         <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
@@ -355,7 +359,7 @@ if (rerollListModal) {
       : '참가하기 이후 대기자 리스트를 확인할 수 있습니다.';
     const safeCount = Math.max(0, Number(count || 0));
     return `
-      <div class="team-preview-lock-box" data-lock-kind="${kind}">
+      <div class="team-preview-lock-box" data-lock-kind="${kind}" aria-live="polite">
         <b>${escapeHtml(title)}</b>
         <span>${escapeHtml(desc)}</span>
         <small>현재 대기 인원 수 <strong>${safeCount}명</strong></small>
@@ -363,8 +367,20 @@ if (rerollListModal) {
     `;
   }
 
+  function isActiveJoinWaitItem(item) {
+    if (!item || typeof item !== 'object') return false;
+    const rawState = String(item.state || item.status || item.joinStatus || item.recruitStatus || '').trim().toLowerCase();
+    if (['cancel','cancelled','canceled','cancelled_wait','canceled_wait','대기취소','취소'].includes(rawState)) return false;
+    if (item.canceledAt || item.cancelledAt || item.cancelAt || item.cancelReason || item.reasonCanceled) return false;
+    return true;
+  }
+
+  function getActiveJoinWaitList() {
+    return readJoinWaitList().filter(isActiveJoinWaitItem);
+  }
+
   function getJoinWaitingCount() {
-    const list = readJoinWaitList();
+    const list = getActiveJoinWaitList();
     if (Array.isArray(list) && list.length) return list.length;
     return Object.values(state.waiting || {}).reduce((sum, ids) => sum + (Array.isArray(ids) ? ids.length : 0), 0);
   }
@@ -416,7 +432,7 @@ if (rerollListModal) {
   function isCurrentUserInJoinWaitingList() {
     const currentUser = findFullUserForViewer(readCurrentLoginUser()) || readCurrentLoginUser();
     if (!currentUser) return false;
-    return readJoinWaitList().some(item => isSameUserIdentity(currentUser, item) || sameName(item, currentUser.nickname || currentUser.nick || currentUser.name || currentUser.discord_username || currentUser.discordUsername));
+    return getActiveJoinWaitList().some(item => isSameUserIdentity(currentUser, item) || sameName(item, currentUser.nickname || currentUser.nick || currentUser.name || currentUser.discord_username || currentUser.discordUsername));
   }
 
   function renderPlayerCard(playerId) {
@@ -940,7 +956,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function syncJoinWaitListIntoTeamBoard(forceLoad) {
     if (!forceLoad && isJoinRecruitClosed()) return;
-    const joinList = readJoinWaitList().filter(item => {
+    const joinList = getActiveJoinWaitList().filter(item => {
       const adminUser = findAdminUserForJoinItem(item);
       const accountUser = findAccountUserForJoinItem(item, adminUser);
       return !isPrisonerForJoin(adminUser) && !isPrisonerForJoin(accountUser) && !isPrisonerForJoin(item);
