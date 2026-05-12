@@ -6215,42 +6215,62 @@ body .modal-layer [class*="streak"]{
 .builder-layout.pkl-mode-buddy .buddy-label{border-color:rgba(216,180,254,.32)!important;background:rgba(168,85,247,.20)!important;color:#eadbff!important}
 
 
-/* PKL slot fixed-height correction: empty slots keep the same space as filled player cards */
-.team-slot{
+/* PKL FINAL: team slot equal fill - empty slots and filled cards use same size */
+.team-card{
+  display:flex !important;
+  flex-direction:column !important;
+}
+.team-card .team-head{
+  flex:0 0 auto !important;
+}
+.team-card .slot-list{
+  flex:1 1 auto !important;
+  display:grid !important;
+  grid-template-rows:repeat(4,minmax(0,1fr)) !important;
+  gap:8px !important;
+  padding:9px !important;
+  min-height:0 !important;
+}
+.builder-layout.pkl-mode-duo .team-card .slot-list{
+  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+}
+.team-card .team-slot{
+  height:auto !important;
+  min-height:0 !important;
   display:flex !important;
   align-items:stretch !important;
   justify-content:stretch !important;
+  overflow:hidden !important;
   box-sizing:border-box !important;
 }
-.team-slot .empty-slot{
-  display:flex !important;
+.team-card .empty-slot,
+.team-card .player-card{
   width:100% !important;
-  min-height:100% !important;
+  height:100% !important;
+  min-height:0 !important;
   flex:1 1 auto !important;
+  display:flex !important;
   align-items:center !important;
   justify-content:center !important;
-  opacity:.28 !important;
   box-sizing:border-box !important;
 }
-.team-slot .player-card{
-  width:100% !important;
-  min-height:100% !important;
-  flex:1 1 auto !important;
-  box-sizing:border-box !important;
+.team-card .player-card{
+  flex-direction:column !important;
+  gap:6px !important;
+  padding:6px 8px !important;
 }
-.builder-layout.pkl-mode-10:not(.pkl-mode-duo) .team-slot,
-.builder-layout.pkl-mode-20:not(.pkl-mode-duo) .team-slot{
-  height:58px !important;
-  min-height:58px !important;
+.team-card .player-name{
+  max-width:100% !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+  line-height:1.15 !important;
 }
-.builder-layout.pkl-mode-duo .team-slot{
-  height:86px !important;
-  min-height:86px !important;
-}
-.builder-layout.pkl-mode-10 .team-card,
-.builder-layout.pkl-mode-20 .team-card{
-  min-height:312px !important;
+.builder-layout.pkl-mode-10:not(.pkl-mode-duo) .team-card,
+.builder-layout.pkl-mode-20:not(.pkl-mode-duo) .team-card{
+  min-height:316px !important;
 }
 .builder-layout.pkl-mode-duo .team-card{
-  min-height:226px !important;
+  min-height:224px !important;
 }

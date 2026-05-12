@@ -1636,8 +1636,8 @@ function completeTeams() {
 
   function exportTeamBoardToSheet() {
     const sheetState = loadSheetStateForTeamExport();
-    const teams = createSheetTeamsFromTeamBoard(sheetState.teams);
     const exportCfg = getTeamModeConfig(state.teamMode || 'squad10');
+    const teams = createSheetTeamsFromTeamBoard(sheetState.teams);
     sheetState.mode = exportCfg.slots === 2 ? 'duo' : 'squad';
     sheetState.pklTeamMode = exportCfg.key;
     sheetState.pklTeamCount = exportCfg.teams;
@@ -1697,7 +1697,7 @@ function completeTeams() {
 
   function createSheetTeamsFromTeamBoard(previousTeams) {
     const oldTeams = Array.isArray(previousTeams) ? previousTeams : [];
-    const cfg = ensureTeamModeState(state.teamMode || 'squad10');
+    const cfg = getTeamModeConfig(state.teamMode || 'squad10');
     const teamCount = Number(cfg && cfg.teams) || state.teams.length || TEAM_COUNT;
     const slotCount = Number(cfg && cfg.slots) || SLOT_COUNT;
     return Array.from({ length: teamCount }, (_, teamIndex) => {
