@@ -944,16 +944,20 @@ if(node.nodeType===Node.TEXT_NODE){
     bindGuestAccessGuard();
     guardGuestPageAccess();
 
-    const existing=document.querySelector("header.topbar");
-    if(existing) existing.remove();
-
     let mountEl=document.getElementById("pklCommonHeader");
     if(!mountEl){
       mountEl=document.createElement("div");
       mountEl.id="pklCommonHeader";
       document.body.insertBefore(mountEl,document.body.firstChild);
     }
-    mountEl.innerHTML=HEADER_HTML;
+
+    document.querySelectorAll("header.topbar").forEach(function(existing){
+      if(!mountEl.contains(existing)) existing.remove();
+    });
+
+    if(!mountEl.querySelector("header.topbar")){
+      mountEl.innerHTML=HEADER_HTML;
+    }
 
     document.getElementById("mailboxModal")?.remove();
     document.querySelectorAll("#mailConfirm,#mailDeleteConfirm,#mailDeleteAllConfirm").forEach(el=>el.remove());

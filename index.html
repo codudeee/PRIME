@@ -18,8 +18,10 @@ html,body{
     #050507 !important;
 }
 body.pkl-index-preboot{visibility:visible;opacity:1;overflow-x:hidden;}
-body.pkl-index-preboot .site{opacity:0;transform:translateY(6px);}
-body.pkl-index-ready .site{opacity:1;transform:none;transition:opacity .16s ease,transform .16s ease;}
+body.pkl-index-preboot .site{opacity:1;transform:none;}
+body.pkl-index-ready .site{opacity:1;transform:none;transition:opacity .10s ease,transform .10s ease;}
+#pklCommonHeader{min-height:72px;}
+#pklCommonHeader .topbar{opacity:1;}
 </style>
 
 
@@ -599,21 +601,29 @@ font-weight:700;
       document.body.classList.add("pkl-index-ready");
     });
   }
+  revealIndex();
   var bg=new Image();
   bg.src="pkl_index_bg.webp";
-  if(bg.complete) revealIndex();
-  else{
-    bg.onload=revealIndex;
-    bg.onerror=revealIndex;
-    setTimeout(revealIndex,140);
-  }
 })();
 </script>
 </head>
 <body class="pkl-index-preboot">
 <!-- PKL_COMMON_HEADER_ENABLED -->
 <div class="site">
-<div id="pklCommonHeader"></div>
+<div id="pklCommonHeader"><header class="topbar">
+<div class="topbar-inner">
+<a aria-label="PKL 메인" class="brand" href="index.html"><img class="brand-logo-img" src="pkl_logo_final.webp" alt="PKL"><div class="brand-name">PRIME KILL LEAGUE</div></a>
+<nav aria-label="주요 메뉴" class="main-nav"><a href="index.html">메인</a><a href="join.html">참가</a><a href="team.html">팀구성</a><a href="sheet.html">시트지</a><a href="tier.html">티어표</a><a href="result.html">결과표</a><a href="search.html">전적검색</a><a href="patch.html">패치노트</a></nav>
+<div class="user-box"><button class="top-btn manager-btn" id="managerBtn" type="button" onclick="location.href='admin.html'">관리홈</button><div class="account-wrap">
+<button class="top-btn account-trigger" id="loginBtn" type="button">LOGIN<span class="mail-badge" id="mailBadge" style="display:none"></span></button>
+<div class="account-menu" id="accountMenu">
+  <button onclick="location.href='myinfo.html'">내정보</button>
+<button class="mailbox-btn" id="mailboxBtn" type="button" onclick="openMailboxModal()"><span>우편함</span><span class="mailbox-menu-count" id="mailboxMenuCount">NEW</span></button>
+  <button onclick="logout()">로그아웃</button>
+</div>
+</div></div>
+</div>
+</header></div>
 <main class="hero">
 <section aria-label="핵심 메뉴" class="primary-grid">
 <a class="feature-card" href="join.html?openJoin=1"><div class="feature-icon"><img src="icon_join.webp" class="feature-icon-img"></div><h2>킬내기 참여</h2><p>현재 모집 상태와 대기 인원을 확인하고 바로 참여합니다.</p><span class="card-btn">참여하기 〉</span></a>
