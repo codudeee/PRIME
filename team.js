@@ -10,7 +10,7 @@
     { id: 'beast', label: '짐승', weight: 1, badgeClass: 'grade-role-beast' }
   ];
 
-  const TEAM_COUNT = 30;
+  const TEAM_COUNT = 20;
   const SLOT_COUNT = 4;
   const ADMIN_STORAGE_KEY = 'pklAdminState_v3';
   const ACCOUNT_STORAGE_KEY = 'pklUsers';
@@ -35,7 +35,7 @@
     warningLog: [],
     rerollRequests: {},
     rerollHiddenKeys: [],
-    teamMode: 'squad30'
+    teamMode: 'squad20'
   });
 
   let state = loadState();
@@ -65,17 +65,16 @@
   const PKL_TEAM_MODE_CONFIG = {
     squad10: { key:'squad10', label:'10팀 스쿼드', teams:10, slots:4, modeClass:'pkl-mode-10 pkl-mode-squad' },
     squad20: { key:'squad20', label:'20팀 스쿼드', teams:20, slots:4, modeClass:'pkl-mode-20 pkl-mode-squad' },
-    squad30: { key:'squad30', label:'30팀 스쿼드', teams:30, slots:4, modeClass:'pkl-mode-30 pkl-mode-squad' },
     duo10: { key:'duo10', label:'10팀 듀오', teams:10, slots:2, modeClass:'pkl-mode-10 pkl-mode-duo' },
     duo20: { key:'duo20', label:'20팀 듀오', teams:20, slots:2, modeClass:'pkl-mode-20 pkl-mode-duo' }
   };
 
   function getTeamModeConfig(modeKey){
-    return PKL_TEAM_MODE_CONFIG[modeKey] || PKL_TEAM_MODE_CONFIG.squad30;
+    return PKL_TEAM_MODE_CONFIG[modeKey] || PKL_TEAM_MODE_CONFIG.squad20;
   }
 
   function ensureTeamModeState(modeKey){
-    const cfg = getTeamModeConfig(modeKey || state.teamMode || 'squad30');
+    const cfg = getTeamModeConfig(modeKey || state.teamMode || 'squad20');
     state.teamMode = cfg.key;
 
     if(!Array.isArray(state.teams)) state.teams = [];
@@ -162,7 +161,7 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
-    ensureTeamModeState(state.teamMode || 'squad30');
+    ensureTeamModeState(state.teamMode || 'squad20');
     fillTierSelect();
     bindControls();
     bindNewPlayerTierDropdown();
@@ -273,7 +272,7 @@ if (rerollListModal) {
   }
 
   function renderTeams() {
-    ensureTeamModeState(state.teamMode || 'squad30');
+    ensureTeamModeState(state.teamMode || 'squad20');
     teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
       const slots = team.slots.map((playerId, slotIndex) => `
         <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
