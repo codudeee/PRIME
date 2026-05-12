@@ -4657,6 +4657,15 @@ body.pkl-recruit-loading #joinCancelBtn{
   color:rgba(245,240,255,.82)!important;
 }
 </style>
+
+<style id="pklJoinCancelSelfAccessFixStyle">
+.join-reason-view-btn-disabled{
+  opacity:.55 !important;
+  cursor:not-allowed !important;
+  filter:grayscale(.25) !important;
+  pointer-events:none !important;
+}
+</style>
 </head>
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -5209,7 +5218,8 @@ function safeJson(key, fallback){
 
   function renderTierBadge(rawItem, extraClass){
     const item = hydrateItem(rawItem);
-    let grade = item.gradeRole || item.tier || item.memberTier || "";
+    const fullUser = findFullUser(item) || findFullUser(rawItem) || {};
+    let grade = item.gradeRole || item.tier || item.memberTier || fullUser.gradeRole || fullUser.tier || fullUser.memberTier || "";
     if(!grade && isCurrentUserItem(rawItem)){
       const currentUser = getCurrentUserData();
       grade = currentUser.gradeRole || currentUser.tier || currentUser.memberTier || "";
@@ -5286,8 +5296,18 @@ function safeJson(key, fallback){
     return !!item && (identityMatches(userData, item) || item.key === userData.key || item.name === userData.name);
   }
 
+  function isCurrentUserCanceled(list){
+    const userData = getCurrentUserData();
+    list = Array.isArray(list) ? list : readList(CANCEL_KEY);
+    return list.some(function(item){ return identityMatches(userData, item) || item.key === userData.key || item.name === userData.name; });
+  }
+
   function canPreviewJoinParticipants(list){
-    return isManagerViewer() || isCurrentUserWaiting(list);
+    return isManagerViewer() || isCurrentUserWaiting(list) || isCurrentUserCanceled();
+  }
+
+  function canPreviewCancelList(waitList, cancelList){
+    return isManagerViewer() || isCurrentUserWaiting(waitList) || isCurrentUserCanceled(cancelList);
   }
 
   function joinPreviewLockedHtml(kind){
@@ -5298,9 +5318,56 @@ function safeJson(key, fallback){
     return '<div class="join-preview-lock-box"><b>' + escapeHtml(title) + '</b><span>' + escapeHtml(desc) + '</span><small>현재 대기 인원 수는 공개됩니다.</small></div>';
   }
 
+  const __pklJoinTierHydrating = new Set();
+
+  function missingTier(item){
+    if(!item) return true;
+    return !(item.gradeRole || item.tier || item.memberTier);
+  }
+
+  function participantLookupKey(item){
+    item = item || {};
+    return String(getUserDiscordId(item) || getUserPubgId(item) || getUserNickname(item) || item.key || item.userId || item.uid || "").trim();
+  }
+
+  function hydrateMissingTierForList(storageKey, list){
+    if(!Array.isArray(list) || !list.length || typeof fetch !== "function") return;
+    list.forEach(function(item){
+      const key = participantLookupKey(item);
+      if(!key || !missingTier(item) || __pklJoinTierHydrating.has(key)) return;
+      __pklJoinTierHydrating.add(key);
+      fetch('/api/pkl-users?limit=5&q=' + encodeURIComponent(key), {cache:'no-store'})
+        .then(function(res){ return res && res.ok ? res.json() : null; })
+        .then(function(data){
+          const users = Array.isArray(data) ? data : (Array.isArray(data && data.users) ? data.users : []);
+          const matched = users.find(function(u){ return identityMatches(item, u); }) || users[0];
+          if(!matched) return;
+          const tier = getGradeRole(matched) || matched.tier || matched.memberTier || matched.gradeRole || "";
+          if(!tier) return;
+          const current = readList(storageKey);
+          let changed = false;
+          current.forEach(function(row){
+            if(identityMatches(row, item) || identityMatches(row, matched)){
+              row.gradeRole = row.gradeRole || tier;
+              row.tier = row.tier || tier;
+              row.memberTier = row.memberTier || tier;
+              changed = true;
+            }
+          });
+          if(changed){
+            saveList(storageKey, current);
+            renderAll();
+          }
+        })
+        .catch(function(){})
+        .finally(function(){ __pklJoinTierHydrating.delete(key); });
+    });
+  }
+
   function renderWaitList(){
     if(!waitList) return;
     const list = readActiveWaitList();
+    hydrateMissingTierForList(STORAGE_KEY, list);
     const unlocked = canPreviewJoinParticipants(list);
     if(waitCount){
       waitCount.textContent = list.length + "명";
@@ -5336,7 +5403,8 @@ function safeJson(key, fallback){
     if(!cancelListEl) return;
     const wait = readActiveWaitList();
     const list = readList(CANCEL_KEY);
-    const unlocked = canPreviewJoinParticipants(wait);
+    hydrateMissingTierForList(CANCEL_KEY, list);
+    const unlocked = canPreviewCancelList(wait, list);
     if(cancelCount){
       cancelCount.textContent = list.length + "명";
       cancelCount.classList.toggle("join-preview-lock-count", !unlocked);
@@ -6273,7 +6341,7 @@ function safeJson(key, fallback){
       if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === "function"){
         applyState("loading");
         window.PKLJoinRealtime.fetchNow().then(function(st){
-          const state = st && st.recruitState && st.recruitState.state ? st.recruitState.state : (readLocalRecruitState() || readRealtimeRecruitState());
+          const state = st && st.recruitState && st.recruitState.state ? st.recruitState.state : (readRealtimeRecruitState() || (readLocalRecruitState() && readLocalRecruitState() !== "waiting" ? readLocalRecruitState() : "loading"));
           applyState(state);
         }).catch(apply);
         return;
@@ -6285,10 +6353,10 @@ function safeJson(key, fallback){
   document.addEventListener("DOMContentLoaded", refreshRemoteThenApply);
   window.addEventListener("pkl-join-state-updated", function(event){
     const state = event && event.detail && event.detail.recruitState && event.detail.recruitState.state;
-    if(state){
+    if(state && state !== "waiting"){
       applyState(state);
     }else{
-      apply();
+      refreshRemoteThenApply();
     }
   });
   document.addEventListener("click", function(e){
