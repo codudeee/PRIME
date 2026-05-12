@@ -67,6 +67,7 @@ function normalizeUser(raw){
     tier: tier === 'none' ? '없음' : tier,
     memberTierName: tier === 'none' ? '없음' : tier,
     prime,
+    points: Number(src.points ?? prime) || 0,
     dia: prime,
     chicken: prime,
     warnings,
@@ -108,8 +109,8 @@ function rowToUser(r){
     pubgId: r.pubg_id,
     memberTier: r.tier,
     tier: r.tier,
-    prime: r.prime ?? raw.prime ?? raw.points,
-    points: r.prime ?? raw.prime ?? raw.points,
+    prime: r.prime ?? r.points,
+    points: r.points ?? r.prime,
     warnings: r.warnings,
     jailed: r.jailed,
     banned: r.banned,
@@ -209,7 +210,7 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   const delta = Number(amount) || 0;
   if(!delta) throw new Error('프라임 수량이 없습니다.');
   const row = await readUserRowByIdentity(identity);
-  const current = Number(row.prime ?? (row.raw && (row.raw.prime ?? row.raw.points ?? row.raw.dia ?? row.raw.chicken)) ?? 0) || 0;
+  const current = Number(row.prime ?? row.points ?? (row.raw && (row.raw.prime ?? row.raw.points ?? row.raw.dia ?? row.raw.chicken)) ?? 0) || 0;
   const next = Math.max(0, current + delta);
   const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
   const now = new Date().toISOString();
@@ -286,6 +287,34 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
   return rowToUser(saved);
 }
 
+
+async function readBanRecords(options={}){
+  const limit = Math.max(1, Math.min(500, Number(options.limit || 200)));
+  try{
+    const { json } = await supabaseFetch(`ban_records?select=*&order=created_at.desc.nullslast&limit=${limit}`);
+    return Array.isArray(json) ? json.map(r => ({
+      id: r.id,
+      discordId: r.discord_id || (r.raw && (r.raw.discordId || r.raw.discord_id)) || '',
+      discord_id: r.discord_id || '',
+      nickname: r.nickname || (r.raw && (r.raw.nickname || r.raw.nick || r.raw.name)) || '',
+      nick: r.nickname || '',
+      name: r.nickname || '',
+      pubgId: r.pubg_id || (r.raw && (r.raw.pubgId || r.raw.pubg_id || r.raw.gameId || r.raw.ref)) || '',
+      pubg_id: r.pubg_id || '',
+      reason: r.reason || (r.raw && r.raw.reason) || '영구추방',
+      admin: r.actor || (r.raw && (r.raw.admin || r.raw.actor)) || 'ADMIN',
+      actor: r.actor || 'ADMIN',
+      date: r.created_at || (r.raw && (r.raw.date || r.raw.createdAt)) || '',
+      created_at: r.created_at || '',
+      permanent: true,
+      raw: r.raw || r
+    })) : [];
+  }catch(e){
+    await insertAdminLogSafe({action:'ban_records_read_failed',actor:'SYSTEM',target:'ban_records',detail:{message:String(e && e.message || e)}});
+    return [];
+  }
+}
+
 async function recordBan(ban={}, actor='ADMIN'){
   const now = new Date().toISOString();
   const discordId = explicitDiscordId(ban || {});
@@ -309,7 +338,7 @@ async function recordBan(ban={}, actor='ADMIN'){
     try{
       const row = await readUserRowByIdentity({discordId});
       const raw = row.raw && typeof row.raw==='object' ? {...row.raw} : {};
-      raw.banned = true; raw.banReason = payload.reason; raw.banDate = now;
+      raw.banned = true; raw.banReason = payload.reason; raw.banDate = now; raw.role='banned'; raw.memberRole='banned';
       await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:true, role:'banned', raw, updated_at:now})});
     }catch(_e){}
   }
@@ -332,8 +361,8 @@ async function deleteBanRecord(ban={}, actor='ADMIN'){
     try{
       const row = await readUserRowByIdentity({discordId});
       const raw = row.raw && typeof row.raw==='object' ? {...row.raw} : {};
-      raw.banned = false; delete raw.banReason; delete raw.banDate;
-      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:false, role: raw.memberRole || raw.role || 'user', raw, updated_at:new Date().toISOString()})});
+      raw.banned = false; delete raw.banReason; delete raw.banDate; raw.role='user'; raw.memberRole='user'; raw.userRole='user'; raw.authRole='user';
+      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:false, role:'user', raw, updated_at:new Date().toISOString()})});
     }catch(_e){}
   }
   await insertAdminLogSafe({action:'ban_delete',actor:clean(actor||'ADMIN'),target:nickname||pubg||discordId,detail:{discord_id:discordId,nickname,pubg_id:pubg}});
@@ -357,7 +386,7 @@ async function writeUsers(users){
   return mergeUsers(saved);
 }
 async function readAdminState(){
-  return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
+  return { users: await readUsers({ limit: 100 }), pending: [], bans: await readBanRecords({ limit: 500 }), warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, readLegacyUsers, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, readLegacyUsers, readBanRecords, explicitDiscordId, hasDiscordIdentity };
