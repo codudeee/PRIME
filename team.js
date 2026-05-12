@@ -40,6 +40,8 @@
 
   let state = loadState();
   let draggedPlayerId = null;
+  let supabaseUsersCache = [];
+  let supabaseUsersLoadedOnce = false;
 
   function pklTeamCanEdit(){
     return !!(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentHasRole === "function" && window.PKLRoleSystem.currentHasRole("operator"));
@@ -63,12 +65,10 @@
   const builderLayout = document.querySelector('.builder-layout');
 
   const PKL_TEAM_MODE_CONFIG = {
-    squad10: { key:'squad10', label:'10팀 스쿼드', teams:10, slots:4, modeClass:'pkl-mode-10 pkl-mode-squad' },
     squad20: { key:'squad20', label:'20팀 스쿼드', teams:20, slots:4, modeClass:'pkl-mode-20 pkl-mode-squad' },
-    duo10: { key:'duo10', label:'10팀 듀오', teams:10, slots:2, modeClass:'pkl-mode-10 pkl-mode-duo' },
-    duo20: { key:'duo20', label:'20팀 듀오', teams:20, slots:2, modeClass:'pkl-mode-20 pkl-mode-duo' },
     squadPartner20: { key:'squadPartner20', label:'20팀 스쿼드 깐부', teams:20, slots:4, modeClass:'pkl-mode-20 pkl-mode-squad pkl-mode-partner' },
-    duoPartner20: { key:'duoPartner20', label:'20팀 듀오 깐부', teams:20, slots:2, modeClass:'pkl-mode-20 pkl-mode-duo pkl-mode-partner' }
+    duo20: { key:'duo20', label:'40팀 듀오', teams:40, slots:2, modeClass:'pkl-mode-40 pkl-mode-duo' },
+    duoPartner20: { key:'duoPartner20', label:'40팀 듀오 깐부', teams:40, slots:2, modeClass:'pkl-mode-40 pkl-mode-duo pkl-mode-partner' }
   };
 
   function getTeamModeConfig(modeKey){
@@ -98,9 +98,12 @@
       : [];
 
     if(teamModeSelect && teamModeSelect.value !== cfg.key) teamModeSelect.value = cfg.key;
+    if(teamModeDropdown) teamModeDropdown.dataset.value = cfg.key;
+    if(teamModeText) teamModeText.textContent = cfg.label.replace(/^20팀\s+|^40팀\s+/, '');
+    teamModeOptions.forEach(option => option.classList.toggle('is-active', option.dataset.value === cfg.key));
     if(teamBoardModeText) teamBoardModeText.textContent = cfg.label;
     if(builderLayout){
-      builderLayout.classList.remove('pkl-mode-10','pkl-mode-20','pkl-mode-duo','pkl-mode-squad','pkl-mode-partner');
+      builderLayout.classList.remove('pkl-mode-10','pkl-mode-20','pkl-mode-40','pkl-mode-duo','pkl-mode-squad','pkl-mode-partner');
       cfg.modeClass.split(/\s+/).forEach(cls => cls && builderLayout.classList.add(cls));
     }
 
@@ -176,17 +179,20 @@
     bindTeamModeDropdown();
     fillMatchTimeSelects();
     bindUserSyncEvents();
-    syncJoinWaitListIntoTeamBoard(true);
-    syncPlayersWithUserSources();
-    render();
     startClock();
-    refreshJoinWaitListFromSupabaseOnce();
+
+    loadSupabaseUsersForJoinWaitListOnce().finally(() => {
+      syncJoinWaitListIntoTeamBoard(true);
+      syncPlayersWithUserSources();
+      render();
+      refreshJoinWaitListFromSupabaseOnce();
+    });
   }
 
   function refreshJoinWaitListFromSupabaseOnce() {
     const realtime = window.PKLJoinRealtime;
     if (!realtime || typeof realtime.fetchNow !== 'function') return;
-    realtime.fetchNow().then(() => {
+    realtime.fetchNow().then(() => loadSupabaseUsersForJoinWaitListOnce(true)).then(() => {
       syncJoinWaitListIntoTeamBoard(true);
       syncPlayersWithUserSources();
       renderTierPools();
@@ -293,6 +299,13 @@ if (rerollListModal) {
     bindPlayerCards();
   }
 
+  function getPartnerTeamClass(teamIndex) {
+    const cfg = getTeamModeConfig(state.teamMode || 'squad20');
+    if (!cfg.modeClass || !cfg.modeClass.includes('pkl-mode-partner')) return '';
+    const pairIndex = Math.floor(teamIndex / 2);
+    return `is-partner-team is-partner-${pairIndex % 2 === 0 ? 'a' : 'b'}`;
+  }
+
   function renderTeams() {
     ensureTeamModeState(state.teamMode || 'squad20');
     teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
@@ -303,7 +316,7 @@ if (rerollListModal) {
       `).join('');
 
       return `
-        <section class="team-card">
+        <section class="team-card ${getPartnerTeamClass(teamIndex)}">
           <div class="team-head">
             <span class="team-name">${team.name}</span>
           </div>
@@ -743,6 +756,55 @@ const teamIndex = Number(slot.dataset.teamIndex);
     });
   }
 
+  function getSupabaseRestConfig() {
+    const cfg = window.PKL_SUPABASE_CONFIG || {};
+    const url = String(cfg.url || '').replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+    const key = String(cfg.anonKey || cfg.anon_key || '');
+    return { url, key };
+  }
+
+  function loadSupabaseUsersForJoinWaitListOnce(force) {
+    if (supabaseUsersLoadedOnce && !force) return Promise.resolve(supabaseUsersCache);
+    const config = getSupabaseRestConfig();
+    if (!config.url || !config.key || !window.fetch) {
+      supabaseUsersLoadedOnce = true;
+      return Promise.resolve(supabaseUsersCache);
+    }
+
+    const select = [
+      'id','discord_id','discord_username','nickname','tier','title','role','prime','warnings','is_admin','banned','prison_until','created_at'
+    ].join(',');
+
+    return fetch(`${config.url}/rest/v1/users?select=${encodeURIComponent(select)}&order=created_at.asc&limit=1000`, {
+      method: 'GET',
+      headers: {
+        apikey: config.key,
+        Authorization: `Bearer ${config.key}`,
+        'Cache-Control': 'no-store'
+      }
+    }).then(response => response.ok ? response.json() : [])
+      .then(rows => {
+        supabaseUsersCache = Array.isArray(rows) ? rows : [];
+        supabaseUsersLoadedOnce = true;
+        return supabaseUsersCache;
+      })
+      .catch(() => {
+        supabaseUsersLoadedOnce = true;
+        return supabaseUsersCache;
+      });
+  }
+
+  function readSupabaseUsers() {
+    return Array.isArray(supabaseUsersCache) ? supabaseUsersCache : [];
+  }
+
+  function findSupabaseUserForJoinItem(item, adminUser, accountUser) {
+    const users = readSupabaseUsers();
+    const seed = accountUser || adminUser || item;
+    return users.find(user => isSameUserIdentity(seed, user)) ||
+      users.find(user => sameName(user, (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname || item.discord_username));
+  }
+
   function syncJoinWaitListIntoTeamBoard(forceLoad) {
     if (!forceLoad && isJoinRecruitClosed()) return;
     const joinList = readJoinWaitList().filter(item => {
@@ -756,18 +818,21 @@ const teamIndex = Number(slot.dataset.teamIndex);
     joinList.forEach(item => {
       const adminUser = findAdminUserForJoinItem(item);
       const accountUser = findAccountUserForJoinItem(item, adminUser);
-      const identity = getJoinWaitItemKey(accountUser || adminUser || item);
+      const supabaseUser = findSupabaseUserForJoinItem(item, adminUser, accountUser);
+      const identity = getJoinWaitItemKey(supabaseUser || accountUser || adminUser || item);
       if (identity) activeKeys.add(identity);
 
-      const displayName = (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname || (accountUser && (accountUser.nickname || accountUser.nick || accountUser.name)) || '참가자';
-      const tier = resolveUserTierKey(accountUser) !== 'none' ? resolveUserTierKey(accountUser) : (resolveUserTierKey(item) !== 'none' ? resolveUserTierKey(item) : 'tier0');
-      const player = findPlayerForJoinItem(item, adminUser, accountUser);
+      const sourceUser = supabaseUser || accountUser || adminUser || item;
+      const displayName = (sourceUser && (sourceUser.nickname || sourceUser.nick || sourceUser.name || sourceUser.discord_username)) || item.name || item.nickname || '참가자';
+      const tier = resolveUserTierKey(sourceUser) !== 'none' ? resolveUserTierKey(sourceUser) : 'tier0';
+      const player = findPlayerForJoinItem(item, supabaseUser || adminUser, accountUser);
 
       if (player) {
         player.source = player.source || 'joinWaitList';
         player.joinWaitKey = identity || player.joinWaitKey || '';
-        player.userUid = player.userUid || (adminUser && (adminUser.uid || adminUser.id)) || (accountUser && (accountUser.uid || accountUser.id)) || item.userId || item.uid || item.key || '';
-        player.accountId = player.accountId || (accountUser && (accountUser.id || accountUser.uid)) || (adminUser && (adminUser.id || adminUser.uid)) || item.userId || item.uid || item.key || '';
+        player.userUid = player.userUid || (supabaseUser && (supabaseUser.discord_id || supabaseUser.uid || supabaseUser.id)) || (adminUser && (adminUser.uid || adminUser.id)) || (accountUser && (accountUser.uid || accountUser.id)) || item.discord_id || item.userId || item.uid || item.key || '';
+        player.discordId = player.discordId || (supabaseUser && supabaseUser.discord_id) || item.discord_id || item.discordId || '';
+        player.accountId = player.accountId || (supabaseUser && (supabaseUser.id || supabaseUser.discord_id)) || (accountUser && (accountUser.id || accountUser.uid)) || (adminUser && (adminUser.id || adminUser.uid)) || item.userId || item.uid || item.key || '';
         player.pubgId = player.pubgId || (adminUser && (adminUser.pubgId || adminUser.gameId)) || item.pubgId || (accountUser && (accountUser.pubgId || accountUser.gameId)) || '';
         player.name = displayName;
         player.tier = TIERS.some(t => t.id === tier) ? tier : player.tier;
@@ -785,8 +850,9 @@ const teamIndex = Number(slot.dataset.teamIndex);
         status: 'waiting',
         source: 'joinWaitList',
         joinWaitKey: identity || '',
-        userUid: (adminUser && (adminUser.uid || adminUser.id)) || (accountUser && (accountUser.uid || accountUser.id)) || item.userId || item.uid || item.key || '',
-        accountId: (accountUser && (accountUser.id || accountUser.uid)) || (adminUser && (adminUser.id || adminUser.uid)) || item.userId || item.uid || item.key || '',
+        userUid: (supabaseUser && (supabaseUser.discord_id || supabaseUser.uid || supabaseUser.id)) || (adminUser && (adminUser.uid || adminUser.id)) || (accountUser && (accountUser.uid || accountUser.id)) || item.discord_id || item.userId || item.uid || item.key || '',
+        discordId: (supabaseUser && supabaseUser.discord_id) || item.discord_id || item.discordId || '',
+        accountId: (supabaseUser && (supabaseUser.id || supabaseUser.discord_id)) || (accountUser && (accountUser.id || accountUser.uid)) || (adminUser && (adminUser.id || adminUser.uid)) || item.userId || item.uid || item.key || '',
         pubgId: (adminUser && (adminUser.pubgId || adminUser.gameId)) || item.pubgId || (accountUser && (accountUser.pubgId || accountUser.gameId)) || ''
       };
       state.players.push(nextPlayer);
@@ -921,7 +987,17 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function getUserTierFields(user) {
     if (!user) return [];
-    return [user.memberTier];
+    return [
+      user.tier,
+      user.memberTier,
+      user.member_tier,
+      user.pklTier,
+      user.memberGrade,
+      user.grade,
+      user.dataTierRole,
+      user.dataTier,
+      user.title
+    ];
   }
 
   function getTierNumericIndex(tierId) {
@@ -996,6 +1072,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function resolvePlayerAccountUser(player, displayName) {
+    const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || readSupabaseUsers().find(user => sameName(user, displayName || player.name));
+    if (supabaseUser) return supabaseUser;
     const users = readAccountUsers();
     return users.find(user => isSameUserIdentity(player, user)) || users.find(user => sameName(user, displayName || player.name)) || null;
   }
@@ -1028,9 +1106,12 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function isSameUserIdentity(a, b) {
     if (!a || !b) return false;
-    const uidA = a.userUid || a.uid || a.userId || a.accountId || a.key || a.id || '';
-    const uidB = b.uid || b.userUid || b.userId || b.accountId || b.key || b.id || '';
-    if (uidA && uidB && uidA === uidB) return true;
+    const discordA = a.discord_id || a.discordId || a.discordID || a.userDiscordId || '';
+    const discordB = b.discord_id || b.discordId || b.discordID || b.userDiscordId || '';
+    if (discordA && discordB && String(discordA) === String(discordB)) return true;
+    const uidA = a.userUid || a.uid || a.userId || a.accountId || a.key || a.id || a.discord_id || a.discordId || '';
+    const uidB = b.uid || b.userUid || b.userId || b.accountId || b.key || b.id || b.discord_id || b.discordId || '';
+    if (uidA && uidB && String(uidA) === String(uidB)) return true;
     const pubgA = a.pubgId || a.gameId || '';
     const pubgB = b.pubgId || b.gameId || '';
     return !!(pubgA && pubgB && pubgA === pubgB);
@@ -1039,7 +1120,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
   function sameName(user, name) {
     const target = normalizeName(name);
     if (!target || !user) return false;
-    return [user.nickname, user.nick, user.name].some(value => normalizeName(value) === target);
+    return [user.nickname, user.nick, user.name, user.discord_username, user.discordUsername].some(value => normalizeName(value) === target);
   }
 
   function normalizeName(value) {
@@ -1088,6 +1169,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
     const normalizedCompact = compact.replace(/[_-]/g, '');
     const idTier = TIERS.find(item => item.id.toLowerCase() === compact || item.label.replace(/\s+/g, '').toLowerCase() === compact);
     if (idTier) return idTier.id;
+
+    if (compact === '짐승' || compact === 'beast' || compact === 'animal') return 'beast';
 
     const koreanTier = compact.match(/([0-4])티어/);
     if (koreanTier) return `tier${koreanTier[1]}`;

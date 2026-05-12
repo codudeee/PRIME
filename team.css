@@ -6394,3 +6394,132 @@ body{
     overflow:visible !important;
   }
 }
+
+/* === PKL TEAM FINAL: Supabase tier wait + dropdown/front + 40 duo layout === */
+.team-page > .builder-layout{
+  grid-template-columns:180px minmax(0,1fr) 168px !important;
+  gap:10px !important;
+}
+.team-page > .builder-layout > .tier-panel{
+  width:180px !important;
+  min-width:180px !important;
+  max-width:180px !important;
+  z-index:2 !important;
+}
+.team-page > .builder-layout > .team-board{
+  min-width:0 !important;
+  z-index:1 !important;
+}
+.team-page > .builder-layout > .control-panel{
+  width:168px !important;
+  min-width:168px !important;
+  max-width:168px !important;
+  z-index:5 !important;
+}
+
+.tier-panel .tier-pools{
+  grid-template-columns:1fr !important;
+  grid-template-rows:repeat(6,minmax(0,1fr)) !important;
+  gap:6px !important;
+}
+.tier-panel .tier-list{
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  scrollbar-width:thin !important;
+  scrollbar-color:var(--tier-accent,#8b5cf6) rgba(255,255,255,.055) !important;
+}
+.tier-panel .tier-list::-webkit-scrollbar{width:6px !important;height:6px !important;}
+.tier-panel .tier-list::-webkit-scrollbar-track{background:rgba(255,255,255,.045) !important;border-radius:999px !important;}
+.tier-panel .tier-list::-webkit-scrollbar-thumb{
+  border-radius:999px !important;
+  background:linear-gradient(180deg,var(--tier-accent,#8b5cf6),color-mix(in srgb,var(--tier-accent,#8b5cf6) 52%,#050611)) !important;
+  box-shadow:0 0 10px color-mix(in srgb,var(--tier-accent,#8b5cf6) 35%,transparent) !important;
+}
+
+.team-board .team-grid,
+.team-page > .builder-layout.pkl-mode-20 > .team-board .team-grid{
+  grid-template-columns:repeat(10,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+  gap:8px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-grid{
+  grid-template-columns:repeat(10,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(4,minmax(0,1fr)) !important;
+  gap:6px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-head{
+  flex-basis:24px !important;
+  min-height:24px !important;
+  height:24px !important;
+  padding:4px 6px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-name{
+  font-size:12px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .slot-list{
+  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+  gap:4px !important;
+  padding:4px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot{
+  padding:3px !important;
+  border-radius:7px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-card{
+  padding:3px 4px !important;
+  gap:2px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-name{
+  font-size:10px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-tier.member-role-badge{
+  min-width:34px !important;
+  height:15px !important;
+  line-height:15px !important;
+  font-size:8px !important;
+}
+
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card.is-partner-team{
+  position:relative !important;
+  border-color:rgba(216,180,254,.20) !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card.is-partner-a{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(168,85,247,.20),0 0 18px rgba(168,85,247,.10) !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card.is-partner-b{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(34,211,238,.16),0 0 18px rgba(34,211,238,.08) !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card:nth-child(2n+1) .team-head::after{
+  content:'깐부' !important;
+  margin-left:auto !important;
+  min-width:30px !important;
+  height:16px !important;
+  border-radius:999px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:9px !important;
+  font-weight:1000 !important;
+  color:#fff !important;
+  background:linear-gradient(135deg,rgba(168,85,247,.70),rgba(34,211,238,.45)) !important;
+  box-shadow:0 0 10px rgba(168,85,247,.22) !important;
+}
+
+.control-operation-box .section-title{
+  display:block !important;
+}
+.control-section-box{position:relative !important;}
+.control-section-box:nth-of-type(2){z-index:50 !important;}
+.control-section-box.control-operation-box{z-index:20 !important;}
+.pkl-custom-select{position:relative !important;z-index:1 !important;}
+.pkl-custom-select.is-open{z-index:9999 !important;}
+.pkl-custom-select-list{z-index:10000 !important;}
+#rerollModeDropdown.is-open{z-index:12000 !important;}
+#rerollModeDropdown.is-open .pkl-custom-select-list{z-index:12001 !important;}
+#teamModeDropdown.is-open{z-index:9000 !important;}
+#teamModeDropdown.is-open .pkl-custom-select-list{z-index:9001 !important;}
+
+@media (max-width:1500px){
+  .team-page{min-width:1500px !important;width:1500px !important;}
+  .team-page > .builder-layout{grid-template-columns:180px minmax(1114px,1fr) 168px !important;}
+}
