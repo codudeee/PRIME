@@ -8188,7 +8188,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   function nickKey(u){return clean(u&& (u.nickname||u.name||u.nick)).replace(/\s+/g,'').toLowerCase();}
   var __pklUsersRenderCache={ref:null,len:-1,version:-1,list:null};
   function usersCacheVersion(){return Number(window.__PKL_ADMIN_USERS_CACHE_VERSION||0)||0;}
-  function bumpUsersCacheVersion(){window.__PKL_ADMIN_USERS_CACHE_VERSION=usersCacheVersion()+1;}
+  function bumpUsersCacheVersion(){window.__PKL_ADMIN_USERS_CACHE_VERSION=usersCacheVersion()+1; __pklLastUserListRenderKey='';}
   function getUniqueUsers(rawUsers){
     var len=Array.isArray(rawUsers)?rawUsers.length:0;
     var version=usersCacheVersion();
@@ -8221,6 +8221,20 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     });
     return out.sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
   }
+  var __pklLastUserListRenderKey='';
+  function syncUserListActiveOnly(){
+    var wrap=document.getElementById('userList'); if(!wrap) return false;
+    var changed=false;
+    wrap.querySelectorAll('.user-card[data-real-index]').forEach(function(card){
+      var idx=Number(card.getAttribute('data-real-index'));
+      var should=(typeof current==='number' && idx===current);
+      if(card.classList.contains('active')!==should){
+        card.classList.toggle('active',should);
+        changed=true;
+      }
+    });
+    return changed;
+  }
   window.renderUserList=function(){
     try{ if(typeof normalizeAllUserRoles==='function') normalizeAllUserRoles(); }catch(e){}
     var q=clean(document.getElementById('search')&&document.getElementById('search').value).toLowerCase();
@@ -8233,6 +8247,13 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       return String(u.nickname||'').toLowerCase().includes(q)||String(u.pubgId||'').toLowerCase().includes(q)||String(u.discordId||'').toLowerCase().includes(q);
     });
     var wrap=document.getElementById('userList'); if(!wrap) return;
+    var renderKey=[usersCacheVersion(),q,typeof current==='number'?current:-1,list.length,list.map(function(u){return didOf(u);}).join('|')].join('::');
+    if(__pklLastUserListRenderKey===renderKey && wrap.children.length){
+      syncUserListActiveOnly();
+      var sameUc=document.getElementById('userCount'); if(sameUc) sameUc.textContent=list.length+'명';
+      return;
+    }
+    __pklLastUserListRenderKey=renderKey;
     wrap.innerHTML=list.map(function(u,displayIndex){
       var did=didOf(u);
       var realIndex=indexByDid.get(did);
