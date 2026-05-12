@@ -6710,9 +6710,21 @@ async function switchAdminTab(tab,btn){
   Object.values(ids).forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none"});
   const target=document.getElementById(ids[tab]||"userManageTab");
   if(target)target.style.display=tab==="users"?"grid":"block";
-  if(tab==="users"){const search=document.getElementById("search");if(search)search.value="";}
-  if(tab==="dashboard" && typeof renderPremiumDashboard === "function") renderPremiumDashboard();
-  render();
+  if(tab==="users"){
+    const search=document.getElementById("search");
+    if(search)search.value="";
+    if(typeof renderUserList === "function") renderUserList();
+    if(typeof renderProfile === "function") renderProfile();
+    return;
+  }
+  if(tab==="dashboard"){
+    if(typeof renderPremiumDashboard === "function") renderPremiumDashboard();
+    if(typeof updatePremiumDashboard === "function") updatePremiumDashboard();
+    return;
+  }
+  if(tab==="pending" && typeof renderPendingList === "function") return renderPendingList();
+  if(tab==="warnings" && typeof renderWarnRecords === "function") return renderWarnRecords();
+  if(tab==="bans" && typeof renderBanRecords === "function") return renderBanRecords();
 }
 function removeApprovedFromPendingStorage(p){/* Supabase 단일 원본: pklPendingUsers localStorage 운영 복구/정리 금지 */}
 function pklMemberDataLabel(type){
@@ -7857,6 +7869,9 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 </script>
 <script id="pkl-admin-supabase-users-loader">
 (function(){
+  /* Disabled: duplicate legacy loader caused two Supabase fetches and two renders on admin entry.
+     The canonical loader below is the only active users loader. */
+  if(true) return;
   if(window.__PKL_ADMIN_SUPABASE_USERS_LOADER__) return;
   window.__PKL_ADMIN_SUPABASE_USERS_LOADER__=true;
   function clean(v){return String(v==null?'':v).trim();}
@@ -8133,10 +8148,15 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     }).join('') || '<div class="pending-empty">검색된 회원이 없습니다.</div>';
     var uc=document.getElementById('userCount'); if(uc) uc.textContent=list.length+'명';
   };
+  function isVisible(id){
+    var el=document.getElementById(id);
+    return !!(el && getComputedStyle(el).display !== 'none');
+  }
   window.render=function(){
     try{ renderUserList(); }catch(e){console.warn('admin renderUserList skipped',e);}
     try{ if(typeof renderProfile==='function') renderProfile(); }catch(e){}
-    try{ if(typeof renderStats==='function') renderStats(); }catch(e){}
+    /* 대시보드 최초/백그라운드 렌더 금지: 대시보드 탭이 실제로 열려 있을 때만 통계를 갱신한다. */
+    try{ if(isVisible('dashboardManageTab') && typeof renderStats==='function') renderStats(); }catch(e){}
     try{ if(typeof renderWelcome==='function') renderWelcome(); }catch(e){}
   };
   async function load(){
@@ -8155,7 +8175,13 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       var uc=document.getElementById('userCount'); if(uc) uc.textContent='불러오기 실패';
     }
   }
-  document.addEventListener('DOMContentLoaded',function(){ setTimeout(load,80); });
+  document.addEventListener('DOMContentLoaded',function(){
+    var users=document.getElementById('userManageTab');
+    document.querySelectorAll('#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen').forEach(function(el){el.style.display='none';});
+    if(users) users.style.display='grid';
+    if(typeof setAdminNavActiveByScreen==='function') setAdminNavActiveByScreen('userManageTab');
+    setTimeout(load,20);
+  });
   window.PKLAdminReloadSupabaseUsers=load;
 })();
 </script>
