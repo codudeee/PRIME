@@ -8276,13 +8276,22 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     var el=document.getElementById(id);
     return !!(el && getComputedStyle(el).display !== 'none');
   }
+  var __pklLastWelcomeRenderKey='';
+  function renderWelcomeIfNeeded(){
+    if(typeof renderWelcome!=='function') return;
+    var users=(typeof state!=='undefined' && state && Array.isArray(state.users))?state.users:[];
+    var key=[usersCacheVersion(),users.length].join(':');
+    if(__pklLastWelcomeRenderKey===key) return;
+    __pklLastWelcomeRenderKey=key;
+    renderWelcome();
+  }
   window.render=function(){
     var usersVisible=isVisible('userManageTab');
     var dashVisible=isVisible('dashboardManageTab');
     try{ if(usersVisible) renderUserList(); }catch(e){console.warn('admin renderUserList skipped',e);}
     try{ if(usersVisible && typeof renderProfile==='function') renderProfile(); }catch(e){}
     try{ if(dashVisible && typeof renderStats==='function') renderStats(); }catch(e){}
-    try{ if(typeof renderWelcome==='function') renderWelcome(); }catch(e){}
+    try{ renderWelcomeIfNeeded(); }catch(e){}
   };
   async function load(){
     var wrap=document.getElementById('userList'); if(wrap) wrap.innerHTML='<div class="pkl-users-loading-card">Supabase 유저 목록을 불러오는 중입니다.</div>';
