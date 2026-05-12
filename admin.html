@@ -5783,6 +5783,102 @@ a,
 .metric b{word-break:keep-all;overflow-wrap:anywhere;line-height:1.25;}
 </style>
 
+
+<style id="pkl-member-edit-bottom-actions-20260513">
+/* 회원정보수정 모달 하단 버튼 정렬: 기존 렌더/저장 로직은 건드리지 않고 배치만 통일 */
+#tempEditModal .modal-head{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:18px;
+}
+#tempEditModal .modal-head h2{
+  margin:0;
+  text-align:center;
+}
+#tempEditModal .modal-close-x{
+  position:absolute;
+  right:0;
+  top:50%;
+  transform:translateY(-50%);
+  width:36px;
+  height:36px;
+  border-radius:12px;
+  border:1px solid rgba(216,180,254,.24);
+  background:rgba(255,255,255,.055);
+  color:#fff;
+  font-size:22px;
+  font-weight:1000;
+  line-height:1;
+  cursor:pointer;
+  box-shadow:0 0 14px rgba(124,58,237,.14),inset 0 0 10px rgba(255,255,255,.025);
+  transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease,background .16s ease;
+}
+#tempEditModal .modal-close-x:hover{
+  transform:translateY(calc(-50% - 1px));
+  border-color:rgba(233,213,255,.48);
+  background:rgba(124,58,237,.16);
+  box-shadow:0 0 20px rgba(124,58,237,.24),inset 0 0 12px rgba(255,255,255,.04);
+}
+#tempEditModal .temp-edit-actions-bottom{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:14px!important;
+  margin-top:18px!important;
+}
+#tempEditModal .temp-edit-actions-bottom button{
+  width:100%;
+  height:44px;
+  border-radius:14px;
+  font-size:13px;
+  font-weight:1000;
+  letter-spacing:-.2px;
+  color:#fff;
+  cursor:pointer;
+  transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease,background .16s ease;
+}
+#tempEditModal .temp-edit-actions-bottom button:hover{
+  transform:translateY(-1px);
+}
+#tempEditModal .temp-edit-delete{
+  border:1px solid rgba(248,113,113,.42);
+  background:linear-gradient(180deg,rgba(127,29,29,.72),rgba(69,10,10,.58));
+  color:#fee2e2;
+  box-shadow:0 0 16px rgba(239,68,68,.14),inset 0 1px 0 rgba(255,255,255,.08);
+}
+#tempEditModal .temp-edit-delete:hover{
+  border-color:rgba(252,165,165,.62);
+  background:linear-gradient(180deg,rgba(153,27,27,.80),rgba(69,10,10,.66));
+  box-shadow:0 0 22px rgba(239,68,68,.22),inset 0 1px 0 rgba(255,255,255,.10);
+}
+#tempEditModal .temp-edit-prime{
+  border:1px solid rgba(251,191,36,.42);
+  background:linear-gradient(180deg,rgba(245,158,11,.42),rgba(120,53,15,.72));
+  color:#fff7d6;
+  box-shadow:0 0 16px rgba(245,158,11,.18),inset 0 1px 0 rgba(255,255,255,.08);
+}
+#tempEditModal .temp-edit-prime:hover{
+  border-color:rgba(253,224,71,.64);
+  background:linear-gradient(180deg,rgba(251,191,36,.50),rgba(146,64,14,.74));
+  box-shadow:0 0 22px rgba(245,158,11,.28),inset 0 1px 0 rgba(255,255,255,.10);
+}
+#tempEditModal .temp-edit-actions-bottom .temp-edit-save{
+  border:1px solid rgba(216,180,254,.35);
+  background:linear-gradient(180deg,rgba(124,58,237,.72),rgba(76,29,149,.52));
+  color:#fff;
+  box-shadow:0 0 18px rgba(124,58,237,.20),inset 0 1px 0 rgba(255,255,255,.08);
+}
+#tempEditModal .temp-edit-actions-bottom .temp-edit-save:hover{
+  border-color:rgba(233,213,255,.52);
+  background:linear-gradient(180deg,rgba(139,92,246,.82),rgba(76,29,149,.62));
+  box-shadow:0 0 26px rgba(124,58,237,.30),inset 0 1px 0 rgba(255,255,255,.10);
+}
+@media(max-width:720px){
+  #tempEditModal .temp-edit-actions-bottom{grid-template-columns:1fr!important;}
+}
+</style>
+
 <style id="pkl-prime-adjust-style">
 /* PKL 프라임 지급/압수 모달 - 회원정보수정 모달 계열로 통일 */
 .modal-prime-top{
@@ -7563,7 +7659,7 @@ function pklSeoulTimeOnly(value){
 
 <div id="tempEditModal" class="temp-edit-modal">
   <div class="temp-edit-box">
-    <div class="modal-head"><h2>회원 정보 수정</h2><div class="modal-head-actions"><button class="modal-delete-top" data-min-role="admin" onclick="deleteMemberData()">회원데이터삭제</button><button class="modal-prime-top" data-min-role="operator" onclick="openPrimeAdjustModal()">프라임지급/압수</button></div></div>
+    <div class="modal-head"><h2>회원 정보 수정</h2><button class="modal-close-x" type="button" onclick="closeMemberEditModal()">×</button></div>
     <div class="temp-edit-grid">
       <div class="temp-edit-field"><label>닉네임</label><input id="editNick" type="text"></div>
       <div class="temp-edit-field"><label>배그아이디</label><input id="editPubg" type="text"></div>
@@ -7608,9 +7704,10 @@ function pklSeoulTimeOnly(value){
       <div class="temp-edit-field temp-edit-empty" aria-hidden="true"></div>
       <div class="temp-edit-field temp-edit-empty" aria-hidden="true"></div>
     </div>
-    <div class="temp-edit-actions">
-      <button class="temp-edit-save" data-min-role="operator" onclick="saveMemberEdit()">저장</button>
-      <button class="temp-edit-close" onclick="closeMemberEditModal()">닫기</button>
+    <div class="temp-edit-actions temp-edit-actions-bottom">
+      <button class="temp-edit-delete" data-min-role="admin" onclick="deleteMemberData()">회원데이터삭제</button>
+      <button class="temp-edit-prime" data-min-role="operator" onclick="openPrimeAdjustModal()">프라임지급/압수</button>
+      <button class="temp-edit-save" data-min-role="operator" onclick="saveMemberEdit()">정보수정완료</button>
     </div>
   </div>
 </div>
