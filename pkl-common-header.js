@@ -44,6 +44,8 @@ function pklCanChangeRole() {
 
 (function(){
   const MAIL_KEY = "pklMailboxMails";
+  let pklSupabaseMailboxCache = [];
+  let pklMailboxFetchAt = 0;
   const HEADER_HTML = `<header class="topbar">
 <div class="topbar-inner">
 <a aria-label="PKL 메인" class="brand" href="index.html"><img class="brand-logo-img" src="pkl_logo_final.webp" alt="PKL"><div class="brand-name">PRIME KILL LEAGUE</div></a>
@@ -398,10 +400,21 @@ if(node.nodeType===Node.TEXT_NODE){
   }
 
   function readMails(){
+    let local=[];
     try{
       const data=JSON.parse(localStorage.getItem(MAIL_KEY) || "[]");
-      return Array.isArray(data) ? data : [];
-    }catch(e){ return []; }
+      local=Array.isArray(data) ? data : [];
+    }catch(e){ local=[]; }
+    const merged=[];
+    const seen=new Set();
+    (Array.isArray(pklSupabaseMailboxCache)?pklSupabaseMailboxCache:[]).concat(local).forEach(function(mail,index){
+      if(!mail || typeof mail!=="object") return;
+      const key=String(mail.id || mail.mailId || mail.created_at || mail.date || mail.title || index);
+      if(seen.has(key)) return;
+      seen.add(key);
+      merged.push(mail);
+    });
+    return merged;
   }
 
   function saveMails(mails){
@@ -460,6 +473,33 @@ if(node.nodeType===Node.TEXT_NODE){
     const identities=currentMailIdentities();
     if(!identities.length) return false;
     return targets.some(target=>identities.includes(target));
+  }
+
+  function pklSameMailboxUser(a,b){
+    const av=currentMailIdentities();
+    const keys=[b && b.uid,b && b.id,b && b.userId,b && b.discordId,b && b.discord_id,b && b.pubgId,b && b.pubg_id,b && b.nickname,b && b.name].map(cleanMailIdentity).filter(Boolean);
+    return !!(av.length && keys.length && keys.some(function(k){return av.includes(k);}));
+  }
+
+  async function loadMailboxFromSupabase(force){
+    const user=getLoginUser();
+    if(!user) return [];
+    const now=Date.now();
+    if(!force && now-pklMailboxFetchAt<20000) return pklSupabaseMailboxCache;
+    pklMailboxFetchAt=now;
+    const q=encodeURIComponent(user.discordId || user.discord_id || user.pubgId || user.pubg_id || user.nickname || user.name || "");
+    if(!q) return pklSupabaseMailboxCache;
+    try{
+      const res=await fetch('/api/pkl-users?limit=20&q='+q,{cache:'no-store'});
+      const data=await res.json().catch(function(){return null;});
+      const users=Array.isArray(data && data.users)?data.users:[];
+      const matched=users.find(function(u){return pklSameMailboxUser(user,u);}) || users[0];
+      const mails=matched && Array.isArray(matched.mailbox)?matched.mailbox:[];
+      pklSupabaseMailboxCache=mails.slice();
+      return pklSupabaseMailboxCache;
+    }catch(e){
+      return pklSupabaseMailboxCache;
+    }
   }
 
   function visibleMails(){
@@ -542,6 +582,7 @@ if(node.nodeType===Node.TEXT_NODE){
       }
       if(managerBtn) managerBtn.style.display=isAdminUser(user) ? "flex" : "none";
       updateMailboxBadge();
+      loadMailboxFromSupabase(false).then(updateMailboxBadge).catch(function(){});
     }else{
       setButtonText(loginBtn,"LOGIN");
       if(accountWrap){
@@ -722,12 +763,14 @@ if(node.nodeType===Node.TEXT_NODE){
     }
   }
 
-  function openMailboxModal(){
+  async function openMailboxModal(){
     if(!getLoginUser()){ location.href="login.html"; return; }
-    renderMailboxList();
     const modal=document.getElementById("mailboxModal");
     if(modal) modal.classList.add("open");
     syncLoginState();
+    await loadMailboxFromSupabase(true);
+    updateMailboxBadge();
+    renderMailboxList();
   }
 
   function closeMailboxModal(){ document.getElementById("mailboxModal")?.classList.remove("open"); }

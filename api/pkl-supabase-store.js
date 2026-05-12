@@ -308,7 +308,13 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
   const action = clean(log.type || log.action || (changes.some(c=>c.field==='회원 티어') ? 'tier_change' : 'profile_edit')) || 'profile_edit';
   const reason = clean(log.reason || (changes.length ? changes.map(c=>`${c.field}: ${c.before || '-'} → ${c.after || '-'}`).join(' / ') : '회원 정보 수정'));
   const actor = clean(log.actor || log.admin || 'ADMIN');
-  const mergedRaw = {...raw, ...nextInput, history:Array.isArray(raw.history)?raw.history:[], memoList:Array.isArray(raw.memoList)?raw.memoList:[]};
+  const mergedRaw = {
+    ...raw,
+    ...nextInput,
+    history:Array.isArray(nextInput.history)?nextInput.history:(Array.isArray(raw.history)?raw.history:[]),
+    memoList:Array.isArray(nextInput.memoList)?nextInput.memoList:(Array.isArray(raw.memoList)?raw.memoList:[]),
+    mailbox:Array.isArray(nextInput.mailbox)?nextInput.mailbox:(Array.isArray(raw.mailbox)?raw.mailbox:[])
+  };
   mergedRaw.history.unshift({type:action, reason, date:now, admin:actor, changes});
   const body = {
     discord_id: row.discord_id,
