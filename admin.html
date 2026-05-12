@@ -8082,5 +8082,83 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 })();
 </script>
 
+
+<script id="pkl-admin-users-canonical-supabase-render-20260512">
+(function(){
+  'use strict';
+  function clean(v){return String(v==null?'':v).trim();}
+  function didOf(u){
+    u=u||{};
+    var did=clean(u.discordId||u.discord_id).toLowerCase().replace(/^discord-/, '');
+    if(did) return did;
+    ['uid','id','userId','key'].some(function(k){var raw=clean(u[k]); if(/^discord-/i.test(raw)){did=raw.toLowerCase().replace(/^discord-/, ''); return true;} return false;});
+    return did;
+  }
+  function nickKey(u){return clean(u&& (u.nickname||u.name||u.nick)).replace(/\s+/g,'').toLowerCase();}
+  function normalize(u){
+    u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var did=didOf(u)||didOf(raw); if(!did) return null;
+    var nick=clean(u.nickname||u.name||u.nick||raw.nickname||raw.name||raw.nick||u.discord_username||u.discordUsername||raw.discord_username)||('회원-'+did.slice(-4));
+    var pubg=clean(u.pubgId||u.pubg_id||u.gameId||u.pubgName||raw.pubgId||raw.pubg_id||raw.gameId);
+    var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||raw.memberTier||raw.gradeRole||raw.tierRole||raw.tier||'none');
+    var role=clean(u.memberRole||u.role||u.userRole||u.authRole||raw.memberRole||raw.role||(u.is_admin?'admin':'user'))||'user';
+    var prime=Number(u.prime??u.points??u.dia??raw.prime??raw.points??0)||0;
+    return Object.assign({}, raw, u, {discordId:did,discord_id:did,uid:'discord-'+did,id:'discord-'+did,userId:'discord-'+did,nickname:nick,name:nick,nick:nick,displayName:nick,pubgId:pubg,gameId:pubg,pubgName:pubg,ref:pubg,memberTier:tier,gradeRole:tier,tierRole:tier,baseRole:tier,memberRole:role,userRole:role,authRole:role,role:role,prime:prime,points:prime,dia:prime,warnings:Number(u.warnings??raw.warnings??0)||0,history:Array.isArray(u.history)?u.history:[],memoList:Array.isArray(u.memoList)?u.memoList:[]});
+  }
+  function unique(list){
+    var seenDid=new Set(), seenNick=new Set(), out=[];
+    (Array.isArray(list)?list:[]).forEach(function(row){
+      var u=normalize(row); if(!u) return;
+      var did=didOf(u), nk=nickKey(u);
+      if(!did || seenDid.has(did)) return;
+      // 서버 정책상 nickname 중복 생성 금지. UI는 Supabase 정규화 결과를 한 번만 표시한다.
+      if(nk && seenNick.has(nk)) return;
+      seenDid.add(did); if(nk) seenNick.add(nk); out.push(u);
+    });
+    return out.sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
+  }
+  window.renderUserList=function(){
+    try{ if(typeof normalizeAllUserRoles==='function') normalizeAllUserRoles(); }catch(e){}
+    var q=clean(document.getElementById('search')&&document.getElementById('search').value).toLowerCase();
+    var list=unique((typeof state!=='undefined'&&state&&Array.isArray(state.users))?state.users:[]).filter(function(u){
+      if(!q) return true;
+      return String(u.nickname||'').toLowerCase().includes(q)||String(u.pubgId||'').toLowerCase().includes(q)||String(u.discordId||'').toLowerCase().includes(q);
+    });
+    var wrap=document.getElementById('userList'); if(!wrap) return;
+    wrap.innerHTML=list.map(function(u,displayIndex){
+      var realIndex=((typeof state!=='undefined'&&state&&Array.isArray(state.users))?state.users:[]).findIndex(function(x){return didOf(x)===didOf(u);});
+      if(realIndex<0) realIndex=displayIndex;
+      var active=(typeof current==='number'&&realIndex===current)?'active':'';
+      var mb='', gb=''; try{mb=typeof memberBadgeHtml==='function'?memberBadgeHtml(u):'';}catch(e){} try{gb=typeof gradeBadgeHtml==='function'?gradeBadgeHtml(u):'';}catch(e){}
+      return '<div class="user-card named-role-layout '+active+'" onclick="selectUser('+realIndex+')"><div class="avatar">'+(displayIndex+1)+'</div><div class="user-main"><div class="user-role-line"><span class="user-name">'+(typeof esc==='function'?esc(u.nickname||u.name||'-'):clean(u.nickname||u.name||'-'))+'</span>'+mb+gb+'</div><div class="user-sub">'+(typeof esc==='function'?esc(u.pubgId||u.gameId||'-'):clean(u.pubgId||u.gameId||'-'))+'</div></div></div>';
+    }).join('') || '<div class="pending-empty">검색된 회원이 없습니다.</div>';
+    var uc=document.getElementById('userCount'); if(uc) uc.textContent=list.length+'명';
+  };
+  window.render=function(){
+    try{ renderUserList(); }catch(e){console.warn('admin renderUserList skipped',e);}
+    try{ if(typeof renderProfile==='function') renderProfile(); }catch(e){}
+    try{ if(typeof renderStats==='function') renderStats(); }catch(e){}
+    try{ if(typeof renderWelcome==='function') renderWelcome(); }catch(e){}
+  };
+  async function load(){
+    var wrap=document.getElementById('userList'); if(wrap) wrap.innerHTML='<div class="pkl-users-loading-card">Supabase 유저 목록을 불러오는 중입니다.</div>';
+    try{
+      var res=await fetch('/api/pkl-users?limit=20&offset=0',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
+      var data=await res.json().catch(function(){return {};});
+      if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
+      var users=unique(data.users);
+      if(typeof state!=='undefined'){ state=Object.assign({},state||{},{users:users,pending:Array.isArray(state&&state.pending)?state.pending:[],bans:Array.isArray(state&&state.bans)?state.bans:[],warningRecords:Array.isArray(state&&state.warningRecords)?state.warningRecords:[]}); window.state=state; }
+      if(typeof current!=='number'||current<0||current>=users.length) current=0;
+      window.render();
+    }catch(err){
+      console.error('PKL admin canonical users load failed',err);
+      var list=document.getElementById('userList'); if(list) list.innerHTML='<div class="pending-empty">Supabase 유저를 불러오지 못했습니다.<br>users SELECT 정책/API 응답을 확인해주세요.</div>';
+      var uc=document.getElementById('userCount'); if(uc) uc.textContent='불러오기 실패';
+    }
+  }
+  document.addEventListener('DOMContentLoaded',function(){ setTimeout(load,80); });
+  window.PKLAdminReloadSupabaseUsers=load;
+})();
+</script>
+
 </body>
 </html>

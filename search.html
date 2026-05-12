@@ -1141,7 +1141,16 @@ document.addEventListener('click',e=>{
         if(!users.length || users.length<limit) break;
         offset+=limit;
       }
-      window.PKLSupabaseUsers=all.map(mapUser);
+      var seenDid=new Set(), seenNick=new Set();
+      window.PKLSupabaseUsers=all.map(mapUser).filter(function(u){
+        var did=String(u.discordId||u.discord_id||u.uid||u.id||'').trim().toLowerCase().replace(/^discord-/, '');
+        var nk=norm(u.nickname||u.name);
+        if(!did || seenDid.has(did)) return false;
+        if(nk && seenNick.has(nk)) return false;
+        seenDid.add(did); if(nk) seenNick.add(nk);
+        u.discordId=did; u.uid='discord-'+did; u.id='discord-'+did;
+        return true;
+      });
       if(!window.PKLSupabaseUsers.length) return;
       if(typeof buildPlayers==='function'){
         var built=buildPlayers();

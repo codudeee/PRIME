@@ -3340,5 +3340,41 @@ document.addEventListener("DOMContentLoaded", function(){
 })();
 </script>
 
+
+<script id="pkl-tier-canonical-supabase-users-20260512">
+(function(){
+  'use strict';
+  function clean(v){return String(v==null?'':v).trim();}
+  function didOf(u){u=u||{};var d=clean(u.discordId||u.discord_id).toLowerCase().replace(/^discord-/, ''); if(d)return d; ['uid','id','userId','key'].some(function(k){var r=clean(u[k]); if(/^discord-/i.test(r)){d=r.toLowerCase().replace(/^discord-/, ''); return true;} return false;}); return d;}
+  function nickKey(u){return clean(u&&(u.nickname||u.name||u.nick)).replace(/\s+/g,'').toLowerCase();}
+  function tierOf(u){var v=clean(u&& (u.memberTier||u.gradeRole||u.tierRole||u.tier)); if(!v||v==='없음'||v.toLowerCase()==='none') return 'none'; try{if(window.PKLTierBadge&&typeof window.PKLTierBadge.normalize==='function') return window.PKLTierBadge.normalize(v);}catch(e){} return v;}
+  var roleToLane={red:'red',orange:'orange',yellow:'yellow',green:'green',blue:'blue',purple:'purple',brown:'brown',black:'black'};
+  async function loadTierUsers(){
+    try{
+      var all=[], offset=0, limit=100;
+      while(offset<1000){
+        var res=await fetch('/api/pkl-users?limit='+limit+'&offset='+offset+'&tierOnly=1',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
+        var data=await res.json().catch(function(){return {};});
+        if(!res.ok||!data.ok) throw new Error(data.message||'tier users fetch failed');
+        var rows=Array.isArray(data.users)?data.users:[]; all=all.concat(rows); if(rows.length<limit) break; offset+=limit;
+      }
+      var seenDid=new Set(), seenNick=new Set(), users=[];
+      all.forEach(function(u){var did=didOf(u), nk=nickKey(u), tier=tierOf(u); if(!did||!tier||tier==='none') return; if(seenDid.has(did)) return; if(nk&&seenNick.has(nk)) return; seenDid.add(did); if(nk) seenNick.add(nk); users.push(u);});
+      users.sort(function(a,b){return clean(a.nickname||a.name).localeCompare(clean(b.nickname||b.name),'ko-KR',{numeric:true,sensitivity:'base'});});
+      var lists=document.querySelectorAll('.pkl-lane-list[data-tier]');
+      lists.forEach(function(list){list.querySelectorAll('.pkl-tier-member').forEach(function(n){n.remove();});});
+      users.forEach(function(u,i){
+        var tier=tierOf(u), lane=roleToLane[tier]||tier; if(!lane) return;
+        var list=document.querySelector('.pkl-lane-list[data-tier="'+lane+'"]'); if(!list) return;
+        var badge=document.createElement('div'); badge.className='pkl-tier-member'; badge.textContent=clean(u.nickname||u.name||u.pubgId)||'회원'; badge.dataset.userKey='discord-'+didOf(u); badge.dataset.lane=lane; badge.setAttribute('draggable',(typeof pklTierCanEdit==='function'&&pklTierCanEdit())?'true':'false'); list.appendChild(badge);
+      });
+      try{ if(typeof pklTierBindDrag==='function') pklTierBindDrag(); }catch(e){}
+    }catch(err){console.error('PKL tier canonical users load failed',err);}
+  }
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(loadTierUsers,80);});
+  window.PKLTierReloadSupabaseUsers=loadTierUsers;
+})();
+</script>
+
 </body>
 </html>

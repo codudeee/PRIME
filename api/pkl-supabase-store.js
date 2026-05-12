@@ -150,8 +150,23 @@ async function readUserDocs(options={}){
   const { json, headers } = await supabaseFetch(path, { headers: { Prefer: 'count=exact' } });
   const range = headers.get('content-range') || '';
   const count = Number((range.split('/')[1] || '').replace('*',''));
-  const users = (Array.isArray(json) ? json : []).map(rowToUser).filter(u => !!u.discordId);
-  return { users, count: Number.isFinite(count) ? count : users.length, limit, offset, q };
+  const rawUsers = (Array.isArray(json) ? json : []).map(rowToUser).filter(u => !!u.discordId);
+  // Supabase users is the only source, but the API also normalizes the page result once here.
+  // This prevents the client pages from each doing their own cache/nickname merge and creating duplicate visible users.
+  const seenDiscord = new Set();
+  const seenNickname = new Set();
+  const users = [];
+  for (const u of rawUsers) {
+    const did = cleanId(u.discordId || u.discord_id);
+    if (!did || seenDiscord.has(did)) continue;
+    const nickKey = clean(u.nickname || u.name || u.nick).replace(/\s+/g, '').toLowerCase();
+    // PKL policy: nickname duplicates are not allowed. If an old/legacy duplicate row is returned, do not expose it to UI.
+    if (nickKey && seenNickname.has(nickKey)) continue;
+    seenDiscord.add(did);
+    if (nickKey) seenNickname.add(nickKey);
+    users.push(u);
+  }
+  return { users, count: users.length, limit, offset, q };
 }
 async function writeUserDoc(user, forceAdmin=false){
   const u = normalizeUser(user);
