@@ -12,21 +12,22 @@ button,input{font-family:inherit}
 
 body{
   min-height:100vh;
-  overflow:hidden;
+  overflow-x:hidden;
+  overflow-y:auto;
 }
 
-.login-page{
+.join-page{
   position:relative;
   width:100%;
   min-height:100vh;
   isolation:isolate;
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   justify-content:center;
-  padding:120px 24px 54px;
+  padding:120px 24px 80px;
 }
 
-.login-page::before{
+.join-page::before{
   content:"";
   position:fixed;
   inset:0;
@@ -35,23 +36,23 @@ body{
   transform:scale(1.01);
 }
 
-.login-page::after{
+.join-page::after{
   content:"";
   position:fixed;
   inset:0;
   background:
-    radial-gradient(circle at 50% 52%,rgba(168,85,247,.12),transparent 28%),
-    linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.14) 38%,rgba(0,0,0,.58));
+    radial-gradient(circle at 50% 52%,rgba(168,85,247,.14),transparent 29%),
+    linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.15) 38%,rgba(0,0,0,.60));
   z-index:-2;
 }
 
-.login-shell{
-  width:min(520px,92vw);
-  margin-top:184px;
+.join-shell{
+  width:min(560px,92vw);
+  margin-top:150px;
   position:relative;
 }
 
-.login-shell::before{
+.join-shell::before{
   content:"";
   position:absolute;
   left:50%;
@@ -63,13 +64,13 @@ body{
   box-shadow:0 0 18px rgba(168,85,247,.9),0 0 42px rgba(168,85,247,.42);
 }
 
-.login-card{
+.join-card{
   position:relative;
   overflow:hidden;
   border-radius:12px;
   border:1px solid rgba(210,183,255,.34);
   background:
-    linear-gradient(180deg,rgba(9,9,18,.78),rgba(5,5,11,.86)),
+    linear-gradient(180deg,rgba(9,9,18,.78),rgba(5,5,11,.88)),
     rgba(8,7,15,.82);
   box-shadow:
     0 28px 80px rgba(0,0,0,.58),
@@ -77,10 +78,10 @@ body{
     inset 0 0 42px rgba(255,255,255,.025);
   backdrop-filter:blur(14px);
   -webkit-backdrop-filter:blur(14px);
-  padding:46px 52px 40px;
+  padding:44px 52px 38px;
 }
 
-.login-card::before{
+.join-card::before{
   content:"";
   position:absolute;
   inset:0;
@@ -90,7 +91,7 @@ body{
   pointer-events:none;
 }
 
-.login-card::after{
+.join-card::after{
   content:"";
   position:absolute;
   left:20%;
@@ -101,9 +102,9 @@ body{
   box-shadow:0 0 18px rgba(168,85,247,.8);
 }
 
-.login-title{
+.join-title{
   position:relative;
-  margin:0 0 34px;
+  margin:0 0 10px;
   text-align:center;
   font-size:34px;
   line-height:1;
@@ -113,28 +114,71 @@ body{
   text-shadow:0 0 16px rgba(168,85,247,.72),0 0 34px rgba(168,85,247,.24);
 }
 
-.login-title::before,
-.login-title::after{
-  content:"";
-  position:absolute;
-  top:50%;
-  width:84px;
-  height:1px;
-  background:linear-gradient(90deg,transparent,#7c3cff);
-  box-shadow:0 0 10px rgba(124,60,255,.72);
+.join-sub{
+  margin:0 0 30px;
+  text-align:center;
+  font-size:13px;
+  font-weight:900;
+  letter-spacing:.6px;
+  color:rgba(233,213,255,.64);
 }
-.login-title::before{right:calc(50% + 88px)}
-.login-title::after{left:calc(50% + 80px);transform:scaleX(-1)}
+
+
+.join-rule-box{
+  position:relative;
+  margin:-12px 0 24px;
+  padding:14px 16px;
+  border-radius:7px;
+  border:1px solid rgba(168,85,247,.26);
+  background:rgba(4,4,10,.54);
+  color:rgba(255,255,255,.72);
+  font-size:12px;
+  line-height:1.68;
+  font-weight:900;
+  text-align:left;
+  word-break:keep-all;
+  box-shadow:inset 0 0 18px rgba(168,85,247,.035);
+}
 
 .form{
   position:relative;
   display:grid;
-  gap:18px;
+  gap:15px;
 }
 
 .input-wrap{
   position:relative;
 }
+
+.nickname-wrap input{
+  padding-right:150px;
+}
+.input-hint{
+  position:absolute;
+  right:18px;
+  top:50%;
+  transform:translateY(-50%);
+  display:none;
+  color:#fca5a5;
+  font-size:12px;
+  font-weight:1000;
+  letter-spacing:-.2px;
+  text-align:right;
+  pointer-events:none;
+  text-shadow:0 0 12px rgba(239,68,68,.34);
+}
+
+.pubg-wrap input{
+  padding-right:260px;
+}
+.pubg-hint{
+  display:block;
+}
+
+.input-hint.show{
+  display:block;
+}
+
 
 .input-icon{
   position:absolute;
@@ -150,7 +194,7 @@ body{
 
 .input-wrap input{
   width:100%;
-  height:54px;
+  height:52px;
   border-radius:6px;
   border:1px solid rgba(196,181,253,.32);
   background:rgba(4,4,10,.64);
@@ -178,13 +222,13 @@ body{
     inset 0 0 18px rgba(168,85,247,.045);
 }
 
-.login-btn{
-  height:62px;
-  margin-top:10px;
+.join-btn{
+  height:60px;
+  margin-top:8px;
   border-radius:7px;
   border:1px solid rgba(208,178,255,.58);
   background:
-    linear-gradient(180deg,rgba(126,68,255,.32),rgba(66,31,132,.34)),
+    linear-gradient(180deg,rgba(126,68,255,.34),rgba(66,31,132,.36)),
     rgba(10,7,20,.72);
   color:#fff;
   font-size:18px;
@@ -197,7 +241,7 @@ body{
   transition:.18s;
 }
 
-.login-btn:hover{
+.join-btn:hover{
   transform:translateY(-2px);
   border-color:rgba(233,213,255,.88);
   box-shadow:
@@ -206,11 +250,24 @@ body{
     inset 0 0 26px rgba(168,85,247,.18);
 }
 
+.notice{
+  margin:16px 0 0;
+  padding:13px 15px;
+  border:1px solid rgba(168,85,247,.22);
+  border-radius:7px;
+  background:rgba(168,85,247,.055);
+  color:rgba(255,255,255,.62);
+  font-size:12px;
+  line-height:1.6;
+  font-weight:800;
+  word-break:keep-all;
+}
+
 .divider{
   display:flex;
   align-items:center;
   gap:18px;
-  margin:20px 0 4px;
+  margin:18px 0 4px;
   color:rgba(255,255,255,.62);
   font-size:13px;
   font-weight:1000;
@@ -226,7 +283,7 @@ body{
 }
 .divider::after{transform:scaleX(-1)}
 
-.login-links{
+.join-links{
   display:grid;
   grid-template-columns:1fr 1px 1fr;
   align-items:center;
@@ -234,7 +291,7 @@ body{
   margin-top:8px;
 }
 
-.login-links::before{
+.join-links::before{
   content:"";
   width:1px;
   height:30px;
@@ -243,8 +300,7 @@ body{
   grid-row:1;
 }
 
-.login-links a{
-  font-size:14px;
+.join-links a{
   height:42px;
   display:flex;
   align-items:center;
@@ -256,13 +312,13 @@ body{
   transition:.18s;
 }
 
-.login-links a:hover{
+.join-links a:hover{
   color:#fff;
   text-shadow:0 0 14px rgba(168,85,247,.82);
 }
 
-.login-links a:first-child{grid-column:1}
-.login-links a:last-child{grid-column:3}
+.join-links a:first-child{grid-column:1}
+.join-links a:last-child{grid-column:3}
 
 
 .back-home{
@@ -308,21 +364,29 @@ body{
   text-align:center;
 }
 
-@media (max-height:840px){
-  .login-page{padding-top:88px}
-  .login-shell{margin-top:132px}
-  .login-card{padding:38px 46px 34px}
+.success-msg{
+  min-height:18px;
+  margin:2px 0 0;
+  color:#c4b5fd;
+  font-size:13px;
+  font-weight:900;
+  text-align:center;
+}
+
+@media (max-height:900px){
+  body{overflow:auto}
+  .join-page{padding-top:86px;padding-bottom:80px}
+  .join-shell{margin-top:118px}
+  .join-card{padding:36px 46px 32px}
+  .input-wrap input{height:48px}
 }
 
 @media (max-width:700px){
   body{overflow:auto}
-  .login-page{padding:86px 16px 36px}
-  .login-shell{margin-top:120px}
-  .login-card{padding:36px 24px 30px}
-  .login-title{font-size:28px;letter-spacing:6px}
-  .login-title::before,.login-title::after{width:46px}
-  .login-title::before{right:calc(50% + 72px)}
-  .login-title::after{left:calc(50% + 66px)}
+  .join-page{padding:86px 16px 36px}
+  .join-shell{margin-top:120px}
+  .join-card{padding:34px 24px 30px}
+  .join-title{font-size:28px;letter-spacing:6px}
   
 .back-home{
   position:fixed;
@@ -351,20 +415,40 @@ body{
     inset 0 0 18px rgba(255,255,255,.06);
 }
 
+  .join-links{gap:14px}
 }
 
-/* PKL 로그인 전 드롭다운 노출 방지 */
-body.pkl-logged-out .tier-account-menu,
-body.pkl-logged-out .account-menu,
-body.pkl-logged-out .my-menu,
-body.pkl-logged-out .user-dropdown,
-body.pkl-logged-out .profile-dropdown{
-  display:none !important;
-  opacity:0 !important;
-  visibility:hidden !important;
-  pointer-events:none !important;
+.discord-btn{
+  height:64px;
+  width:100%;
+  border-radius:8px;
+  border:1px solid rgba(196,181,253,.55);
+  background:linear-gradient(180deg,rgba(88,101,242,.42),rgba(28,26,56,.76));
+  color:#fff;
+  font-size:18px;
+  font-weight:1000;
+  letter-spacing:.4px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  box-shadow:0 0 26px rgba(88,101,242,.32), inset 0 0 24px rgba(168,85,247,.10);
+  transition:.18s;
 }
-
+.discord-btn:hover{
+  transform:translateY(-2px);
+  border-color:rgba(233,213,255,.9);
+  box-shadow:0 0 34px rgba(88,101,242,.48),0 14px 34px rgba(0,0,0,.28),inset 0 0 26px rgba(168,85,247,.18);
+}
+.discord-note{
+  margin:16px 0 0;
+  text-align:center;
+  color:rgba(233,213,255,.7);
+  font-size:13px;
+  font-weight:900;
+  line-height:1.7;
+}
 </style>
 
 <style>
@@ -548,10 +632,6 @@ font-weight:700;
   transform:translateY(-1px) !important;
   transition:filter .15s ease, transform .15s ease, box-shadow .15s ease !important;
 }
-
-/* 로그인 버튼 클릭 복구: 오버레이/잠금 코드가 버튼 이벤트를 가로채지 못하게 함 */
-.form,.login-btn,#loginSubmitBtn{pointer-events:auto !important;}
-.login-card::before,.login-card::after,.login-page::before,.login-page::after{pointer-events:none !important;}
 </style>
 
 
@@ -569,38 +649,6 @@ font-weight:700;
 [data-pkl-role="operator"]{
   border:2px solid rgba(255,255,255,.9) !important;
 }
-
-.discord-btn{
-  height:64px;
-  width:100%;
-  border-radius:8px;
-  border:1px solid rgba(196,181,253,.55);
-  background:linear-gradient(180deg,rgba(88,101,242,.42),rgba(28,26,56,.76));
-  color:#fff;
-  font-size:18px;
-  font-weight:1000;
-  letter-spacing:.4px;
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-  box-shadow:0 0 26px rgba(88,101,242,.32), inset 0 0 24px rgba(168,85,247,.10);
-  transition:.18s;
-}
-.discord-btn:hover{
-  transform:translateY(-2px);
-  border-color:rgba(233,213,255,.9);
-  box-shadow:0 0 34px rgba(88,101,242,.48),0 14px 34px rgba(0,0,0,.28),inset 0 0 26px rgba(168,85,247,.18);
-}
-.discord-note{
-  margin:16px 0 0;
-  text-align:center;
-  color:rgba(233,213,255,.7);
-  font-size:13px;
-  font-weight:900;
-  line-height:1.7;
-}
 </style>
 
 
@@ -612,22 +660,25 @@ font-weight:700;
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
 
-<main class="login-page">
-  <section class="login-shell" aria-label="PKL Discord 로그인">
-    <div class="login-card">
-      <h1 class="login-title">LOGIN</h1>
+<main class="join-page">
+  <section class="join-shell" aria-label="PKL Discord 가입">
+    <div class="join-card">
+      <h1 class="join-title">LOGIN</h1>
+      <p class="join-sub">PRIME KILL LEAGUE LOGIN</p>
+      <div class="join-rule-box">
+        기존 아이디/비밀번호 로그인은 사용하지 않습니다.<br>
+        Discord 계정 인증 한 번으로 PKL 계정이 자동 생성됩니다.<br>
+        Discord 인증으로 PKL 계정에 로그인합니다.
+      </div>
       <div class="form">
-        <button id="discordLoginBtn" class="discord-btn" type="button" onclick="location.href='/api/discord-login'">
-          Discord로 계속하기
+        <button class="discord-btn" type="button" onclick="location.href='/api/discord-login'">
+          Discord로 로그인
         </button>
-        <p class="discord-note">
-          별도 회원가입 없이 Discord 계정으로 바로 입장합니다.<br>
-          최초 Discord 로그인 시 한글 닉네임 설정 후 일반 회원으로 등록됩니다.
-        </p>
+        <p class="success-msg">Discord 인증 후 자동으로 메인 화면으로 이동합니다.</p>
       </div>
       <div class="divider">PKL AUTH</div>
-      <div class="login-links">
-        <a href="index.html">메인으로</a>
+      <div class="join-links">
+        <a href="register.html">가입 화면</a>
         <a href="contact.html">관리자문의</a>
       </div>
     </div>
@@ -635,39 +686,22 @@ font-weight:700;
 </main>
 
 <script>
-(function(){
-  var LOGIN_KEYS=["discordUser","pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"];
-  var LOGOUT_KEY="pklManualLogout";
-  function readPersistedUser(){
-    try{ if(localStorage.getItem(LOGOUT_KEY)==="1") return null; }catch(e){}
-    for(var i=0;i<LOGIN_KEYS.length;i++){
-      try{
-        var raw=localStorage.getItem(LOGIN_KEYS[i]) || sessionStorage.getItem(LOGIN_KEYS[i]);
-        if(!raw) continue;
-        var user=JSON.parse(raw);
-        if(user && typeof user==="object"){
-          return user;
-        }
-      }catch(e){}
-    }
-    return null;
+function checkAdminAccess(role){
+  if(role !== '관리자' && role !== '운영자'){
+    var modal=document.getElementById('authBlockModal');
+    if(modal) modal.style.display='flex';
+    return false;
   }
-  function syncPklLoginDropdownState(){
-    var user=readPersistedUser();
-    if(user){ location.replace("index.html"); return; }
-    if(document.body){
-      document.body.classList.toggle("pkl-logged-in", !!user);
-      document.body.classList.toggle("pkl-logged-out", !user);
-    }
-  }
-  if(document.readyState==="loading"){
-    document.addEventListener("DOMContentLoaded", syncPklLoginDropdownState);
-  }else{
-    syncPklLoginDropdownState();
-  }
-  window.addEventListener("storage", syncPklLoginDropdownState);
-})();
+  return true;
+}
 </script>
+<div id="authBlockModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+  <div style="position:relative; width:320px; background:#111; border:1px solid #6a00ff; box-shadow:0 0 20px #6a00ff; border-radius:8px; padding:20px; text-align:center; color:#fff;">
+    <div onclick="document.getElementById('authBlockModal').style.display='none'" style="position:absolute; top:10px; right:10px; cursor:pointer;">✕</div>
+    관리자,운영자 외 열람할 수 없습니다.
+  </div>
+</div>
+
 
 <!-- PKL global stacked modal layer manager -->
 <style id="pkl-global-stacked-modal-layer-style">
@@ -761,7 +795,6 @@ font-weight:700;
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
-    /* 반복 스캔 제거: MutationObserver/click 시점에만 정렬 */
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
