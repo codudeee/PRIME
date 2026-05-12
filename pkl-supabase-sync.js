@@ -4,15 +4,15 @@
 
   var KEY_LIST=[
     "pklNoticeBoardItems","pklPatchNotes_v2","PKL_RULE_PAGE_CONTENT_V1",
-    "PKL_RESULT_MATCHES_V1","PKL_USER_MATCH_STATS_V1","PKL_TIER_DATA_V1",
+    "PKL_RESULT_MATCHES_V1","PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1","PKL_USER_MATCH_STATS_V1","PKL_TIER_DATA_V1",
     "PKL_SURRENDER_CONSENT_STORE_V1","PKL_FIRE_CONSENT_STORE_V1","PKL_SHEET_RESET_LOCK_V2",
     "pklTeamBuilderState.v1","pklTierScoreConfig","pklTierScoreLastSync",
     "pklSideListItems","pklSideList","pklSideBets","pklItemHistoryCounts",
     "pklUsers","PKL_USERS","pklAdminState_v3","pklAdminUsers","PKL_ADMIN_USERS","pklUserList",
     "pklPendingUsers","pklBannedUsers","PKL_DELETED_USER_KEYS_V1",
-    "pklJoinWaitList","pklJoinCancelList","pklJoinRecruitState","pklJoinFeeInfo","pklJoinDepositRequests","pklJoinWarningRequests",
+    "pklJoinWaitList","pklJoinCancelList","pklJoinRecruitState","pklJoinFeeInfo","pklJoinDepositRequests","pklJoinWarningRequests","pklJoinPeopleLimit",
     "pklMails","pklMailbox","pklMailboxUnread",
-    "pklDiscordRecruitMessage","PKL_DISCORD_RECRUIT_MESSAGE_V1","pklDiscordBotMessage"
+    "pklDiscordRecruitMessage","PKL_DISCORD_RECRUIT_MESSAGE_V1","pklDiscordBotMessage","pklColdTeamModalShown.v1"
   ];
   var KEY_SET=KEY_LIST.reduce(function(a,k){a[k]=true;return a;},{});
   var USER_KEYS={pklUsers:true,PKL_USERS:true,pklAdminUsers:true,PKL_ADMIN_USERS:true};
@@ -31,7 +31,10 @@
   var SESSION_ALLOWED=/^(pklLoginUser|pklCurrentUser|pklUser|PKL_CURRENT_USER|PKL_USER|pkl_discord_|pklJoinLoginRequired|pklNoticeSeenIds|pkl_active_tab|pkl_ui_)/;
 
   function now(){return new Date().toISOString();}
-  function isKey(k){return !!KEY_SET[String(k||"")];}
+  function isKey(k){
+    k=String(k||"");
+    return !!KEY_SET[k] || /^pklJoinDepositRequested_/.test(k);
+  }
   function clean(v){return String(v==null?"":v).trim();}
   function low(v){return clean(v).toLowerCase();}
   function parse(raw,fb){try{var v=JSON.parse(String(raw));return v==null?fb:v;}catch(e){return fb;}}
@@ -111,21 +114,19 @@
   }
   async function getJSON(url,options){var res=await fetch(url,Object.assign({cache:"no-store"},options||{})); if(!res.ok) throw new Error(String(res.status)); return await res.json();}
   async function refresh(force){
-    if(!force && Date.now()-lastRefresh<60000) return;
+    // 대량 bootstrap/자동 복원 금지. 필요한 키만 getShared(key)로 조회한다.
     lastRefresh=Date.now();
-    try{hydrateFromBootstrap(await getJSON("/api/pkl-data-store?bootstrap=1"));}
-    catch(e){/* Supabase 실패 시 localStorage 구값으로 복구하지 않는다. */}
     emit("pkl-supabase-sync-ready");
   }
   function postJSON(url,body){return fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(res){if(!res.ok) throw new Error(String(res.status)); return res.json();});}
   async function fetchShared(key){
     key=String(key||""); if(!isKey(key)) return null;
-    var data=await getJSON("/api/pkl-data-store?type=shared&key="+encodeURIComponent(key)).catch(function(){return null;});
+    var data=await getJSON("/api/pkl-data-store?type=shared&key="+encodeURIComponent(key));
     if(data && data.item && Object.prototype.hasOwnProperty.call(data.item,"value") && data.item.value!==null){rememberShared(key,data.item.value); return data.item.value;}
-    return sharedCache.hasOwnProperty(key)?sharedCache[key]:null;
+    return null;
   }
   function saveShared(key,value){
-    key=String(key||""); if(!isKey(key)||key===SHEET_LIVE_KEY) return Promise.resolve(null);
+    key=String(key||""); if(!isKey(key)) return Promise.resolve(null);
     rememberShared(key,value);
     return postJSON("/api/pkl-data-store",{type:"shared",key:key,value:value});
   }
@@ -136,7 +137,7 @@
     return Promise.all(list.map(function(match,idx){var id=clean(match && (match.id||match.title||match.name)) || ("match_"+idx);return postJSON("/api/pkl-data-store",{type:"match",id:id,payload:match});}));
   }
   function queueSave(key,value){
-    key=String(key||""); if(!isKey(key) || key===SHEET_LIVE_KEY) return;
+    key=String(key||""); if(!isKey(key)) return;
     clearTimeout(saving[key]);
     saving[key]=setTimeout(function(){
       if(USER_KEYS[key]) saveUsers(parse(value,[]));
@@ -185,7 +186,7 @@
     save:function(key){key=String(key||""); if(isKey(key)) queueSave(key,raw(key));},
     getShared:fetchShared,
     setShared:function(key,value){
-      key=String(key||""); if(!isKey(key)||key===SHEET_LIVE_KEY) return;
+      key=String(key||""); if(!isKey(key)) return;
       var text=typeof value==="string"?value:JSON.stringify(value);
       silentSet(key,text);
       if(USER_KEYS[key]) return saveUsers(parse(text,[]));
@@ -198,7 +199,6 @@
   };
   window.saveSharedData=function(key,value){return window.PKLSupabaseDataSync.setShared(key,value);};
 
-  /* 시작 시 localStorage 운영데이터를 읽어 복원하지 않는다. Supabase만 최초 1회 조회한다. */
-  setTimeout(function(){refresh(true);},80);
-  window.addEventListener("focus",function(){refresh(false);});
+  /* 자동 bootstrap/focus 복원 금지: 각 페이지가 필요한 키만 Supabase에서 1회 조회한다. */
+  window.addEventListener("pkl-request-supabase-refresh",function(){refresh(true);});
 })();

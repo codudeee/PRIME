@@ -795,7 +795,6 @@ function checkAdminAccess(role){
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
-    setInterval(scan,700);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();

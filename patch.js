@@ -2,7 +2,6 @@
   "use strict";
 
   const STORAGE_KEY = "pklPatchNotes_v2";
-  const BACKUP_KEY = STORAGE_KEY + "_backup";
   const seedNotes = [
     {
       version:"v3.2",
@@ -88,7 +87,7 @@
   }
 
   function loadNotes(){
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(BACKUP_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if(raw !== null){
       try{
         const stored = normalizeNotes(JSON.parse(raw));
@@ -102,7 +101,6 @@
     const normalized = normalizeNotes(notes) || [];
     const text = JSON.stringify(normalized);
     localStorage.setItem(STORAGE_KEY, text);
-    localStorage.setItem(BACKUP_KEY, text);
     try{
       if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === "function"){
         window.PKLSupabaseDataSync.setShared(STORAGE_KEY, normalized);

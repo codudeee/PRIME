@@ -1437,12 +1437,10 @@ body{overflow-x:visible !important;min-width:1320px !important;width:auto !impor
 const STORAGE_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
 const DEMO_NAMES=[['허리','재환','몽몽','오오'],['민혁','석이','아루','가람'],['영원','한수','시온','루키'],['도현','태민','지훈','건우'],['서준','민재','현우','준서'],['유진','하람','지우','은우'],['로한','주원','이준','하준'],['시후','지안','서아','나은'],['태오','현준','규민','재윤'],['민준','수호','도윤','이안']];
 const RESULT_MATCHES_KEY='PKL_RESULT_MATCHES_V1';
-const RESULT_MATCHES_BACKUP_KEY=RESULT_MATCHES_KEY+'_backup';
-const RESULT_STATE_BACKUP_KEY=STORAGE_KEY+'_backup';
 const USER_MATCH_STATS_KEY='PKL_USER_MATCH_STATS_V1';
 const DEFAULT_MATCHES=[];
 function pklResultLoadMatches(){
-  const raw=localStorage.getItem(RESULT_MATCHES_KEY) ?? localStorage.getItem(RESULT_MATCHES_BACKUP_KEY);
+  const raw=localStorage.getItem(RESULT_MATCHES_KEY);
   if(raw!==null){
     try{
       const saved=JSON.parse(raw);
@@ -1455,8 +1453,8 @@ function pklResultSharedSet(key,value){
   const text=typeof value==='string'?value:JSON.stringify(value);
   try{
     localStorage.setItem(key,text);
-    if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.setShared==='function'){
-      window.PKLFirebaseDataSync.setShared(key,text);
+    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function'){
+      window.PKLSupabaseDataSync.setShared(key,text);
     }else if(typeof window.saveSharedData==='function'){
       window.saveSharedData(key,text);
     }
@@ -1468,7 +1466,6 @@ function pklResultSaveMatches(){
   pklResultSortMatches();
   const text=JSON.stringify(Array.isArray(MATCHES)?MATCHES:[]);
   pklResultSharedSet(RESULT_MATCHES_KEY,text);
-  localStorage.setItem(RESULT_MATCHES_BACKUP_KEY,text);
 }
 function pklResultRefreshMatchesFromStorage(){
   const before=selectedMatchId;
@@ -1505,7 +1502,7 @@ function makeEmptyState(){
   return {mode:'squad',selectedTeamId:'',teams:[],rounds:[],feeds:[],sideBets:[],surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''};
 }
 function loadState(){
-  const raw=localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(RESULT_STATE_BACKUP_KEY);
+  const raw=localStorage.getItem(STORAGE_KEY);
   if(raw!==null){
     try{
       const saved=JSON.parse(raw);
@@ -1874,7 +1871,7 @@ function resultSaveSheetSnapshot(){
   if(!m) return;
   m.snapshot=JSON.parse(JSON.stringify(state));
   pklResultSaveMatches();
-  try{var __pklResultStateText=JSON.stringify(state);localStorage.setItem(STORAGE_KEY,__pklResultStateText);localStorage.setItem(RESULT_STATE_BACKUP_KEY,__pklResultStateText);}catch(e){}
+  try{var __pklResultStateText=JSON.stringify(state);pklResultSharedSet(STORAGE_KEY,__pklResultStateText);}catch(e){}
 }
 function resultMapOptions(selected){
   const maps=['에','미','태','론','사'];
@@ -2474,14 +2471,14 @@ bind();renderAll();
 window.addEventListener('storage',function(e){
   if(e && e.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
 });
-window.addEventListener('pkl-firebase-data-updated',function(e){
+window.addEventListener('pkl-supabase-data-updated',function(e){
   if(e && e.detail && e.detail.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
 });
 window.addEventListener('pkl-users-updated',function(){ renderSide(); });
 window.addEventListener('pkl-role-data-updated',function(){ renderSide(); });
-window.addEventListener('pkl-firebase-sync-ready',function(){
-  if(window.PKLFirebaseDataSync && typeof window.PKLFirebaseDataSync.refresh==='function'){
-    window.PKLFirebaseDataSync.refresh();
+window.addEventListener('pkl-supabase-sync-ready',function(){
+  if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.refresh==='function'){
+    window.PKLSupabaseDataSync.refresh();
   }
   setTimeout(pklResultRefreshMatchesFromStorage,350);
 });
@@ -2920,7 +2917,7 @@ window.addEventListener('load', restoreDiscordSession);
   function markDeleted(id){if(!id)return;var arr=deletedIds().filter(Boolean);if(arr.indexOf(String(id))<0)arr.push(String(id));writeJSON(DELETED_KEY,arr.slice(-80));}
   function filterDeletedMatches(){var ids=deletedIds();if(!ids.length)return false;var list=readJSON(MATCH_KEY,[]);if(!Array.isArray(list))return false;var next=list.filter(function(m){return ids.indexOf(String(m&&m.id))<0;});if(next.length!==list.length){writeJSON(MATCH_KEY,next);return true;}return false;}
   document.addEventListener('click',function(e){var yes=e.target&&e.target.closest&&e.target.closest('#resultDeleteYesBtn');if(yes){var active=document.querySelector('#adminMatchList .admin-match-item.active');var id=active&&active.getAttribute('data-admin-match');markDeleted(id);setTimeout(filterDeletedMatches,60);setTimeout(filterDeletedMatches,420);}},true);
-  window.addEventListener('pkl-firebase-data-updated',function(e){if(e&&e.detail&&e.detail.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
+  window.addEventListener('pkl-supabase-data-updated',function(e){if(e&&e.detail&&e.detail.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
   window.addEventListener('storage',function(e){if(e&&e.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
   function getMatches(){return readJSON(MATCH_KEY,[]);} function currentMatch(){var id=(document.getElementById('matchSelect')||{}).value||'';var list=getMatches();return list.find(function(m){return String(m&&m.id)===String(id);})||list[0]||null;}
   function fmtTime(t){if(!t)return '-';var d=new Date(Number(t)||t);if(String(d)==='Invalid Date')return String(t);return d.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}

@@ -179,18 +179,7 @@ async function writeUserDoc(user, forceAdmin=false){
     });
     return Array.isArray(json) && json[0] ? rowToUser(json[0]) : normalizeUser({...u, role});
   }
-  try { return await upsert(body); }
-  catch(e){
-    const msg = String(e && e.message || e);
-    const fallback = {...body};
-    if(/points/i.test(msg)) delete fallback.points;
-    if(/warnings/i.test(msg)) delete fallback.warnings;
-    if(/role/i.test(msg)) delete fallback.role;
-    if(/raw/i.test(msg)) delete fallback.raw;
-    if(/updated_at/i.test(msg)) delete fallback.updated_at;
-    if(JSON.stringify(fallback) === JSON.stringify(body)) throw e;
-    return await upsert(fallback);
-  }
+  return await upsert(body);
 }
 
 async function readUserRowByIdentity(identity={}){
@@ -250,18 +239,7 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
     });
     return json;
   }
-  let json;
-  try{
-    json = await patchUser(body);
-  }catch(e){
-    const msg = String(e && e.message || e);
-    const fallback = {...body};
-    if(/points/i.test(msg)) delete fallback.points;
-    if(/raw/i.test(msg)) delete fallback.raw;
-    if(/updated_at/i.test(msg)) delete fallback.updated_at;
-    if(JSON.stringify(fallback) === JSON.stringify(body)) throw e;
-    json = await patchUser(fallback);
-  }
+  const json = await patchUser(body);
   await insertPointLogSafe({ user_id: row.id, discord_id: row.discord_id || null, amount: delta, reason: clean(reason), actor: clean(actor || 'SYSTEM') });
   await insertAdminLogSafe({ action, actor: clean(actor || 'SYSTEM'), target: row.nickname || row.pubg_id || row.discord_id || '', detail: { amount: delta, before: current, after: next, reason: clean(reason), mail: mailText, discord_id: row.discord_id || '', pubg_id: row.pubg_id || '' } });
   const savedRow = Array.isArray(json) && json[0] ? json[0] : {...row, prime: next, points: next, raw};
@@ -306,18 +284,7 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
     const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(obj)});
     return Array.isArray(json) && json[0] ? json[0] : {...row, ...obj};
   }
-  let saved;
-  try{ saved = await patch(body); }
-  catch(e){
-    const msg=String(e&&e.message||e); const fallback={...body};
-    if(/points/i.test(msg)) delete fallback.points;
-    if(/warnings/i.test(msg)) delete fallback.warnings;
-    if(/role/i.test(msg)) delete fallback.role;
-    if(/raw/i.test(msg)) delete fallback.raw;
-    if(/updated_at/i.test(msg)) delete fallback.updated_at;
-    if(JSON.stringify(fallback)===JSON.stringify(body)) throw e;
-    saved=await patch(fallback);
-  }
+  const saved = await patch(body);
   await insertAdminLogSafe({action, actor, target: body.nickname || body.pubg_id || row.discord_id || '', detail:{reason, changes, discord_id: row.discord_id, before: beforeUser, after: rowToUser(saved)}});
   return rowToUser(saved);
 }
@@ -339,7 +306,7 @@ async function recordBan(ban={}, actor='ADMIN'){
     const { json } = await supabaseFetch('ban_records', {method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});
     saved = Array.isArray(json) && json[0] ? json[0] : payload;
   }catch(e){
-    await insertAdminLogSafe({action:'ban_record_fallback',actor:payload.actor,target:payload.nickname||payload.discord_id||'',detail:payload});
+    await insertAdminLogSafe({action:'ban_record',actor:payload.actor,target:payload.nickname||payload.discord_id||'',detail:payload});
   }
   if(discordId){
     try{

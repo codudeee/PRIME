@@ -64,35 +64,20 @@ async function writePointLog(log){
 
 async function readShared(key){
   const id = safeId(key);
-  try{
-    const rows = await sb(`pkl_shared_data?select=*&key=eq.${encodeURIComponent(id)}&limit=1`, { method:'GET' }) || [];
-    const row = Array.isArray(rows) ? rows[0] : null;
-    if(row) return { key:id, value: row.value, updated_at: row.updated_at || row.created_at || null, table:'pkl_shared_data' };
-  }catch(e){
-    const rows = await sb(`live_scores?select=*&id=eq.${encodeURIComponent('shared_'+id)}&limit=1`, { method:'GET' }).catch(()=>[]) || [];
-    const row = Array.isArray(rows) ? rows[0] : null;
-    if(row) return { key:id, value: row.payload && Object.prototype.hasOwnProperty.call(row.payload,'value') ? row.payload.value : row.payload, updated_at: row.updated_at || null, table:'live_scores' };
-  }
-  return { key:id, value:null, updated_at:null };
+  const rows = await sb(`pkl_shared_data?select=*&key=eq.${encodeURIComponent(id)}&limit=1`, { method:'GET' }) || [];
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if(row) return { key:id, value: row.value, updated_at: row.updated_at || row.created_at || null, table:'pkl_shared_data' };
+  return { key:id, value:null, updated_at:null, table:'pkl_shared_data' };
 }
 async function writeShared(key, value){
   const id = safeId(key);
   const now = new Date().toISOString();
-  try{
-    return await sb('pkl_shared_data?on_conflict=key', { method:'POST', body: JSON.stringify({ key:id, value:value == null ? null : value, updated_at:now }) });
-  }catch(e){
-    return await sb('live_scores?on_conflict=id', { method:'POST', body: JSON.stringify({ id:'shared_'+id, payload:{ key:id, value:value == null ? null : value }, updated_at:now }) });
-  }
+  return await sb('pkl_shared_data?on_conflict=key', { method:'POST', body: JSON.stringify({ key:id, value:value == null ? null : value, updated_at:now }) });
 }
 
 async function bootstrap(){
-  const out = { ok:true, source:'supabase', shared_data:{} };
-  const sharedKeys = ['pklNoticeBoardItems','pklPatchNotes_v2','PKL_RULE_PAGE_CONTENT_V1','PKL_RESULT_MATCHES_V1','PKL_USER_MATCH_STATS_V1','PKL_TIER_DATA_V1','PKL_SURRENDER_CONSENT_STORE_V1','PKL_FIRE_CONSENT_STORE_V1','PKL_SHEET_RESET_LOCK_V2','pklTeamBuilderState.v1','pklTierScoreConfig','pklTierScoreLastSync','pklSideListItems','pklSideList','pklSideBets','pklItemHistoryCounts','pklPendingUsers','pklBannedUsers','PKL_DELETED_USER_KEYS_V1','pklJoinWaitList','pklJoinCancelList','pklJoinRecruitState','pklJoinFeeInfo','pklJoinDepositRequests','pklJoinWarningRequests','pklMails','pklMailbox','pklMailboxUnread','pklDiscordRecruitMessage','PKL_DISCORD_RECRUIT_MESSAGE_V1','pklDiscordBotMessage'];
-  for(const key of sharedKeys){
-    const item = await readShared(key).catch(()=>null);
-    if(item && item.value !== null) out.shared_data[key] = item.value;
-  }
-  return out;
+  // 자동 복원/대량 bootstrap 금지. 필요한 데이터는 각 페이지에서 type=shared&key=... 로 1회 조회한다.
+  return { ok:true, source:'supabase', shared_data:{} };
 }
 module.exports = async function handler(req, res){
   try{
