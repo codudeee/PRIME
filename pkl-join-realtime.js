@@ -23,9 +23,9 @@
   function saveNow(){var st=stateFromLocal(), text=textOf(st); if(text===lastText)return; lastText=text; apiSave(st).then(function(ok){if(!ok){sb('live_scores?on_conflict=id',{method:'POST',body:JSON.stringify({id:'join_state',payload:st,updated_at:st.updatedAt})});}}); if(window.PKLSupabaseDataSync){window.PKLSupabaseDataSync.setShared(WAIT_KEY,st.waitList);window.PKLSupabaseDataSync.setShared(CANCEL_KEY,st.cancelList);window.PKLSupabaseDataSync.setShared(RECRUIT_KEY,st.recruitState);}}
   function queueSave(d){if(applying)return;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,d==null?500:d);}
   function poll(){apiRead().then(function(st){if(st)applyState(st);else if(configured())sb('live_scores?id=eq.join_state&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){var r=rows&&rows[0]; if(r&&r.payload)applyState(Object.assign({},r.payload,{updatedAt:r.payload.updatedAt||r.updated_at}));});});}
-  function start(){emit(stateFromLocal()); poll(); if(!pollTimer)pollTimer=}
+  function start(){emit(stateFromLocal()); poll();}
   if(!Storage.prototype.__pklJoinRealtimePatched){Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();queueSave(String(k)===RECRUIT_KEY?350:500);emit(stateFromLocal());}}catch(e){}return ret;};Storage.prototype.__pklJoinRealtimePatched=true;}
   try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();queueSave(500);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
   window.addEventListener('storage',function(e){if(e&&KEYS[String(e.key)])emit(stateFromLocal());});
-  window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,queueSave:queueSave,state:stateFromLocal,apply:applyState}; start();
+  window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,queueSave:queueSave,state:stateFromLocal,apply:applyState,refresh:poll}; start();
 })();
