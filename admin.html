@@ -6976,25 +6976,21 @@ document.addEventListener("click",function(){
 
 function pklRenderOperationalPanels(changedUser, options){
   options=options||{};
+  function isVisible(id){var el=document.getElementById(id);return !!(el && getComputedStyle(el).display!=="none");}
   try{ normalizeAllUserRoles(); }catch(e){}
-  const isVisible=(id)=>{const el=document.getElementById(id);return !!(el&&getComputedStyle(el).display!=="none");};
-  const usersVisible=isVisible("userManageTab");
-  const dashVisible=isVisible("dashboardManageTab");
-  const pendingVisible=isVisible("pendingManageTab");
-  const warningsVisible=isVisible("warningsManageTab");
-  const bansVisible=isVisible("bansManageTab");
-  if(usersVisible){
-    if(changedUser && typeof window.updateUserDomOnly==="function") try{ window.updateUserDomOnly(changedUser); }catch(e){}
-    else try{ renderUserList(); }catch(e){}
+  if(changedUser && window.PKLAdminUpdateUserDomOnly){
+    try{ window.PKLAdminUpdateUserDomOnly(changedUser); }catch(e){}
+  }else if(isVisible("userManageTab")){
+    try{ renderUserList(); }catch(e){}
     try{ renderProfile(); }catch(e){}
-    if(options.memo){ try{ renderMemoList(); }catch(e){} }
-    if(activeDetailTab && activeDetailTab!=="detail") try{ renderDetailLog(activeDetailTab); }catch(e){}
   }
-  if(dashVisible) try{ renderStats(); }catch(e){}
+  try{ if(isVisible("dashboardManageTab") && typeof renderStats==="function") renderStats(); }catch(e){}
+  if(options.memo && isVisible("userManageTab")){ try{ renderMemoList(); }catch(e){} }
   if(options.logs){
-    if(pendingVisible) try{ renderPendingList(); }catch(e){}
-    if(warningsVisible) try{ renderWarnRecords(); }catch(e){}
-    if(bansVisible) try{ renderBanRecords(); }catch(e){}
+    try{ renderPendingList(); }catch(e){}
+    try{ renderWarnRecords(); }catch(e){}
+    try{ renderBanRecords(); }catch(e){}
+    if(activeDetailTab && activeDetailTab!=="detail") try{ renderDetailLog(activeDetailTab); }catch(e){}
   }
   try{ window.dispatchEvent(new CustomEvent("pkl-user-partial-updated",{detail:{user:changedUser||null}})); }catch(e){}
   try{ window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{user:changedUser||null}})); }catch(e){}
@@ -7144,8 +7140,7 @@ async function submitPrimeAdjust(){
     u.memoList=Array.isArray(u.memoList)?u.memoList:[];
     u.memoList.unshift({date:nowText(),admin:adminName(),text:`[프라임 ${type==="grant"?"지급":"압수"}] ${amount} · ${reason}`});
     closePrimeAdjustModal();
-    if(typeof window.updateUserDomOnly==="function") window.updateUserDomOnly(u);
-    else { renderProfile(); renderMemoList(); try{var dash=document.getElementById("dashboardManageTab"); if(dash && getComputedStyle(dash).display!=="none") renderStats();}catch(e){} }
+    renderProfile(); renderMemoList(); try{var dash=document.getElementById("dashboardManageTab"); if(dash && getComputedStyle(dash).display!=="none") renderStats();}catch(e){}
     await pklAlert(`${u.nickname||"회원"}님에게 ${amount} 프라임이 ${type==="grant"?"지급":"압수"} 처리되었습니다.`,"처리 완료");
   }catch(err){
     console.error(err);
@@ -7884,6 +7879,10 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   if(true) return;
   if(window.__PKL_ADMIN_SUPABASE_USERS_LOADER__) return;
   window.__PKL_ADMIN_SUPABASE_USERS_LOADER__=true;
+  /* 2026-05 admin 렉 2차: 아래 구형 로더는 canonical loader와 같은 /api/pkl-users를
+     DOMContentLoaded 20ms에 중복 호출하고 renderUserList/renderProfile/renderStats를 다시 실행했다.
+     admin.html 안에 보존하되 실행만 중단해서 첫 진입 중복 fetch/render를 제거한다. */
+  return;
   function clean(v){return String(v==null?'':v).trim();}
   function keyOf(u){
     u=u||{};
@@ -8131,7 +8130,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     try{ if(isVisible("dashboardManageTab") && typeof renderStats==="function") renderStats(); }catch(e){}
     try{ window.dispatchEvent(new CustomEvent('pkl-user-updated',{detail:{user:list[idx],index:idx}})); }catch(e){}
   }
-  window.updateUserDomOnly=updateUserDomOnly;
+  window.PKLAdminUpdateUserDomOnly=updateUserDomOnly;
   async function saveMemberEditSupabaseOnly(){
     var list=(window.state&&Array.isArray(window.state.users))?window.state.users:[];
     var idx=typeof current==='number'?current:0;
