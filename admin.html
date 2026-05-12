@@ -7955,9 +7955,11 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 
     try{if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers(state.users.slice(),false);}catch(e){}
     /* 다른 화면 메모리 이벤트로 캐시가 다시 병합되는 것을 막기 위해 유저 전체 이벤트는 발행하지 않는다. */
-    try{if(typeof renderUserList==='function') renderUserList();}catch(e){console.warn('PKL admin list render skipped',e);}
-    try{if(typeof renderProfile==='function') renderProfile();}catch(e){console.warn('PKL admin profile render skipped',e);}
-    try{if(typeof renderStats==='function') renderStats();}catch(e){}
+    /* 2026-05 admin 렉 8차:
+       Supabase 유저 적용 직후 리스트/프로필/통계를 무조건 모두 렌더하던 흐름을 중단한다.
+       실제 보이는 탭 기준 window.render()에 위임해 첫 진입 중복 DOM 작업을 줄인다. */
+    try{ if(typeof bumpUsersCacheVersion==='function') bumpUsersCacheVersion(); }catch(e){}
+    try{ if(typeof window.render==='function') window.render(); }catch(e){console.warn('PKL admin visible render skipped',e);}
     var uc=document.getElementById('userCount'); if(uc) uc.textContent=state.users.length+'명';
     return state.users.slice();
   }
