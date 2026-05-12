@@ -6977,15 +6977,24 @@ document.addEventListener("click",function(){
 function pklRenderOperationalPanels(changedUser, options){
   options=options||{};
   try{ normalizeAllUserRoles(); }catch(e){}
-  try{ renderUserList(); }catch(e){}
-  try{ renderProfile(); }catch(e){}
-  try{ renderStats(); }catch(e){}
-  if(options.memo){ try{ renderMemoList(); }catch(e){} }
-  if(options.logs){
-    try{ renderPendingList(); }catch(e){}
-    try{ renderWarnRecords(); }catch(e){}
-    try{ renderBanRecords(); }catch(e){}
+  const isVisible=(id)=>{const el=document.getElementById(id);return !!(el&&getComputedStyle(el).display!=="none");};
+  const usersVisible=isVisible("userManageTab");
+  const dashVisible=isVisible("dashboardManageTab");
+  const pendingVisible=isVisible("pendingManageTab");
+  const warningsVisible=isVisible("warningsManageTab");
+  const bansVisible=isVisible("bansManageTab");
+  if(usersVisible){
+    if(changedUser && typeof window.updateUserDomOnly==="function") try{ window.updateUserDomOnly(changedUser); }catch(e){}
+    else try{ renderUserList(); }catch(e){}
+    try{ renderProfile(); }catch(e){}
+    if(options.memo){ try{ renderMemoList(); }catch(e){} }
     if(activeDetailTab && activeDetailTab!=="detail") try{ renderDetailLog(activeDetailTab); }catch(e){}
+  }
+  if(dashVisible) try{ renderStats(); }catch(e){}
+  if(options.logs){
+    if(pendingVisible) try{ renderPendingList(); }catch(e){}
+    if(warningsVisible) try{ renderWarnRecords(); }catch(e){}
+    if(bansVisible) try{ renderBanRecords(); }catch(e){}
   }
   try{ window.dispatchEvent(new CustomEvent("pkl-user-partial-updated",{detail:{user:changedUser||null}})); }catch(e){}
   try{ window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{user:changedUser||null}})); }catch(e){}
@@ -7135,7 +7144,8 @@ async function submitPrimeAdjust(){
     u.memoList=Array.isArray(u.memoList)?u.memoList:[];
     u.memoList.unshift({date:nowText(),admin:adminName(),text:`[프라임 ${type==="grant"?"지급":"압수"}] ${amount} · ${reason}`});
     closePrimeAdjustModal();
-    renderProfile(); renderMemoList(); renderStats();
+    if(typeof window.updateUserDomOnly==="function") window.updateUserDomOnly(u);
+    else { renderProfile(); renderMemoList(); try{var dash=document.getElementById("dashboardManageTab"); if(dash && getComputedStyle(dash).display!=="none") renderStats();}catch(e){} }
     await pklAlert(`${u.nickname||"회원"}님에게 ${amount} 프라임이 ${type==="grant"?"지급":"압수"} 처리되었습니다.`,"처리 완료");
   }catch(err){
     console.error(err);
@@ -7552,14 +7562,6 @@ function getVisibleAdminScreenId(){
   return visible ? visible.id : "userManageTab";
 }
 
-document.addEventListener("DOMContentLoaded",()=>{
-  setTimeout(()=>{
-    const users=document.getElementById("userManageTab");
-    document.querySelectorAll("#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen").forEach(el=>{el.style.display="none";});
-    if(users) users.style.display="grid";
-    if(typeof setAdminNavActiveByScreen === "function") setAdminNavActiveByScreen("userManageTab");
-  },80);
-});
 </script>
 
 
@@ -7857,9 +7859,17 @@ document.addEventListener("DOMContentLoaded",()=>{
     e.stopPropagation();
     alertAccess(min);
   },true);
-  document.addEventListener("DOMContentLoaded",function(){applyAccess();setTimeout(applyAccess,80);setTimeout(applyAccess,300);});
-  window.addEventListener("storage",applyAccess);
-  window.addEventListener("pkl-role-data-updated",applyAccess);
+  var __pklApplyAccessTimer=null;
+  function scheduleApplyAccess(){
+    if(__pklApplyAccessTimer) return;
+    __pklApplyAccessTimer=setTimeout(function(){
+      __pklApplyAccessTimer=null;
+      applyAccess();
+    },60);
+  }
+  document.addEventListener("DOMContentLoaded",function(){scheduleApplyAccess();});
+  window.addEventListener("storage",scheduleApplyAccess);
+  window.addEventListener("pkl-role-data-updated",scheduleApplyAccess);
   window.pklApplyAdminAccess=applyAccess;
 })();
 </script>
@@ -7980,6 +7990,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 
 <script id="pkl-admin-users-first-supabase-only-final">
 (function(){
+  return;
   function showUsersFirst(){
     var ids=["dashboardManageTab","userManageTab","pendingManageTab","warningsManageTab","bansManageTab","settingsManageTab"];
     ids.forEach(function(id){var el=document.getElementById(id); if(el) el.style.display="none";});
@@ -8050,12 +8061,77 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     current=idx;
     try{ if(window.PKLUsersSource&&typeof window.PKLUsersSource.updateCachedUser==='function') window.PKLUsersSource.updateCachedUser(list[idx],{silent:true}); }catch(e){}
     try{ if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers(list.slice(),false); }catch(e){}
-    // 전체 users refetch/render 금지: 현재 회원 카드/프로필만 교체한다.
-    try{ if(typeof renderUserList==='function') renderUserList(); }catch(e){}
-    try{ if(typeof renderProfile==='function') renderProfile(); }catch(e){}
-    try{ if(typeof renderStats==='function') renderStats(); }catch(e){}
+    function isVisible(id){var el=document.getElementById(id);return !!(el && getComputedStyle(el).display!=="none");}
+    function safeText(v,fb){var t=clean(v);return t?t:clean(fb||"-");}
+    function didKey(u){
+      u=u||{};
+      var did=clean(u.discordId||u.discord_id).toLowerCase().replace(/^discord-/,'');
+      if(did) return did;
+      ['uid','id','userId','key'].some(function(k){var raw=clean(u[k]); if(/^discord-/i.test(raw)){did=raw.toLowerCase().replace(/^discord-/,''); return true;} return false;});
+      return did;
+    }
+    function updateUserCardDom(u){
+      if(!isVisible("userManageTab")) return;
+      var did=didKey(u);
+      if(!did) return;
+      var card=document.querySelector('.user-card[data-did="'+did+'"]');
+      if(!card) return;
+      var name=safeText(u.nickname||u.name||u.nick,"-");
+      var pubg=safeText(u.pubgId||u.gameId||u.ref,"-");
+      var mb='', gb='';
+      try{mb=typeof memberBadgeHtml==='function'?memberBadgeHtml(u):'';}catch(e){}
+      try{gb=typeof gradeBadgeHtml==='function'?gradeBadgeHtml(u):'';}catch(e){}
+      var line=card.querySelector('.user-role-line');
+      if(line){
+        var nameHtml=(typeof esc==='function'?esc(name):name);
+        line.innerHTML='<span class="user-name">'+nameHtml+'</span>'+mb+gb;
+      }else{
+        var nameEl=card.querySelector('.user-name');
+        if(nameEl) nameEl.textContent=name;
+      }
+      var subEl=card.querySelector('.user-sub');
+      if(subEl) subEl.textContent=pubg;
+    }
+    function setText(id,value){var el=document.getElementById(id); if(el) el.textContent=value;}
+    function updateProfileDom(u){
+      if(!isVisible("userManageTab")) return;
+      if(typeof current!=="number" || current!==idx) return;
+      var name=safeText(u.nickname||u.name||u.nick,"-");
+      var pubg=safeText(u.pubgId||u.gameId||u.ref,"-");
+      var mb='', gb='';
+      try{mb=typeof memberBadgeHtml==='function'?memberBadgeHtml(u):'';}catch(e){}
+      try{gb=typeof gradeBadgeHtml==='function'?gradeBadgeHtml(u):'';}catch(e){}
+      var pName=document.getElementById("pName");
+      if(pName){
+        var nameHtml=(typeof esc==='function'?esc(name):name);
+        var pubgHtml=(typeof esc==='function'?esc(pubg):pubg);
+        pName.innerHTML=
+          '<div class="name-wrap">'
+          +'<div class="name-role-line">'
+          +'<span class="user-name">'+nameHtml+'</span>'
+          +mb+gb
+          +'</div>'
+          +'<div class="name-sub">'+pubgHtml+'</div>'
+          +'</div>';
+      }
+      if(typeof gradeRoleName==="function"){ setText("rankName", gradeRoleName(u)); setText("dRole", gradeRoleName(u)); }
+      setText("dNick", name);
+      setText("dPubg", pubg);
+      var dMemberRole=document.getElementById("dMemberRole");
+      if(dMemberRole && typeof memberRoleName==="function"){
+        var extra="";
+        try{ if(typeof isPenaltyActive==="function" && isPenaltyActive(u)) extra=" · 수감자"; }catch(e){}
+        dMemberRole.textContent=memberRoleName(u.memberRole)+extra;
+      }
+      setText("dWarn",(Number(u.warnings)||0)+"/4");
+      setText("dDia",String(Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0));
+    }
+    updateUserCardDom(list[idx]);
+    updateProfileDom(list[idx]);
+    try{ if(isVisible("dashboardManageTab") && typeof renderStats==="function") renderStats(); }catch(e){}
     try{ window.dispatchEvent(new CustomEvent('pkl-user-updated',{detail:{user:list[idx],index:idx}})); }catch(e){}
   }
+  window.updateUserDomOnly=updateUserDomOnly;
   async function saveMemberEditSupabaseOnly(){
     var list=(window.state&&Array.isArray(window.state.users))?window.state.users:[];
     var idx=typeof current==='number'?current:0;
@@ -8134,17 +8210,21 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   window.renderUserList=function(){
     try{ if(typeof normalizeAllUserRoles==='function') normalizeAllUserRoles(); }catch(e){}
     var q=clean(document.getElementById('search')&&document.getElementById('search').value).toLowerCase();
-    var list=unique((typeof state!=='undefined'&&state&&Array.isArray(state.users))?state.users:[]).filter(function(u){
+    var rawUsers=(typeof state!=='undefined'&&state&&Array.isArray(state.users))?state.users:[];
+    var indexByDid=new Map();
+    rawUsers.forEach(function(x,i){var d=didOf(x); if(d && !indexByDid.has(d)) indexByDid.set(d,i);});
+    var list=unique(rawUsers).filter(function(u){
       if(!q) return true;
       return String(u.nickname||'').toLowerCase().includes(q)||String(u.pubgId||'').toLowerCase().includes(q)||String(u.discordId||'').toLowerCase().includes(q);
     });
     var wrap=document.getElementById('userList'); if(!wrap) return;
     wrap.innerHTML=list.map(function(u,displayIndex){
-      var realIndex=((typeof state!=='undefined'&&state&&Array.isArray(state.users))?state.users:[]).findIndex(function(x){return didOf(x)===didOf(u);});
-      if(realIndex<0) realIndex=displayIndex;
+      var did=didOf(u);
+      var realIndex=indexByDid.get(did);
+      if(typeof realIndex!=='number' || realIndex<0) realIndex=displayIndex;
       var active=(typeof current==='number'&&realIndex===current)?'active':'';
       var mb='', gb=''; try{mb=typeof memberBadgeHtml==='function'?memberBadgeHtml(u):'';}catch(e){} try{gb=typeof gradeBadgeHtml==='function'?gradeBadgeHtml(u):'';}catch(e){}
-      return '<div class="user-card named-role-layout '+active+'" onclick="selectUser('+realIndex+')"><div class="avatar">'+(displayIndex+1)+'</div><div class="user-main"><div class="user-role-line"><span class="user-name">'+(typeof esc==='function'?esc(u.nickname||u.name||'-'):clean(u.nickname||u.name||'-'))+'</span>'+mb+gb+'</div><div class="user-sub">'+(typeof esc==='function'?esc(u.pubgId||u.gameId||'-'):clean(u.pubgId||u.gameId||'-'))+'</div></div></div>';
+      return '<div class="user-card named-role-layout '+active+'" data-did="'+did+'" data-real-index="'+realIndex+'" onclick="selectUser('+realIndex+')"><div class="avatar">'+(displayIndex+1)+'</div><div class="user-main"><div class="user-role-line"><span class="user-name">'+(typeof esc==='function'?esc(u.nickname||u.name||'-'):clean(u.nickname||u.name||'-'))+'</span>'+mb+gb+'</div><div class="user-sub">'+(typeof esc==='function'?esc(u.pubgId||u.gameId||'-'):clean(u.pubgId||u.gameId||'-'))+'</div></div></div>';
     }).join('') || '<div class="pending-empty">검색된 회원이 없습니다.</div>';
     var uc=document.getElementById('userCount'); if(uc) uc.textContent=list.length+'명';
   };
@@ -8153,10 +8233,11 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return !!(el && getComputedStyle(el).display !== 'none');
   }
   window.render=function(){
-    try{ renderUserList(); }catch(e){console.warn('admin renderUserList skipped',e);}
-    try{ if(typeof renderProfile==='function') renderProfile(); }catch(e){}
-    /* 대시보드 최초/백그라운드 렌더 금지: 대시보드 탭이 실제로 열려 있을 때만 통계를 갱신한다. */
-    try{ if(isVisible('dashboardManageTab') && typeof renderStats==='function') renderStats(); }catch(e){}
+    var usersVisible=isVisible('userManageTab');
+    var dashVisible=isVisible('dashboardManageTab');
+    try{ if(usersVisible) renderUserList(); }catch(e){console.warn('admin renderUserList skipped',e);}
+    try{ if(usersVisible && typeof renderProfile==='function') renderProfile(); }catch(e){}
+    try{ if(dashVisible && typeof renderStats==='function') renderStats(); }catch(e){}
     try{ if(typeof renderWelcome==='function') renderWelcome(); }catch(e){}
   };
   async function load(){
