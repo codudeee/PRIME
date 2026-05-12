@@ -6523,3 +6523,137 @@ body{
   .team-page{min-width:1500px !important;width:1500px !important;}
   .team-page > .builder-layout{grid-template-columns:180px minmax(1114px,1fr) 168px !important;}
 }
+
+
+/* PKL patch: Supabase tier queue + duo/kanbu layout stabilization */
+.team-page > .builder-layout{
+  display:grid !important;
+  grid-template-columns:180px minmax(0,1fr) 168px !important;
+  gap:8px !important;
+  align-items:stretch !important;
+}
+.team-page > .builder-layout > .tier-panel,
+.team-page > .builder-layout > .control-panel,
+.team-page > .builder-layout > .team-board{
+  position:relative !important;
+  transform:none !important;
+}
+.team-page > .builder-layout > .tier-panel{grid-column:1 !important;width:180px !important;min-width:180px !important;max-width:180px !important;z-index:3 !important;}
+.team-page > .builder-layout > .team-board{grid-column:2 !important;min-width:0 !important;width:100% !important;max-width:100% !important;z-index:1 !important;overflow:hidden !important;}
+.team-page > .builder-layout > .control-panel{grid-column:3 !important;width:168px !important;min-width:168px !important;max-width:168px !important;z-index:4 !important;}
+
+/* 각 티어 박스 색상 스크롤 */
+.tier-box[data-tier="tier0"]{--tier-accent:#ff5f6d;}
+.tier-box[data-tier="tier1"]{--tier-accent:#f8c84a;}
+.tier-box[data-tier="tier2"]{--tier-accent:#35d070;}
+.tier-box[data-tier="tier3"]{--tier-accent:#56b7ff;}
+.tier-box[data-tier="tier4"]{--tier-accent:#a874ff;}
+.tier-box[data-tier="beast"]{--tier-accent:#ff9b45;}
+.tier-list{
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  scrollbar-width:thin !important;
+  scrollbar-color:var(--tier-accent) rgba(255,255,255,.055) !important;
+}
+.tier-list::-webkit-scrollbar{width:6px !important;height:6px !important;}
+.tier-list::-webkit-scrollbar-track{background:rgba(255,255,255,.045) !important;border-radius:999px !important;}
+.tier-list::-webkit-scrollbar-thumb{
+  border-radius:999px !important;
+  background:linear-gradient(180deg,var(--tier-accent),color-mix(in srgb,var(--tier-accent) 52%,#050611)) !important;
+  box-shadow:0 0 10px color-mix(in srgb,var(--tier-accent) 35%,transparent) !important;
+}
+
+/* 드롭다운은 항상 앞 */
+.control-panel{overflow:visible !important;}
+.control-section-box{position:relative !important;overflow:visible !important;}
+#rerollModeDropdown.is-open{z-index:30000 !important;}
+#rerollModeDropdown.is-open .pkl-custom-select-list{z-index:30001 !important;}
+#teamModeDropdown.is-open{z-index:20000 !important;}
+#teamModeDropdown.is-open .pkl-custom-select-list{z-index:20001 !important;}
+.control-operation-box .section-title{display:block !important;visibility:visible !important;height:auto !important;margin-bottom:8px !important;}
+
+/* 스쿼드 기본: 20팀 한 화면 */
+.team-page > .builder-layout.pkl-mode-20 > .team-board .team-grid{
+  grid-template-columns:repeat(10,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+  gap:8px !important;
+}
+.team-page > .builder-layout.pkl-mode-20 > .team-board .slot-list{
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  grid-template-rows:repeat(4,minmax(0,1fr)) !important;
+  gap:6px !important;
+}
+
+/* 듀오: 40팀, 슬롯 2개는 팀칸 안에서 나란히 */
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-grid{
+  grid-template-columns:repeat(10,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(4,minmax(0,1fr)) !important;
+  gap:6px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-card{min-height:0 !important;}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-head{
+  min-height:23px !important;height:23px !important;padding:3px 6px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-name{font-size:12px !important;line-height:1 !important;}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .slot-list{
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  grid-template-rows:1fr !important;
+  gap:4px !important;
+  padding:4px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot{
+  min-width:0 !important;min-height:0 !important;height:100% !important;padding:3px !important;border-radius:7px !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .empty-slot{min-height:0 !important;height:100% !important;}
+
+/* 깐부: 1-2, 3-4처럼 붙은 같은 편 느낌 */
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-grid{gap:8px 4px !important;}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card{
+  position:relative !important;
+  border-color:rgba(165,120,255,.30) !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card:nth-child(2n+1){
+  border-top-right-radius:8px !important;
+  border-bottom-right-radius:8px !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(168,85,247,.22),0 0 18px rgba(168,85,247,.10) !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card:nth-child(2n){
+  border-top-left-radius:8px !important;
+  border-bottom-left-radius:8px !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(34,211,238,.20),0 0 18px rgba(34,211,238,.09) !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card:nth-child(2n+1)::after{
+  content:'' !important;
+  position:absolute !important;
+  right:-6px !important;
+  top:18px !important;
+  bottom:18px !important;
+  width:8px !important;
+  border-top:2px solid rgba(168,85,247,.72) !important;
+  border-bottom:2px solid rgba(34,211,238,.55) !important;
+  background:linear-gradient(180deg,rgba(168,85,247,.28),rgba(34,211,238,.20)) !important;
+  box-shadow:0 0 14px rgba(168,85,247,.22) !important;
+  z-index:5 !important;
+  pointer-events:none !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card:nth-child(2n+1) .team-head::after{
+  content:'깐부' !important;
+  margin-left:auto !important;
+  min-width:30px !important;
+  height:15px !important;
+  border-radius:999px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:9px !important;
+  font-weight:1000 !important;
+  color:#fff !important;
+  background:linear-gradient(135deg,rgba(168,85,247,.78),rgba(34,211,238,.50)) !important;
+}
+
+@media (max-width:1500px){
+  .team-page{min-width:1500px !important;width:1500px !important;}
+  .team-page > .builder-layout{grid-template-columns:180px minmax(0,1fr) 168px !important;}
+}

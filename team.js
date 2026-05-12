@@ -273,6 +273,7 @@ if (rerollListModal) {
 
   function render() {
     hydratePlayersForDisplayOnly();
+    syncPlayersWithUserSources();
     renderTierPools();
     renderTeams();
     renderSummary();
@@ -801,8 +802,9 @@ const teamIndex = Number(slot.dataset.teamIndex);
   function findSupabaseUserForJoinItem(item, adminUser, accountUser) {
     const users = readSupabaseUsers();
     const seed = accountUser || adminUser || item;
-    return users.find(user => isSameUserIdentity(seed, user)) ||
-      users.find(user => sameName(user, (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname || item.discord_username));
+    const identityMatch = users.find(user => isSameUserIdentity(seed, user)) || users.find(user => isSameUserIdentity(item, user));
+    if (identityMatch) return identityMatch;
+    return users.find(user => sameName(user, (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname || item.discord_username));
   }
 
   function syncJoinWaitListIntoTeamBoard(forceLoad) {
@@ -911,7 +913,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
         if (!playerId || seen.has(playerId)) return;
         const player = state.players.find(item => item.id === playerId);
         if (!player) return;
-        nextWaiting[safeTierId].push(playerId);
+        const resolvedTierId = TIERS.some(tier => tier.id === player.tier) ? player.tier : safeTierId;
+        nextWaiting[resolvedTierId].push(playerId);
         seen.add(playerId);
       });
     });
