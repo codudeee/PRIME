@@ -6392,11 +6392,14 @@ function safeJson(key, fallback){
   let pendingWaitingTimer = null;
   let lastAppliedRecruitState = "loading";
   window.__PKL_JOIN_REMOTE_CONFIRMED = joinRemoteStateConfirmed;
+  /* 첫 진입에서는 local/기본 waiting으로 떨어뜨리지 않는다.
+     서버가 실제 waiting을 확정해서 보낸 경우에만 모집대기중을 표시한다. */
   setTimeout(function(){
-    joinStateBooting = false;
-    if(lastAppliedRecruitState === "loading"){
-      applyState("waiting", {allowWaiting:true});
+    if(lastAppliedRecruitState === "loading" && !joinRemoteStateConfirmed){
+      applyState("loading", {internal:true});
+      return;
     }
+    joinStateBooting = false;
   }, 1800);
 
   function clearPendingWaiting(){
@@ -6446,10 +6449,16 @@ function safeJson(key, fallback){
         applyState("loading", {internal:true});
       }
       clearPendingWaiting();
+      /* remote 확정 전 waiting은 화면에 표시하지 않는다.
+         open/closed가 늦게 도착해도 모집대기중으로 먼저 깜빡이지 않게 로딩 유지. */
       pendingWaitingTimer = setTimeout(function(){
-        joinStateBooting = false;
-        applyState("waiting", {allowWaiting:true});
-        if(window.PKLJoinRenderAll) window.PKLJoinRenderAll();
+        if(joinRemoteStateConfirmed){
+          joinStateBooting = false;
+          applyState("waiting", {allowWaiting:true});
+          if(window.PKLJoinRenderAll) window.PKLJoinRenderAll();
+        }else{
+          applyState("loading", {internal:true});
+        }
       }, 900);
       return;
     }
@@ -6472,6 +6481,10 @@ function safeJson(key, fallback){
       statusEl.dataset.state = normalized;
       statusEl.textContent = label;
       statusEl.removeAttribute("style");
+    }
+    const deadlineTextEl = document.getElementById("joinDeadlineText");
+    if(deadlineTextEl && normalized === "loading"){
+      deadlineTextEl.textContent = "상태 확인중";
     }
     if(panel){
       panel.dataset.recruitState = normalized;
@@ -6502,8 +6515,8 @@ function safeJson(key, fallback){
           if(state){
             joinRemoteStateConfirmed = true;
             window.__PKL_JOIN_REMOTE_CONFIRMED = true;
-            if(state !== "waiting") joinStateBooting = false;
-            applyState(state);
+            joinStateBooting = false;
+            applyState(state, {allowWaiting:true});
           }else{
             /* 서버 상태가 아직 없으면 오래된 local 모집대기중으로 떨어뜨리지 않고 로딩 유지 */
             applyState("loading");
@@ -6513,8 +6526,8 @@ function safeJson(key, fallback){
           if(state){
             joinRemoteStateConfirmed = true;
             window.__PKL_JOIN_REMOTE_CONFIRMED = true;
-            if(state !== "waiting") joinStateBooting = false;
-            applyState(state);
+            joinStateBooting = false;
+            applyState(state, {allowWaiting:true});
           }else{
             /* 서버 상태가 아직 없으면 오래된 local 모집대기중으로 떨어뜨리지 않고 로딩 유지 */
             applyState("loading");
@@ -6526,8 +6539,9 @@ function safeJson(key, fallback){
     const state = readRealtimeRecruitState();
     if(state){
       joinRemoteStateConfirmed = true;
+      window.__PKL_JOIN_REMOTE_CONFIRMED = true;
       joinStateBooting = false;
-      applyState(state);
+      applyState(state, {allowWaiting:true});
     }else{
       applyState("loading");
     }
@@ -6542,9 +6556,11 @@ function safeJson(key, fallback){
     if(state){
       joinRemoteStateConfirmed = true;
       window.__PKL_JOIN_REMOTE_CONFIRMED = true;
-      if(state !== "waiting") joinStateBooting = false;
+      joinStateBooting = false;
+      applyState(state, {allowWaiting:true});
+      return;
     }
-    applyState(state || readRealtimeRecruitState() || readLocalRecruitState({allowStale:true}));
+    applyState(readRealtimeRecruitState() || readLocalRecruitState({allowStale:joinRemoteStateConfirmed}) || "loading");
   });
   document.addEventListener("click", function(e){
     if(e.target.closest("#openRecruitBtn,#closeRecruitBtn,#joinResetBtn")){
@@ -6557,6 +6573,38 @@ function safeJson(key, fallback){
 })();
 </script>
 
+<script id="pklJoinInitialWaitingGuardFinal16">
+(function(){
+  if(window.__PKL_JOIN_INITIAL_WAITING_GUARD_16__) return;
+  window.__PKL_JOIN_INITIAL_WAITING_GUARD_16__ = true;
+  function guard(){
+    if(window.__PKL_JOIN_REMOTE_CONFIRMED) return;
+    if(!document.body || !document.body.classList.contains('pkl-recruit-loading')) return;
+    var status = document.getElementById('joinStatus');
+    var deadline = document.getElementById('joinDeadlineText');
+    var panel = document.querySelector('.join-modal-panel');
+    if(status && /모집대기중/.test(status.textContent || '')){
+      status.dataset.state = 'loading';
+      status.textContent = '상태 확인중';
+      status.removeAttribute('style');
+    }
+    if(deadline && /모집대기중/.test(deadline.textContent || '')){
+      deadline.textContent = '상태 확인중';
+    }
+    if(panel && panel.dataset.recruitState === 'waiting'){
+      panel.dataset.recruitState = 'loading';
+    }
+  }
+  document.addEventListener('DOMContentLoaded', guard);
+  window.addEventListener('pkl-join-state-updated', function(){ setTimeout(guard, 0); });
+  var n=0;
+  var timer=setInterval(function(){
+    guard();
+    n += 1;
+    if(window.__PKL_JOIN_REMOTE_CONFIRMED || n > 40) clearInterval(timer);
+  }, 50);
+})();
+</script>
 
 
 <script id="pklJoinOpenConfirmLogic">
