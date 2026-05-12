@@ -8057,6 +8057,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     if(idx<0) idx=typeof current==='number'?current:-1;
     if(idx<0) return;
     list[idx]=Object.assign({},list[idx],user);
+    try{ if(typeof window.PKLAdminInvalidateUsersRenderCache==='function') window.PKLAdminInvalidateUsersRenderCache(); }catch(e){}
     current=idx;
     try{ if(window.PKLUsersSource&&typeof window.PKLUsersSource.updateCachedUser==='function') window.PKLUsersSource.updateCachedUser(list[idx],{silent:true}); }catch(e){}
     try{ if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers(list.slice(),false); }catch(e){}
@@ -8185,6 +8186,20 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return did;
   }
   function nickKey(u){return clean(u&& (u.nickname||u.name||u.nick)).replace(/\s+/g,'').toLowerCase();}
+  var __pklUsersRenderCache={ref:null,len:-1,version:-1,list:null};
+  function usersCacheVersion(){return Number(window.__PKL_ADMIN_USERS_CACHE_VERSION||0)||0;}
+  function bumpUsersCacheVersion(){window.__PKL_ADMIN_USERS_CACHE_VERSION=usersCacheVersion()+1;}
+  function getUniqueUsers(rawUsers){
+    var len=Array.isArray(rawUsers)?rawUsers.length:0;
+    var version=usersCacheVersion();
+    if(__pklUsersRenderCache.ref===rawUsers && __pklUsersRenderCache.len===len && __pklUsersRenderCache.version===version && Array.isArray(__pklUsersRenderCache.list)){
+      return __pklUsersRenderCache.list;
+    }
+    var list=unique(rawUsers);
+    __pklUsersRenderCache={ref:rawUsers,len:len,version:version,list:list};
+    return list;
+  }
+  window.PKLAdminInvalidateUsersRenderCache=bumpUsersCacheVersion;
   function normalize(u){
     u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var did=didOf(u)||didOf(raw); if(!did) return null;
     var nick=clean(u.nickname||u.name||u.nick||raw.nickname||raw.name||raw.nick||u.discord_username||u.discordUsername||raw.discord_username)||('회원-'+did.slice(-4));
@@ -8212,7 +8227,8 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     var rawUsers=(typeof state!=='undefined'&&state&&Array.isArray(state.users))?state.users:[];
     var indexByDid=new Map();
     rawUsers.forEach(function(x,i){var d=didOf(x); if(d && !indexByDid.has(d)) indexByDid.set(d,i);});
-    var list=unique(rawUsers).filter(function(u){
+    var normalizedUsers=getUniqueUsers(rawUsers);
+    var list=normalizedUsers.filter(function(u){
       if(!q) return true;
       return String(u.nickname||'').toLowerCase().includes(q)||String(u.pubgId||'').toLowerCase().includes(q)||String(u.discordId||'').toLowerCase().includes(q);
     });
@@ -8248,6 +8264,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       var users=unique(data.users);
       if(typeof state!=='undefined'){ state=Object.assign({},state||{},{users:users,pending:Array.isArray(state&&state.pending)?state.pending:[],bans:Array.isArray(state&&state.bans)?state.bans:[],warningRecords:Array.isArray(state&&state.warningRecords)?state.warningRecords:[]}); window.state=state; }
       if(typeof current!=='number'||current<0||current>=users.length) current=0;
+      bumpUsersCacheVersion();
       window.render();
     }catch(err){
       console.error('PKL admin canonical users load failed',err);
