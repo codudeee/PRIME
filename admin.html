@@ -8257,7 +8257,10 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       return String(u.nickname||'').toLowerCase().includes(q)||String(u.pubgId||'').toLowerCase().includes(q)||String(u.discordId||'').toLowerCase().includes(q);
     });
     var wrap=document.getElementById('userList'); if(!wrap) return;
-    var renderKey=[usersCacheVersion(),q,typeof current==='number'?current:-1,list.length,list.map(function(u){return didOf(u);}).join('|')].join('::');
+    /* 2026-05 admin 렉 9차:
+       current 선택값만 바뀐 경우에는 회원 목록 전체 innerHTML을 다시 만들 필요가 없다.
+       렌더 키에서 current를 제외하고, 같은 목록이면 active 표시만 동기화한다. */
+    var renderKey=[usersCacheVersion(),q,list.length,list.map(function(u){return didOf(u);}).join('|')].join('::');
     if(__pklLastUserListRenderKey===renderKey && wrap.children.length){
       syncUserListActiveOnly();
       var sameUc=document.getElementById('userCount'); if(sameUc) sameUc.textContent=list.length+'명';
@@ -8295,8 +8298,11 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     try{ if(dashVisible && typeof renderStats==='function') renderStats(); }catch(e){}
     try{ renderWelcomeIfNeeded(); }catch(e){}
   };
+  var __pklAdminUsersLoadInFlight=false;
   async function load(){
-    var wrap=document.getElementById('userList'); if(wrap) wrap.innerHTML='<div class="pkl-users-loading-card">Supabase 유저 목록을 불러오는 중입니다.</div>';
+    if(__pklAdminUsersLoadInFlight) return;
+    __pklAdminUsersLoadInFlight=true;
+    var wrap=document.getElementById('userList'); if(wrap && !wrap.children.length) wrap.innerHTML='<div class="pkl-users-loading-card">Supabase 유저 목록을 불러오는 중입니다.</div>';
     try{
       var res=await fetch('/api/pkl-users?limit=20&offset=0',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
       var data=await res.json().catch(function(){return {};});
@@ -8310,6 +8316,8 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       console.error('PKL admin canonical users load failed',err);
       var list=document.getElementById('userList'); if(list) list.innerHTML='<div class="pending-empty">Supabase 유저를 불러오지 못했습니다.<br>users SELECT 정책/API 응답을 확인해주세요.</div>';
       var uc=document.getElementById('userCount'); if(uc) uc.textContent='불러오기 실패';
+    }finally{
+      __pklAdminUsersLoadInFlight=false;
     }
   }
   document.addEventListener('DOMContentLoaded',function(){
