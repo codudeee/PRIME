@@ -1089,3 +1089,11 @@ html,body{
   overflow-y:auto !important;
   overscroll-behavior:contain !important;
 }
+
+
+/* PKL patch editor interaction fix: modal is input-first, no scroll/focus blocking */
+.pkl-patch-modal{pointer-events:none;}
+.pkl-patch-modal.open{pointer-events:auto;}
+.pkl-patch-modal-card,.pkl-patch-confirm-card{pointer-events:auto;max-height:calc(100vh - 48px);overflow:auto;}
+.patch-form-grid textarea#patchInputItems{min-height:260px;max-height:46vh;overflow-y:auto;resize:vertical;overscroll-behavior:contain;}
+.patch-form-grid input,.patch-form-grid textarea{pointer-events:auto;user-select:text;}

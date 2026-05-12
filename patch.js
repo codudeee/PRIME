@@ -1,7 +1,7 @@
 (function(){
   "use strict";
 
-  const STORAGE_KEY = "pklPatchNotes_v2";
+  const STORAGE_KEY = "pklPatchNotes_v2"; // Supabase shared key only, not localStorage
 
   let notes = [];
   let selected = 0;
@@ -100,22 +100,39 @@
   }
 
   function isPatchAdmin(){
-    return !!(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentAccessRole === "function" && window.PKLRoleSystem.currentAccessRole() === "admin");
+    function norm(v){ return String(v == null ? "" : v).trim().toLowerCase(); }
+    function roleText(obj){
+      if(!obj || typeof obj !== "object") return "";
+      const vals = [obj.memberRole,obj.adminRole,obj.userRole,obj.authRole,obj.role,obj.roleName,obj.accessRole,obj.permission,obj.type].filter(Boolean).map(norm).join("|");
+      if(obj.is_admin || obj.isAdmin || obj.admin || obj.manager || obj.owner || obj.superAdmin) return vals + "|admin";
+      return vals;
+    }
+    function textIsAdmin(txt){ return /admin|manager|owner|superadmin|master|관리자|총관리자/.test(norm(txt)); }
+    try{
+      if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentAccessRole === "function" && textIsAdmin(window.PKLRoleSystem.currentAccessRole())) return true;
+    }catch(e){}
+    try{
+      if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentUser === "function" && textIsAdmin(roleText(window.PKLRoleSystem.currentUser()))) return true;
+    }catch(e){}
+    const keys = ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user","pklAuthUser"];
+    for(const store of [sessionStorage, localStorage]){
+      for(const key of keys){
+        try{
+          const user = JSON.parse(store.getItem(key) || "null");
+          if(textIsAdmin(roleText(user))) return true;
+        }catch(e){}
+      }
+    }
+    return false;
   }
   function denyPatchAdmin(){
     if(window.PKLRoleSystem && typeof window.PKLRoleSystem.showAccessModal === "function") window.PKLRoleSystem.showAccessModal("관리자만 패치노트를 수정할 수 있습니다.", "권한 제한");
   }
 
-  function stopPatchEditorEventBubble(){
-    // 패치노트 모달 안의 input/textarea는 기본 입력/스크롤 동작을 절대 막지 않는다.
-    // 바깥 영역 클릭 닫기는 아래 overlay click에서 target === modal일 때만 처리한다.
-    // 기존 capture 단계 stopPropagation이 모달 입력/스크롤/버튼 클릭을 막아 제거한다.
-  }
-
   function bindEvents(){
-    els.patchAddBtnSide?.addEventListener("click", () => openEditor("add"));
-    els.patchEditBtn?.addEventListener("click", () => openEditor("edit"));
-    els.patchDeleteBtn?.addEventListener("click", openConfirm);
+    els.patchAddBtnSide?.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); openEditor("add"); });
+    els.patchEditBtn?.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); openEditor("edit"); });
+    els.patchDeleteBtn?.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); openConfirm(); });
     els.patchModalClose?.addEventListener("click", closeEditor);
     els.patchCancelBtn?.addEventListener("click", closeEditor);
     els.patchSaveBtn?.addEventListener("click", saveEditor);
@@ -210,6 +227,7 @@
     els.patchInputItems.value = itemsToText(note.items || []);
     els.patchEditorModal?.classList.add("open");
     els.patchEditorModal?.setAttribute("aria-hidden","false");
+    try{ if(window.PKLBringModalToFront) window.PKLBringModalToFront(els.patchEditorModal); }catch(e){}
     setTimeout(() => els.patchInputTitle?.focus({preventScroll:true}), 30);
   }
 
@@ -251,6 +269,7 @@
     if(!isPatchAdmin()){ denyPatchAdmin(); return; }
     els.patchConfirmModal?.classList.add("open");
     els.patchConfirmModal?.setAttribute("aria-hidden","false");
+    try{ if(window.PKLBringModalToFront) window.PKLBringModalToFront(els.patchConfirmModal); }catch(e){}
   }
 
   function closeConfirm(){

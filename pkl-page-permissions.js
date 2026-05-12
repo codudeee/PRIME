@@ -187,7 +187,7 @@
   protectClick('.control-panel button','operator','관리자/운영자만 팀구성 기능을 사용할 수 있습니다.');
   protectClick('.pkl-gear-outside,.admin-panel-block,.pkl-admin-card','operator','관리자/운영자만 시트지 설정을 사용할 수 있습니다.');
   protectClick('#adminPanelBtn,.admin-panel-btn,#resultSheetEditDoneBtn','operator','관리자/운영자만 관리자패널을 사용할 수 있습니다.');
-  protectClick('#patchAddBtnSide,#patchEditBtn,#patchDeleteBtn,#patchConfirmDelete','admin','관리자만 패치노트를 수정할 수 있습니다.');
+  /* 패치노트는 patch.js에서 관리자 권한을 확인한다. 전역 capture 가드가 모달 클릭/포커스를 막지 않도록 제외. */
   protectClick('#ruleAddCategoryBtn,#ruleEditBtn,.rule-add-block-btn,.rule-block-delete-btn','admin','관리자만 룰을 수정할 수 있습니다.');
 
   document.addEventListener('dragstart',function(e){
