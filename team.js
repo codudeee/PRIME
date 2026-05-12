@@ -39,7 +39,6 @@
   });
 
   let state = loadState();
-  ensureTeamModeState(state.teamMode || 'squad10');
   let draggedPlayerId = null;
 
   function pklTeamCanEdit(){
@@ -3070,6 +3069,8 @@ function startClock() {
       changeTeamMode(teamModeSelect.value);
     });
   }
+
+  ensureTeamModeState(state.teamMode || 'squad10');
 
 render();
   });
