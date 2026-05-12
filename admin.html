@@ -6987,10 +6987,12 @@ function pklRenderOperationalPanels(changedUser, options){
   try{ if(isVisible("dashboardManageTab") && typeof renderStats==="function") renderStats(); }catch(e){}
   if(options.memo && isVisible("userManageTab")){ try{ renderMemoList(); }catch(e){} }
   if(options.logs){
-    try{ renderPendingList(); }catch(e){}
-    try{ renderWarnRecords(); }catch(e){}
-    try{ renderBanRecords(); }catch(e){}
-    if(activeDetailTab && activeDetailTab!=="detail") try{ renderDetailLog(activeDetailTab); }catch(e){}
+    /* 2026-05 admin 렉 5차: 운영 처리 후 보이지 않는 기록 패널까지 모두 렌더하지 않는다.
+       화면에 열린 패널만 갱신해 저장/경고/프라임 처리 직후 DOM 작업을 줄인다. */
+    if(isVisible("pendingManageTab")){ try{ renderPendingList(); }catch(e){} }
+    if(isVisible("warningsManageTab")){ try{ renderWarnRecords(); }catch(e){} }
+    if(isVisible("bansManageTab")){ try{ renderBanRecords(); }catch(e){} }
+    if(isVisible("userManageTab") && activeDetailTab && activeDetailTab!=="detail") try{ renderDetailLog(activeDetailTab); }catch(e){}
   }
   try{ window.dispatchEvent(new CustomEvent("pkl-user-partial-updated",{detail:{user:changedUser||null}})); }catch(e){}
   try{ window.dispatchEvent(new CustomEvent("pkl-role-data-updated",{detail:{user:changedUser||null}})); }catch(e){}
