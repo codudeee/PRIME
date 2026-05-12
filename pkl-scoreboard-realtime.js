@@ -251,7 +251,7 @@
     document.addEventListener('input',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field&&e.target.dataset.field!=='map'){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?180:550);}},true);
     document.addEventListener('change',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?180:550);}},true);
     document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-map-pick],[data-stop-pick]')) schedulePublish(180);},true);
-    window.addEventListener('storage',function(e){if(e.key===STORAGE_KEY) schedulePublish(400);});
+    /* 2차 청소: storage 이벤트 기반 재게시 금지. 입력/변경/클릭 저장 흐름만 사용한다. */
   }
   window.addEventListener('pkl-sheet-hard-reset',function(e){lastPayloadText='';lastLiveSeq=Date.now();setTimeout(function(){try{publishNow();}catch(x){}},180);});
   window.PKLScoreboardRealtime={__pklCellLiveFinal20260510:true,publish:publishNow,schedulePublish:schedulePublish,startViewer:startViewer,renderSnapshot:renderSnapshot,buildSnapshot:buildSnapshot,startSheetMirror:startSheetMirror};

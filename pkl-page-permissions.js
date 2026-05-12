@@ -221,8 +221,8 @@
       }
     });
     mo.observe(document.body||document.documentElement,{childList:true,subtree:true,attributes:false});
-    window.addEventListener('storage',function(e){ if(!e || !e.key || /pkl|PKL/i.test(e.key)) scheduleApply(); });
-    window.addEventListener('pkl-supabase-data-updated',scheduleApply);
+    /* 2차 청소: storage/supabase 이벤트마다 권한 UI 전체 재검사 금지.
+       DOM 변경 시 MutationObserver와 명시적 PKLPagePermissions.schedule()만 사용한다. */
     window.PKLPagePermissions={apply:applyAll,schedule:scheduleApply,isAdmin:isAdmin,isOperatorUp:isOperatorUp,currentRole:role};
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();

@@ -652,7 +652,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
         if(detail.classList.contains("editing")) ensureAddBlockButton(panel);
       }
     });
-    if(content) content.scrollTop=0;
+    if(content && !detail.classList.contains("editing")) content.scrollTop=0;
   }
 
   function addCategory(){

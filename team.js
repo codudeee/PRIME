@@ -534,14 +534,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
 
   function bindUserSyncEvents() {
-    window.addEventListener('storage', event => {
-      if (event.key !== ADMIN_STORAGE_KEY && event.key !== ACCOUNT_STORAGE_KEY) return;
-      hydratePlayersForDisplayOnly();
-      renderTierPools();
-      renderTeams();
-      renderSummary();
-      saveState();
-    });
+    /* 2차 청소: storage 이벤트 기반 팀구성 전체 재렌더 금지. */
     // join 대기자 정보는 팀구성 페이지 진입/관리자 직접 불러오기 때만 반영한다.
     // 실시간 이벤트마다 팀구성 전체 렌더를 돌리면 렉이 생기므로 자동 갱신은 막는다.
     window.addEventListener('pkl-role-data-updated', () => {

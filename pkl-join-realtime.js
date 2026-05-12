@@ -26,6 +26,6 @@
   function start(){emit(stateFromLocal()); poll();}
   if(!Storage.prototype.__pklJoinRealtimePatched){Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();queueSave(String(k)===RECRUIT_KEY?350:500);emit(stateFromLocal());}}catch(e){}return ret;};Storage.prototype.__pklJoinRealtimePatched=true;}
   try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();queueSave(500);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
-  window.addEventListener('storage',function(e){if(e&&KEYS[String(e.key)])emit(stateFromLocal());});
+  /* 2차 청소: storage 이벤트 기반 자동 join 재렌더 금지. 클릭/저장 흐름에서만 emit한다. */
   window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,queueSave:queueSave,state:stateFromLocal,apply:applyState,fetchNow:poll}; start();
 })();

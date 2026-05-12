@@ -2468,12 +2468,7 @@ function bind(){
 }
 function renderAll(){renderBoard();renderSheet();renderSide();}
 bind();renderAll();
-window.addEventListener('storage',function(e){
-  if(e && e.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
-});
-window.addEventListener('pkl-supabase-data-updated',function(e){
-  if(e && e.detail && e.detail.key===RESULT_MATCHES_KEY) pklResultRefreshMatchesFromStorage();
-});
+/* 2차 청소: storage/supabase 이벤트 기반 결과표 전체 재렌더 금지. 저장/삭제 버튼 흐름에서만 갱신. */
 window.addEventListener('pkl-users-updated',function(){ renderSide(); });
 window.addEventListener('pkl-role-data-updated',function(){ renderSide(); });
 window.addEventListener('pkl-supabase-sync-ready',function(){
@@ -2917,8 +2912,7 @@ window.addEventListener('load', restoreDiscordSession);
   function markDeleted(id){if(!id)return;var arr=deletedIds().filter(Boolean);if(arr.indexOf(String(id))<0)arr.push(String(id));writeJSON(DELETED_KEY,arr.slice(-80));}
   function filterDeletedMatches(){var ids=deletedIds();if(!ids.length)return false;var list=readJSON(MATCH_KEY,[]);if(!Array.isArray(list))return false;var next=list.filter(function(m){return ids.indexOf(String(m&&m.id))<0;});if(next.length!==list.length){writeJSON(MATCH_KEY,next);return true;}return false;}
   document.addEventListener('click',function(e){var yes=e.target&&e.target.closest&&e.target.closest('#resultDeleteYesBtn');if(yes){var active=document.querySelector('#adminMatchList .admin-match-item.active');var id=active&&active.getAttribute('data-admin-match');markDeleted(id);setTimeout(filterDeletedMatches,60);setTimeout(filterDeletedMatches,420);}},true);
-  window.addEventListener('pkl-supabase-data-updated',function(e){if(e&&e.detail&&e.detail.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
-  window.addEventListener('storage',function(e){if(e&&e.key===MATCH_KEY){ if(filterDeletedMatches()){ try{e.stopImmediatePropagation();}catch(_e){} } }},true);
+  /* 2차 청소: 삭제 필터는 저장/삭제 처리 시 직접 적용하고, storage/supabase 이벤트 감시는 하지 않는다. */
   function getMatches(){return readJSON(MATCH_KEY,[]);} function currentMatch(){var id=(document.getElementById('matchSelect')||{}).value||'';var list=getMatches();return list.find(function(m){return String(m&&m.id)===String(id);})||list[0]||null;}
   function fmtTime(t){if(!t)return '-';var d=new Date(Number(t)||t);if(String(d)==='Invalid Date')return String(t);return d.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}

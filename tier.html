@@ -2883,10 +2883,7 @@ document.addEventListener("DOMContentLoaded", function(){
       });
     }
   });
-  window.addEventListener("storage", function(){
-    syncTop();
-    renderPklTierMembers();
-  });
+  /* 2차 청소: storage 이벤트 기반 티어표 자동 재렌더 금지. Supabase fetch/페이지 진입 기준만 사용. */
 })();
 </script>
 

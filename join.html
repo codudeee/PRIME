@@ -5636,7 +5636,7 @@ function safeJson(key, fallback){
   });
 
   renderAll();
-  window.addEventListener("storage", function(e){ if(e && (e.key === STORAGE_KEY || e.key === CANCEL_KEY || e.key === "pklJoinRecruitState")) renderAll(); });
+  /* 2차 청소: storage 이벤트 기반 join 전체 재렌더 금지. 참가/취소/모집 버튼 클릭 흐름에서만 renderAll 실행. */
 })();
 </script>
 
@@ -6066,9 +6066,7 @@ function safeJson(key, fallback){
   }
 
   document.addEventListener("DOMContentLoaded", apply);
-  window.addEventListener("storage", function(e){
-    if(e.key === "pklJoinRecruitState") apply();
-  });
+  /* 2차 청소: pklJoinRecruitState storage 이벤트로 버튼 상태 재계산 금지. */
   document.addEventListener("click", function(e){
     if(e.target.closest("#openRecruitBtn,#closeRecruitBtn,#joinResetBtn")){
       setTimeout(apply, 0);
@@ -6947,7 +6945,7 @@ body.pkl-recruit-waiting #joinCancelBtn,
     }catch(e){}
   }
   window.addEventListener('pkl-join-state-updated',function(){checkRecruitBotMessage('pklJoinState');});
-  window.addEventListener('storage',function(e){if(e&&e.key==='pklJoinRecruitState')checkRecruitBotMessage('pklJoinRecruitState');});
+  /* 2차 청소: storage 이벤트 기반 디스코드 모집 메시지 복원/재발행 금지. */
   setTimeout(function(){try{lastRecruitBotState=String((readRecruit()||{}).state||'');}catch(e){}},0);
 
   document.addEventListener('click',function(e){

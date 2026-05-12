@@ -6126,19 +6126,7 @@ function pklHasAssignedTier(u){
   return !!(u && !pklIsDeletedUser(u));
 }
 function pklPurgeNonTierUsersFromStorage(){
-  const keep = u => pklHasAssignedTier(u) && !pklIsDeletedUser(u);
-  ["pklUsers","pklAdminUsers","PKL_ADMIN_USERS","PKL_USERS","pklUserList"].forEach(key=>{
-    try{
-      const arr=JSON.parse(localStorage.getItem(key)||"[]");
-      if(Array.isArray(arr)) localStorage.setItem(key,JSON.stringify(arr.filter(keep)));
-    }catch(e){}
-  });
-  ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"].forEach(key=>{
-    try{
-      const cur=JSON.parse(localStorage.getItem(key)||"null");
-      if(cur && !keep(cur)) localStorage.removeItem(key);
-    }catch(e){}
-  });
+  /* Supabase 단일 원본: 로컬 유저 배열 정리/재저장 금지. */
 }
 
 function accountUserToAdminUser(u,i){
@@ -6174,7 +6162,7 @@ function mergeAccountUsersIntoState(st){
 }
 
 function syncPendingSignupUsers(st){
-  /* Supabase 단일 원본: pklPendingUsers localStorage 승인대기 복원 금지. */
+  /* 승인대기 로컬 복원 금지: 가입/회원 상태는 Supabase users 기준만 사용한다. */
   st = st || seed();
   st.pending = Array.isArray(st.pending) ? st.pending : [];
   return st;
@@ -6255,19 +6243,12 @@ function pklUserIdentityMatches(a,b){
 }
 
 function pklDeletedUserStorageKey(){return "PKL_DELETED_USER_KEYS_V1";}
-function pklDeletedUserKeys(){try{const arr=JSON.parse(localStorage.getItem(pklDeletedUserStorageKey())||"[]");return Array.isArray(arr)?arr.map(pklCleanIdentityKey).filter(Boolean):[];}catch(e){return []}}
-function pklDeletedKeysForUser(u){return [...pklStrongIdentityKeys(u),...pklLegacyIdentityKeys(u),pklCleanIdentityKey(u&&u.nickname),pklCleanIdentityKey(u&&u.nick),pklCleanIdentityKey(u&&u.name)].filter(Boolean);}
-function pklIsDeletedUser(u){
-  // Supabase 운영 이후에는 localStorage 삭제표식이 실제 users 목록을 가리면 안 된다.
-  // Discord ID가 있는 정상 회원은 Supabase가 단일 원본이므로 로컬 삭제 캐시로 숨기지 않는다.
-  if(u && (u.discordId || u.discord_id || /^discord-/i.test(String(u.uid||u.id||u.userId||'')))) return false;
-  const deleted=pklDeletedUserKeys();if(!deleted.length||!u)return false;return pklDeletedKeysForUser(u).some(k=>deleted.includes(k));
-}
-function pklRememberDeletedUser(u){/* Supabase 삭제/추방 기록만 사용. 로컬 삭제표식 저장 금지. */}
-function pklRemoveDeletedMark(u){/* Supabase 삭제/추방 기록만 사용. 로컬 삭제표식 저장 금지. */}
-function pklPurgeDeletedUserFromStorage(u){
-  /* 운영 데이터 로컬 purge/복구 금지. 로그인 세션만 본인 탈퇴 시 별도 처리. */
-}
+function pklDeletedUserKeys(){return [];}
+function pklDeletedKeysForUser(u){return [];}
+function pklIsDeletedUser(u){return false;}
+function pklRememberDeletedUser(u){/* Supabase ban_records/users 상태 기준. 로컬 삭제표식 저장 금지. */}
+function pklRemoveDeletedMark(u){/* Supabase ban_records/users 상태 기준. 로컬 삭제표식 저장 금지. */}
+function pklPurgeDeletedUserFromStorage(u){/* 로컬 pklUsers/pending 삭제 복원 흐름 금지. */}
 function pklTierBadgeSnapshot(role){
   if(window.PKLTierBadge&&typeof window.PKLTierBadge.snapshot==="function"){
     return window.PKLTierBadge.snapshot(role);
@@ -6501,18 +6482,8 @@ function isPenaltyActive(u){
 }
 function penaltyBadgeHtml(u){if(!isPenaltyActive(u))return "";const until=u.penalty?.until?` title="${esc(u.penalty.until)}까지 킬내기 참여 제한"`:"";return `<span class="pkl-prisoner-sticker"${until}>수감자</span>`;}
 function permanentBanRecord(u,reason,auto){const role=normalizeRole(u.role);return {nickname:u.nickname,pubgId:u.pubgId,discordId:u.discordId||"",role:role,reason:reason,date:nowText(),admin:adminName(),auto:!!auto,permanent:true,ip:u.ip||u.lastIp||"",clientId:u.clientId||"",uid:u.uid||u.id||""};}
-function syncPermanentBanStorage(){/* Supabase ban_records/admin_logs 기준. localStorage pklBannedUsers 복원 금지. */}
-
-function render(){
-  renderUserList();
-  renderProfile();
-  renderStats();
-  renderCurrentScreen();
-  const dash=document.getElementById("dashboardManageTab");
-  if(dash && getComputedStyle(dash).display!=="none"){
-    if(typeof renderPklRoleDistribution==='function' && typeof state!=="undefined") renderPklRoleDistribution(state.users||[]);
-    if(typeof updatePremiumDashboard==='function') updatePremiumDashboard();
-  }
+function syncPermanentBanStorage(){
+  /* 영구추방 기록은 Supabase ban_records/users 기준. pklBannedUsers localStorage 복원 금지. */
 }
 
 let __pklAdminSearchTimer=null;
@@ -6743,7 +6714,7 @@ async function switchAdminTab(tab,btn){
   if(tab==="dashboard" && typeof renderPremiumDashboard === "function") renderPremiumDashboard();
   render();
 }
-function removeApprovedFromPendingStorage(p){/* Supabase 기준: pklPendingUsers localStorage 정리/복원 금지. */}
+function removeApprovedFromPendingStorage(p){try{const pending=JSON.parse(localStorage.getItem("pklPendingUsers")||"[]");if(!Array.isArray(pending))return;const nick=p?.nickname||"";const pubg=p?.ref||p?.pubgId||"";const next=pending.filter(x=>!((nick&&(x.nickname===nick||x.nick===nick||x.name===nick))||(pubg&&(x.pubgId===pubg||x.ref===pubg||x.gameId===pubg))));localStorage.setItem("pklPendingUsers",JSON.stringify(next));}catch(e){}}
 function pklMemberDataLabel(type){
   const t=String(type||"log").toLowerCase();
   if(t==="join"||t==="signup"||t==="approve")return "가입";
@@ -7236,7 +7207,7 @@ function renderWelcome(){
   const saved=loginUsers[0]||{};
   const loginKeySet=new Set(loginUsers.flatMap(userKeys));
 
-  const accountUsers=[]; /* Supabase 단일 원본: localStorage pklUsers 병합 금지 */
+  const accountUsers=[]; // Supabase 단일 원본: 로컬 pklUsers 병합 금지
 
   const adminUsers=Array.isArray(state?.users)?state.users:[];
   const allUsers=[...adminUsers];
@@ -7830,7 +7801,7 @@ document.addEventListener("DOMContentLoaded",()=>{
     var r=String(u.memberRole||u.userRole||u.authRole||u.adminRole||u.role||"").toLowerCase();
     if(["admin","administrator","owner","master","superadmin"].indexOf(r)>=0||String(u.memberRole||u.role||"").indexOf("관리자")>=0) return "admin";
     if(["operator","staff","moderator","mod"].indexOf(r)>=0||String(u.memberRole||u.role||"").indexOf("운영")>=0) return "operator";
-    /* localStorage pklUsers 역할 fallback 금지: Supabase/current session 기준만 사용. */
+    /* Supabase 단일 원본: pklUsers/PKL_USERS 로컬 권한 fallback 금지. */
     return "";
   }
   window.pklIsSuperAdmin=function(){return (sys().currentHasRole&&sys().currentHasRole("admin")) || fallbackRoleFromLogin()==="admin" || (typeof isSuperAdmin==="function" ? isSuperAdmin() : false);};

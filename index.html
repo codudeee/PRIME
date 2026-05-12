@@ -710,11 +710,8 @@ font-weight:700;
   }
   function rerenderSoon(){clearTimeout(rerenderSoon._t);rerenderSoon._t=setTimeout(render,80);}
   render();
-  window.addEventListener("storage",function(e){if(!e||e.key===MATCHES_KEY) rerenderSoon();});
-  window.addEventListener("pkl-supabase-data-updated",function(e){if(!e.detail||!e.detail.key||e.detail.key===MATCHES_KEY) rerenderSoon();});
-  window.addEventListener("pkl-supabase-sync-ready",rerenderSoon);
-  /* 반복 렌더 제거: 저장/이벤트/복귀 시에만 렌더 */
-  document.addEventListener("visibilitychange",function(){if(!document.hidden) render();});
+  /* 2차 청소: storage/focus/visibility 기반 자동 재렌더 금지.
+     TOP킬러는 페이지 진입 시 1회 렌더, 결과 저장 화면에서는 해당 화면의 저장 동작으로만 갱신한다. */
 })();
 </script>
 
@@ -807,7 +804,7 @@ font-weight:700;
         if(!noticeHydrated) noticeItemsCache=[];
       }
       renderPreview();
-      if(modal.classList.contains("open")) renderModal();
+      if(modal.classList.contains("open") && !editingId) renderModal();
       return noticeItemsCache;
     })();
     return noticeHydrating;

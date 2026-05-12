@@ -7049,7 +7049,7 @@ function pklStartPreciseTopTimeTicker(){
   if(window.__pklPreciseTopTimeTickerStarted) return;
   window.__pklPreciseTopTimeTickerStarted=true;
   pklSheetSyncServerClock();
-  document.addEventListener("visibilitychange",function(){if(!document.hidden) pklSheetSyncServerClock();});
+  /* 2차 청소: visibilitychange 서버시계 자동 동기화 제거. */
   var lastSecond='';
   function tick(){
     var correctedNow=Date.now()+pklSheetClockOffsetMs;
@@ -7177,8 +7177,7 @@ function pklApplyRemoteSheetState(){
     pklApplyingRemoteSheetState=false;
   }
 }
-window.addEventListener('storage',function(e){ if(e && e.key===STORAGE_KEY) pklApplyRemoteSheetState(); });
-window.addEventListener('pkl-supabase-data-updated',function(e){ if(e && e.detail && e.detail.key===STORAGE_KEY) pklApplyRemoteSheetState(); });
+/* 2차 청소: storage/supabase 이벤트 기반 시트 전체 원격적용 금지. */
 
 let pklOwnTeamAutoSelected=false;
 function pklAutoSelectOwnTeamOnce(){
@@ -8455,8 +8454,7 @@ window.PKLSheetLiveBridge={
 };
 render();
 pklStartPreciseTopTimeTicker();
-document.addEventListener("visibilitychange",function(){if(!document.hidden) updateTopBetJackpot();});
-window.addEventListener('storage', (e)=>{ if(e.key==='pklSideListItems'||e.key===STORAGE_KEY) updateTopBetJackpot(); });
+/* 2차 청소: visibility/storage 기반 상단 잭팟 자동 갱신 제거. */
 })();
 
 window.addEventListener('scroll', refreshPklMapPopupPosition, true);
@@ -11728,8 +11726,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
     }
   },true);
 
-  window.addEventListener('storage',function(e){ if(!e || !e.key || /pkl|PKL/i.test(e.key)) setTimeout(refreshStaffUi,50); });
-  window.addEventListener('pkl-supabase-data-updated',function(){setTimeout(refreshStaffUi,50);});
+  /* 2차 청소: storage/supabase 이벤트 기반 staff UI 자동 재검사 금지. */
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',refreshStaffUi); else setTimeout(refreshStaffUi,0);
 })();
 </script>
@@ -11851,7 +11848,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
   var obs=new MutationObserver(function(){ensureDragAttrs();});
   if(document.body) obs.observe(document.body,{childList:true,subtree:true});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ensureDragAttrs); else setTimeout(ensureDragAttrs,80);
-  window.addEventListener('pkl-supabase-data-updated',function(){setTimeout(ensureDragAttrs,80);});
+  /* 2차 청소: supabase 이벤트 기반 drag attr 자동 재검사 금지. */
 })();
 </script>
 
@@ -12029,8 +12026,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
   });
   var mo=new MutationObserver(function(){ensureRows();});
   if(document.body) mo.observe(document.body,{childList:true,subtree:true});
-  window.addEventListener('pkl-supabase-data-updated',function(){setTimeout(ensureRows,80);});
-  window.addEventListener('storage',function(){setTimeout(ensureRows,80);});
+  /* 2차 청소: storage/supabase 이벤트 기반 row 자동 재검사 금지. */
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(ensureRows,100);}); else setTimeout(ensureRows,100);
 })();
 </script>
@@ -12424,8 +12420,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   },true);
   var mo=new MutationObserver(function(){hideSideForBlocked();ensureDragAttrs();});
   if(document.body) mo.observe(document.body,{childList:true,subtree:true});
-  window.addEventListener('pkl-supabase-data-updated',function(){setTimeout(function(){hideSideForBlocked();ensureDragAttrs();},80);});
-  window.addEventListener('storage',function(){setTimeout(function(){hideSideForBlocked();ensureDragAttrs();},80);});
+  /* 2차 청소: storage/supabase 이벤트 기반 사이드/드래그 자동 재검사 금지. */
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){hideSideForBlocked();ensureDragAttrs();}); else setTimeout(function(){hideSideForBlocked();ensureDragAttrs();},100);
 })();
 </script>
