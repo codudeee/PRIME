@@ -574,6 +574,27 @@ font-weight:600;
   background:rgba(255,255,255,.025) !important;
 }
 
+.join-wait-tier-badge,
+.join-cancel-tier-badge{
+  flex:0 0 auto;
+}
+.join-reason-private{
+  margin-left:auto;
+  min-width:112px;
+  height:30px;
+  padding:0 10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  border:1px solid rgba(216,180,254,.14);
+  background:rgba(255,255,255,.035);
+  color:rgba(226,214,255,.58);
+  font-size:11px;
+  font-weight:900;
+  white-space:nowrap;
+}
+
 .join-stat-inline{
   display:inline-flex;
   align-items:center;
@@ -4903,8 +4924,6 @@ body.pkl-recruit-loading #joinCancelBtn{
   const statusEl = document.getElementById("joinStatus");
   const STORAGE_KEY = "pklJoinWaitList";
   const CANCEL_KEY = "pklJoinCancelList";
-  let __pklJoinLastWaitHtml = "";
-  let __pklJoinLastCancelHtml = "";
 
   
 
@@ -5172,22 +5191,61 @@ function safeJson(key, fallback){
     return raw;
   }
 
-  function renderAdminBadge(rawItem){
+  function renderTierBadge(rawItem, extraClass){
     const item = hydrateItem(rawItem);
-    const grade = item.gradeRole || item.tier || "";
+    const grade = item.gradeRole || item.tier || item.memberTier || "";
+    const cls = extraClass || "join-wait-tier-badge";
 
-    // 대기자 리스트는 회원역할(관리자/운영자)이 아니라 회원 티어 배지만 표시한다.
     if(grade && window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
-      const badge = window.PKLTierBadge.render(grade, {extraClass:"join-admin-role-badge join-tier-only-badge"});
+      const badge = window.PKLTierBadge.render(grade, {extraClass:cls});
+      if(badge) return badge;
+    }
+
+    if(grade && window.PKLRoleSystem && typeof window.PKLRoleSystem.gradeBadge === "function"){
+      const badge = window.PKLRoleSystem.gradeBadge(grade, cls);
       if(badge) return badge;
     }
 
     if(grade){
       const label = normalizeGradeRole(grade);
-      if(label) return '<span class="pkl-tier-badge tier-mark ' + gradeRoleClass(grade) + ' join-admin-role-badge join-tier-only-badge" data-pkl-tier-badge="' + escapeHtml(grade) + '">' + escapeHtml(label) + '</span>';
+      if(label) return '<span class="pkl-tier-badge tier-mark ' + gradeRoleClass(grade) + ' ' + cls + '" data-pkl-tier-badge="' + escapeHtml(grade) + '">' + escapeHtml(label) + '</span>';
     }
 
-    return '<span class="tier-mark role-none join-admin-role-badge join-tier-only-badge">티어 없음</span>';
+    return '<span class="tier-mark role-none ' + cls + '">티어없음</span>';
+  }
+
+  function renderAdminBadge(rawItem){
+    const item = hydrateItem(rawItem);
+    const grade = item.gradeRole || "";
+
+    if(grade && window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
+      const badge = window.PKLTierBadge.render(grade, {extraClass:"join-admin-role-badge"});
+      if(badge) return badge;
+    }
+
+    if(grade && window.PKLRoleSystem && typeof window.PKLRoleSystem.gradeBadge === "function"){
+      const badge = window.PKLRoleSystem.gradeBadge(grade, "join-admin-role-badge");
+      if(badge) return badge;
+    }
+
+    const role = item.memberRole || item.role || item.userRole || item.authRole || item.adminRole || "";
+
+    if(role && window.PKLRoleBadge && typeof window.PKLRoleBadge.render === "function"){
+      const badge = window.PKLRoleBadge.render(role, {extraClass:"join-admin-role-badge"});
+      if(badge) return badge;
+    }
+
+    if(role && window.PKLRoleSystem && typeof window.PKLRoleSystem.memberBadge === "function"){
+      const badge = window.PKLRoleSystem.memberBadge(role);
+      if(badge) return badge;
+    }
+
+    if(grade){
+      const label = normalizeGradeRole(grade);
+      if(label) return '<span class="pkl-tier-badge tier-mark ' + gradeRoleClass(grade) + ' join-admin-role-badge" data-pkl-tier-badge="' + escapeHtml(grade) + '">' + escapeHtml(label) + '</span>';
+    }
+
+    return '<span class="tier-mark role-none join-admin-role-badge">등급없음</span>';
   }
 
   function isManagerViewer(){
@@ -5201,6 +5259,11 @@ function safeJson(key, fallback){
     const userData = getCurrentUserData();
     list = Array.isArray(list) ? list : readList(STORAGE_KEY);
     return list.some(function(item){ return identityMatches(userData, item) || item.key === userData.key || item.name === userData.name; });
+  }
+
+  function isCurrentUserItem(item){
+    const userData = getCurrentUserData();
+    return !!item && (identityMatches(userData, item) || item.key === userData.key || item.name === userData.name);
   }
 
   function canPreviewJoinParticipants(list){
@@ -5227,20 +5290,16 @@ function safeJson(key, fallback){
 
     waitList.classList.toggle("join-preview-locked-area", !unlocked);
     if(!unlocked){
-      const lockedHtml = joinPreviewLockedHtml('wait');
-      if(__pklJoinLastWaitHtml !== lockedHtml){
-        waitList.innerHTML = lockedHtml;
-        __pklJoinLastWaitHtml = lockedHtml;
-      }
+      waitList.innerHTML = joinPreviewLockedHtml('wait');
       return;
     }
 
-    const waitHtml = list.length
+    waitList.innerHTML = list.length
       ? list.map(function(rawItem, index){
           const item = hydrateItem(rawItem);
           return '<div class="join-wait-row">' +
             '<span class="join-wait-number">' + String(index + 1).padStart(2, "0") + '</span>' +
-            renderAdminBadge(item) +
+            renderTierBadge(item, "join-wait-tier-badge") +
             '<div class="join-wait-user">' +
               '<span class="join-wait-name">' + escapeHtml(item.name) + '</span>' +
             '</div>' +
@@ -5251,10 +5310,6 @@ function safeJson(key, fallback){
           '</div>';
         }).join("")
       : '<div class="join-empty-text">아직 대기자가 없습니다.</div>';
-    if(__pklJoinLastWaitHtml !== waitHtml){
-      waitList.innerHTML = waitHtml;
-      __pklJoinLastWaitHtml = waitHtml;
-    }
   }
 
   function renderCancelList(){
@@ -5269,28 +5324,22 @@ function safeJson(key, fallback){
 
     cancelListEl.classList.toggle("join-preview-locked-area", !unlocked);
     if(!unlocked){
-      const lockedHtml = joinPreviewLockedHtml('cancel');
-      if(__pklJoinLastCancelHtml !== lockedHtml){
-        cancelListEl.innerHTML = lockedHtml;
-        __pklJoinLastCancelHtml = lockedHtml;
-      }
+      cancelListEl.innerHTML = joinPreviewLockedHtml('cancel');
       return;
     }
 
-    const cancelHtml = list.length
+    const managerViewer = isManagerViewer();
+    cancelListEl.innerHTML = list.length
       ? list.map(function(rawItem, index){
           const item = hydrateItem(rawItem);
+          const canViewReason = managerViewer || isCurrentUserItem(item);
           return '<div class="join-cancel-row">' +
-            renderAdminBadge(item) +
+            renderTierBadge(item, "join-cancel-tier-badge") +
             '<span class="join-cancel-name">' + escapeHtml(item.name) + '</span>' +
-            '<button class="join-reason-view-btn"  type="button" data-reason-index="' + index + '" data-role-check="true">사유</button>' +
+            (canViewReason ? '<button class="join-reason-view-btn" type="button" data-reason-index="' + index + '">사유</button>' : '<span class="join-reason-private">본인/운영자만 확인</span>') +
           '</div>';
         }).join("")
       : '<div class="join-empty-text small">대기취소자가 없습니다.</div>';
-    if(__pklJoinLastCancelHtml !== cancelHtml){
-      cancelListEl.innerHTML = cancelHtml;
-      __pklJoinLastCancelHtml = cancelHtml;
-    }
   }
 
   function renderAll(){
@@ -5606,10 +5655,12 @@ function safeJson(key, fallback){
 
   function openReasonView(index){
     const list = readList(CANCEL_KEY);
-    const item = hydrateItem(list[index]);
+    const raw = list[index];
+    const item = hydrateItem(raw);
     if(!item || !reasonViewModal) return;
+    if(!isManagerViewer() && !isCurrentUserItem(item)) return;
     if(reasonViewUser) reasonViewUser.textContent = item.name || "취소자";
-    if(reasonViewText) reasonViewText.textContent = list[index].reason || "사유가 없습니다.";
+    if(reasonViewText) reasonViewText.textContent = raw.reason || "사유가 없습니다.";
     reasonViewModal.classList.add("open");
     reasonViewModal.setAttribute("aria-hidden","false");
   }
@@ -5759,29 +5810,16 @@ function safeJson(key, fallback){
     }catch(e){ return null; }
   }
 
-  function safeJsonLocal(key, fallback){
-    try{
-      const data = JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
-      return data || fallback;
-    }catch(e){ return fallback; }
-  }
-
   function readUsers(){
-    const state = safeJsonLocal("pklAdminState_v3", null);
-    if(state && Array.isArray(state.users) && state.users.length) return state.users;
-    const pklUsers = safeJsonLocal("pklUsers", []);
-    if(Array.isArray(pklUsers) && pklUsers.length) return pklUsers;
-    const keys = ["pklMembers","pklUserList","pklApprovedUsers","pklMemberList"];
-    for(const key of keys){
-      const data = safeJsonLocal(key, []);
-      if(Array.isArray(data) && data.length) return data;
-    }
-    return [];
+    try{
+      const data = JSON.parse(localStorage.getItem("pklUsers") || "[]");
+      return Array.isArray(data) ? data : [];
+    }catch(e){ return []; }
   }
 
   function getUserNickname(user){
     user = user || {};
-    return user.nickname || user.nick || user.name || user.displayName || user.discordName || user.discord_username || user.discordUsername || "";
+    return user.nickname || user.nick || user.name || user.displayName || user.discordName || "";
   }
 
   function getUserPubgId(user){
@@ -5789,36 +5827,15 @@ function safeJson(key, fallback){
     return user.pubgId || user.pubgID || user.gameId || user.pubg || "";
   }
 
-  function getUserDiscordId(user){
-    user = user || {};
-    return user.discord_id || user.discordId || user.discordID || user.userDiscordId || user.discord || "";
-  }
-
-  function getUserIdentity(user){
-    user = user || {};
-    return user.uid || user.id || user.userId || user.key || user.memberId || user.uuid || getUserDiscordId(user) || "";
-  }
-
-  function identityMatches(seed, target){
-    if(!seed || !target) return false;
-    const seedDiscord = getUserDiscordId(seed);
-    const targetDiscord = getUserDiscordId(target);
-    const seedId = getUserIdentity(seed);
-    const targetId = getUserIdentity(target);
-    const seedNick = getUserNickname(seed);
-    const targetNick = getUserNickname(target);
-    const seedPubg = getUserPubgId(seed);
-    const targetPubg = getUserPubgId(target);
-    return (seedDiscord && targetDiscord && String(seedDiscord) === String(targetDiscord)) ||
-      (seedId && targetId && String(seedId) === String(targetId)) ||
-      (seedPubg && targetPubg && String(seedPubg) === String(targetPubg)) ||
-      (seedNick && targetNick && String(seedNick) === String(targetNick));
-  }
-
   function findFullUser(seed){
     if(!seed) return null;
     const users = readUsers();
-    return users.find(function(u){ return identityMatches(seed, u); }) || seed;
+    const nickname = getUserNickname(seed);
+    const pubgId = getUserPubgId(seed);
+    return users.find(function(u){
+      return (nickname && getUserNickname(u) === nickname) ||
+             (pubgId && getUserPubgId(u) === pubgId);
+    }) || seed;
   }
 
   
@@ -5845,20 +5862,12 @@ function safeJson(key, fallback){
   }
 
   function renderHostBadge(user){
-    user = findFullUser(user) || user || {};
-    const tier = user.tier || user.memberTier || user.gradeRole || user.tierRole || user.grade || "";
+    user = user || {};
     const role = user.memberRole || user.role || user.userRole || user.authRole || user.adminRole || "";
     const name = getUserNickname(user) || "오픈자";
 
     let badge = "";
-    // 오픈자는 티어 배지를 우선 표시하고, 티어가 없을 때만 운영 역할 배지를 보조로 표시한다.
-    if(tier && window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
-      badge = window.PKLTierBadge.render(tier, {extraClass:"join-admin-role-badge join-open-tier-badge"}) || "";
-    }
-    if(!badge && tier && window.PKLRoleSystem && typeof window.PKLRoleSystem.gradeBadge === "function"){
-      badge = window.PKLRoleSystem.gradeBadge(tier, "join-admin-role-badge join-open-tier-badge") || "";
-    }
-    if(!badge && role && window.PKLRoleBadge && typeof window.PKLRoleBadge.render === "function"){
+    if(role && window.PKLRoleBadge && typeof window.PKLRoleBadge.render === "function"){
       badge = window.PKLRoleBadge.render(role, {extraClass:"join-admin-role-badge"}) || "";
     }
     if(!badge && role && window.PKLRoleSystem && typeof window.PKLRoleSystem.memberBadge === "function"){
@@ -5956,8 +5965,7 @@ function safeJson(key, fallback){
     });
   }
 
-  function restoreRecruitState(){
-    const data = readRecruitState();
+  function restoreRecruitStateFromData(data){
     if(!data || !data.state){
       applyRecruitLoadingState();
       return;
@@ -5965,7 +5973,7 @@ function safeJson(key, fallback){
 
     setState(data.state);
 
-    if(openHost) openHost.innerHTML = data.hostHtml || (data.state === "open" ? renderHostBadge(findFullUser(getLoginUser()) || getLoginUser() || {}) : "");
+    if(openHost) openHost.innerHTML = data.hostHtml || "";
     normalizeOpenHostView();
     if(openTime) openTime.textContent = data.openTime || "";
     const savedDeadline = data.deadlineText || data.feeText || "";
@@ -5980,6 +5988,21 @@ function safeJson(key, fallback){
         deadlineText.textContent = getDeadlineDisplayText();
       }
     }
+  }
+
+  function restoreRecruitState(){
+    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === "function"){
+      applyRecruitLoadingState();
+      window.PKLJoinRealtime.fetchNow().then(function(st){
+        const data = st && st.recruitState ? st.recruitState : readRecruitState();
+        restoreRecruitStateFromData(data);
+        if(window.PKLJoinRenderAll) window.PKLJoinRenderAll();
+      }).catch(function(){
+        restoreRecruitStateFromData(readRecruitState());
+      });
+      return;
+    }
+    restoreRecruitStateFromData(readRecruitState());
   }
 
   function setState(state){
@@ -6155,10 +6178,10 @@ function safeJson(key, fallback){
   [deadlineAmpm, deadlineHour, deadlineMinute].forEach(function(el){
     if(el) el.addEventListener("change", updateDeadlinePreview);
   });
-  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "모집대기중";
+  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "상태 확인중";
 
   restoreRecruitState();
-  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "모집대기중";
+  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "상태 확인중";
 })();
 </script>
 
@@ -6170,7 +6193,7 @@ function safeJson(key, fallback){
   function readLocalRecruitState(){
     try{
       const raw = JSON.parse(localStorage.getItem(RECRUIT_KEY) || "null");
-      return raw && raw.state ? raw : null;
+      return raw && raw.state ? raw.state : null;
     }catch(e){
       return null;
     }
@@ -6180,7 +6203,7 @@ function safeJson(key, fallback){
     try{
       if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function"){
         const st = window.PKLJoinRealtime.getState();
-        return st && st.recruitState && st.recruitState.state ? st.recruitState : null;
+        return st && st.recruitState && st.recruitState.state ? st.recruitState.state : null;
       }
     }catch(e){}
     return null;
@@ -6190,31 +6213,10 @@ function safeJson(key, fallback){
     return rawState === "open" ? "open" : (rawState === "closed" || rawState === "close" ? "closed" : (rawState === "waiting" ? "waiting" : "loading"));
   }
 
-  function applyRecruitDetails(recruitState){
-    recruitState = recruitState && typeof recruitState === "object" ? recruitState : {};
-    const openHost = document.getElementById("joinOpenHost");
-    const openTime = document.getElementById("joinOpenTime");
-    const deadlineText = document.getElementById("joinDeadlineText");
-    const state = normalizeState(recruitState.state);
-
-    if(openHost){
-      openHost.innerHTML = state === "open" ? (recruitState.hostHtml || openHost.innerHTML || "") : (recruitState.hostHtml || openHost.innerHTML || "");
-    }
-    if(openTime){
-      openTime.textContent = recruitState.openTime || openTime.textContent || "";
-    }
-    if(deadlineText){
-      if(state === "waiting") deadlineText.textContent = "모집대기중";
-      else if(state === "closed") deadlineText.textContent = "모집마감";
-      else deadlineText.textContent = recruitState.deadlineText || recruitState.feeText || deadlineText.textContent || "시간제한없음";
-    }
-  }
-
   function applyState(rawState){
     const statusEl = document.getElementById("joinStatus");
     const panel = document.querySelector(".join-modal-panel");
-    const recruitState = rawState && typeof rawState === "object" ? rawState : {state:rawState};
-    const normalized = normalizeState(recruitState.state);
+    const normalized = normalizeState(rawState);
     const label = normalized === "open" ? "모집중" : (normalized === "closed" ? "모집마감" : (normalized === "waiting" ? "모집대기중" : "상태 확인중"));
 
     document.body.classList.remove("pkl-recruit-open","pkl-recruit-closed","pkl-recruit-waiting","pkl-recruit-loading");
@@ -6228,8 +6230,6 @@ function safeJson(key, fallback){
     if(panel){
       panel.dataset.recruitState = normalized;
     }
-
-    applyRecruitDetails(recruitState);
 
     const participateBtn = document.getElementById("joinParticipateBtn");
     const waitCancelBtn = document.getElementById("joinCancelBtn");
@@ -6247,20 +6247,22 @@ function safeJson(key, fallback){
   }
 
   function refreshRemoteThenApply(){
-    apply();
     try{
       if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === "function"){
+        applyState("loading");
         window.PKLJoinRealtime.fetchNow().then(function(st){
-          const state = st && st.recruitState && st.recruitState.state ? st.recruitState : (readLocalRecruitState() || readRealtimeRecruitState());
+          const state = st && st.recruitState && st.recruitState.state ? st.recruitState.state : (readLocalRecruitState() || readRealtimeRecruitState());
           applyState(state);
         }).catch(apply);
+        return;
       }
     }catch(e){}
+    apply();
   }
 
   document.addEventListener("DOMContentLoaded", refreshRemoteThenApply);
   window.addEventListener("pkl-join-state-updated", function(event){
-    const state = event && event.detail && event.detail.recruitState && event.detail.recruitState.state ? event.detail.recruitState : null;
+    const state = event && event.detail && event.detail.recruitState && event.detail.recruitState.state;
     applyState(state || readLocalRecruitState() || readRealtimeRecruitState());
   });
   document.addEventListener("click", function(e){
