@@ -1258,11 +1258,29 @@ font-weight:600;
 
 
 <style id="reasonBtnSizeOnly">
-.join-reason-view-btn{
-  min-width:38px !important;
-  height:20px !important;
-  padding:0 6px !important;
-  font-size:9px !important;
+.join-cancel-row{
+  grid-template-columns:auto minmax(0,1fr) 72px !important;
+}
+.join-cancel-row .join-reason-view-btn{
+  justify-self:end !important;
+  width:72px !important;
+  min-width:72px !important;
+  max-width:72px !important;
+  height:26px !important;
+  padding:0 8px !important;
+  font-size:10px !important;
+  line-height:26px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  box-sizing:border-box !important;
+  white-space:nowrap !important;
+}
+.join-cancel-row .join-reason-view-btn-disabled{
+  width:72px !important;
+  min-width:72px !important;
+  max-width:72px !important;
+  pointer-events:none !important;
 }
 
 .back-home{
@@ -5216,14 +5234,43 @@ function safeJson(key, fallback){
     return raw;
   }
 
+  const __pklJoinTierCache = window.__pklJoinTierCache || (window.__pklJoinTierCache = new Map());
+
+  function cacheKeyForUser(user){
+    user = user || {};
+    return String(getUserDiscordId(user) || getUserPubgId(user) || getUserNickname(user) || getUserIdentity(user) || user.key || user.userId || user.uid || "").trim();
+  }
+
+  function readCachedTier(user){
+    const key = cacheKeyForUser(user);
+    if(!key) return "";
+    const cached = __pklJoinTierCache.get(key);
+    return cached && (cached.gradeRole || cached.tier || cached.memberTier) || "";
+  }
+
+  function writeCachedTier(seed, tier){
+    const key = cacheKeyForUser(seed);
+    if(!key || !tier) return;
+    __pklJoinTierCache.set(key, {gradeRole:tier, tier:tier, memberTier:tier});
+  }
+
   function renderTierBadge(rawItem, extraClass){
     const item = hydrateItem(rawItem);
     const fullUser = findFullUser(item) || findFullUser(rawItem) || {};
-    let grade = item.gradeRole || item.tier || item.memberTier || fullUser.gradeRole || fullUser.tier || fullUser.memberTier || "";
+    let grade = item.gradeRole || item.tier || item.memberTier ||
+      fullUser.gradeRole || fullUser.tier || fullUser.memberTier ||
+      readCachedTier(item) || readCachedTier(rawItem) || "";
+
     if(!grade && isCurrentUserItem(rawItem)){
       const currentUser = getCurrentUserData();
-      grade = currentUser.gradeRole || currentUser.tier || currentUser.memberTier || "";
+      grade = currentUser.gradeRole || currentUser.tier || currentUser.memberTier || readCachedTier(currentUser) || "";
     }
+
+    if(grade){
+      writeCachedTier(item, grade);
+      writeCachedTier(rawItem, grade);
+    }
+
     const cls = extraClass || "join-wait-tier-badge";
 
     if(grade && window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
@@ -5334,9 +5381,12 @@ function safeJson(key, fallback){
     if(!Array.isArray(list) || !list.length || typeof fetch !== "function") return;
     list.forEach(function(item){
       const key = participantLookupKey(item);
-      if(!key || !missingTier(item) || __pklJoinTierHydrating.has(key)) return;
+      if(!key || __pklJoinTierHydrating.has(key)) return;
+      const cachedTier = readCachedTier(item);
+      if(cachedTier && !missingTier(item)) return;
+
       __pklJoinTierHydrating.add(key);
-      fetch('/api/pkl-users?limit=5&q=' + encodeURIComponent(key), {cache:'no-store'})
+      fetch('/api/pkl-users?limit=8&q=' + encodeURIComponent(key), {cache:'no-store'})
         .then(function(res){ return res && res.ok ? res.json() : null; })
         .then(function(data){
           const users = Array.isArray(data) ? data : (Array.isArray(data && data.users) ? data.users : []);
@@ -5344,20 +5394,22 @@ function safeJson(key, fallback){
           if(!matched) return;
           const tier = getGradeRole(matched) || matched.tier || matched.memberTier || matched.gradeRole || "";
           if(!tier) return;
+
+          writeCachedTier(item, tier);
+          writeCachedTier(matched, tier);
+
           const current = readList(storageKey);
           let changed = false;
           current.forEach(function(row){
             if(identityMatches(row, item) || identityMatches(row, matched)){
-              row.gradeRole = row.gradeRole || tier;
-              row.tier = row.tier || tier;
-              row.memberTier = row.memberTier || tier;
+              if(!row.gradeRole) row.gradeRole = tier;
+              if(!row.tier) row.tier = tier;
+              if(!row.memberTier) row.memberTier = tier;
               changed = true;
             }
           });
-          if(changed){
-            saveList(storageKey, current);
-            renderAll();
-          }
+          if(changed) saveList(storageKey, current);
+          renderAll();
         })
         .catch(function(){})
         .finally(function(){ __pklJoinTierHydrating.delete(key); });
@@ -5796,7 +5848,7 @@ function safeJson(key, fallback){
   if(cancelListEl){
     cancelListEl.addEventListener("click",function(e){
       const btn = e.target.closest(".join-reason-view-btn");
-      if(!btn) return;
+      if(!btn || btn.disabled || btn.classList.contains("join-reason-view-btn-disabled")) return;
       openReasonView(Number(btn.dataset.reasonIndex || 0));
     });
   }
@@ -6058,6 +6110,10 @@ function safeJson(key, fallback){
       applyRecruitLoadingState();
       return;
     }
+    if(data.state === "waiting" && data.__fromRemote !== true){
+      applyRecruitLoadingState();
+      return;
+    }
 
     setState(data.state);
 
@@ -6082,15 +6138,19 @@ function safeJson(key, fallback){
     if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === "function"){
       applyRecruitLoadingState();
       window.PKLJoinRealtime.fetchNow().then(function(st){
-        const data = st && st.recruitState ? st.recruitState : readRecruitState();
+        const data = st && st.recruitState ? Object.assign({__fromRemote:true}, st.recruitState) : readRecruitState();
         restoreRecruitStateFromData(data);
         if(window.PKLJoinRenderAll) window.PKLJoinRenderAll();
       }).catch(function(){
-        restoreRecruitStateFromData(readRecruitState());
+        const local = readRecruitState();
+        if(local && local.state === "waiting") applyRecruitLoadingState();
+        else restoreRecruitStateFromData(local);
       });
       return;
     }
-    restoreRecruitStateFromData(readRecruitState());
+    const local = readRecruitState();
+    if(local && local.state === "waiting") applyRecruitLoadingState();
+    else restoreRecruitStateFromData(local);
   }
 
   function setState(state){
