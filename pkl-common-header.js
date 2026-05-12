@@ -120,6 +120,24 @@ function pklCanChangeRole() {
     style.id="pklCommonHeaderStyle";
     style.textContent=`
 #pklCommonHeader .mail-badge:not(.show){display:none !important}
+#pklCommonHeader .mail-badge{
+  position:absolute !important;
+  top:-11px !important;
+  right:-13px !important;
+  min-width:20px !important;
+  height:20px !important;
+  padding:0 6px !important;
+  border-radius:999px !important;
+  display:none !important;
+  align-items:center !important;
+  justify-content:center !important;
+  line-height:20px !important;
+  transform:none !important;
+  margin:0 !important;
+  z-index:8 !important;
+}
+#pklCommonHeader .mail-badge.show{display:inline-flex !important}
+#pklCommonHeader .account-trigger{position:relative !important; overflow:visible !important;}
 #pklCommonHeader .mailbox-menu-count{display:none}
 html,body,body *:not(input):not(textarea):not([contenteditable="true"]):not([contenteditable="true"] *){
   -webkit-user-select:none !important;
@@ -395,8 +413,54 @@ if(node.nodeType===Node.TEXT_NODE){
     return escapeHtml(v).replace(/\n/g,"<br>");
   }
 
-  function isRead(mail){
-    return !!(mail.read || mail.isRead || mail.readAt);
+  const MAIL_READ_STATE_KEY = "pklMailboxReadState_v2";
+
+  function mailStableKey(mail,index){
+    if(!mail || typeof mail!=="object") return "mail-"+index;
+    const raw=mail.raw && typeof mail.raw==="object" ? mail.raw : mail;
+    return String(
+      raw.id || raw.mailId || raw.created_at || raw.createdAt || raw.date || raw.time ||
+      [raw.title || raw.subject || "", raw.message || raw.body || raw.reason || raw.content || "", raw.amount || "", raw.type || "", index].join("|")
+    );
+  }
+
+  function readMailState(){
+    try{
+      const data=JSON.parse(localStorage.getItem(MAIL_READ_STATE_KEY)||"{}");
+      return data && typeof data==="object" ? data : {};
+    }catch(e){return {};}
+  }
+
+  function writeMailState(state){
+    try{ localStorage.setItem(MAIL_READ_STATE_KEY,JSON.stringify(state||{})); }catch(e){}
+  }
+
+  function isRead(mail,index){
+    const key=mailStableKey(mail,index);
+    const st=readMailState()[key];
+    return !!(mail && (mail.read || mail.isRead || mail.readAt || (st && st.read)));
+  }
+
+  function applyPersistedMailState(mail,index){
+    if(!mail || typeof mail!=="object") return mail;
+    const key=mailStableKey(mail,index);
+    const st=readMailState()[key];
+    if(st && st.read){
+      mail.read=true;
+      mail.isRead=true;
+      mail.readAt=mail.readAt || st.readAt || new Date().toISOString();
+    }
+    if(st && st.deleted){
+      mail.deleted=true;
+    }
+    return mail;
+  }
+
+  function rememberMailState(mail,index,patch){
+    const key=mailStableKey(mail,index);
+    const state=readMailState();
+    state[key]=Object.assign({},state[key]||{},patch||{});
+    writeMailState(state);
   }
 
   function readMails(){
@@ -412,13 +476,19 @@ if(node.nodeType===Node.TEXT_NODE){
       const key=String(mail.id || mail.mailId || mail.created_at || mail.date || mail.title || index);
       if(seen.has(key)) return;
       seen.add(key);
-      merged.push(mail);
+      merged.push(applyPersistedMailState(mail,index));
     });
     return merged;
   }
 
   function saveMails(mails){
     const safe=Array.isArray(mails) ? mails : [];
+    safe.forEach(function(mail,index){
+      if(!mail || typeof mail!=="object") return;
+      if(mail.read || mail.isRead || mail.readAt || mail.deleted){
+        rememberMailState(mail,index,{read:!!(mail.read || mail.isRead || mail.readAt),readAt:mail.readAt||"",deleted:!!mail.deleted});
+      }
+    });
     localStorage.setItem(MAIL_KEY,JSON.stringify(safe));
     localStorage.setItem("pklMailbox",JSON.stringify(safe));
     localStorage.setItem("pklMails",JSON.stringify(safe));
@@ -499,7 +569,7 @@ if(node.nodeType===Node.TEXT_NODE){
       const users=Array.isArray(data && data.users)?data.users:[];
       const matched=users.find(function(u){return pklSameMailboxUser(user,u);}) || users[0];
       const mails=matched && Array.isArray(matched.mailbox)?matched.mailbox:[];
-      pklSupabaseMailboxCache=mails.slice();
+      pklSupabaseMailboxCache=mails.slice().map(function(mail,index){ return applyPersistedMailState(mail,index); });
       return pklSupabaseMailboxCache;
     }catch(e){
       return pklSupabaseMailboxCache;
@@ -514,14 +584,28 @@ if(node.nodeType===Node.TEXT_NODE){
     return visibleMails().filter(m=>!isRead(m)).length;
   }
 
+  function formatMailDate(v){
+    const raw=String(v||"").trim();
+    if(!raw) return "";
+    if(/^\d{4}\.\d{2}\.\d{2}/.test(raw)) return raw;
+    const d=new Date(raw);
+    if(Number.isNaN(d.getTime())) return raw;
+    try{
+      const parts=new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(d);
+      const map={}; parts.forEach(p=>{map[p.type]=p.value});
+      return `${map.year}.${map.month}.${map.day} ${map.hour}:${map.minute}`;
+    }catch(e){ return raw; }
+  }
+
   function normalizeMail(mail,index){
+    mail=applyPersistedMailState(mail,index);
     return {
       id:mail.id || mail.mailId || ("mail-"+index),
       title:mail.title || mail.subject || (mail.type==="warning" ? "경고 1회 부여 안내" : "PKL 우편"),
       body:mail.body || mail.reason || mail.content || mail.message || mail.text || "내용이 없습니다.",
-      date:mail.date || mail.createdAt || mail.time || "",
-      admin:mail.admin || mail.from || mail.sender || "PKL 운영진",
-      read:isRead(mail),
+      date:formatMailDate(mail.date || mail.created_at || mail.createdAt || mail.time || mail.updated_at || ""),
+      admin:mail.admin || mail.actor || mail.from || mail.sender || "PKL 운영진",
+      read:isRead(mail,index),
       raw:mail
     };
   }
@@ -744,6 +828,7 @@ if(node.nodeType===Node.TEXT_NODE){
     mails[index].read=true;
     mails[index].isRead=true;
     mails[index].readAt=mails[index].readAt || new Date().toISOString();
+    rememberMailState(mails[index],index,{read:true,readAt:mails[index].readAt,deleted:!!mails[index].deleted});
     saveMails(mails);
 
     const mail=normalizeMail(mails[index],index);
@@ -787,6 +872,7 @@ if(node.nodeType===Node.TEXT_NODE){
         m.read=true;
         m.isRead=true;
         m.readAt=m.readAt||new Date().toISOString();
+        rememberMailState(m,readMails().indexOf(m),{read:true,readAt:m.readAt,deleted:!!m.deleted});
       }
     });
     saveMails(mails);
@@ -801,6 +887,7 @@ if(node.nodeType===Node.TEXT_NODE){
       mails[selectedMailIndex].deleted=true;
       mails[selectedMailIndex].read=true;
       mails[selectedMailIndex].isRead=true;
+      rememberMailState(mails[selectedMailIndex],selectedMailIndex,{read:true,readAt:mails[selectedMailIndex].readAt||new Date().toISOString(),deleted:true});
     }
     saveMails(mails);
     closeMailDeleteConfirm();
@@ -815,6 +902,7 @@ if(node.nodeType===Node.TEXT_NODE){
         m.deleted=true;
         m.read=true;
         m.isRead=true;
+        rememberMailState(m,readMails().indexOf(m),{read:true,readAt:m.readAt||new Date().toISOString(),deleted:true});
       }
     });
     saveMails(mails);

@@ -291,7 +291,7 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   const action = delta > 0 ? 'prime_grant' : 'prime_seize';
   const title = delta > 0 ? '프라임 지급' : '프라임 압수';
   const abs = Math.abs(delta);
-  const mailText = `${abs} 프라임이 ${delta > 0 ? '지급' : '압수'}되었습니다.${reason ? ' 사유: ' + reason : ''}`;
+  const mailText = `PKL 운영진으로부터 ${abs} 프라임이 ${delta > 0 ? '지급' : '압수'}되었습니다.${reason ? '\n\n사유: ' + reason : ''}`;
   raw.prime = next;
   raw.points = next;
   raw.dia = next;
@@ -302,7 +302,7 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   const log = { type: action, reason: `${title}: ${abs} 프라임${reason ? ' · ' + reason : ''}`, date: now, admin: clean(actor || 'SYSTEM'), amount: delta, before: current, after: next };
   raw.history.unshift(log);
   raw.memoList.unshift({ date: now, admin: clean(actor || 'SYSTEM'), text: `[${title}] ${abs} · ${reason || '사유 없음'}` });
-  raw.mailbox.unshift({ type:'prime', title, message: mailText, amount: delta, before: current, after: next, reason: clean(reason), actor: clean(actor || 'SYSTEM'), created_at: now, read:false });
+  raw.mailbox.unshift({ id:'prime-mail-'+Date.now()+'-'+Math.random().toString(16).slice(2), type:'prime', title, message: mailText, body: mailText, amount: delta, before: current, after: next, reason: clean(reason), actor: clean(actor || 'SYSTEM'), admin: clean(actor || 'PKL 운영진'), created_at: now, date: now, read:false, isRead:false });
   const body = { prime: next, raw, updated_at: now };
   async function patchUser(obj){
     // 운영 버튼 체감속도 개선: 저장 본문은 이미 확정되어 있으므로 Supabase representation 반환을 기다리지 않는다.
