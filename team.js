@@ -3012,3 +3012,14 @@ function startClock() {
 
 
 })();
+
+
+  window.addEventListener('pkl-join-state-updated', function(){
+    try {
+      syncJoinWaitListIntoTeamBoard(true);
+      render();
+    } catch (error) {
+      console.warn('PKL join state sync skipped:', error);
+    }
+  });
+
