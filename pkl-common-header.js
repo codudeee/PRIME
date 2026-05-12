@@ -122,9 +122,9 @@ function pklCanChangeRole() {
 #pklCommonHeader .mail-badge:not(.show){display:none !important}
 #pklCommonHeader .mail-badge{
   position:absolute !important;
-  left:50% !important;
-  top:-13px !important;
-  right:auto !important;
+  left:auto !important;
+  top:-12px !important;
+  right:-8px !important;
   min-width:20px !important;
   height:20px !important;
   padding:0 6px !important;
@@ -133,9 +133,9 @@ function pklCanChangeRole() {
   align-items:center !important;
   justify-content:center !important;
   line-height:20px !important;
-  transform:translateX(-50%) !important;
+  transform:none !important;
   margin:0 !important;
-  z-index:12 !important;
+  z-index:40 !important;
   pointer-events:none !important;
 }
 #pklCommonHeader .mail-badge.show{display:inline-flex !important}
@@ -874,10 +874,18 @@ if(node.nodeType===Node.TEXT_NODE){
     if(!getLoginUser()){ location.href="login.html"; return; }
     const modal=document.getElementById("mailboxModal");
     if(modal) modal.classList.add("open");
-    syncLoginState();
-    await loadMailboxFromSupabase(true);
-    updateMailboxBadge();
+
+    // 우편함은 먼저 즉시 열고, Supabase 최신 우편은 뒤에서 갱신한다.
+    // 기존처럼 fetch를 기다린 뒤 렌더하면 모달 자체가 늦게 뜨는 체감 렉이 생긴다.
     renderMailboxList();
+    updateMailboxBadge();
+
+    loadMailboxFromSupabase(true).then(function(){
+      updateMailboxBadge();
+      renderMailboxList();
+    }).catch(function(){
+      updateMailboxBadge();
+    });
   }
 
   function closeMailboxModal(){ document.getElementById("mailboxModal")?.classList.remove("open"); }
