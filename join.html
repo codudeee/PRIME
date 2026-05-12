@@ -4609,6 +4609,17 @@ body.pkl-recruit-closed #joinCancelBtn:hover{
   display:block;
 }
 </style>
+
+<style id="pklJoinRecruitLoadingStatePatch">
+body.pkl-recruit-loading #joinParticipateBtn,
+body.pkl-recruit-loading #joinCancelBtn{
+  border-color:rgba(180,180,195,.22) !important;
+  background:linear-gradient(135deg,rgba(68,68,80,.28),rgba(20,20,28,.92)) !important;
+  color:rgba(255,255,255,.42) !important;
+  filter:saturate(.45) brightness(.72) !important;
+  cursor:not-allowed !important;
+}
+</style>
 </head>
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -4633,7 +4644,7 @@ body.pkl-recruit-closed #joinCancelBtn:hover{
 
     <div class="join-modal-body">
       <aside class="join-card join-info-card">
-        <div class="join-status-pill" id="joinStatus">모집대기중</div>
+        <div class="join-status-pill" id="joinStatus" data-state="loading">상태 확인중</div>
 
         <div class="join-section-label">MATCH TITLE</div>
         <h3>PKL 킬내기</h3>
@@ -5883,10 +5894,28 @@ function safeJson(key, fallback){
     localStorage.setItem(STATE_KEY, JSON.stringify(data || {}));
   }
 
+  function applyRecruitLoadingState(){
+    document.body.classList.remove("pkl-recruit-open","pkl-recruit-closed","pkl-recruit-waiting");
+    document.body.classList.add("pkl-recruit-loading");
+    if(statusEl){
+      statusEl.removeAttribute("style");
+      statusEl.dataset.state = "loading";
+      statusEl.textContent = "상태 확인중";
+    }
+    const panel = document.querySelector(".join-modal-panel");
+    if(panel) panel.dataset.recruitState = "loading";
+    [document.getElementById("joinParticipateBtn"), document.getElementById("joinCancelBtn")].forEach(function(btn){
+      if(!btn) return;
+      btn.disabled = true;
+      btn.setAttribute("aria-disabled","true");
+      btn.classList.add("is-disabled");
+    });
+  }
+
   function restoreRecruitState(){
     const data = readRecruitState();
     if(!data || !data.state){
-      setState("waiting");
+      applyRecruitLoadingState();
       return;
     }
 
@@ -6092,26 +6121,39 @@ function safeJson(key, fallback){
 
 <script id="pklJoinRecruitStateSync">
 (function(){
-  function readState(){
+  const RECRUIT_KEY = "pklJoinRecruitState";
+
+  function readLocalRecruitState(){
     try{
-      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.state === "function"){
-        const current = window.PKLJoinRealtime.state();
-        if(current && current.recruitState && current.recruitState.state) return current.recruitState.state;
-      }
-    }catch(e){}
-    try{
-      const raw = JSON.parse(localStorage.getItem("pklJoinRecruitState") || "null");
-      if(raw && raw.state) return raw.state;
-    }catch(e){}
-    return "waiting";
+      const raw = JSON.parse(localStorage.getItem(RECRUIT_KEY) || "null");
+      return raw && raw.state ? raw.state : null;
+    }catch(e){
+      return null;
+    }
   }
 
-  function apply(){
+  function readRealtimeRecruitState(){
+    try{
+      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function"){
+        const st = window.PKLJoinRealtime.getState();
+        return st && st.recruitState && st.recruitState.state ? st.recruitState.state : null;
+      }
+    }catch(e){}
+    return null;
+  }
+
+  function normalizeState(rawState){
+    return rawState === "open" ? "open" : (rawState === "closed" || rawState === "close" ? "closed" : (rawState === "waiting" ? "waiting" : "loading"));
+  }
+
+  function applyState(rawState){
     const statusEl = document.getElementById("joinStatus");
     const panel = document.querySelector(".join-modal-panel");
-    const rawState = readState();
-    const normalized = rawState === "open" ? "open" : (rawState === "closed" || rawState === "close" ? "closed" : "waiting");
-    const label = normalized === "open" ? "모집중" : (normalized === "closed" ? "모집마감" : "모집대기중");
+    const normalized = normalizeState(rawState);
+    const label = normalized === "open" ? "모집중" : (normalized === "closed" ? "모집마감" : (normalized === "waiting" ? "모집대기중" : "상태 확인중"));
+
+    document.body.classList.remove("pkl-recruit-open","pkl-recruit-closed","pkl-recruit-waiting","pkl-recruit-loading");
+    document.body.classList.add(normalized === "open" ? "pkl-recruit-open" : (normalized === "closed" ? "pkl-recruit-closed" : (normalized === "waiting" ? "pkl-recruit-waiting" : "pkl-recruit-loading")));
 
     if(statusEl){
       statusEl.dataset.state = normalized;
@@ -6133,16 +6175,35 @@ function safeJson(key, fallback){
     });
   }
 
-  document.addEventListener("DOMContentLoaded", apply);
-  window.addEventListener("pkl-join-state-updated", apply);
-  /* 2차 청소: pklJoinRecruitState storage 이벤트로 버튼 상태 재계산 금지. */
+  function apply(){
+    applyState(readLocalRecruitState() || readRealtimeRecruitState());
+  }
+
+  function refreshRemoteThenApply(){
+    apply();
+    try{
+      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === "function"){
+        window.PKLJoinRealtime.fetchNow().then(function(st){
+          const state = st && st.recruitState && st.recruitState.state ? st.recruitState.state : (readLocalRecruitState() || readRealtimeRecruitState());
+          applyState(state);
+        }).catch(apply);
+      }
+    }catch(e){}
+  }
+
+  document.addEventListener("DOMContentLoaded", refreshRemoteThenApply);
+  window.addEventListener("pkl-join-state-updated", function(event){
+    const state = event && event.detail && event.detail.recruitState && event.detail.recruitState.state;
+    applyState(state || readLocalRecruitState() || readRealtimeRecruitState());
+  });
   document.addEventListener("click", function(e){
     if(e.target.closest("#openRecruitBtn,#closeRecruitBtn,#joinResetBtn")){
       setTimeout(apply, 0);
       setTimeout(apply, 80);
+      setTimeout(apply, 220);
     }
   }, true);
-  setTimeout(apply, 0);
+  setTimeout(refreshRemoteThenApply, 0);
 })();
 </script>
 

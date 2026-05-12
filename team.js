@@ -15,6 +15,7 @@
   const ADMIN_STORAGE_KEY = 'pklAdminState_v3';
   const ACCOUNT_STORAGE_KEY = 'pklUsers';
   const JOIN_WAITLIST_STORAGE_KEY = 'pklJoinWaitList';
+  const JOIN_CANCEL_STORAGE_KEY = 'pklJoinCancelList';
   const JOIN_RECRUIT_STATE_STORAGE_KEY = 'pklJoinRecruitState';
   const SHEET_STORAGE_KEY = 'PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
 
@@ -375,14 +376,32 @@ if (rerollListModal) {
     return true;
   }
 
+  function readJoinCancelList() {
+    try {
+      const st = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === 'function'
+        ? window.PKLJoinRealtime.getState()
+        : null;
+      if (st && Array.isArray(st.cancelList)) return st.cancelList;
+    } catch (error) {}
+    try {
+      const saved = JSON.parse(localStorage.getItem(JOIN_CANCEL_STORAGE_KEY) || '[]');
+      return Array.isArray(saved) ? saved : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
   function getActiveJoinWaitList() {
-    return readJoinWaitList().filter(isActiveJoinWaitItem);
+    const cancelKeys = new Set(readJoinCancelList().map(getJoinWaitItemKey).filter(Boolean));
+    return readJoinWaitList().filter(item => {
+      if (!isActiveJoinWaitItem(item)) return false;
+      const key = getJoinWaitItemKey(item);
+      return !key || !cancelKeys.has(key);
+    });
   }
 
   function getJoinWaitingCount() {
-    const list = getActiveJoinWaitList();
-    if (Array.isArray(list) && list.length) return list.length;
-    return Object.values(state.waiting || {}).reduce((sum, ids) => sum + (Array.isArray(ids) ? ids.length : 0), 0);
+    return getActiveJoinWaitList().length;
   }
 
   function canViewTeamParticipants() {
