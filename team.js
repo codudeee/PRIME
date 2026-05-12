@@ -34,10 +34,12 @@
     rule: '',
     warningLog: [],
     rerollRequests: {},
-    rerollHiddenKeys: []
+    rerollHiddenKeys: [],
+    teamMode: 'squad10'
   });
 
   let state = loadState();
+  ensureTeamModeState(state.teamMode || 'squad10');
   let draggedPlayerId = null;
 
   function pklTeamCanEdit(){
@@ -56,6 +58,69 @@
 
   const tierPools = document.getElementById('tierPools');
   const teamGrid = document.getElementById('teamGrid');
+
+  const teamModeSelect = document.getElementById('pklTeamModeSelect');
+  const teamBoardModeText = document.getElementById('teamBoardModeText');
+  const builderLayout = document.querySelector('.builder-layout');
+
+  const PKL_TEAM_MODE_CONFIG = {
+    squad10: { key:'squad10', label:'10팀 스쿼드', teams:10, slots:4, modeClass:'pkl-mode-10 pkl-mode-squad' },
+    squad20: { key:'squad20', label:'20팀 스쿼드', teams:20, slots:4, modeClass:'pkl-mode-20 pkl-mode-squad' },
+    duo10: { key:'duo10', label:'10팀 듀오', teams:10, slots:2, modeClass:'pkl-mode-10 pkl-mode-duo' },
+    duo20: { key:'duo20', label:'20팀 듀오', teams:20, slots:2, modeClass:'pkl-mode-20 pkl-mode-duo' }
+  };
+
+  function getTeamModeConfig(modeKey){
+    return PKL_TEAM_MODE_CONFIG[modeKey] || PKL_TEAM_MODE_CONFIG.squad10;
+  }
+
+  function ensureTeamModeState(modeKey){
+    const cfg = getTeamModeConfig(modeKey || state.teamMode || 'squad10');
+    state.teamMode = cfg.key;
+
+    if(!Array.isArray(state.teams)) state.teams = [];
+
+    const nextTeams = [];
+    for(let i=0;i<cfg.teams;i++){
+      const prev = state.teams[i] || {};
+      const prevSlots = Array.isArray(prev.slots) ? prev.slots : [];
+      nextTeams.push({
+        id: prev.id || `team-${i+1}`,
+        name: `${i+1}팀`,
+        slots: Array.from({length:cfg.slots}, (_,idx)=> prevSlots[idx] || null)
+      });
+    }
+
+    state.teams = nextTeams;
+    state.selectedSlots = Array.isArray(state.selectedSlots)
+      ? state.selectedSlots.filter(slot => slot && slot.teamIndex < cfg.teams && slot.slotIndex < cfg.slots)
+      : [];
+
+    if(teamModeSelect && teamModeSelect.value !== cfg.key) teamModeSelect.value = cfg.key;
+    if(teamBoardModeText) teamBoardModeText.textContent = cfg.label;
+    if(builderLayout){
+      builderLayout.classList.remove('pkl-mode-10','pkl-mode-20','pkl-mode-duo','pkl-mode-squad');
+      cfg.modeClass.split(/\s+/).forEach(cls => cls && builderLayout.classList.add(cls));
+    }
+
+    try{
+      document.documentElement.dataset.pklTeamMode = cfg.key;
+      document.documentElement.dataset.pklTeamCount = String(cfg.teams);
+      document.documentElement.dataset.pklTeamSlots = String(cfg.slots);
+    }catch(e){}
+
+    return cfg;
+  }
+
+  function changeTeamMode(modeKey){
+    const cfg = ensureTeamModeState(modeKey);
+    render();
+    try{
+      window.dispatchEvent(new CustomEvent('pkl-team-mode-changed',{detail:{mode:cfg.key, teams:cfg.teams, slots:cfg.slots, label:cfg.label}}));
+    }catch(e){}
+  }
+
+
   const boardSummary = document.getElementById('boardSummary');
   const rerollCheckButton = document.getElementById('rerollCheckButton');
   const currentTime = document.getElementById('currentTime');
@@ -207,6 +272,7 @@ if (rerollListModal) {
   }
 
   function renderTeams() {
+    ensureTeamModeState(state.teamMode || 'squad10');
     teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
       const slots = team.slots.map((playerId, slotIndex) => `
         <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
@@ -2998,7 +3064,14 @@ function startClock() {
     insertPlayerIntoWaitingTier(playerId, player.tier);
     clearSlotSelectionFast();
     setStatus(`${getPlayerName(playerId)}님을 ${getTierLabel(player.tier)} 대기칸으로 되돌렸습니다.`);
-    render();
+    
+  if(teamModeSelect){
+    teamModeSelect.addEventListener('change', function(){
+      changeTeamMode(teamModeSelect.value);
+    });
+  }
+
+render();
   });
 
 

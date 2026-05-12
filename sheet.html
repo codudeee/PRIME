@@ -6265,6 +6265,20 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 .pkl-score-url-output{min-height:78px !important;height:auto !important;}
 </style>
 
+
+<style id="pkl-scoreboard-mode-layout-style">
+:root[data-pkl-team-count="20"] .scoreboard-team-grid,
+:root[data-pkl-team-count="20"] .team-grid,
+:root[data-pkl-team-count="20"] #teamGrid{
+  grid-template-columns:repeat(10,minmax(0,1fr)) !important;
+}
+:root[data-pkl-team-count="10"] .scoreboard-team-grid,
+:root[data-pkl-team-count="10"] .team-grid,
+:root[data-pkl-team-count="10"] #teamGrid{
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -12603,6 +12617,22 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(!el || !el.classList) return;
     try{ el.classList.add('pkl-layer-managed-modal'); }catch(e){}
   };
+})();
+</script>
+
+
+<script id="pkl-scoreboard-mode-layout-script">
+(function(){
+  function applyMode(detail){
+    detail = detail || {};
+    var teams = Number(detail.teams || document.documentElement.dataset.pklTeamCount || 10);
+    var slots = Number(detail.slots || document.documentElement.dataset.pklTeamSlots || 4);
+    document.documentElement.dataset.pklTeamCount = String(teams);
+    document.documentElement.dataset.pklTeamSlots = String(slots);
+    document.documentElement.dataset.pklTeamMode = detail.mode || document.documentElement.dataset.pklTeamMode || (teams===20?'squad20':'squad10');
+  }
+  window.addEventListener('pkl-team-mode-changed', function(e){ applyMode(e.detail); });
+  applyMode({});
 })();
 </script>
 
