@@ -4641,6 +4641,22 @@ body.pkl-recruit-loading #joinCancelBtn{
   cursor:not-allowed !important;
 }
 </style>
+
+<style id="pklJoinReasonButtonAndLoadingFix6">
+.join-reason-view-btn-disabled,
+.join-reason-view-btn-disabled:hover{
+  opacity:.48!important;
+  cursor:not-allowed!important;
+  filter:grayscale(.25) brightness(.82)!important;
+  transform:none!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 0 1px rgba(216,180,254,.10)!important;
+}
+#joinStatus[data-state="loading"]{
+  background:linear-gradient(180deg,rgba(168,85,247,.18),rgba(30,20,55,.68))!important;
+  border-color:rgba(216,180,254,.38)!important;
+  color:rgba(245,240,255,.82)!important;
+}
+</style>
 </head>
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -5193,7 +5209,11 @@ function safeJson(key, fallback){
 
   function renderTierBadge(rawItem, extraClass){
     const item = hydrateItem(rawItem);
-    const grade = item.gradeRole || item.tier || item.memberTier || "";
+    let grade = item.gradeRole || item.tier || item.memberTier || "";
+    if(!grade && isCurrentUserItem(rawItem)){
+      const currentUser = getCurrentUserData();
+      grade = currentUser.gradeRole || currentUser.tier || currentUser.memberTier || "";
+    }
     const cls = extraClass || "join-wait-tier-badge";
 
     if(grade && window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
@@ -5336,7 +5356,7 @@ function safeJson(key, fallback){
           return '<div class="join-cancel-row">' +
             renderTierBadge(item, "join-cancel-tier-badge") +
             '<span class="join-cancel-name">' + escapeHtml(item.name) + '</span>' +
-            (canViewReason ? '<button class="join-reason-view-btn" type="button" data-reason-index="' + index + '">사유</button>' : '<span class="join-reason-private">본인/운영자만 확인</span>') +
+            (canViewReason ? '<button class="join-reason-view-btn" type="button" data-reason-index="' + index + '">사유</button>' : '<button class="join-reason-view-btn join-reason-view-btn-disabled" type="button" disabled aria-disabled="true">사유</button>') +
           '</div>';
         }).join("")
       : '<div class="join-empty-text small">대기취소자가 없습니다.</div>';
@@ -6243,7 +6263,9 @@ function safeJson(key, fallback){
   }
 
   function apply(){
-    applyState(readLocalRecruitState() || readRealtimeRecruitState());
+    const realtimeState = readRealtimeRecruitState();
+    const localState = readLocalRecruitState();
+    applyState(realtimeState || (localState && localState !== "waiting" ? localState : "loading"));
   }
 
   function refreshRemoteThenApply(){
@@ -6263,7 +6285,11 @@ function safeJson(key, fallback){
   document.addEventListener("DOMContentLoaded", refreshRemoteThenApply);
   window.addEventListener("pkl-join-state-updated", function(event){
     const state = event && event.detail && event.detail.recruitState && event.detail.recruitState.state;
-    applyState(state || readLocalRecruitState() || readRealtimeRecruitState());
+    if(state){
+      applyState(state);
+    }else{
+      apply();
+    }
   });
   document.addEventListener("click", function(e){
     if(e.target.closest("#openRecruitBtn,#closeRecruitBtn,#joinResetBtn")){
