@@ -6,6 +6,13 @@
 <meta charset="utf-8"/>
 <title>PKL 프라임 킬내기 리그</title>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script>document.documentElement.classList.add("pkl-index-booting");</script>
+<link rel="preload" as="image" href="pkl_index_bg.webp" fetchpriority="high">
+<link rel="preload" as="image" href="pkl_logo_final.webp">
+<link rel="preload" as="image" href="icon_join.webp">
+<link rel="preload" as="image" href="icon_result.webp">
+<link rel="preload" as="image" href="icon_tier.webp">
+<link rel="preload" as="image" href="icon_search.webp">
 
 <link rel="stylesheet" href="pkl-main-common.css">
 
@@ -16,6 +23,36 @@
 
 
 
+
+<style id="pklIndexBootSmoothStyle">
+html{background:#05050a;}
+body{background:#05050a;}
+#pklCommonHeader{
+  min-height:96px;
+}
+html.pkl-index-booting .feature-card,
+html.pkl-index-booting .quickbar a,
+html.pkl-index-booting .info-card,
+html.pkl-index-booting .notice-row,
+html.pkl-index-booting .rank-row{
+  transition:none !important;
+  animation:none !important;
+}
+html.pkl-index-booting .feature-card::before{
+  display:none !important;
+}
+html:not(.pkl-index-bg-ready) .site::before{
+  opacity:0;
+}
+html.pkl-index-bg-ready .site::before{
+  opacity:1;
+  transition:opacity .18s ease;
+}
+.pkl-index-skeleton .notice-row,
+.pkl-index-skeleton .rank-row{
+  min-height:18px;
+}
+</style>
 
 <style>
 .pkl-ratio-grid{
@@ -598,8 +635,8 @@ font-weight:700;
 </nav>
 
 <section aria-label="정보 영역" class="info-grid">
-<article class="info-card" id="pklNoticeCard"><div class="info-head"><h3>공지사항</h3><button type="button" class="more pkl-notice-more" id="pklNoticeMoreBtn">더보기 〉</button></div><div class="notice-list" id="pklNoticePreviewList"></div></article>
-<article class="info-card" id="pklTopKillerCard"><div class="info-head"><h3>실시간 TOP 3</h3><a class="more" href="search.html">더보기 〉</a></div><div class="rank-list" id="pklTopKillerPreview"></div></article>
+<article class="info-card" id="pklNoticeCard"><div class="info-head"><h3>공지사항</h3><button type="button" class="more pkl-notice-more" id="pklNoticeMoreBtn">더보기 〉</button></div><div class="notice-list pkl-index-skeleton" id="pklNoticePreviewList"><div class="notice-row"><span><i class="dot"></i>공지사항을 불러오는 중입니다</span><span class="date">--.--</span></div></div></article>
+<article class="info-card" id="pklTopKillerCard"><div class="info-head"><h3>실시간 TOP 3</h3><a class="more" href="search.html">더보기 〉</a></div><div class="rank-list pkl-index-skeleton" id="pklTopKillerPreview"><div class="rank-row"><span class="rank-name">결과 데이터를 확인 중입니다</span><strong>-- Kill</strong></div></div></article>
 <article class="info-card discord-card"><div><div class="info-head"><h3>PKL DISCORD</h3><a class="more" href="https://discord.gg/nCJb9MPnX2" target="_blank" rel="noopener noreferrer">더보기 〉</a></div><p class="discord-text">PKL 디스코드에서 모집, 공지, 문의를 빠르게 확인하세요.</p><a class="discord-btn" href="https://discord.gg/nCJb9MPnX2" target="_blank" rel="noopener noreferrer">디스코드 참여하기</a></div><div class="discord-icon"><img src="discord.webp" alt="Discord"></div></article>
 </section>
 </main>
@@ -704,6 +741,7 @@ font-weight:700;
     return Object.keys(map).map(function(name){return {name:name,kills:map[name]};}).sort(function(a,b){return b.kills-a.kills||a.name.localeCompare(b.name);}).slice(0,3);
   }
   function render(){
+    box.classList.remove("pkl-index-skeleton");
     var rows=topFromMatches();
     if(!rows.length){box.innerHTML='<div class="rank-row"><span class="rank-name">결과표 유료경기 데이터가 없습니다</span><strong>0 Kill</strong></div>';return;}
     box.innerHTML=rows.map(function(row,i){return '<div class="rank-row"><span class="rank-name">'+medals[i]+' '+esc(row.name)+'</span><strong>'+Number(row.kills||0).toLocaleString('ko-KR')+' Kill</strong></div>';}).join('');
@@ -852,6 +890,7 @@ font-weight:700;
     }catch(e){}
   }
   function renderPreview(){
+    preview.classList.remove("pkl-index-skeleton");
     var items=sortItems(load()).slice(0,3);
     if(!items.length){preview.innerHTML='<div class="notice-row is-empty"><span><i class="dot"></i>등록된 공지사항이 없습니다</span><span class="date">--.--</span></div>';return;}
     preview.innerHTML=items.map(function(item,idx){var isNew=pklNoticeIsNew(item,idx);return '<div class="notice-row"><span><i class="dot"></i>'+esc(item.title)+(isNew?'<em class="pkl-new-badge">NEW</em>':'')+'</span><span class="date">'+esc(compactDate(item.date))+'</span></div>';}).join("");
@@ -1014,6 +1053,29 @@ font-weight:700;
 })();
 </script>
 
+<script id="pklIndexBootSmoothScript">
+(function(){
+  "use strict";
+  var root=document.documentElement;
+  var done=false;
+  function ready(){
+    if(done) return;
+    done=true;
+    root.classList.add("pkl-index-bg-ready");
+    requestAnimationFrame(function(){
+      setTimeout(function(){root.classList.remove("pkl-index-booting");},80);
+    });
+  }
+  try{
+    var img=new Image();
+    img.onload=ready;
+    img.onerror=ready;
+    img.src="pkl_index_bg.webp";
+    if(img.complete) ready();
+  }catch(e){ready();}
+  setTimeout(ready,900);
+})();
+</script>
 <script src="pkl-common-header.js"></script>
 
 <!-- PKL global stacked modal layer manager -->
