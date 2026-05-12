@@ -605,5 +605,55 @@
 })();
 </script>
 
+
+<script>
+(function(){
+  function safeParse(value){
+    try{return JSON.parse(value);}catch(_){return null;}
+  }
+
+  function getLoginUser(){
+    return safeParse(localStorage.getItem('pklUser') || localStorage.getItem('pklLoginUser') || '{}') || {};
+  }
+
+  function normalize(v){
+    return String(v || '').trim().toLowerCase();
+  }
+
+  function isManager(user){
+    const role=normalize(user.role || user.userRole || user.authRole || user.memberRole);
+    return !!(user.isAdmin || user.admin || user.manager || ['admin','manager','owner','operator','staff','moderator'].includes(role));
+  }
+
+  function isJoined(user){
+    const wait=safeParse(localStorage.getItem('pklJoinWaitList') || '[]');
+    if(!Array.isArray(wait)) return false;
+
+    const discordId=normalize(user.discord_id || user.discordId);
+    const nickname=normalize(user.nickname || user.name || user.displayName);
+
+    return wait.some(function(item){
+      const itemDiscord=normalize(item && (item.discord_id || item.discordId));
+      const itemName=normalize(item && (item.nickname || item.name || item.displayName));
+      return (discordId && discordId===itemDiscord) || (nickname && nickname===itemName);
+    });
+  }
+
+  const user=getLoginUser();
+  const unlocked=isManager(user) || isJoined(user);
+
+  if(unlocked) return;
+
+  const board=document.querySelector('.builder-layout');
+  if(!board) return;
+
+  board.innerHTML='
+    <section class="join-preview-lock-box team-preview-lock" style="width:100%;min-height:520px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 32px;border:1px solid rgba(180,140,255,.22);border-radius:28px;background:linear-gradient(180deg,rgba(18,14,34,.96),rgba(7,7,16,.98));box-shadow:0 24px 80px rgba(0,0,0,.42);text-align:center;">
+      <b style="font-size:32px;font-weight:1000;color:#fff;margin-bottom:18px;">팀 구성 비공개</b>
+      <span style="font-size:18px;color:rgba(255,255,255,.78);line-height:1.7;">참가하기 이후 대기자 리스트를 확인할 수 있습니다.</span>
+      <small style="margin-top:14px;font-size:14px;color:rgba(255,255,255,.48);">참가 완료 이후 팀 구성 및 대기 인원이 공개됩니다.</small>
+    </section>';
+})();
+</script>
 </body>
 </html>
