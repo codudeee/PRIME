@@ -7869,15 +7869,14 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return '';
   }
   function unique(list){
-    const out=[],seen=new Set();
-    function keysOf(u){
-      u=u||{};
+    var out=[],seen=new Set();
+    (Array.isArray(list)?list:[]).forEach(function(u){
       var did=keyOf(u);
-      var pubg=clean(u.pubgId||u.gameId||u.pubg_id||u.pubgName||u.ref).toLowerCase();
-      var nick=clean(u.nickname||u.nick||u.name).toLowerCase();
-      return [did&&'d:'+did,pubg&&'p:'+pubg,nick&&'n:'+nick].filter(Boolean);
-    }
-    (Array.isArray(list)?list:[]).forEach(u=>{const ks=keysOf(u);if(ks.some(k=>seen.has(k)))return;ks.forEach(k=>seen.add(k));out.push(u);});
+      if(!did) return; // Supabase users는 discord_id가 단일 식별자다. 닉네임 기준 병합/복원 금지.
+      if(seen.has(did)) return;
+      seen.add(did);
+      out.push(u);
+    });
     return out;
   }
   function fmtDate(v){
@@ -7889,31 +7888,47 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   }
   function mapUser(u){
     u=u||{};
-    var nick=clean(u.nickname||u.name||u.nick||u.discordUsername||u.discord_username||u.username);
-    var pubg=clean(u.pubgId||u.gameId||u.pubg_id||u.pubgName||u.pubg_name||u.ref);
-    var memberRole=clean(u.memberRole||u.member_role||u.role||(u.is_admin||u.admin?'admin':'user'))||'user';
-    var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||u.memberTierName)||'none';
-    var did=keyOf(u);
-    return Object.assign({},u,{nickname:nick,name:nick,pubgId:pubg,gameId:pubg,uid:did?'discord-'+did:'',id:did?'discord-'+did:'',userId:did?'discord-'+did:'',discordId:did,memberRole:memberRole,role:u.role||memberRole,gradeRole:tier,tierRole:tier,memberTier:tier,baseRole:tier,join:fmtDate(u.join||u.joinDate||u.joined_at||u.created_at||u.createdAt),last:fmtDate(u.last||u.lastLogin||u.updated_at||u.updatedAt),warnings:Number(u.warnings||u.warning_count||0),dia:Number(u.prime||u.points||u.dia||u.money||u.point||0),prime:Number(u.prime||u.points||u.dia||0),points:Number(u.points||u.prime||u.dia||0),history:Array.isArray(u.history)?u.history:(Array.isArray(u.raw&&u.raw.history)?u.raw.history:[]),memoList:Array.isArray(u.memoList)?u.memoList:(Array.isArray(u.raw&&u.raw.memoList)?u.raw.memoList:[]),mailbox:Array.isArray(u.mailbox)?u.mailbox:(Array.isArray(u.raw&&u.raw.mailbox)?u.raw.mailbox:[])});
+    var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
+    var nick=clean(u.nickname||raw.nickname||u.name||u.nick||u.discordUsername||u.discord_username||raw.discord_username||u.username);
+    var pubg=clean(u.pubgId||u.gameId||u.pubg_id||raw.pubg_id||u.pubgName||u.pubg_name||u.ref);
+    var did=keyOf(u)||clean(raw.discordId||raw.discord_id).toLowerCase().replace(/^discord-/, '');
+    var memberRole=clean(u.memberRole||u.member_role||raw.memberRole||raw.member_role||u.role||raw.role||(u.is_admin||u.admin?'admin':'user'))||'user';
+    var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||raw.memberTier||raw.gradeRole||raw.tierRole||raw.tier||u.memberTierName)||'none';
+    return Object.assign({},raw,u,{nickname:nick,name:nick,nick:nick,displayName:nick,pubgId:pubg,gameId:pubg,uid:did?'discord-'+did:'',id:did?'discord-'+did:'',userId:did?'discord-'+did:'',discordId:did,discord_id:did,memberRole:memberRole,role:u.role||memberRole,gradeRole:tier,tierRole:tier,memberTier:tier,baseRole:tier,join:fmtDate(u.join||u.joinDate||u.joined_at||u.created_at||u.createdAt),last:fmtDate(u.last||u.lastLogin||u.updated_at||u.updatedAt),warnings:Number(u.warnings||u.warning_count||0),dia:Number(u.prime||u.points||u.dia||u.money||u.point||0),prime:Number(u.prime||u.points||u.dia||0),points:Number(u.points||u.prime||u.dia||0),history:Array.isArray(u.history)?u.history:(Array.isArray(raw.history)?raw.history:[]),memoList:Array.isArray(u.memoList)?u.memoList:(Array.isArray(raw.memoList)?raw.memoList:[]),mailbox:Array.isArray(u.mailbox)?u.mailbox:(Array.isArray(raw.mailbox)?raw.mailbox:[])});
+  }
+  async function fetchUsers(){
+    var res=await fetch('/api/pkl-users?limit=20&offset=0',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
+    var data=await res.json().catch(function(){return {};});
+    if(!res.ok || !data.ok || !Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
+    return data.users;
+  }
+  function applyUsers(rows){
+    var list=unique(rows.map(mapUser)).filter(function(u){return !!keyOf(u);});
+    list.sort(function(a,b){return String(a.nickname||'').localeCompare(String(b.nickname||''),'ko-KR',{numeric:true,sensitivity:'base'});});
+    if(!window.state || typeof window.state!=='object') window.state={users:[],pending:[],bans:[],warningRecords:[]};
+    window.state.users=list;
+    if(typeof current==='number' && current>=list.length) current=0;
+    try{window.state=typeof normalizeState==='function'?normalizeState(window.state):window.state;}catch(e){}
+    try{if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers(list.slice(),false);}catch(e){}
+    try{window.dispatchEvent(new CustomEvent('pkl-users-updated',{detail:{users:list.slice(),source:'supabase'}}));}catch(e){}
+    try{window.dispatchEvent(new CustomEvent('pkl-role-data-updated',{detail:{users:list.slice(),source:'supabase'}}));}catch(e){}
+    try{if(typeof render==='function') render();}catch(e){console.warn('PKL admin render skipped',e);}
+    var uc=document.getElementById('userCount'); if(uc) uc.textContent=list.length+'명';
+    return list;
   }
   async function loadUsers(){
     try{
-      var res=await fetch('/api/pkl-users?limit=20&offset=0',{cache:'no-store'});
-      var data=await res.json();
-      var list=unique((Array.isArray(data.users)?data.users:[]).map(mapUser)).filter(function(u){return !!keyOf(u);});
-      list.sort(function(a,b){return String(a.nickname||'').localeCompare(String(b.nickname||''),'ko');});
-      if(window.state && Array.isArray(window.state.users)){
-        window.state.users=list;
-        if(window.current>=list.length) window.current=0;
-        try{window.state=typeof normalizeState==='function'?normalizeState(window.state):window.state;}catch(e){}
-        try{if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers(list,false);}catch(e){}
-        try{window.dispatchEvent(new CustomEvent('pkl-users-updated',{detail:{users:list.slice()}}));}catch(e){}
-        try{window.dispatchEvent(new CustomEvent('pkl-role-data-updated',{detail:{users:list.slice()}}));}catch(e){}
-        if(typeof render==='function') render();
-      }
-    }catch(err){console.error('PKL Supabase users load failed',err);}
+      var rows=await fetchUsers();
+      applyUsers(rows);
+    }catch(err){
+      console.error('PKL Supabase users load failed',err);
+      var list=document.getElementById('userList');
+      if(list) list.innerHTML='<div class="pending-empty">Supabase 유저를 불러오지 못했습니다.<br>users SELECT 정책/API 응답을 확인해주세요.</div>';
+      var uc=document.getElementById('userCount'); if(uc) uc.textContent='불러오기 실패';
+    }
   }
   document.addEventListener('DOMContentLoaded',function(){setTimeout(loadUsers,20);});
+  window.PKLAdminReloadSupabaseUsers=loadUsers;
 })();
 </script>
 

@@ -133,16 +133,18 @@
     '.pkl-notice-layer',
     '.pkl-result-admin-modal',
     '.pkl-delete-confirm-modal',
+    '.pkl-patch-modal',
+    '#patchEditorModal',
+    '#patchConfirmModal',
     '#resultAdminModal',
     '#resultDeleteConfirmModal'
   ].join(',');
   function isOpen(el){
     if(!el || !el.classList) return false;
-    var cs;
-    try{cs=getComputedStyle(el);}catch(e){cs=null;}
-    return el.classList.contains('open') ||
-      el.getAttribute('aria-hidden')==='false' ||
-      (cs && cs.position==='fixed' && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0');
+    if(el.getAttribute('aria-hidden')==='true') return false;
+    if(el.classList.contains('open')) return true;
+    if(el.getAttribute('aria-hidden')==='false') return true;
+    return false;
   }
   function setLayer(el,z){
     if(!el || !el.style) return;

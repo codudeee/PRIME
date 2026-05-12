@@ -107,18 +107,12 @@
   }
 
   function stopPatchEditorEventBubble(){
-    [els.patchEditorModal, els.patchInputVersion, els.patchInputDate, els.patchInputTitle, els.patchInputItems].forEach(el => {
-      if(!el) return;
-      ["pointerdown","mousedown","click","focusin","keydown"].forEach(type => {
-        el.addEventListener(type, ev => {
-          if(ev.target && ev.target.closest && ev.target.closest('input,textarea,.pkl-patch-modal-card')) ev.stopPropagation();
-        }, true);
-      });
-    });
+    // 패치노트 모달 안의 input/textarea는 기본 입력/스크롤 동작을 절대 막지 않는다.
+    // 바깥 영역 클릭 닫기는 아래 overlay click에서 target === modal일 때만 처리한다.
+    // 기존 capture 단계 stopPropagation이 모달 입력/스크롤/버튼 클릭을 막아 제거한다.
   }
 
   function bindEvents(){
-    stopPatchEditorEventBubble();
     els.patchAddBtnSide?.addEventListener("click", () => openEditor("add"));
     els.patchEditBtn?.addEventListener("click", () => openEditor("edit"));
     els.patchDeleteBtn?.addEventListener("click", openConfirm);
