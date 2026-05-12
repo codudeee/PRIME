@@ -63,7 +63,9 @@ function identityValues(u){u=u||{};const did=explicitDiscordId(u);return [did,u.
 function sameAnyUser(a,b){const av=identityValues(a), bv=identityValues(b);return av.length&&bv.length&&av.some(v=>bv.includes(v));}
 function parseBanDateMs(text){const m=String(text||"").match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);if(!m)return 0;return new Date(`${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}T00:00:00+09:00`).getTime();}
 function isActiveBanRecord(b){if(!b)return false;if(b.permanent===false||b.selfWithdraw||b.withdrawal||b.type==="withdraw"){const t=parseBanDateMs(b.date||b.withdrawnAt||b.createdAt);return !t || Date.now()-t < 30*86400000;}return true;}
-async function isBlockedByBanRecords(user){try{const st=await supabaseStore.readAdminState();const bans=(Array.isArray(st&&st.bans)?st.bans:[]).filter(isActiveBanRecord);return bans.some(b=>sameAnyUser(b,user));}catch(e){return false;}}
+async function isBlockedByBanRecords(user){try{if(supabaseStore&&typeof supabaseStore.hasActiveBanRecord==='function')return await supabaseStore.hasActiveBanRecord(user);}catch(e){}try{const st=await supabaseStore.readAdminState();const bans=(Array.isArray(st&&st.bans)?st.bans:[]).filter(isActiveBanRecord);return bans.some(b=>sameAnyUser(b,user));}catch(e){return false;}}
+function shouldResetAfterBanRelease(saved){saved=saved||{};return !!(saved.banned||saved.isBanned||String(saved.role||'').toLowerCase()==='banned'||saved.rejoinAllowed||saved.banReleasedAt||(saved.raw&&(saved.raw.rejoinAllowed||saved.raw.banReleasedAt)));}
+function resetReleasedUserBase(saved){const out=Object.assign({},saved||{});out.banned=false;out.isBanned=false;out.role='user';out.memberRole='user';out.userRole='user';out.authRole='user';out.adminRole='일반';out.memberRoleName='일반';out.memberTier='none';out.gradeRole='none';out.tierRole='none';out.baseRole='none';out.originalRole='none';out.tier='없음';out.memberTierName='없음';out.warnings=0;return out;}
 
 function getUserNickname(u){ return normalizeNickname(u && (u.nickname || u.nick || u.name || u.displayName || u.pubgId)); }
 function nicknameTaken(users, nickname, current){
@@ -94,6 +96,7 @@ async function writeServerUser(user){
   return user;
 }
 function createUser(discordUser, nickname, saved){
+  saved = shouldResetAfterBanRelease(saved) ? resetReleasedUserBase(saved) : saved;
   const finalNickname = normalizeNickname(nickname || saved?.nickname || discordUser.nickname);
   const memberRole = normalizeRole(saved?.memberRole || saved?.role || "user");
   return Object.assign({}, saved || {}, discordUser, {

@@ -142,11 +142,7 @@ async function readUserDocs(options={}){
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
   const offset = Math.max(0, Number(options.offset || 0));
   const q = clean(options.q || '');
-  const tierOnly = !!(options.tierOnly || options.tier_only);
   let path = `users?select=*&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
-  if(tierOnly){
-    path += `&tier=not.is.null&tier=neq.&tier=neq.none&tier=neq.%EC%97%86%EC%9D%8C`;
-  }
   if(q){
     const term = encodeURIComponent(`*${escapeLike(q)}*`);
     path += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
@@ -191,6 +187,19 @@ async function readUserRowByIdentity(identity={}){
   const { json } = await supabaseFetch(`users?select=*&discord_id=eq.${encodeURIComponent(discordId)}&limit=1`);
   if(Array.isArray(json) && json[0]) return json[0];
   throw new Error('대상 회원을 Supabase users에서 찾을 수 없습니다.');
+}
+async function hasActiveBanRecord(identity={}){
+  const discordId = explicitDiscordId(identity || {});
+  const nickname = clean(identity.nickname || identity.nick || identity.name);
+  const pubg = clean(identity.pubgId || identity.pubg_id || identity.gameId || identity.ref);
+  const filters = [];
+  if(discordId) filters.push(`discord_id.eq.${encodeURIComponent(discordId)}`);
+  if(pubg) filters.push(`pubg_id.eq.${encodeURIComponent(pubg)}`);
+  if(nickname) filters.push(`nickname.eq.${encodeURIComponent(nickname)}`);
+  if(!filters.length) return false;
+  const path = `ban_records?select=*&or=(${filters.join(',')})&limit=1`;
+  const { json } = await supabaseFetch(path);
+  return Array.isArray(json) && json.length > 0;
 }
 async function insertAdminLogSafe(payload){
   try{
@@ -337,8 +346,29 @@ async function deleteBanRecord(ban={}, actor='ADMIN'){
     try{
       const row = await readUserRowByIdentity({discordId});
       const raw = row.raw && typeof row.raw==='object' ? {...row.raw} : {};
-      raw.banned = false; delete raw.banReason; delete raw.banDate;
-      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:false, role: raw.memberRole || raw.role || 'user', raw, updated_at:new Date().toISOString()})});
+      const releasedAt = new Date().toISOString();
+      raw.banned = false;
+      raw.banReleasedAt = releasedAt;
+      raw.rejoinAllowed = true;
+      raw.memberRole = 'user';
+      raw.role = 'user';
+      raw.userRole = 'user';
+      raw.authRole = 'user';
+      raw.adminRole = '일반';
+      raw.memberRoleName = '일반';
+      raw.memberTier = 'none';
+      raw.gradeRole = 'none';
+      raw.tierRole = 'none';
+      raw.baseRole = 'none';
+      raw.originalRole = 'none';
+      raw.tier = '없음';
+      raw.memberTierName = '없음';
+      raw.warnings = 0;
+      delete raw.banReason;
+      delete raw.banDate;
+      delete raw.prisonUntil;
+      delete raw.prison_until;
+      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:false, role:'user', tier:'none', warnings:0, prison_until:null, raw, updated_at:releasedAt})});
     }catch(_e){}
   }
   await insertAdminLogSafe({action:'ban_delete',actor:clean(actor||'ADMIN'),target:nickname||pubg||discordId,detail:{discord_id:discordId,nickname,pubg_id:pubg}});
@@ -365,4 +395,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, readLegacyUsers, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, explicitDiscordId, hasDiscordIdentity };

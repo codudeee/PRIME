@@ -12,7 +12,9 @@ function identityValue(u){u=u||{};const did=explicitDiscordId(u);return [did,u.p
 function sameAnyUser(a,b){const ad=explicitDiscordId(a),bd=explicitDiscordId(b);if(ad&&bd)return ad===bd;const av=identityValue(a), bv=identityValue(b);return av.length&&bv.length&&av.some(v=>bv.includes(v));}
 function parseKoreanDateMs(text){const m=String(text||"").match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);if(!m)return 0;return new Date(`${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}T00:00:00+09:00`).getTime();}
 function isActiveBanRecord(b){if(!b)return false;if(b.permanent===false||b.selfWithdraw||b.withdrawal||b.type==="withdraw"){const t=parseKoreanDateMs(b.date||b.withdrawnAt||b.createdAt);return !t || Date.now()-t < 30*86400000;}return true;}
-async function readActiveBans(){try{const st=await supabaseStore.readAdminState();return (Array.isArray(st&&st.bans)?st.bans:[]).filter(isActiveBanRecord);}catch(e){return []}}
+async function readActiveBans(){try{if(supabaseStore&&typeof supabaseStore.hasActiveBanRecord==='function'){return await supabaseStore.hasActiveBanRecord({discordId:'__none__'})?[]:[];}}catch(e){}try{const st=await supabaseStore.readAdminState();return (Array.isArray(st&&st.bans)?st.bans:[]).filter(isActiveBanRecord);}catch(e){return []}}
+function shouldResetAfterBanRelease(old){old=old||{};return !!(old.banned||old.isBanned||String(old.role||'').toLowerCase()==='banned'||old.rejoinAllowed||old.banReleasedAt||(old.raw&&(old.raw.rejoinAllowed||old.raw.banReleasedAt)));}
+function resetReleasedUserBase(old){const out=Object.assign({},old||{});out.banned=false;out.isBanned=false;out.role='user';out.memberRole='user';out.userRole='user';out.authRole='user';out.adminRole='일반';out.memberRoleName='일반';out.memberTier='none';out.gradeRole='none';out.tierRole='none';out.baseRole='none';out.originalRole='none';out.tier='없음';out.memberTierName='없음';out.warnings=0;return out;}
 
 
 function buildApprovedUser(discordUser,nickname,pubgId,old){
@@ -81,9 +83,11 @@ async function handler(req,res){
       serverUsers = list.filter(u => !!explicitDiscordId(u));
     }catch(e){ serverUsers = []; }
     const allUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(serverUsers) : serverUsers;
-    const activeBans = await readActiveBans();
     const banSeed = Object.assign({}, discordUser, {nickname:nickname, pubgId:pubgId, gameId:pubgId, ref:pubgId});
-    if(activeBans.some(b=>sameAnyUser(b, banSeed))){
+    let blocked=false;
+    try{ if(supabaseStore&&typeof supabaseStore.hasActiveBanRecord==='function') blocked=await supabaseStore.hasActiveBanRecord(banSeed); }catch(e){ blocked=false; }
+    if(!blocked){ const activeBans = await readActiveBans(); blocked=activeBans.some(b=>sameAnyUser(b, banSeed)); }
+    if(blocked){
       return res.status(403).json({ ok:false, message:"추방 기록이 있는 계정은 회원가입할 수 없습니다. 운영진에게 문의해주세요." });
     }
 
@@ -134,7 +138,7 @@ async function handler(req,res){
       });
     }
 
-    const user=buildApprovedUser(discordUser, nickname, pubgId, existing||{});
+    const user=buildApprovedUser(discordUser, nickname, pubgId, shouldResetAfterBanRelease(existing)?resetReleasedUserBase(existing):existing||{});
     if(!existing && Array.isArray(serverUsers) && serverUsers.length===0){
       user.role="admin";
       user.memberRole="admin";
