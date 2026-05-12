@@ -4553,24 +4553,39 @@ body.pkl-recruit-closed #joinCancelBtn:hover{
 })();
 </script>
 
-<style id="pkl-join-preview-privacy-style">
-.join-private-placeholder{
-  min-height:150px;
+<style id="pkl-join-preview-privacy-lock">
+/* 참여 전에는 명단 이름만 비공개, 인원수는 공개 */
+.join-preview-lock-box{
+  min-height:168px;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  gap:8px;
-  border:1px dashed rgba(216,180,254,.22);
+  gap:9px;
+  padding:22px 18px;
+  border:1px dashed rgba(216,180,254,.28);
   border-radius:18px;
-  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012)),rgba(8,6,18,.70);
-  color:rgba(235,222,255,.72);
+  background:
+    radial-gradient(circle at 50% 0%,rgba(155,92,255,.16),transparent 56%),
+    rgba(255,255,255,.026);
+  color:rgba(255,255,255,.72);
   text-align:center;
+  font-size:13px;
   font-weight:900;
   line-height:1.55;
 }
-.join-private-placeholder b{color:#fff;font-size:15px;font-weight:1000;}
-.join-private-placeholder small{color:rgba(201,168,255,.62);font-size:12px;font-weight:850;}
+.join-preview-lock-box b{
+  color:#fff;
+  font-size:17px;
+  font-weight:1000;
+  letter-spacing:-.2px;
+}
+.join-preview-lock-box small{
+  color:rgba(201,168,255,.76);
+  font-size:12px;
+  font-weight:900;
+}
+.join-preview-lock-count{color:#ffd45a!important;font-size:inherit!important;}
 </style>
 </head>
 <body>
@@ -5125,41 +5140,43 @@ function safeJson(key, fallback){
     return '<span class="tier-mark role-none join-admin-role-badge">등급없음</span>';
   }
 
-  function pklJoinIsAdminUser(user){
-    user = user || {};
-    const roleText = [user.memberRole,user.role,user.userRole,user.authRole,user.adminRole,user.memberGrade,user.statusRole,user.roleName,user.grade].join(' ').toLowerCase();
-    return /manager|admin|owner|master|operator|staff|moderator|총관리자|관리자|운영자|운영진|스태프/.test(roleText);
+  function isManagerViewer(){
+    const u = findFullUser(getLoginUser()) || getLoginUser() || {};
+    const role = String(getMemberRole(u) || u.role || u.userRole || u.authRole || '').toLowerCase();
+    const raw = String(getMemberRole(u) || u.role || u.userRole || u.authRole || '');
+    return !!(u.isAdmin || u.admin || u.manager || role === 'admin' || role === 'manager' || role === 'owner' || role === 'operator' || ['관리자','총관리자','운영자','운영진'].includes(raw));
   }
 
-  function pklJoinSameUser(a,b){
-    return identityMatches(a,b);
+  function isCurrentUserWaiting(list){
+    const userData = getCurrentUserData();
+    list = Array.isArray(list) ? list : readList(STORAGE_KEY);
+    return list.some(function(item){ return identityMatches(userData, item) || item.key === userData.key || item.name === userData.name; });
   }
 
-  function pklJoinCurrentUserIsWaiting(){
-    const me = getCurrentUserData();
-    const list = readList(STORAGE_KEY);
-    return list.some(function(item){ return pklJoinSameUser(me,item); });
+  function canPreviewJoinParticipants(list){
+    return isManagerViewer() || isCurrentUserWaiting(list);
   }
 
-  function pklJoinCanViewPeople(){
-    const loginUser = getLoginUser();
-    const full = findFullUser(loginUser) || loginUser || getCurrentUserData();
-    return pklJoinIsAdminUser(full) || pklJoinCurrentUserIsWaiting();
-  }
-
-  function pklJoinPrivateHtml(kind){
-    return '<div class="join-private-placeholder"><b>' + (kind === 'cancel' ? '대기취소 명단 비공개' : '대기자 명단 비공개') + '</b><small>참여대기 후 명단을 확인할 수 있습니다.</small></div>';
+  function joinPreviewLockedHtml(kind){
+    const title = kind === 'cancel' ? '대기취소 명단 비공개' : '대기자 리스트 비공개';
+    const desc = kind === 'cancel'
+      ? '참가하기를 누른 뒤 대기취소 명단을 확인할 수 있습니다.'
+      : '참가하기를 누른 뒤 대기자 리스트를 확인할 수 있습니다.';
+    return '<div class="join-preview-lock-box"><b>' + escapeHtml(title) + '</b><span>' + escapeHtml(desc) + '</span><small>현재 대기 인원 수는 공개됩니다.</small></div>';
   }
 
   function renderWaitList(){
     if(!waitList) return;
     const list = readList(STORAGE_KEY);
-    const canViewPeople = pklJoinCanViewPeople();
-    if(waitCount) waitCount.textContent = canViewPeople ? (list.length + "명") : "비공개";
-    if(currentCount) currentCount.textContent = canViewPeople ? String(list.length) : "-";
+    const unlocked = canPreviewJoinParticipants(list);
+    if(waitCount){
+      waitCount.textContent = list.length + "명";
+      waitCount.classList.toggle("join-preview-lock-count", !unlocked);
+    }
+    if(currentCount) currentCount.textContent = String(list.length);
 
-    if(!canViewPeople){
-      waitList.innerHTML = pklJoinPrivateHtml('wait');
+    if(!unlocked){
+      waitList.innerHTML = joinPreviewLockedHtml('wait');
       return;
     }
 
@@ -5183,12 +5200,16 @@ function safeJson(key, fallback){
 
   function renderCancelList(){
     if(!cancelListEl) return;
+    const wait = readList(STORAGE_KEY);
     const list = readList(CANCEL_KEY);
-    const canViewPeople = pklJoinCanViewPeople();
-    if(cancelCount) cancelCount.textContent = canViewPeople ? (list.length + "명") : "비공개";
+    const unlocked = canPreviewJoinParticipants(wait);
+    if(cancelCount){
+      cancelCount.textContent = list.length + "명";
+      cancelCount.classList.toggle("join-preview-lock-count", !unlocked);
+    }
 
-    if(!canViewPeople){
-      cancelListEl.innerHTML = pklJoinPrivateHtml('cancel');
+    if(!unlocked){
+      cancelListEl.innerHTML = joinPreviewLockedHtml('cancel');
       return;
     }
 
@@ -5617,7 +5638,7 @@ function safeJson(key, fallback){
   });
 
   renderAll();
-  window.addEventListener("storage", renderAll);
+  window.addEventListener("storage", function(e){ if(e && (e.key === STORAGE_KEY || e.key === CANCEL_KEY || e.key === "pklJoinRecruitState")) renderAll(); });
 })();
 </script>
 
@@ -6593,17 +6614,8 @@ observer.observe(document.body, {childList:true, subtree:true});
 
 
 <script id="removeWaitCountFinal">
-function removeWaitCount(){
-  const candidates = document.querySelectorAll("*");
-  candidates.forEach(el=>{
-    if(el && el.textContent && el.textContent.trim()==="0명"){
-      el.remove();
-    }
-  });
-}
-document.addEventListener("DOMContentLoaded",removeWaitCount);
-setTimeout(removeWaitCount,300);
-setInterval(removeWaitCount,500);
+/* 인원수는 공개해야 하므로 0명 제거 로직 비활성화 */
+function removeWaitCount(){}
 </script>
 
 
