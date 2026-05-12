@@ -4982,6 +4982,16 @@ body.pkl-join-initializing #joinCancelCount{
 
   function applyRecruitStateVisual(state){
     const normalized = state === "open" ? "open" : (state === "closed" || state === "close" ? "closed" : "waiting");
+    if(normalized === "waiting" && document.body.classList.contains("pkl-recruit-loading") && !window.__PKL_JOIN_REMOTE_CONFIRMED){
+      if(statusEl){
+        statusEl.dataset.state = "loading";
+        statusEl.textContent = "상태 확인중";
+        statusEl.removeAttribute("style");
+      }
+      const panel = document.querySelector(".join-modal-panel");
+      if(panel) panel.dataset.recruitState = "loading";
+      return;
+    }
     const label = normalized === "open" ? "모집중" : (normalized === "closed" ? "모집마감" : "모집대기중");
     const panel = document.querySelector(".join-modal-panel");
 
@@ -5230,7 +5240,9 @@ function safeJson(key, fallback){
       const data = await res.json();
       const users = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
       users.forEach(rememberTierUser);
-      renderAll();
+      if(window.__PKL_JOIN_INITIAL_READY){
+        renderAll();
+      }
     }catch(e){}
   }
 
@@ -5372,7 +5384,7 @@ function safeJson(key, fallback){
       return;
     }
 
-    waitList.innerHTML = list.length
+    const nextWaitHtml = list.length
       ? list.map(function(rawItem, index){
           const item = enrichItemTier(hydrateItem(rawItem));
           return '<div class="join-wait-row">' +
@@ -5388,6 +5400,9 @@ function safeJson(key, fallback){
           '</div>';
         }).join("")
       : '<div class="join-empty-text">아직 대기자가 없습니다.</div>';
+    if(waitList.innerHTML !== nextWaitHtml){
+      waitList.innerHTML = nextWaitHtml;
+    }
   }
 
   function renderCancelList(){
@@ -5406,7 +5421,7 @@ function safeJson(key, fallback){
       return;
     }
 
-    cancelListEl.innerHTML = list.length
+    const nextCancelHtml = list.length
       ? list.map(function(rawItem, index){
           const item = enrichItemTier(hydrateItem(rawItem));
           const canOpen = canOpenCancelReason(item);
@@ -5417,6 +5432,9 @@ function safeJson(key, fallback){
           '</div>';
         }).join("")
       : '<div class="join-empty-text small">대기취소자가 없습니다.</div>';
+    if(cancelListEl.innerHTML !== nextCancelHtml){
+      cancelListEl.innerHTML = nextCancelHtml;
+    }
   }
 
   function getRecruitStateForAction(){
@@ -5928,6 +5946,7 @@ function safeJson(key, fallback){
   if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === "function"){
     window.PKLJoinRealtime.fetchNow().then(function(st){
       if(st && st.recruitState && st.recruitState.state){
+        window.__PKL_JOIN_REMOTE_CONFIRMED = true;
         try{ localStorage.setItem("pklJoinRecruitState", JSON.stringify(st.recruitState)); }catch(e){}
       }
       finishInitialJoinRender();
@@ -6351,7 +6370,8 @@ function safeJson(key, fallback){
   const RECRUIT_KEY = "pklJoinRecruitState";
 
   let joinStateBooting = true;
-  let joinRemoteStateConfirmed = false;
+  let joinRemoteStateConfirmed = !!window.__PKL_JOIN_REMOTE_CONFIRMED;
+  window.__PKL_JOIN_REMOTE_CONFIRMED = joinRemoteStateConfirmed;
   setTimeout(function(){ joinStateBooting = false; }, 4500);
 
   function readLocalRecruitState(options){
@@ -6384,7 +6404,10 @@ function safeJson(key, fallback){
   function applyState(rawState){
     const statusEl = document.getElementById("joinStatus");
     const panel = document.querySelector(".join-modal-panel");
-    const normalized = normalizeState(rawState);
+    let normalized = normalizeState(rawState);
+    if(normalized === "waiting" && !joinRemoteStateConfirmed && document.body.classList.contains("pkl-recruit-loading")){
+      normalized = "loading";
+    }
     const label = normalized === "open" ? "모집중" : (normalized === "closed" ? "모집마감" : (normalized === "waiting" ? "모집대기중" : "상태 확인중"));
 
     document.body.classList.remove("pkl-recruit-open","pkl-recruit-closed","pkl-recruit-waiting","pkl-recruit-loading");
@@ -6423,6 +6446,7 @@ function safeJson(key, fallback){
           const state = st && st.recruitState && st.recruitState.state ? st.recruitState.state : readRealtimeRecruitState();
           if(state){
             joinRemoteStateConfirmed = true;
+            window.__PKL_JOIN_REMOTE_CONFIRMED = true;
             joinStateBooting = false;
             applyState(state);
           }else{
@@ -6433,6 +6457,7 @@ function safeJson(key, fallback){
           const state = readRealtimeRecruitState();
           if(state){
             joinRemoteStateConfirmed = true;
+            window.__PKL_JOIN_REMOTE_CONFIRMED = true;
             joinStateBooting = false;
             applyState(state);
           }else{
@@ -6461,6 +6486,7 @@ function safeJson(key, fallback){
     }
     if(state){
       joinRemoteStateConfirmed = true;
+      window.__PKL_JOIN_REMOTE_CONFIRMED = true;
       if(state !== "waiting") joinStateBooting = false;
     }
     applyState(state || readRealtimeRecruitState() || readLocalRecruitState({allowStale:true}));
