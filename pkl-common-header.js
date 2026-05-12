@@ -49,7 +49,7 @@ function pklCanChangeRole() {
   const HEADER_HTML = `<header class="topbar">
 <div class="topbar-inner">
 <a aria-label="PKL 메인" class="brand" href="index.html"><img class="brand-logo-img" src="pkl_logo_final.webp" alt="PKL"><div class="brand-name">PRIME KILL LEAGUE</div></a>
-<nav aria-label="주요 메뉴" class="main-nav"><a href="index.html">메인</a><a href="join.html">참가</a><a href="team.html">팀구성</a><a href="sheet.html">시트지</a><a href="tier.html">티어표</a><a href="result.html">결과표</a><a href="patch.html">패치노트</a><a href="search.html">전적검색</a></nav>
+<nav aria-label="주요 메뉴" class="main-nav"><a href="index.html">메인</a><a href="join.html">참가</a><a href="team.html">팀구성</a><a href="sheet.html">시트지</a><a href="tier.html">티어표</a><a href="result.html">결과표</a><a href="search.html">전적검색</a><a href="patch.html">패치노트</a></nav>
 <div class="user-box"><button class="top-btn manager-btn" id="managerBtn" type="button" onclick="location.href='admin.html'">관리홈</button><div class="account-wrap">
 <button class="top-btn account-trigger" id="loginBtn" type="button">LOGIN<span class="mail-badge" id="mailBadge" style="display:none"></span></button>
 <div class="account-menu" id="accountMenu">
@@ -918,14 +918,3 @@ if(node.nodeType===Node.TEXT_NODE){
   }
 })();
 
-// 메뉴 위치만 안전하게 교체 (DOM 이동, 이미지/로고 건들지 않음)
-document.addEventListener('DOMContentLoaded', function(){
-    const nav = document.querySelector('.main-nav');
-    if(nav){
-        const patch = nav.querySelector('a[href="patch.html"]');
-        const search = nav.querySelector('a[href="search.html"]');
-        if(patch && search){
-            nav.insertBefore(search, patch);
-        }
-    }
-});

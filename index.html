@@ -585,24 +585,22 @@ font-weight:700;
 <script id="pkl-index-first-paint-fix">
 (function(){
   try{document.documentElement.style.background="#050507";}catch(e){}
-  document.addEventListener("DOMContentLoaded",function(){
-    document.body.classList.add("pkl-index-preboot");
-    var bg=new Image();
-    bg.src="bg.webp";
-    function ready(){
-      requestAnimationFrame(function(){
-        document.body.classList.remove("pkl-index-preboot");
-        document.body.classList.add("pkl-index-ready");
-      });
-    }
-    if(bg.complete) ready();
-    else bg.onload=ready;
-    setTimeout(ready,450);
-  },{once:true});
+  function revealIndex(){
+    if(!document.body) return;
+    requestAnimationFrame(function(){
+      document.body.classList.remove("pkl-index-preboot");
+      document.body.classList.add("pkl-index-ready");
+    });
+  }
+  var bg=new Image();
+  bg.src="bg.webp";
+  if(bg.complete) revealIndex();
+  else bg.onload=revealIndex;
+  setTimeout(revealIndex,420);
 })();
 </script>
 </head>
-<body>
+<body class="pkl-index-preboot">
 <!-- PKL_COMMON_HEADER_ENABLED -->
 <div class="site">
 <div id="pklCommonHeader"></div>
