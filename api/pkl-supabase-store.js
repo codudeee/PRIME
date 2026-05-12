@@ -275,17 +275,18 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   raw.mailbox.unshift({ type:'prime', title, message: mailText, amount: delta, before: current, after: next, reason: clean(reason), actor: clean(actor || 'SYSTEM'), created_at: now, read:false });
   const body = { prime: next, raw, updated_at: now };
   async function patchUser(obj){
-    const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
+    // 운영 버튼 체감속도 개선: 저장 본문은 이미 확정되어 있으므로 Supabase representation 반환을 기다리지 않는다.
+    await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
       method:'PATCH',
-      headers:{ Prefer:'return=representation' },
+      headers:{ Prefer:'return=minimal' },
       body:JSON.stringify(obj)
     });
-    return json;
+    return {...row, ...obj};
   }
-  const json = await patchUser(body);
-  await insertPointLogSafe({ user_id: row.id, discord_id: row.discord_id || null, amount: delta, reason: clean(reason), actor: clean(actor || 'SYSTEM') });
-  await insertAdminLogSafe({ action, actor: clean(actor || 'SYSTEM'), target: row.nickname || row.pubg_id || row.discord_id || '', detail: { amount: delta, before: current, after: next, reason: clean(reason), mail: mailText, discord_id: row.discord_id || '', pubg_id: row.pubg_id || '' } });
-  const savedRow = Array.isArray(json) && json[0] ? json[0] : {...row, prime: next, raw};
+  const savedRow = await patchUser(body);
+  // 로그/포인트 기록은 화면 응답을 막지 않도록 비동기로 남긴다. 실패해도 users 저장은 유지된다.
+  Promise.resolve().then(()=>insertPointLogSafe({ user_id: row.id, discord_id: row.discord_id || null, amount: delta, reason: clean(reason), actor: clean(actor || 'SYSTEM') })).catch(()=>{});
+  Promise.resolve().then(()=>insertAdminLogSafe({ action, actor: clean(actor || 'SYSTEM'), target: row.nickname || row.pubg_id || row.discord_id || '', detail: { amount: delta, before: current, after: next, reason: clean(reason), mail: mailText, discord_id: row.discord_id || '', pubg_id: row.pubg_id || '' } })).catch(()=>{});
   return { user: rowToUser(savedRow), before: current, after: next, amount: delta, mail: mailText };
 }
 
@@ -329,11 +330,12 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
     updated_at: now
   };
   async function patch(obj){
-    const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(obj)});
-    return Array.isArray(json) && json[0] ? json[0] : {...row, ...obj};
+    // 회원 수정/티어 변경 체감속도 개선: 변경값을 기준으로 즉시 응답하고 representation 재수신을 생략한다.
+    await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(obj)});
+    return {...row, ...obj};
   }
   const saved = await patch(body);
-  await insertAdminLogSafe({action, actor, target: body.nickname || body.pubg_id || row.discord_id || '', detail:{reason, changes, discord_id: row.discord_id, before: beforeUser, after: rowToUser(saved)}});
+  Promise.resolve().then(()=>insertAdminLogSafe({action, actor, target: body.nickname || body.pubg_id || row.discord_id || '', detail:{reason, changes, discord_id: row.discord_id, before: beforeUser, after: rowToUser(saved)}})).catch(()=>{});
   return rowToUser(saved);
 }
 
