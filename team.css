@@ -6213,3 +6213,44 @@ body .modal-layer [class*="streak"]{
 .builder-layout.pkl-mode-buddy .team-card.buddy-first::after,
 .builder-layout.pkl-mode-buddy .team-card.buddy-second::before{content:none!important;display:none!important}
 .builder-layout.pkl-mode-buddy .buddy-label{border-color:rgba(216,180,254,.32)!important;background:rgba(168,85,247,.20)!important;color:#eadbff!important}
+
+
+/* PKL slot fixed-height correction: empty slots keep the same space as filled player cards */
+.team-slot{
+  display:flex !important;
+  align-items:stretch !important;
+  justify-content:stretch !important;
+  box-sizing:border-box !important;
+}
+.team-slot .empty-slot{
+  display:flex !important;
+  width:100% !important;
+  min-height:100% !important;
+  flex:1 1 auto !important;
+  align-items:center !important;
+  justify-content:center !important;
+  opacity:.28 !important;
+  box-sizing:border-box !important;
+}
+.team-slot .player-card{
+  width:100% !important;
+  min-height:100% !important;
+  flex:1 1 auto !important;
+  box-sizing:border-box !important;
+}
+.builder-layout.pkl-mode-10:not(.pkl-mode-duo) .team-slot,
+.builder-layout.pkl-mode-20:not(.pkl-mode-duo) .team-slot{
+  height:58px !important;
+  min-height:58px !important;
+}
+.builder-layout.pkl-mode-duo .team-slot{
+  height:86px !important;
+  min-height:86px !important;
+}
+.builder-layout.pkl-mode-10 .team-card,
+.builder-layout.pkl-mode-20 .team-card{
+  min-height:312px !important;
+}
+.builder-layout.pkl-mode-duo .team-card{
+  min-height:226px !important;
+}

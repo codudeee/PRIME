@@ -1637,7 +1637,12 @@ function completeTeams() {
   function exportTeamBoardToSheet() {
     const sheetState = loadSheetStateForTeamExport();
     const teams = createSheetTeamsFromTeamBoard(sheetState.teams);
-    sheetState.mode = sheetState.mode || 'squad';
+    const exportCfg = getTeamModeConfig(state.teamMode || 'squad10');
+    sheetState.mode = exportCfg.slots === 2 ? 'duo' : 'squad';
+    sheetState.pklTeamMode = exportCfg.key;
+    sheetState.pklTeamCount = exportCfg.teams;
+    sheetState.pklTeamSlots = exportCfg.slots;
+    sheetState.pklBuddyMode = !!exportCfg.buddy;
     sheetState.selectedTeamId = sheetState.selectedTeamId || 'team1';
     sheetState.teams = teams;
     sheetState.rounds = Array.isArray(sheetState.rounds) && sheetState.rounds.length
@@ -1692,13 +1697,19 @@ function completeTeams() {
 
   function createSheetTeamsFromTeamBoard(previousTeams) {
     const oldTeams = Array.isArray(previousTeams) ? previousTeams : [];
-    return Array.from({ length: TEAM_COUNT }, (_, teamIndex) => {
+    const cfg = ensureTeamModeState(state.teamMode || 'squad10');
+    const teamCount = Number(cfg && cfg.teams) || state.teams.length || TEAM_COUNT;
+    const slotCount = Number(cfg && cfg.slots) || SLOT_COUNT;
+    return Array.from({ length: teamCount }, (_, teamIndex) => {
       const oldTeam = oldTeams[teamIndex] || {};
       return {
         ...oldTeam,
         id: `team${teamIndex + 1}`,
         target: Number(oldTeam.target || 0),
-        members: Array.from({ length: SLOT_COUNT }, (_, slotIndex) => createSheetMemberFromSlot(teamIndex, slotIndex))
+        pklTeamMode: cfg.key,
+        pklBuddyIndex: cfg.buddy ? Math.floor(teamIndex / 2) + 1 : null,
+        pklBuddyMode: !!cfg.buddy,
+        members: Array.from({ length: slotCount }, (_, slotIndex) => createSheetMemberFromSlot(teamIndex, slotIndex))
       };
     });
   }
