@@ -3230,7 +3230,7 @@ document.addEventListener("DOMContentLoaded", function(){
   var ROLE_TO_LANE={tier0_high:'0상',tier0_mid:'0중',tier0_low:'0하',tier1_high:'1상',tier1_mid:'1중',tier1_low:'1하',tier2_high:'2상',tier2_mid:'2중',tier2_low:'2하',tier3_high:'3상',tier3_mid:'3중',tier3_low:'3하',tier4_high:'4상',tier4_mid:'4중',tier4_low:'4하',beast:'짐승'};
   var LANE_TO_ROLE={}; Object.keys(ROLE_TO_LANE).forEach(function(k){LANE_TO_ROLE[ROLE_TO_LANE[k]]=k;});
   var LABEL={none:'없음',tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',tier2_high:'2티어 상',tier2_mid:'2티어 중',tier2_low:'2티어 하',tier3_high:'3티어 상',tier3_mid:'3티어 중',tier3_low:'3티어 하',tier4_high:'4티어 상',tier4_mid:'4티어 중',tier4_low:'4티어 하',beast:'짐승'};
-  var cache=[]; var loading=false;
+  var cache=[]; var loading=false; var backgroundRefreshStarted=false;
   function clean(v){return String(v==null?'':v).trim();}
   function didOf(u){u=u||{};var did=clean(u.discordId||u.discord_id); if(did)return did.replace(/^discord-/i,''); ['uid','id','userId','key'].some(function(k){var raw=clean(u[k]); if(/^discord-/i.test(raw)){did=raw.replace(/^discord-/i,''); return true;} return false;}); return did;}
   function keyOf(u,i){return didOf(u)||clean(u.nickname||u.name||u.nick)||String(i);}
@@ -3253,14 +3253,54 @@ document.addEventListener("DOMContentLoaded", function(){
     var out=Object.assign({},u,{discordId:did,uid:did?'discord-'+did:clean(u.uid||u.id||u.userId),id:did?'discord-'+did:clean(u.id||u.uid||u.userId),userId:did?'discord-'+did:clean(u.userId||u.uid||u.id),nickname:nick,name:nick,nick:nick,memberTier:tier,gradeRole:tier,tierRole:tier,baseRole:tier,tier:tier==='none'?'없음':labelOf(tier),memberTierName:labelOf(tier)});
     return out;
   }
+  function uniqueTierUsers(list){
+    var seen=new Set();
+    return (Array.isArray(list)?list:[]).map(mapUser).filter(function(u,i){
+      var k=keyOf(u,i);
+      if(!k||seen.has(k)) return false;
+      seen.add(k);
+      return tierOf(u) && tierOf(u)!=='none';
+    }).sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
+  }
+  function seedUsers(){
+    var pools=[];
+    try{ if(Array.isArray(window.PKLSupabaseUsers)) pools=pools.concat(window.PKLSupabaseUsers); }catch(e){}
+    try{ if(window.PKLUsersSource && typeof window.PKLUsersSource.localUsers==='function') pools=pools.concat(window.PKLUsersSource.localUsers()||[]); }catch(e){}
+    try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.users==='function') pools=pools.concat(window.PKLUserProfile.users()||[]); }catch(e){}
+    return uniqueTierUsers(pools);
+  }
+  function paintTierUsers(users){
+    var lists=document.querySelectorAll('.pkl-lane-list[data-tier]');
+    if(!lists.length) return;
+    lists.forEach(function(list){list.querySelectorAll('.pkl-tier-member').forEach(function(n){n.remove();}); list.classList.remove('pkl-drop-ready');});
+    (Array.isArray(users)?users:[]).forEach(function(u,i){
+      var tier=tierOf(u); if(!tier||tier==='none') return;
+      var lane=ROLE_TO_LANE[tier]; if(!lane) return;
+      var list=document.querySelector('.pkl-lane-list[data-tier="'+lane+'"]'); if(!list) return;
+      var badge=document.createElement('div'); badge.className='pkl-tier-member'; badge.textContent=clean(u.nickname||u.name||u.pubgId)||'회원'; badge.dataset.userKey=keyOf(u,i); badge.dataset.lane=lane; badge.setAttribute('draggable',canEdit()?'true':'false'); list.appendChild(badge);
+    });
+    if(typeof pklTierBindDrag==='function'){try{pklTierBindDrag();}catch(e){}}
+  }
   async function fetchUsers(force){
     if(loading) return cache.slice();
+    if(!force && cache.length) return cache.slice();
+    if(!force){
+      var seeded=seedUsers();
+      if(seeded.length){
+        cache=seeded;
+        if(!backgroundRefreshStarted){
+          backgroundRefreshStarted=true;
+          setTimeout(function(){ fetchUsers(true).then(function(users){ paintTierUsers(users); }).catch(function(){}); }, 0);
+        }
+        return cache.slice();
+      }
+    }
     if(force) cache=[];
     loading=true;
     try{
       var all=[]; var offset=0; var limit=100; var count=Infinity;
       while(offset<count && offset<5000){
-        var res=await fetch('/api/pkl-users?limit='+limit+'&offset='+offset,{cache:'no-store',headers:{Accept:'application/json'}});
+        var res=await fetch('/api/pkl-users?limit='+limit+'&offset='+offset+'&tierOnly=1',{cache:'no-store',headers:{Accept:'application/json'}});
         var data=await res.json().catch(function(){return {};});
         if(!res.ok||!data.ok) throw new Error(data.message||'users fetch failed');
         var users=Array.isArray(data.users)?data.users:[];
@@ -3269,25 +3309,15 @@ document.addEventListener("DOMContentLoaded", function(){
         if(!users.length||users.length<limit) break;
         offset+=limit;
       }
-      var seen=new Set();
-      cache=all.map(mapUser).filter(function(u,i){var k=keyOf(u,i); if(!k||seen.has(k))return false; seen.add(k); return true;}).sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
+      cache=uniqueTierUsers(all);
       return cache.slice();
     }catch(e){console.error('PKL tier Supabase users load failed',e); return cache.slice();}
     finally{loading=false;}
   }
   function canEdit(){return typeof window.pklTierCanEdit==='function' ? !!window.pklTierCanEdit() : false;}
-  async function renderSupabaseTierMembers(){
-    var users=await fetchUsers(true);
-    var lists=document.querySelectorAll('.pkl-lane-list[data-tier]');
-    if(!lists.length) return;
-    lists.forEach(function(list){list.querySelectorAll('.pkl-tier-member').forEach(function(n){n.remove();}); list.classList.remove('pkl-drop-ready');});
-    users.forEach(function(u,i){
-      var tier=tierOf(u); if(!tier||tier==='none') return;
-      var lane=ROLE_TO_LANE[tier]; if(!lane) return;
-      var list=document.querySelector('.pkl-lane-list[data-tier="'+lane+'"]'); if(!list) return;
-      var badge=document.createElement('div'); badge.className='pkl-tier-member'; badge.textContent=clean(u.nickname||u.name||u.pubgId)||'회원'; badge.dataset.userKey=keyOf(u,i); badge.dataset.lane=lane; badge.setAttribute('draggable',canEdit()?'true':'false'); list.appendChild(badge);
-    });
-    if(typeof pklTierBindDrag==='function'){try{pklTierBindDrag();}catch(e){}}
+  async function renderSupabaseTierMembers(force){
+    var users=await fetchUsers(!!force);
+    paintTierUsers(users);
   }
   async function setUserTierSupabase(userKey,targetLane){
     var role=LANE_TO_ROLE[targetLane]; if(!role) return false;
@@ -3312,7 +3342,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   window.renderPklTierMembers=function(){renderSupabaseTierMembers();};
   window.pklTierSetUserRole=function(userKey,targetLane){setUserTierSupabase(userKey,targetLane); return true;};
-  document.addEventListener('DOMContentLoaded',function(){setTimeout(renderSupabaseTierMembers,0);});
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){renderSupabaseTierMembers(false);},0);});
   window.addEventListener('pkl-user-updated',function(ev){
     var user=ev&&ev.detail&&ev.detail.user;
     if(!user) return;
@@ -3324,7 +3354,7 @@ document.addEventListener("DOMContentLoaded", function(){
   });
   window.addEventListener('pkl-users-updated',function(ev){
     var users=ev&&ev.detail&&ev.detail.users;
-    if(Array.isArray(users)){ cache=users.map(mapUser); renderSupabaseTierMembers(); }
+    if(Array.isArray(users)){ cache=uniqueTierUsers(users); paintTierUsers(cache); }
   });
 })();
 </script>

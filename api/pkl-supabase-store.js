@@ -142,7 +142,11 @@ async function readUserDocs(options={}){
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
   const offset = Math.max(0, Number(options.offset || 0));
   const q = clean(options.q || '');
+  const tierOnly = !!(options.tierOnly || options.tier_only);
   let path = `users?select=*&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
+  if(tierOnly){
+    path += `&tier=not.is.null&tier=neq.&tier=neq.none&tier=neq.%EC%97%86%EC%9D%8C`;
+  }
   if(q){
     const term = encodeURIComponent(`*${escapeLike(q)}*`);
     path += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
@@ -287,34 +291,6 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
   return rowToUser(saved);
 }
 
-
-async function readBanRecords(options={}){
-  const limit = Math.max(1, Math.min(500, Number(options.limit || 200)));
-  try{
-    const { json } = await supabaseFetch(`ban_records?select=*&order=created_at.desc.nullslast&limit=${limit}`);
-    return Array.isArray(json) ? json.map(r => ({
-      id: r.id,
-      discordId: r.discord_id || (r.raw && (r.raw.discordId || r.raw.discord_id)) || '',
-      discord_id: r.discord_id || '',
-      nickname: r.nickname || (r.raw && (r.raw.nickname || r.raw.nick || r.raw.name)) || '',
-      nick: r.nickname || '',
-      name: r.nickname || '',
-      pubgId: r.pubg_id || (r.raw && (r.raw.pubgId || r.raw.pubg_id || r.raw.gameId || r.raw.ref)) || '',
-      pubg_id: r.pubg_id || '',
-      reason: r.reason || (r.raw && r.raw.reason) || '영구추방',
-      admin: r.actor || (r.raw && (r.raw.admin || r.raw.actor)) || 'ADMIN',
-      actor: r.actor || 'ADMIN',
-      date: r.created_at || (r.raw && (r.raw.date || r.raw.createdAt)) || '',
-      created_at: r.created_at || '',
-      permanent: true,
-      raw: r.raw || r
-    })) : [];
-  }catch(e){
-    await insertAdminLogSafe({action:'ban_records_read_failed',actor:'SYSTEM',target:'ban_records',detail:{message:String(e && e.message || e)}});
-    return [];
-  }
-}
-
 async function recordBan(ban={}, actor='ADMIN'){
   const now = new Date().toISOString();
   const discordId = explicitDiscordId(ban || {});
@@ -338,7 +314,7 @@ async function recordBan(ban={}, actor='ADMIN'){
     try{
       const row = await readUserRowByIdentity({discordId});
       const raw = row.raw && typeof row.raw==='object' ? {...row.raw} : {};
-      raw.banned = true; raw.banReason = payload.reason; raw.banDate = now; raw.role='banned'; raw.memberRole='banned';
+      raw.banned = true; raw.banReason = payload.reason; raw.banDate = now;
       await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:true, role:'banned', raw, updated_at:now})});
     }catch(_e){}
   }
@@ -361,8 +337,8 @@ async function deleteBanRecord(ban={}, actor='ADMIN'){
     try{
       const row = await readUserRowByIdentity({discordId});
       const raw = row.raw && typeof row.raw==='object' ? {...row.raw} : {};
-      raw.banned = false; delete raw.banReason; delete raw.banDate; raw.role='user'; raw.memberRole='user'; raw.userRole='user'; raw.authRole='user';
-      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:false, role:'user', raw, updated_at:new Date().toISOString()})});
+      raw.banned = false; delete raw.banReason; delete raw.banDate;
+      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({banned:false, role: raw.memberRole || raw.role || 'user', raw, updated_at:new Date().toISOString()})});
     }catch(_e){}
   }
   await insertAdminLogSafe({action:'ban_delete',actor:clean(actor||'ADMIN'),target:nickname||pubg||discordId,detail:{discord_id:discordId,nickname,pubg_id:pubg}});
@@ -386,7 +362,7 @@ async function writeUsers(users){
   return mergeUsers(saved);
 }
 async function readAdminState(){
-  return { users: await readUsers({ limit: 100 }), pending: [], bans: await readBanRecords({ limit: 500 }), warningRecords: [] };
+  return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, readLegacyUsers, readBanRecords, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, readLegacyUsers, explicitDiscordId, hasDiscordIdentity };

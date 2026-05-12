@@ -842,12 +842,21 @@ function getInitials(text=''){
 }
 
 function getUsers(){
-  if(window.PKLUserProfile && typeof window.PKLUserProfile.users === 'function') return window.PKLUserProfile.users();
-  try{
-    return JSON.parse(localStorage.getItem('pklUsers') || '[]');
-  }catch(e){
-    return [];
+  const merged=[];
+  function add(list){
+    if(!Array.isArray(list)) return;
+    list.forEach(u=>{ if(u && typeof u==='object') merged.push(u); });
   }
+  try{ add(window.PKLSupabaseUsers); }catch(e){}
+  try{ if(window.PKLUsersSource && typeof window.PKLUsersSource.localUsers==='function') add(window.PKLUsersSource.localUsers()); }catch(e){}
+  try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.users === 'function') add(window.PKLUserProfile.users()); }catch(e){}
+  const seen=new Set();
+  return merged.filter(u=>{
+    const key=String(u.discordId||u.discord_id||u.nickname||u.name||u.pubgId||u.pubg_id||'').trim();
+    if(!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function hide(){
@@ -1150,9 +1159,16 @@ window.getUnifiedMatchRecords=function(){
   function mapUser(u){u=u||{};var nick=u.nickname||u.name||u.nick||u.discord_username||'';return Object.assign({},u,{nickname:nick,name:nick,pubgId:u.pubgId||u.pubg_id||u.gameId||''});}
   async function load(){
     try{
-      var res=await fetch('/api/pkl-users?limit=500',{cache:'no-store'});
-      var data=await res.json();
-      window.PKLSupabaseUsers=Array.isArray(data.users)?data.users.map(mapUser):[];
+      var all=[]; var offset=0; var limit=100;
+      while(offset<500){
+        var res=await fetch('/api/pkl-users?limit='+limit+'&offset='+offset,{cache:'no-store'});
+        var data=await res.json();
+        var users=Array.isArray(data.users)?data.users:[];
+        all=all.concat(users);
+        if(!users.length || users.length<limit) break;
+        offset+=limit;
+      }
+      window.PKLSupabaseUsers=all.map(mapUser);
       if(!window.PKLSupabaseUsers.length) return;
       if(typeof buildPlayers==='function'){
         var built=buildPlayers();
@@ -1161,10 +1177,11 @@ window.getUnifiedMatchRecords=function(){
         window.PKLSupabaseUsers.forEach(function(u){var nick=u.nickname||u.name;if(!nick)return;var key=norm(nick);if(!map.has(key))map.set(key,{name:nick,teams:[],rows:[],totalKills:0,totalDeaths:0,bestKill:0,rounds:0,score:0,avg:0});});
         players=Array.from(map.values()).sort(function(a,b){return (b.totalKills||0)-(a.totalKills||0)||String(a.name).localeCompare(String(b.name),'ko');});
         if(typeof renderTop==='function') renderTop();
+        try{var el=document.getElementById('searchInput'); if(el && el.value && typeof el.dispatchEvent==='function') el.dispatchEvent(new Event('input',{bubbles:true}));}catch(_e){}
       }
     }catch(e){console.error('PKL search Supabase users load failed',e);}
   }
-  document.addEventListener('DOMContentLoaded',function(){setTimeout(load,60);});
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
 })();
 </script>
 
