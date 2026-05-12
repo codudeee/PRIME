@@ -587,6 +587,56 @@ body{
 .field-msg{grid-column:2 / -1;min-height:16px;margin:-2px 0 0;padding:0 4px;font-size:12px;font-weight:900;color:rgba(233,213,255,.62);line-height:1.25;}
 .field-msg.ok{color:#d8c8ff;text-shadow:0 0 10px rgba(168,85,247,.45);}
 .field-msg.bad{color:#fca5a5;text-shadow:0 0 10px rgba(248,113,113,.25);}
+
+.prime-field{
+  grid-template-columns:132px minmax(0,1fr) 112px;
+  border-color:rgba(255,214,102,.44);
+  background:
+    radial-gradient(circle at 16% 0%,rgba(255,214,102,.22),transparent 40%),
+    linear-gradient(135deg,rgba(255,214,102,.12),rgba(124,58,237,.055) 42%,rgba(0,0,0,.30)),
+    rgba(10,8,18,.78);
+  box-shadow:
+    inset 0 0 24px rgba(0,0,0,.32),
+    0 0 20px rgba(255,214,102,.12),
+    0 0 30px rgba(168,85,247,.05);
+}
+.prime-label{
+  color:#ffe8a3;
+  text-shadow:0 0 12px rgba(255,214,102,.34);
+}
+.prime-value{
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+  border-radius:7px;
+  border:1px solid rgba(255,214,102,.28);
+  background:linear-gradient(180deg,rgba(18,14,6,.88),rgba(5,4,2,.92));
+  color:#fff2bc;
+  font-size:20px;
+  font-weight:1000;
+  letter-spacing:.2px;
+  text-shadow:0 0 14px rgba(255,214,102,.24);
+  box-shadow:inset 0 0 18px rgba(0,0,0,.36);
+}
+.prime-unit{
+  height:48px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:7px;
+  border:1px solid rgba(255,214,102,.34);
+  background:linear-gradient(180deg,rgba(255,214,102,.18),rgba(91,62,5,.22));
+  color:#ffd666;
+  font-size:13px;
+  font-weight:1000;
+  letter-spacing:.5px;
+  box-shadow:0 0 15px rgba(255,214,102,.14),inset 0 0 14px rgba(255,255,255,.035);
+}
+@media (max-width:700px){
+  .prime-field{grid-template-columns:1fr;}
+  .prime-unit{justify-content:flex-start;padding:0 16px;}
+}
 .action-row{margin-top:22px !important;}
 .action-row .btn,.save-btn{height:54px !important;border-radius:9px !important;}
 .notice{margin-top:16px !important;padding:16px 18px !important;border-radius:9px !important;}
@@ -1344,6 +1394,16 @@ async function withdrawAccount(){
       <form class="form" onsubmit="saveMyInfo(event)" autocomplete="off">
         <div class="info-grid">
           <div class="info-row">
+            <div class="profile-field prime-field">
+              <div class="profile-label prime-label">PRIME</div>
+              <div class="profile-control">
+                <div class="prime-value" id="primeValue">0</div>
+              </div>
+              <div class="prime-unit">보유 프라임</div>
+            </div>
+          </div>
+
+          <div class="info-row">
             <div class="profile-field">
               <div class="profile-label">NICKNAME</div>
               <div class="profile-control">
@@ -1443,6 +1503,56 @@ function setEveryLoginUser(user){
 
 function cleanPubgInput(value){
   return String(value || "").replace(/[^A-Za-z0-9_-]/g, "");
+}
+
+function numberWithComma(value){
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n.toLocaleString("ko-KR") : "0";
+}
+
+function readPrime(user){
+  user = user || {};
+  return Number(user.prime ?? user.points ?? user.dia ?? user.chicken ?? 0) || 0;
+}
+
+function renderPrime(user){
+  const el = document.getElementById("primeValue");
+  if(!el) return;
+  el.textContent = numberWithComma(readPrime(user));
+}
+
+function userDiscordId(user){
+  user = user || {};
+  const direct = String(user.discordId || user.discord_id || "").trim();
+  if(direct) return direct.replace(/^discord-/i, "");
+  for(const key of ["uid","id","userId","memberId","key"]){
+    const raw = String(user[key] || "").trim();
+    if(/^discord-/i.test(raw)) return raw.replace(/^discord-/i, "");
+  }
+  return "";
+}
+
+async function refreshPrimeFromSupabase(user){
+  const discordId = userDiscordId(user);
+  const fallbackQuery = String(user?.nickname || user?.nick || user?.name || "").trim();
+  const query = discordId || fallbackQuery;
+  if(!query) return;
+  try{
+    const res = await fetch(`/api/pkl-users?limit=5&offset=0&q=${encodeURIComponent(query)}`, {cache:"no-store"});
+    if(!res.ok) return;
+    const data = await res.json().catch(()=>null);
+    const list = Array.isArray(data?.users) ? data.users : [];
+    const exact = discordId
+      ? list.find(u => userDiscordId(u) === discordId)
+      : list.find(u => String(u.nickname || u.nick || u.name || "").trim() === fallbackQuery);
+    if(!exact) return;
+    renderPrime(exact);
+    const merged = {...(getLoginUser() || {}), ...exact, prime:readPrime(exact), points:readPrime(exact), dia:readPrime(exact)};
+    setEveryLoginUser(merged);
+    originalUser = {...(originalUser || {}), ...merged};
+  }catch(e){
+    console.warn("PKL prime fetch skipped", e);
+  }
 }
 
 function setMsg(id, text, type){
@@ -1545,6 +1655,8 @@ function renderMyInfo(){
   const pubg = user.pubgId || user.gameId || user.ref || "";
   document.getElementById("nicknameInput").value = nickname;
   document.getElementById("pubgInput").value = cleanPubgInput(pubg);
+  renderPrime(user);
+  refreshPrimeFromSupabase(user);
   nicknameCheckedValue = nickname;
   setMsg("nicknameMsg","현재 닉네임입니다.","ok");
 }
@@ -1580,6 +1692,9 @@ function saveMyInfo(e){
     name:nickname,
     pubgId,
     gameId:pubgId,
+    prime: readPrime(base),
+    points: readPrime(base),
+    dia: readPrime(base),
     updatedAt:new Date().toISOString()
   };
   const stored = updateAccountStorage(Object.assign({}, updated, {__pklProfileWrite:true,pklProfileUpdatedAt:new Date().toISOString()}));
