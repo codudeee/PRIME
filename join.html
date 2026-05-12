@@ -4682,8 +4682,20 @@ body.pkl-recruit-loading #joinDeadlineText{
 }
 </style>
 
+
+<style id="pklJoinInitialRenderGateFinal">
+body.pkl-join-initializing #joinWaitList,
+body.pkl-join-initializing #joinCancelList{
+  opacity:0;
+}
+body.pkl-join-initializing #joinWaitCount,
+body.pkl-join-initializing #joinCurrentCount,
+body.pkl-join-initializing #joinCancelCount{
+  opacity:.55;
+}
+</style>
 </head>
-<body>
+<body class="pkl-recruit-loading pkl-join-initializing">
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
 <!-- PKL_COMMON_HEADER_ENABLED -->
 <div class="site">
@@ -5452,7 +5464,14 @@ function safeJson(key, fallback){
 
   window.PKLJoinRenderAll = renderAll;
   window.PKLJoinSyncActionButtons = syncJoinActionButtons;
-  window.addEventListener("pkl-join-state-updated", function(){
+  window.__PKL_JOIN_INITIAL_READY = false;
+  window.addEventListener("pkl-join-state-updated", function(event){
+    const st = event && event.detail;
+    const remoteState = st && st.recruitState && st.recruitState.state;
+    if(!window.__PKL_JOIN_INITIAL_READY){
+      /* 첫 진입 중 localStorage의 오래된 모집대기중 이벤트로 리스트를 먼저 그리지 않는다. */
+      if(remoteState === "waiting" || !remoteState) return;
+    }
     renderAll();
   });
   seedJoinTierMap();
@@ -5899,7 +5918,25 @@ function safeJson(key, fallback){
     }
   });
 
-  renderAll();
+  function finishInitialJoinRender(){
+    window.__PKL_JOIN_INITIAL_READY = true;
+    document.body.classList.remove("pkl-join-initializing");
+    renderAll();
+  }
+
+  /* 첫 진입: 오래된 local 모집대기중/대기자 데이터를 먼저 렌더하지 않고 서버 상태 확인 후 1회 렌더 */
+  if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === "function"){
+    window.PKLJoinRealtime.fetchNow().then(function(st){
+      if(st && st.recruitState && st.recruitState.state){
+        try{ localStorage.setItem("pklJoinRecruitState", JSON.stringify(st.recruitState)); }catch(e){}
+      }
+      finishInitialJoinRender();
+    }).catch(function(){
+      finishInitialJoinRender();
+    });
+  }else{
+    setTimeout(finishInitialJoinRender, 250);
+  }
   /* 2차 청소: storage 이벤트 기반 join 전체 재렌더 금지. 참가/취소/모집 버튼 클릭 흐름에서만 renderAll 실행. */
 })();
 </script>
@@ -6375,7 +6412,7 @@ function safeJson(key, fallback){
   }
 
   function apply(){
-    applyState(readRealtimeRecruitState() || readLocalRecruitState({allowStale:true}));
+    applyState(readRealtimeRecruitState() || readLocalRecruitState({allowStale:joinRemoteStateConfirmed}) || "loading");
   }
 
   function refreshRemoteThenApply(){
@@ -6389,12 +6426,8 @@ function safeJson(key, fallback){
             joinStateBooting = false;
             applyState(state);
           }else{
+            /* 서버 상태가 아직 없으면 오래된 local 모집대기중으로 떨어뜨리지 않고 로딩 유지 */
             applyState("loading");
-            setTimeout(function(){
-              joinRemoteStateConfirmed = true;
-              joinStateBooting = false;
-              applyState(readLocalRecruitState({allowStale:true}) || "waiting");
-            }, 1200);
           }
         }).catch(function(){
           const state = readRealtimeRecruitState();
@@ -6403,12 +6436,8 @@ function safeJson(key, fallback){
             joinStateBooting = false;
             applyState(state);
           }else{
+            /* 서버 상태가 아직 없으면 오래된 local 모집대기중으로 떨어뜨리지 않고 로딩 유지 */
             applyState("loading");
-            setTimeout(function(){
-              joinRemoteStateConfirmed = true;
-              joinStateBooting = false;
-              applyState(readLocalRecruitState({allowStale:true}) || "waiting");
-            }, 1200);
           }
         });
         return;
