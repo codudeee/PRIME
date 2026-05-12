@@ -10,9 +10,16 @@
 <link rel="stylesheet" href="pkl-main-common.css">
 <link rel="preload" as="image" href="bg.webp">
 <style id="pkl-index-boot-fix">
-html,body{background:#050507 !important;}
-body.pkl-index-preboot{opacity:0;visibility:hidden;overflow:hidden;}
-body.pkl-index-ready{opacity:1;visibility:visible;transition:opacity .18s ease;}
+html,body{
+  background:
+    radial-gradient(circle at 50% 0%, rgba(168,85,247,.20), transparent 34%),
+    radial-gradient(circle at 18% 84%, rgba(88,28,135,.18), transparent 38%),
+    url("bg.webp") center center / cover no-repeat fixed,
+    #050507 !important;
+}
+body.pkl-index-preboot{visibility:visible;opacity:1;overflow-x:hidden;}
+body.pkl-index-preboot .site{opacity:0;transform:translateY(6px);}
+body.pkl-index-ready .site{opacity:1;transform:none;transition:opacity .16s ease,transform .16s ease;}
 </style>
 
 
@@ -595,8 +602,11 @@ font-weight:700;
   var bg=new Image();
   bg.src="bg.webp";
   if(bg.complete) revealIndex();
-  else bg.onload=revealIndex;
-  setTimeout(revealIndex,420);
+  else{
+    bg.onload=revealIndex;
+    bg.onerror=revealIndex;
+    setTimeout(revealIndex,140);
+  }
 })();
 </script>
 </head>
