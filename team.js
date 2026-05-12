@@ -10,7 +10,7 @@
     { id: 'beast', label: '짐승', weight: 1, badgeClass: 'grade-role-beast' }
   ];
 
-  const TEAM_COUNT = 10;
+  const TEAM_COUNT = 20;
   const SLOT_COUNT = 4;
   const ADMIN_STORAGE_KEY = 'pklAdminState_v3';
   const ACCOUNT_STORAGE_KEY = 'pklUsers';
@@ -35,11 +35,10 @@
     warningLog: [],
     rerollRequests: {},
     rerollHiddenKeys: [],
-    teamMode: 'squad10'
+    teamMode: 'squad20'
   });
 
   let state = loadState();
-  ensureTeamModeState(state.teamMode || 'squad10');
   let draggedPlayerId = null;
 
   function pklTeamCanEdit(){
@@ -67,15 +66,17 @@
     squad10: { key:'squad10', label:'10팀 스쿼드', teams:10, slots:4, modeClass:'pkl-mode-10 pkl-mode-squad' },
     squad20: { key:'squad20', label:'20팀 스쿼드', teams:20, slots:4, modeClass:'pkl-mode-20 pkl-mode-squad' },
     duo10: { key:'duo10', label:'10팀 듀오', teams:10, slots:2, modeClass:'pkl-mode-10 pkl-mode-duo' },
-    duo20: { key:'duo20', label:'20팀 듀오', teams:20, slots:2, modeClass:'pkl-mode-20 pkl-mode-duo' }
+    duo20: { key:'duo20', label:'20팀 듀오', teams:20, slots:2, modeClass:'pkl-mode-20 pkl-mode-duo' },
+    squadPartner20: { key:'squadPartner20', label:'20팀 스쿼드 깐부', teams:20, slots:4, modeClass:'pkl-mode-20 pkl-mode-squad pkl-mode-partner' },
+    duoPartner20: { key:'duoPartner20', label:'20팀 듀오 깐부', teams:20, slots:2, modeClass:'pkl-mode-20 pkl-mode-duo pkl-mode-partner' }
   };
 
   function getTeamModeConfig(modeKey){
-    return PKL_TEAM_MODE_CONFIG[modeKey] || PKL_TEAM_MODE_CONFIG.squad10;
+    return PKL_TEAM_MODE_CONFIG[modeKey] || PKL_TEAM_MODE_CONFIG.squad20;
   }
 
   function ensureTeamModeState(modeKey){
-    const cfg = getTeamModeConfig(modeKey || state.teamMode || 'squad10');
+    const cfg = getTeamModeConfig(modeKey || state.teamMode || 'squad20');
     state.teamMode = cfg.key;
 
     if(!Array.isArray(state.teams)) state.teams = [];
@@ -99,7 +100,7 @@
     if(teamModeSelect && teamModeSelect.value !== cfg.key) teamModeSelect.value = cfg.key;
     if(teamBoardModeText) teamBoardModeText.textContent = cfg.label;
     if(builderLayout){
-      builderLayout.classList.remove('pkl-mode-10','pkl-mode-20','pkl-mode-duo','pkl-mode-squad');
+      builderLayout.classList.remove('pkl-mode-10','pkl-mode-20','pkl-mode-duo','pkl-mode-squad','pkl-mode-partner');
       cfg.modeClass.split(/\s+/).forEach(cls => cls && builderLayout.classList.add(cls));
     }
 
@@ -149,7 +150,12 @@
   const rerollModeTrigger = document.getElementById('rerollModeTrigger');
   const rerollModeText = document.getElementById('rerollModeText');
   const rerollModeList = document.getElementById('rerollModeList');
-  const rerollModeOptions = Array.from(document.querySelectorAll('.pkl-custom-select-option'));
+  const rerollModeOptions = Array.from((rerollModeList || document).querySelectorAll('.pkl-custom-select-option'));
+  const teamModeDropdown = document.getElementById('teamModeDropdown');
+  const teamModeTrigger = document.getElementById('teamModeTrigger');
+  const teamModeText = document.getElementById('teamModeText');
+  const teamModeList = document.getElementById('teamModeList');
+  const teamModeOptions = Array.from((teamModeList || document).querySelectorAll('.pkl-mode-custom-option'));
   const rerollModeSelect = {
     get value() {
       return rerollModeDropdown ? rerollModeDropdown.dataset.value || 'selected' : 'selected';
@@ -162,10 +168,12 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
+    ensureTeamModeState(state.teamMode || 'squad20');
     fillTierSelect();
     bindControls();
     bindNewPlayerTierDropdown();
     bindRerollModeDropdown();
+    bindTeamModeDropdown();
     fillMatchTimeSelects();
     syncJoinWaitListIntoTeamBoard(true);
     syncPlayersWithUserSources();
@@ -272,7 +280,7 @@ if (rerollListModal) {
   }
 
   function renderTeams() {
-    ensureTeamModeState(state.teamMode || 'squad10');
+    ensureTeamModeState(state.teamMode || 'squad20');
     teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
       const slots = team.slots.map((playerId, slotIndex) => `
         <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
@@ -1191,6 +1199,60 @@ const teamIndex = Number(slot.dataset.teamIndex);
       selectSlotLine(slotIndex);
       rerollSelectedSlots();
     }
+  }
+
+
+  function bindTeamModeDropdown() {
+    if (!teamModeDropdown || !teamModeTrigger || !teamModeList) return;
+
+    teamModeTrigger.addEventListener('click', () => {
+      const isOpen = teamModeDropdown.classList.toggle('is-open');
+      teamModeTrigger.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    teamModeOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        setTeamModeDropdownValue(option.dataset.value || 'squad20', true);
+        closeTeamModeDropdown();
+      });
+    });
+
+    document.addEventListener('click', event => {
+      if (!teamModeDropdown.contains(event.target)) closeTeamModeDropdown();
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeTeamModeDropdown();
+    });
+
+    teamModeOptions.forEach(item => {
+      item.classList.remove('is-active');
+      item.setAttribute('aria-selected', 'false');
+    });
+  }
+
+  function closeTeamModeDropdown() {
+    if (!teamModeDropdown || !teamModeTrigger) return;
+    teamModeDropdown.classList.remove('is-open');
+    teamModeTrigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function setTeamModeDropdownValue(value, shouldApply) {
+    if (!teamModeDropdown) return;
+    const option = teamModeOptions.find(item => item.dataset.value === value);
+    if (!option) return;
+
+    teamModeDropdown.dataset.value = value;
+    if (teamModeText) teamModeText.textContent = option.textContent.trim();
+
+    teamModeOptions.forEach(item => {
+      const isActive = item.dataset.value === value;
+      item.classList.toggle('is-active', isActive);
+      item.setAttribute('aria-selected', String(isActive));
+    });
+
+    if (teamModeSelect) teamModeSelect.value = value;
+    if (shouldApply) changeTeamMode(value);
   }
 
   function bindRerollModeDropdown() {
