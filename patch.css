@@ -1070,3 +1070,22 @@ html,body{
     font-size:10.5px !important;
   }
 }
+
+/* PKL editor scroll fix: keep textarea independently scrollable, no parent scroll hijack */
+#patchInputItems{
+  display:block !important;
+  height:300px !important;
+  min-height:300px !important;
+  max-height:300px !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  overscroll-behavior:contain !important;
+  touch-action:pan-y !important;
+  white-space:pre-wrap !important;
+  resize:none !important;
+}
+.pkl-patch-modal-card{
+  max-height:calc(100vh - 56px) !important;
+  overflow-y:auto !important;
+  overscroll-behavior:contain !important;
+}
