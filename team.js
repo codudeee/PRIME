@@ -54,6 +54,51 @@
   let matchTimeSettingsConfirmed = Boolean(String(state.matchStartTime || '').trim() && String(state.matchEndTime || '').trim());
           document.body.classList.remove('is-rerolling-locked');
 
+
+  function pklTeamReadJson(key, fallback) {
+    try { const raw = localStorage.getItem(key) || sessionStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; }
+  }
+
+  function pklTeamNorm(v) { return String(v == null ? '' : v).trim().replace(/\s+/g, '').toLowerCase(); }
+
+  function pklTeamUserTokens(user) {
+    user = user && typeof user === 'object' ? user : {};
+    return [user.discord_id,user.discordId,user.uid,user.id,user.userId,user.memberId,user.key,user.pubgId,user.gameId,user.ref,user.nickname,user.nick,user.name,user.displayName]
+      .map(pklTeamNorm).filter(Boolean);
+  }
+
+  function pklTeamSameUser(a, b) {
+    const aa = pklTeamUserTokens(a), bb = pklTeamUserTokens(b);
+    return !!(aa.length && bb.length && aa.some(x => bb.includes(x)));
+  }
+
+  function pklTeamCurrentUser() {
+    return pklTeamReadJson('pklLoginUser', null) || pklTeamReadJson('PKL_CURRENT_USER', null) || pklTeamReadJson('pklCurrentUser', null) || {};
+  }
+
+  function pklTeamCurrentIsInJoinWaitList() {
+    const me = pklTeamCurrentUser();
+    const list = pklTeamReadJson(JOIN_WAITLIST_STORAGE_KEY, []);
+    return Array.isArray(list) && list.some(item => pklTeamSameUser(me, item));
+  }
+
+  function pklTeamCanViewBoard() {
+    return pklTeamCanEdit() || pklTeamCurrentIsInJoinWaitList();
+  }
+
+  function pklTeamPrivateBoardHtml(type) {
+    const title = type === 'team' ? '팀구성 미리보기 비공개' : '참여자 대기칸 비공개';
+    return `<div class="team-private-placeholder"><strong>${title}</strong><span>참여대기 후 확인할 수 있습니다.</span></div>`;
+  }
+
+  function pklTeamEnsurePrivacyStyle() {
+    if (document.getElementById('pkl-team-preview-privacy-style')) return;
+    const style = document.createElement('style');
+    style.id = 'pkl-team-preview-privacy-style';
+    style.textContent = `.team-private-placeholder{min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:1px dashed rgba(216,180,254,.26);border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012)),rgba(8,6,18,.78);color:rgba(235,222,255,.74);text-align:center;font-weight:900}.team-private-placeholder strong{color:#fff;font-size:20px;font-weight:1000}.team-private-placeholder span{color:rgba(201,168,255,.68);font-size:13px;font-weight:850}`;
+    document.head.appendChild(style);
+  }
+
   const tierPools = document.getElementById('tierPools');
   const teamGrid = document.getElementById('teamGrid');
   const boardSummary = document.getElementById('boardSummary');
@@ -187,6 +232,11 @@ if (rerollListModal) {
   }
 
   function renderTierPools() {
+    pklTeamEnsurePrivacyStyle();
+    if (!pklTeamCanViewBoard()) {
+      if (tierPools) tierPools.innerHTML = pklTeamPrivateBoardHtml('waiting');
+      return;
+    }
     tierPools.innerHTML = TIERS.map(tier => {
       const players = state.waiting[tier.id].map(playerId => renderPlayerCard(playerId)).join('');
       return `
@@ -207,6 +257,11 @@ if (rerollListModal) {
   }
 
   function renderTeams() {
+    pklTeamEnsurePrivacyStyle();
+    if (!pklTeamCanViewBoard()) {
+      if (teamGrid) teamGrid.innerHTML = pklTeamPrivateBoardHtml('team');
+      return;
+    }
     teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
       const slots = team.slots.map((playerId, slotIndex) => `
         <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
@@ -652,6 +707,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function syncJoinWaitListIntoTeamBoard(forceLoad) {
+    if (!pklTeamCanViewBoard()) return;
     if (!forceLoad && isJoinRecruitClosed()) return;
     const joinList = readJoinWaitList().filter(item => {
       const adminUser = findAdminUserForJoinItem(item);

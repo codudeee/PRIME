@@ -27,5 +27,5 @@
   if(!Storage.prototype.__pklJoinRealtimePatched){Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();queueSave(String(k)===RECRUIT_KEY?350:500);emit(stateFromLocal());}}catch(e){}return ret;};Storage.prototype.__pklJoinRealtimePatched=true;}
   try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();queueSave(500);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
   window.addEventListener('storage',function(e){if(e&&KEYS[String(e.key)])emit(stateFromLocal());});
-  window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,queueSave:queueSave,state:stateFromLocal,apply:applyState,refresh:poll}; start();
+  window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,queueSave:queueSave,state:stateFromLocal,apply:applyState,fetchNow:poll}; start();
 })();
