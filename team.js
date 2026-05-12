@@ -181,11 +181,17 @@
     bindUserSyncEvents();
     startClock();
 
-    loadSupabaseUsersForJoinWaitListOnce().finally(() => {
-      syncJoinWaitListIntoTeamBoard(true);
-      syncPlayersWithUserSources();
-      render();
-      refreshJoinWaitListFromSupabaseOnce();
+    const supabaseReady = (window.PKLGetSupabaseConfig && typeof window.PKLGetSupabaseConfig === 'function')
+      ? window.PKLGetSupabaseConfig().catch(() => window.PKL_SUPABASE_CONFIG || null)
+      : Promise.resolve(window.PKL_SUPABASE_CONFIG || null);
+
+    supabaseReady.finally(() => {
+      loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
+        syncJoinWaitListIntoTeamBoard(true);
+        syncPlayersWithUserSources();
+        render();
+        refreshJoinWaitListFromSupabaseOnce();
+      });
     });
   }
 
@@ -760,8 +766,17 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function getSupabaseRestConfig() {
     const cfg = window.PKL_SUPABASE_CONFIG || {};
-    const url = String(cfg.url || '').replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
-    const key = String(cfg.anonKey || cfg.anon_key || '');
+    const readLocal = key => {
+      try { return localStorage.getItem(key) || ''; } catch (error) { return ''; }
+    };
+    const url = String(
+      cfg.url || cfg.supabaseUrl || cfg.SUPABASE_URL ||
+      readLocal('SUPABASE_URL') || readLocal('PKL_SUPABASE_URL') || ''
+    ).replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
+    const key = String(
+      cfg.anonKey || cfg.anon_key || cfg.supabaseAnonKey || cfg.SUPABASE_ANON_KEY ||
+      readLocal('SUPABASE_ANON_KEY') || readLocal('PKL_SUPABASE_ANON_KEY') || ''
+    );
     return { url, key };
   }
 
@@ -1034,8 +1049,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
       user.memberGrade,
       user.grade,
       user.dataTierRole,
-      user.dataTier,
-      user.title
+      user.dataTier
     ];
   }
 
