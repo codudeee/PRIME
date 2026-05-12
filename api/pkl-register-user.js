@@ -73,6 +73,7 @@ async function handler(req,res){
     const discordUser=body.discordUser||{};
     const nickname=normalizeNickname(body.nickname);
     const pubgId=normalizePubgId(body.pubgId);
+    const recommender=normalizeNickname(body.recommender || body.referrer || body.recommend || "");
 
     let serverUsers=[];
     try{
@@ -153,6 +154,18 @@ async function handler(req,res){
       user.operator=false;
     }
     const savedUser = supabaseStore.writeUserDoc ? await supabaseStore.writeUserDoc(user) : user;
+
+    if(!existing && recommender){
+      const recommenderUser = allUsers.find(u => normalizeNickname(u.nickname||u.nick||u.name||u.displayName) === recommender || normalizePubgId(u.pubgId||u.gameId||u.ref) === recommender);
+      if(recommenderUser && supabaseStore.adjustUserPrime){
+        await supabaseStore.adjustUserPrime(
+          recommenderUser,
+          2000,
+          `${nickname}님이 추천인으로 가입했습니다.`,
+          '추천인 보상'
+        );
+      }
+    }
     const savedUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(allUsers, [savedUser]) : allUsers.concat([savedUser]);
 
     return res.status(200).json({

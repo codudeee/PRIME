@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<title>PKL 회원가입</title>
+<title>PKL 로그인</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
 *{box-sizing:border-box}
@@ -12,22 +12,21 @@ button,input{font-family:inherit}
 
 body{
   min-height:100vh;
-  overflow-x:hidden;
-  overflow-y:auto;
+  overflow:hidden;
 }
 
-.join-page{
+.login-page{
   position:relative;
   width:100%;
   min-height:100vh;
   isolation:isolate;
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   justify-content:center;
-  padding:120px 24px 80px;
+  padding:120px 24px 54px;
 }
 
-.join-page::before{
+.login-page::before{
   content:"";
   position:fixed;
   inset:0;
@@ -36,23 +35,23 @@ body{
   transform:scale(1.01);
 }
 
-.join-page::after{
+.login-page::after{
   content:"";
   position:fixed;
   inset:0;
   background:
-    radial-gradient(circle at 50% 52%,rgba(168,85,247,.14),transparent 29%),
-    linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.15) 38%,rgba(0,0,0,.60));
+    radial-gradient(circle at 50% 52%,rgba(168,85,247,.12),transparent 28%),
+    linear-gradient(180deg,rgba(0,0,0,.06),rgba(0,0,0,.14) 38%,rgba(0,0,0,.58));
   z-index:-2;
 }
 
-.join-shell{
-  width:min(560px,92vw);
-  margin-top:150px;
+.login-shell{
+  width:min(520px,92vw);
+  margin-top:184px;
   position:relative;
 }
 
-.join-shell::before{
+.login-shell::before{
   content:"";
   position:absolute;
   left:50%;
@@ -64,13 +63,13 @@ body{
   box-shadow:0 0 18px rgba(168,85,247,.9),0 0 42px rgba(168,85,247,.42);
 }
 
-.join-card{
+.login-card{
   position:relative;
   overflow:hidden;
   border-radius:12px;
   border:1px solid rgba(210,183,255,.34);
   background:
-    linear-gradient(180deg,rgba(9,9,18,.78),rgba(5,5,11,.88)),
+    linear-gradient(180deg,rgba(9,9,18,.78),rgba(5,5,11,.86)),
     rgba(8,7,15,.82);
   box-shadow:
     0 28px 80px rgba(0,0,0,.58),
@@ -78,10 +77,10 @@ body{
     inset 0 0 42px rgba(255,255,255,.025);
   backdrop-filter:blur(14px);
   -webkit-backdrop-filter:blur(14px);
-  padding:44px 52px 38px;
+  padding:46px 52px 40px;
 }
 
-.join-card::before{
+.login-card::before{
   content:"";
   position:absolute;
   inset:0;
@@ -91,7 +90,7 @@ body{
   pointer-events:none;
 }
 
-.join-card::after{
+.login-card::after{
   content:"";
   position:absolute;
   left:20%;
@@ -102,9 +101,9 @@ body{
   box-shadow:0 0 18px rgba(168,85,247,.8);
 }
 
-.join-title{
+.login-title{
   position:relative;
-  margin:0 0 10px;
+  margin:0 0 34px;
   text-align:center;
   font-size:34px;
   line-height:1;
@@ -114,71 +113,28 @@ body{
   text-shadow:0 0 16px rgba(168,85,247,.72),0 0 34px rgba(168,85,247,.24);
 }
 
-.join-sub{
-  margin:0 0 30px;
-  text-align:center;
-  font-size:13px;
-  font-weight:900;
-  letter-spacing:.6px;
-  color:rgba(233,213,255,.64);
+.login-title::before,
+.login-title::after{
+  content:"";
+  position:absolute;
+  top:50%;
+  width:84px;
+  height:1px;
+  background:linear-gradient(90deg,transparent,#7c3cff);
+  box-shadow:0 0 10px rgba(124,60,255,.72);
 }
-
-
-.join-rule-box{
-  position:relative;
-  margin:-12px 0 24px;
-  padding:14px 16px;
-  border-radius:7px;
-  border:1px solid rgba(168,85,247,.26);
-  background:rgba(4,4,10,.54);
-  color:rgba(255,255,255,.72);
-  font-size:12px;
-  line-height:1.68;
-  font-weight:900;
-  text-align:left;
-  word-break:keep-all;
-  box-shadow:inset 0 0 18px rgba(168,85,247,.035);
-}
+.login-title::before{right:calc(50% + 88px)}
+.login-title::after{left:calc(50% + 80px);transform:scaleX(-1)}
 
 .form{
   position:relative;
   display:grid;
-  gap:15px;
+  gap:18px;
 }
 
 .input-wrap{
   position:relative;
 }
-
-.nickname-wrap input{
-  padding-right:150px;
-}
-.input-hint{
-  position:absolute;
-  right:18px;
-  top:50%;
-  transform:translateY(-50%);
-  display:none;
-  color:#fca5a5;
-  font-size:12px;
-  font-weight:1000;
-  letter-spacing:-.2px;
-  text-align:right;
-  pointer-events:none;
-  text-shadow:0 0 12px rgba(239,68,68,.34);
-}
-
-.pubg-wrap input{
-  padding-right:260px;
-}
-.pubg-hint{
-  display:block;
-}
-
-.input-hint.show{
-  display:block;
-}
-
 
 .input-icon{
   position:absolute;
@@ -194,7 +150,7 @@ body{
 
 .input-wrap input{
   width:100%;
-  height:52px;
+  height:54px;
   border-radius:6px;
   border:1px solid rgba(196,181,253,.32);
   background:rgba(4,4,10,.64);
@@ -222,13 +178,13 @@ body{
     inset 0 0 18px rgba(168,85,247,.045);
 }
 
-.join-btn{
-  height:60px;
-  margin-top:8px;
+.login-btn{
+  height:62px;
+  margin-top:10px;
   border-radius:7px;
   border:1px solid rgba(208,178,255,.58);
   background:
-    linear-gradient(180deg,rgba(126,68,255,.34),rgba(66,31,132,.36)),
+    linear-gradient(180deg,rgba(126,68,255,.32),rgba(66,31,132,.34)),
     rgba(10,7,20,.72);
   color:#fff;
   font-size:18px;
@@ -241,7 +197,7 @@ body{
   transition:.18s;
 }
 
-.join-btn:hover{
+.login-btn:hover{
   transform:translateY(-2px);
   border-color:rgba(233,213,255,.88);
   box-shadow:
@@ -250,24 +206,11 @@ body{
     inset 0 0 26px rgba(168,85,247,.18);
 }
 
-.notice{
-  margin:16px 0 0;
-  padding:13px 15px;
-  border:1px solid rgba(168,85,247,.22);
-  border-radius:7px;
-  background:rgba(168,85,247,.055);
-  color:rgba(255,255,255,.62);
-  font-size:12px;
-  line-height:1.6;
-  font-weight:800;
-  word-break:keep-all;
-}
-
 .divider{
   display:flex;
   align-items:center;
   gap:18px;
-  margin:18px 0 4px;
+  margin:20px 0 4px;
   color:rgba(255,255,255,.62);
   font-size:13px;
   font-weight:1000;
@@ -283,7 +226,7 @@ body{
 }
 .divider::after{transform:scaleX(-1)}
 
-.join-links{
+.login-links{
   display:grid;
   grid-template-columns:1fr 1px 1fr;
   align-items:center;
@@ -291,7 +234,7 @@ body{
   margin-top:8px;
 }
 
-.join-links::before{
+.login-links::before{
   content:"";
   width:1px;
   height:30px;
@@ -300,7 +243,8 @@ body{
   grid-row:1;
 }
 
-.join-links a{
+.login-links a{
+  font-size:14px;
   height:42px;
   display:flex;
   align-items:center;
@@ -312,13 +256,13 @@ body{
   transition:.18s;
 }
 
-.join-links a:hover{
+.login-links a:hover{
   color:#fff;
   text-shadow:0 0 14px rgba(168,85,247,.82);
 }
 
-.join-links a:first-child{grid-column:1}
-.join-links a:last-child{grid-column:3}
+.login-links a:first-child{grid-column:1}
+.login-links a:last-child{grid-column:3}
 
 
 .back-home{
@@ -364,29 +308,21 @@ body{
   text-align:center;
 }
 
-.success-msg{
-  min-height:18px;
-  margin:2px 0 0;
-  color:#c4b5fd;
-  font-size:13px;
-  font-weight:900;
-  text-align:center;
-}
-
-@media (max-height:900px){
-  body{overflow:auto}
-  .join-page{padding-top:86px;padding-bottom:80px}
-  .join-shell{margin-top:118px}
-  .join-card{padding:36px 46px 32px}
-  .input-wrap input{height:48px}
+@media (max-height:840px){
+  .login-page{padding-top:88px}
+  .login-shell{margin-top:132px}
+  .login-card{padding:38px 46px 34px}
 }
 
 @media (max-width:700px){
   body{overflow:auto}
-  .join-page{padding:86px 16px 36px}
-  .join-shell{margin-top:120px}
-  .join-card{padding:34px 24px 30px}
-  .join-title{font-size:28px;letter-spacing:6px}
+  .login-page{padding:86px 16px 36px}
+  .login-shell{margin-top:120px}
+  .login-card{padding:36px 24px 30px}
+  .login-title{font-size:28px;letter-spacing:6px}
+  .login-title::before,.login-title::after{width:46px}
+  .login-title::before{right:calc(50% + 72px)}
+  .login-title::after{left:calc(50% + 66px)}
   
 .back-home{
   position:fixed;
@@ -415,40 +351,20 @@ body{
     inset 0 0 18px rgba(255,255,255,.06);
 }
 
-  .join-links{gap:14px}
 }
 
-.discord-btn{
-  height:64px;
-  width:100%;
-  border-radius:8px;
-  border:1px solid rgba(196,181,253,.55);
-  background:linear-gradient(180deg,rgba(88,101,242,.42),rgba(28,26,56,.76));
-  color:#fff;
-  font-size:18px;
-  font-weight:1000;
-  letter-spacing:.4px;
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-  box-shadow:0 0 26px rgba(88,101,242,.32), inset 0 0 24px rgba(168,85,247,.10);
-  transition:.18s;
+/* PKL 로그인 전 드롭다운 노출 방지 */
+body.pkl-logged-out .tier-account-menu,
+body.pkl-logged-out .account-menu,
+body.pkl-logged-out .my-menu,
+body.pkl-logged-out .user-dropdown,
+body.pkl-logged-out .profile-dropdown{
+  display:none !important;
+  opacity:0 !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
 }
-.discord-btn:hover{
-  transform:translateY(-2px);
-  border-color:rgba(233,213,255,.9);
-  box-shadow:0 0 34px rgba(88,101,242,.48),0 14px 34px rgba(0,0,0,.28),inset 0 0 26px rgba(168,85,247,.18);
-}
-.discord-note{
-  margin:16px 0 0;
-  text-align:center;
-  color:rgba(233,213,255,.7);
-  font-size:13px;
-  font-weight:900;
-  line-height:1.7;
-}
+
 </style>
 
 <style>
@@ -632,6 +548,10 @@ font-weight:700;
   transform:translateY(-1px) !important;
   transition:filter .15s ease, transform .15s ease, box-shadow .15s ease !important;
 }
+
+/* 로그인 버튼 클릭 복구: 오버레이/잠금 코드가 버튼 이벤트를 가로채지 못하게 함 */
+.form,.login-btn,#loginSubmitBtn{pointer-events:auto !important;}
+.login-card::before,.login-card::after,.login-page::before,.login-page::after{pointer-events:none !important;}
 </style>
 
 
@@ -649,6 +569,38 @@ font-weight:700;
 [data-pkl-role="operator"]{
   border:2px solid rgba(255,255,255,.9) !important;
 }
+
+.discord-btn{
+  height:64px;
+  width:100%;
+  border-radius:8px;
+  border:1px solid rgba(196,181,253,.55);
+  background:linear-gradient(180deg,rgba(88,101,242,.42),rgba(28,26,56,.76));
+  color:#fff;
+  font-size:18px;
+  font-weight:1000;
+  letter-spacing:.4px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  box-shadow:0 0 26px rgba(88,101,242,.32), inset 0 0 24px rgba(168,85,247,.10);
+  transition:.18s;
+}
+.discord-btn:hover{
+  transform:translateY(-2px);
+  border-color:rgba(233,213,255,.9);
+  box-shadow:0 0 34px rgba(88,101,242,.48),0 14px 34px rgba(0,0,0,.28),inset 0 0 26px rgba(168,85,247,.18);
+}
+.discord-note{
+  margin:16px 0 0;
+  text-align:center;
+  color:rgba(233,213,255,.7);
+  font-size:13px;
+  font-weight:900;
+  line-height:1.7;
+}
 </style>
 
 
@@ -656,29 +608,33 @@ font-weight:700;
 <script src="pkl-role-system.js"></script>
 <script src="pkl-common-role-badge.js"></script>
 <script src="pkl-common-tier-badge.js"></script>
+
+<style id="pklReferralFieldStyle">
+.pkl-referral-row{margin-top:12px;display:grid;grid-template-columns:1fr auto;gap:8px}
+.pkl-referral-input{height:42px;border-radius:12px;border:1px solid rgba(216,180,254,.28);background:rgba(0,0,0,.28);color:#fff;padding:0 12px;font-weight:900}
+.pkl-referral-check{border-radius:12px;border:1px solid rgba(250,204,21,.38);background:rgba(250,204,21,.14);color:#fff;font-weight:1000;padding:0 12px;cursor:pointer}
+.pkl-referral-msg{grid-column:1/-1;min-height:17px;font-size:12px;color:#c4b5fd;font-weight:900}
+</style>
 </head>
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
 
-<main class="join-page">
-  <section class="join-shell" aria-label="PKL Discord 가입">
-    <div class="join-card">
-      <h1 class="join-title">JOIN</h1>
-      <p class="join-sub">PRIME KILL LEAGUE DISCORD AUTH</p>
-      <div class="join-rule-box">
-        기존 아이디/비밀번호 회원가입은 사용하지 않습니다.<br>
-        Discord 계정 인증 한 번으로 PKL 계정이 자동 생성됩니다.<br>
-        최초 Discord 로그인 시 한글 닉네임 설정 후 일반 회원으로 등록됩니다.
-      </div>
+<main class="login-page">
+  <section class="login-shell" aria-label="PKL Discord 로그인">
+    <div class="login-card">
+      <h1 class="login-title">LOGIN</h1>
       <div class="form">
-        <button class="discord-btn" type="button" onclick="location.href='/api/discord-login'">
-          Discord로 가입 / 로그인
+        <button id="discordLoginBtn" class="discord-btn" type="button" onclick="location.href='/api/discord-login'">
+          Discord로 계속하기
         </button>
-        <p class="success-msg">Discord 인증 후 자동으로 메인 화면으로 이동합니다.</p>
+        <p class="discord-note">
+          별도 회원가입 없이 Discord 계정으로 바로 입장합니다.<br>
+          최초 Discord 로그인 시 한글 닉네임 설정 후 일반 회원으로 등록됩니다.
+        </p>
       </div>
       <div class="divider">PKL AUTH</div>
-      <div class="join-links">
-        <a href="login.html">로그인 화면</a>
+      <div class="login-links">
+        <a href="index.html">메인으로</a>
         <a href="contact.html">관리자문의</a>
       </div>
     </div>
@@ -686,22 +642,39 @@ font-weight:700;
 </main>
 
 <script>
-function checkAdminAccess(role){
-  if(role !== '관리자' && role !== '운영자'){
-    var modal=document.getElementById('authBlockModal');
-    if(modal) modal.style.display='flex';
-    return false;
+(function(){
+  var LOGIN_KEYS=["discordUser","pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"];
+  var LOGOUT_KEY="pklManualLogout";
+  function readPersistedUser(){
+    try{ if(localStorage.getItem(LOGOUT_KEY)==="1") return null; }catch(e){}
+    for(var i=0;i<LOGIN_KEYS.length;i++){
+      try{
+        var raw=localStorage.getItem(LOGIN_KEYS[i]) || sessionStorage.getItem(LOGIN_KEYS[i]);
+        if(!raw) continue;
+        var user=JSON.parse(raw);
+        if(user && typeof user==="object"){
+          return user;
+        }
+      }catch(e){}
+    }
+    return null;
   }
-  return true;
-}
+  function syncPklLoginDropdownState(){
+    var user=readPersistedUser();
+    if(user){ location.replace("index.html"); return; }
+    if(document.body){
+      document.body.classList.toggle("pkl-logged-in", !!user);
+      document.body.classList.toggle("pkl-logged-out", !user);
+    }
+  }
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded", syncPklLoginDropdownState);
+  }else{
+    syncPklLoginDropdownState();
+  }
+  window.addEventListener("storage", syncPklLoginDropdownState);
+})();
 </script>
-<div id="authBlockModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
-  <div style="position:relative; width:320px; background:#111; border:1px solid #6a00ff; box-shadow:0 0 20px #6a00ff; border-radius:8px; padding:20px; text-align:center; color:#fff;">
-    <div onclick="document.getElementById('authBlockModal').style.display='none'" style="position:absolute; top:10px; right:10px; cursor:pointer;">✕</div>
-    관리자,운영자 외 열람할 수 없습니다.
-  </div>
-</div>
-
 
 <!-- PKL global stacked modal layer manager -->
 <style id="pkl-global-stacked-modal-layer-style">
@@ -795,10 +768,63 @@ function checkAdminAccess(role){
   function boot(){
     try{mo.observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','aria-hidden']});}catch(e){}
     scan();
+    /* 반복 스캔 제거: MutationObserver/click 시점에만 정렬 */
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
 </script>
 
+
+<script id="pklReferralFieldLogic">
+(function(){
+  let referralOk=false;
+  function findRegisterBody(){
+    const nick=document.querySelector('#nicknameInput,#registerNickname,#pklNicknameInput,input[name="nickname"]');
+    const pubg=document.querySelector('#pubgInput,#registerPubgId,#pklPubgInput,input[name="pubgId"]');
+    if(!nick||!pubg)return null;
+    return pubg.closest('form,.modal,.login-card,.join-card,body');
+  }
+  function install(){
+    const body=findRegisterBody();
+    if(!body||document.getElementById('pklReferralInput'))return;
+    const pubg=document.querySelector('#pubgInput,#registerPubgId,#pklPubgInput,input[name="pubgId"]');
+    const row=document.createElement('div');
+    row.className='pkl-referral-row';
+    row.innerHTML='<input id="pklReferralInput" class="pkl-referral-input" type="text" placeholder="추천인 닉네임 또는 배그 ID"><button id="pklReferralCheckBtn" class="pkl-referral-check" type="button">추천인확인</button><div id="pklReferralMsg" class="pkl-referral-msg"></div>';
+    pubg.closest('.profile-field,.field,.form-row,div')?.after(row);
+    document.getElementById('pklReferralCheckBtn').onclick=checkReferral;
+  }
+  async function checkReferral(){
+    const input=document.getElementById('pklReferralInput');
+    const msg=document.getElementById('pklReferralMsg');
+    const q=String(input&&input.value||'').trim();
+    referralOk=false;
+    if(!q){if(msg)msg.textContent='추천인을 입력해주세요.';return;}
+    try{
+      const res=await fetch('/api/pkl-users?limit=500&q='+encodeURIComponent(q)+'&_='+Date.now(),{headers:{'Cache-Control':'no-store'}});
+      const data=await res.json().catch(()=>null);
+      const rows=(Array.isArray(data)?data:(data&&Array.isArray(data.users)?data.users:(data&&Array.isArray(data.rows)?data.rows:[])))||[];
+      const found=rows.find(u=>String(u.nickname||u.name||'').trim()===q || String(u.pubg_id||u.pubgId||u.gameId||'').trim()===q);
+      if(found){referralOk=true;if(msg){msg.style.color='#86efac';msg.textContent='확인되었습니다. 가입 시 추천인에게 2,000 프라임이 지급됩니다.';}}
+      else{if(msg){msg.style.color='#fca5a5';msg.textContent='존재하지 않는 추천인입니다.';}}
+    }catch(e){if(msg){msg.style.color='#fca5a5';msg.textContent='추천인 확인 실패';}}
+  }
+  const oldFetch=window.fetch;
+  window.fetch=function(input,init){
+    try{
+      const url=String(typeof input==='string'?input:(input&&input.url)||'');
+      if(url.includes('/api/pkl-register-user')&&init&&init.body){
+        const body=JSON.parse(init.body);
+        const ref=document.getElementById('pklReferralInput');
+        if(ref&&ref.value&&referralOk) body.recommender=ref.value.trim();
+        init={...init,body:JSON.stringify(body)};
+      }
+    }catch(e){}
+    return oldFetch.call(this,input,init);
+  };
+  document.addEventListener('DOMContentLoaded',install);
+  setTimeout(install,500);
+})();
+</script>
 </body>
 </html>

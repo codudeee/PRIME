@@ -1381,6 +1381,26 @@ async function withdrawAccount(){
 </script>
 <script src="pkl-supabase-sync.js"></script>
 <script src="pkl-user-profile-core.js"></script>
+
+<style id="pklPrimeTransferStyle">
+.prime-transfer-btn{margin-top:10px;height:34px;border:1px solid rgba(250,204,21,.45);border-radius:999px;background:linear-gradient(135deg,rgba(250,204,21,.22),rgba(124,58,237,.26));color:#fff;font-weight:1000;cursor:pointer}
+.prime-transfer-modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.62);z-index:99999}
+.prime-transfer-modal.open{display:grid}
+.prime-transfer-card{width:min(460px,calc(100vw - 32px));border:1px solid rgba(216,180,254,.35);border-radius:22px;background:linear-gradient(180deg,rgba(20,12,38,.98),rgba(6,6,14,.98));box-shadow:0 30px 90px rgba(0,0,0,.62),0 0 36px rgba(168,85,247,.22);padding:24px;position:relative;color:#fff}
+.prime-transfer-close{position:absolute;right:14px;top:14px;width:34px;height:34px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;font-size:20px;cursor:pointer}
+.prime-transfer-kicker{font-size:11px;letter-spacing:2.4px;color:#facc15;font-weight:1000}
+.prime-transfer-card h2{margin:6px 0 8px;font-size:24px}
+.prime-transfer-guide{color:#c4b5fd;font-size:13px;line-height:1.55}
+.prime-transfer-label{display:block;margin-top:14px;margin-bottom:7px;font-size:12px;font-weight:1000;color:#d8b4fe}
+.prime-transfer-input{width:100%;height:44px;border-radius:13px;border:1px solid rgba(216,180,254,.26);background:rgba(0,0,0,.28);color:#fff;padding:0 12px;font-weight:900;box-sizing:border-box}
+.prime-transfer-suggest{display:grid;gap:6px;margin-top:8px;max-height:150px;overflow:auto}
+.prime-transfer-user{border:1px solid rgba(216,180,254,.18);border-radius:12px;background:rgba(255,255,255,.05);color:#fff;padding:9px 11px;text-align:left;cursor:pointer;font-weight:900}
+.prime-transfer-user.is-selected{border-color:rgba(250,204,21,.55);box-shadow:0 0 18px rgba(250,204,21,.12)}
+.prime-transfer-fee{margin-top:9px;color:#facc15;font-size:12px;font-weight:900}
+.prime-transfer-msg{min-height:18px;color:#fca5a5;font-size:12px;font-weight:900}
+.prime-transfer-submit{width:100%;height:46px;border:0;border-radius:15px;background:linear-gradient(135deg,rgba(250,204,21,.82),rgba(168,85,247,.74));color:#fff;font-weight:1000;cursor:pointer}
+</style>
+
 </head>
 <body>
 <button class="back-home" type="button" onclick="history.back()">← 뒤로가기</button>
@@ -1400,6 +1420,7 @@ async function withdrawAccount(){
                 <div class="prime-value" id="primeValue">0</div>
               </div>
               <div class="prime-unit">보유 프라임</div>
+              <button class="prime-transfer-btn" type="button" onclick="openPrimeTransferModal()">프라임 송금</button>
             </div>
           </div>
 
@@ -2137,6 +2158,101 @@ async function withdrawAccount(){
   };
 })();
 </script>
+
+<div class="prime-transfer-modal" id="primeTransferModal" aria-hidden="true">
+  <div class="prime-transfer-card">
+    <button class="prime-transfer-close" type="button" onclick="closePrimeTransferModal()">×</button>
+    <div class="prime-transfer-kicker">PRIME TRANSFER</div>
+    <h2>프라임 송금</h2>
+    <p class="prime-transfer-guide">받는 유저를 검색하고 송금할 금액을 입력하세요. 송금 시 10% 수수료가 차감됩니다.</p>
+    <label class="prime-transfer-label">받는 유저</label>
+    <input id="primeTransferUserSearch" class="prime-transfer-input" type="text" placeholder="닉네임 또는 배그 ID 검색" autocomplete="off" />
+    <div id="primeTransferSuggest" class="prime-transfer-suggest"></div>
+    <label class="prime-transfer-label">보낼 금액</label>
+    <input id="primeTransferAmount" class="prime-transfer-input" type="number" min="1" step="1" placeholder="예: 1000" />
+    <div class="prime-transfer-fee" id="primeTransferFee">수수료 10%: 0 / 받는 금액: 0</div>
+    <p class="prime-transfer-msg" id="primeTransferMsg"></p>
+    <button class="prime-transfer-submit" type="button" onclick="submitPrimeTransfer()">송금하기</button>
+  </div>
+</div>
+
+
+<script id="pklPrimeTransferLogic">
+let primeTransferSelectedUser=null;
+let primeTransferUsers=[];
+function openPrimeTransferModal(){
+  const modal=document.getElementById('primeTransferModal');
+  if(modal){modal.classList.add('open');modal.setAttribute('aria-hidden','false');}
+  loadPrimeTransferUsers();
+}
+function closePrimeTransferModal(){
+  const modal=document.getElementById('primeTransferModal');
+  if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}
+}
+function getCurrentPrimeTransferUser(){
+  try{return JSON.parse(localStorage.getItem('pklLoginUser')||sessionStorage.getItem('pklLoginUser')||localStorage.getItem('discordUser')||'null')||{};}catch(e){return {};}
+}
+async function loadPrimeTransferUsers(){
+  try{
+    const res=await fetch('/api/pkl-users?limit=500&_='+Date.now(),{headers:{'Cache-Control':'no-store'}});
+    const data=await res.json().catch(()=>null);
+    primeTransferUsers=(Array.isArray(data)?data:(data&&Array.isArray(data.users)?data.users:(data&&Array.isArray(data.rows)?data.rows:[])))||[];
+  }catch(e){primeTransferUsers=[];}
+  renderPrimeTransferSuggest();
+}
+function userLabel(u){return (u.nickname||u.nick||u.name||u.discord_username||'')+' '+(u.pubg_id||u.pubgId||u.gameId||'');}
+function renderPrimeTransferSuggest(){
+  const box=document.getElementById('primeTransferSuggest');
+  const input=document.getElementById('primeTransferUserSearch');
+  if(!box||!input)return;
+  const q=String(input.value||'').trim().toLowerCase();
+  const me=getCurrentPrimeTransferUser();
+  const meId=String(me.discord_id||me.discordId||me.id||me.uid||'').replace(/^discord-/,'');
+  const list=primeTransferUsers.filter(u=>{
+    const did=String(u.discord_id||u.discordId||u.id||'').replace(/^discord-/,'');
+    if(meId&&did&&meId===did)return false;
+    return q && userLabel(u).toLowerCase().includes(q);
+  }).slice(0,8);
+  box.innerHTML=list.map((u,i)=>`<button type="button" class="prime-transfer-user ${primeTransferSelectedUser&&((primeTransferSelectedUser.discord_id||primeTransferSelectedUser.id)===(u.discord_id||u.id))?'is-selected':''}" data-i="${i}">${u.nickname||u.name||u.discord_username||'이름없음'} <span style="opacity:.65">${u.pubg_id||u.pubgId||''}</span></button>`).join('');
+  box.querySelectorAll('.prime-transfer-user').forEach(btn=>{
+    btn.onclick=function(){
+      primeTransferSelectedUser=list[Number(btn.dataset.i)];
+      input.value=userLabel(primeTransferSelectedUser).trim();
+      renderPrimeTransferSuggest();
+    };
+  });
+}
+function updatePrimeTransferFee(){
+  const amount=Number(document.getElementById('primeTransferAmount')?.value||0)||0;
+  const fee=Math.floor(amount*0.1);
+  const receive=Math.max(0,amount-fee);
+  const el=document.getElementById('primeTransferFee');
+  if(el)el.textContent=`수수료 10%: ${fee.toLocaleString()} / 받는 금액: ${receive.toLocaleString()}`;
+}
+document.addEventListener('input',function(e){
+  if(e.target&&e.target.id==='primeTransferUserSearch')renderPrimeTransferSuggest();
+  if(e.target&&e.target.id==='primeTransferAmount')updatePrimeTransferFee();
+});
+async function submitPrimeTransfer(){
+  const msg=document.getElementById('primeTransferMsg');
+  const amount=Number(document.getElementById('primeTransferAmount')?.value||0)||0;
+  if(msg)msg.textContent='';
+  if(!primeTransferSelectedUser){if(msg)msg.textContent='받는 유저를 선택해주세요.';return;}
+  if(!amount||amount<1){if(msg)msg.textContent='송금할 금액을 입력해주세요.';return;}
+  try{
+    const res=await fetch('/api/pkl-prime-transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:getCurrentPrimeTransferUser(),to:primeTransferSelectedUser,amount})});
+    const data=await res.json().catch(()=>null);
+    if(!res.ok||!data||data.ok===false)throw new Error((data&&data.message)||'송금 실패');
+    if(msg){msg.style.color='#86efac';msg.textContent='송금 완료';}
+    const primeValue=document.getElementById('primeValue');
+    if(primeValue&&data.senderPrime!=null)primeValue.textContent=Number(data.senderPrime).toLocaleString();
+    setTimeout(closePrimeTransferModal,650);
+  }catch(err){
+    if(msg){msg.style.color='#fca5a5';msg.textContent=err.message||String(err);}
+  }
+}
+</script>
+
 </body>
 </html>
 
