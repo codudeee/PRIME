@@ -165,7 +165,6 @@ async function writeUserDoc(user, forceAdmin=false){
     pubg_id: clean(u.pubgId || u.gameId || u.ref),
     tier: normalizeTier(u.memberTier != null ? u.memberTier : (u.gradeRole != null ? u.gradeRole : (u.tierRole != null ? u.tierRole : (u.tier != null ? u.tier : 'none')))),
     prime: Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0) || 0,
-    points: Number(u.points ?? u.prime ?? 0) || 0,
     warnings: Number(u.warnings ?? 0) || 0,
     role,
     raw: u,
@@ -211,7 +210,7 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   const delta = Number(amount) || 0;
   if(!delta) throw new Error('프라임 수량이 없습니다.');
   const row = await readUserRowByIdentity(identity);
-  const current = Number(row.prime ?? row.points ?? (row.raw && (row.raw.prime ?? row.raw.points ?? row.raw.dia ?? row.raw.chicken)) ?? 0) || 0;
+  const current = Number(row.prime ?? (row.raw && (row.raw.prime ?? row.raw.points ?? row.raw.dia ?? row.raw.chicken)) ?? 0) || 0;
   const next = Math.max(0, current + delta);
   const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
   const now = new Date().toISOString();
@@ -230,7 +229,7 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   raw.history.unshift(log);
   raw.memoList.unshift({ date: now, admin: clean(actor || 'SYSTEM'), text: `[${title}] ${abs} · ${reason || '사유 없음'}` });
   raw.mailbox.unshift({ type:'prime', title, message: mailText, amount: delta, before: current, after: next, reason: clean(reason), actor: clean(actor || 'SYSTEM'), created_at: now, read:false });
-  const body = { prime: next, points: next, raw, updated_at: now };
+  const body = { prime: next, raw, updated_at: now };
   async function patchUser(obj){
     const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
       method:'PATCH',
@@ -242,7 +241,7 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
   const json = await patchUser(body);
   await insertPointLogSafe({ user_id: row.id, discord_id: row.discord_id || null, amount: delta, reason: clean(reason), actor: clean(actor || 'SYSTEM') });
   await insertAdminLogSafe({ action, actor: clean(actor || 'SYSTEM'), target: row.nickname || row.pubg_id || row.discord_id || '', detail: { amount: delta, before: current, after: next, reason: clean(reason), mail: mailText, discord_id: row.discord_id || '', pubg_id: row.pubg_id || '' } });
-  const savedRow = Array.isArray(json) && json[0] ? json[0] : {...row, prime: next, points: next, raw};
+  const savedRow = Array.isArray(json) && json[0] ? json[0] : {...row, prime: next, raw};
   return { user: rowToUser(savedRow), before: current, after: next, amount: delta, mail: mailText };
 }
 
@@ -275,7 +274,6 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}){
     tier: normalizeTier(nextInput.memberTier != null ? nextInput.memberTier : (nextInput.gradeRole != null ? nextInput.gradeRole : (nextInput.tierRole != null ? nextInput.tierRole : (nextInput.tier != null ? nextInput.tier : (row.tier || 'none'))))),
     role: normalizeRole(nextInput.memberRole || nextInput.role || row.role || 'user'),
     prime: Number(nextInput.prime ?? nextInput.points ?? row.prime ?? 0) || 0,
-    points: Number(nextInput.points ?? nextInput.prime ?? row.points ?? row.prime ?? 0) || 0,
     warnings: Number(nextInput.warnings ?? row.warnings ?? 0) || 0,
     raw: mergedRaw,
     updated_at: now

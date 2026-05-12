@@ -8,7 +8,7 @@
     var style=document.createElement("style");
     style.id="pklGlobalModalStyle";
     style.textContent=`
-#pklGlobalModal{position:fixed;inset:0;z-index:999999;display:none;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 50% 0%,rgba(168,85,247,.18),transparent 38%),rgba(0,0,0,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#pklGlobalModal{position:fixed;inset:0;z-index:2147483600;display:none;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 50% 0%,rgba(168,85,247,.18),transparent 38%),rgba(0,0,0,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 #pklGlobalModal.open{display:flex}
 .pkl-global-modal-card{position:relative;width:min(440px,calc(100vw - 40px));border-radius:24px;border:1px solid rgba(216,180,254,.38);background:linear-gradient(145deg,rgba(255,255,255,.11),rgba(255,255,255,.035) 18%,transparent 34%),radial-gradient(circle at 50% 0%,rgba(168,85,247,.28),transparent 48%),linear-gradient(180deg,rgba(24,12,46,.96),rgba(7,7,17,.98));box-shadow:0 34px 110px rgba(0,0,0,.82),0 0 0 1px rgba(255,255,255,.07) inset,0 1px 0 rgba(255,255,255,.18) inset,0 -28px 70px rgba(88,28,135,.18) inset,0 0 44px rgba(168,85,247,.22);overflow:hidden;text-align:center;color:#fff;padding:26px 24px 22px}
 .pkl-global-modal-card:before{content:"";position:absolute;left:42px;right:42px;top:0;height:2px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.92),rgba(216,180,254,.94),rgba(168,85,247,.9),transparent);box-shadow:0 0 24px rgba(216,180,254,.48)}
