@@ -5229,6 +5229,11 @@ function safeJson(key, fallback){
     renderCancelList();
   }
 
+  window.PKLJoinRenderAll = renderAll;
+  window.addEventListener("pkl-join-state-updated", function(){
+    renderAll();
+  });
+
   function resetJoinPanel(){
     saveList(STORAGE_KEY, []);
     saveList(CANCEL_KEY, []);

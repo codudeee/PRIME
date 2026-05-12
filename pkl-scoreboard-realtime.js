@@ -258,3 +258,14 @@
   if(document.getElementById('recordBody')){ bindSheetPublisher(); startSheetMirror(); }
   if(document.getElementById('grid') && /pkl-scoreboard-live/i.test(location.pathname)) startViewer();
 })();
+
+
+// pklTeamModePassiveRealtime
+window.addEventListener('pkl-team-mode-changed', function(e){
+  var d = e.detail || {};
+  try{
+    document.documentElement.dataset.pklTeamMode = d.mode || '';
+    document.documentElement.dataset.pklTeamCount = String(d.teams || 10);
+    document.documentElement.dataset.pklTeamSlots = String(d.slots || 4);
+  }catch(error){}
+});

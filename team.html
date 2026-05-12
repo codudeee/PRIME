@@ -134,7 +134,7 @@
         <div class="board-title-row">
           <div>
             <h2>팀 박스</h2>
-            <p>1~5팀 / 6~10팀</p>
+            <p id="teamBoardModeText">10팀 스쿼드</p>
           </div>
         </div>
         <div id="teamGrid" class="team-grid"></div>
@@ -176,6 +176,15 @@
   <!-- 운영 -->
   <div class="control-section-box">
     <div class="section-title">운영</div>
+    <div class="team-mode-select-box">
+      <div class="section-title">모드선택</div>
+      <select id="pklTeamModeSelect" class="team-mode-select" aria-label="팀구성 모드선택">
+        <option value="squad10">10팀 스쿼드</option>
+        <option value="squad20">20팀 스쿼드</option>
+        <option value="duo10">10팀 듀오</option>
+        <option value="duo20">20팀 듀오</option>
+      </select>
+    </div>
     <button id="ruleButton" class="control-big-button" type="button" aria-disabled="true">룰 설정</button>
     <button id="loadWaitingButton" class="control-big-button" type="button">불러오기</button>
     <button id="resetButton" class="control-reset-button" type="button">초기화</button>

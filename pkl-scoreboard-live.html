@@ -30,6 +30,20 @@ body{display:inline-block;align-items:flex-start;justify-content:flex-start;padd
 /* 방송용 URL은 시트지 스코어보드와 같은 카드 크기를 유지하고, 팀 수만큼만 컨테이너가 줄어든다. */
 
 </style>
+
+<style id="pklTeamModePassiveStyle">
+:root[data-pkl-team-count="20"] .scoreboard-team-grid,
+:root[data-pkl-team-count="20"] .team-grid,
+:root[data-pkl-team-count="20"] #teamGrid{
+  grid-template-columns:repeat(10,minmax(0,1fr)) !important;
+}
+:root[data-pkl-team-count="10"] .scoreboard-team-grid,
+:root[data-pkl-team-count="10"] .team-grid,
+:root[data-pkl-team-count="10"] #teamGrid{
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+}
+</style>
+
 </head>
 <body>
 <div class="pkl-live-wrap" id="wrap">
@@ -135,6 +149,16 @@ body{display:inline-block;align-items:flex-start;justify-content:flex-start;padd
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
+</script>
+
+
+<script id="pklTeamModePassiveScript">
+window.addEventListener('pkl-team-mode-changed', function(e){
+  var d = e.detail || {};
+  document.documentElement.dataset.pklTeamMode = d.mode || '';
+  document.documentElement.dataset.pklTeamCount = String(d.teams || 10);
+  document.documentElement.dataset.pklTeamSlots = String(d.slots || 4);
+});
 </script>
 
 </body>
