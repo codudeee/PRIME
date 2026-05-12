@@ -5483,14 +5483,32 @@ function safeJson(key, fallback){
   window.PKLJoinRenderAll = renderAll;
   window.PKLJoinSyncActionButtons = syncJoinActionButtons;
   window.__PKL_JOIN_INITIAL_READY = false;
+  let __pklJoinRenderSignature = "";
+  function renderAllIfChanged(force){
+    let sig = "";
+    try{
+      sig = JSON.stringify({
+        wait: readActiveWaitList().map(function(v){return v.discordId||v.id||v.key||v.name||v.nickname||v.pubgId||"";}),
+        cancel: readList(CANCEL_KEY).map(function(v){return v.discordId||v.id||v.key||v.name||v.nickname||v.pubgId||"";}),
+        state: getRecruitStateForAction()
+      });
+    }catch(e){}
+    if(!force && sig && sig === __pklJoinRenderSignature){
+      syncJoinActionButtons();
+      return;
+    }
+    __pklJoinRenderSignature = sig;
+    renderAll();
+  }
   window.addEventListener("pkl-join-state-updated", function(event){
     const st = event && event.detail;
     const remoteState = st && st.recruitState && st.recruitState.state;
     if(!window.__PKL_JOIN_INITIAL_READY){
       /* 첫 진입 중 localStorage의 오래된 모집대기중 이벤트로 리스트를 먼저 그리지 않는다. */
-      if(remoteState === "waiting" || !remoteState) return;
+      if(remoteState === "waiting" || !remoteState || remoteState === "loading") return;
     }
-    renderAll();
+    if(document.body.classList.contains("pkl-recruit-loading") && remoteState === "waiting") return;
+    renderAllIfChanged(false);
   });
   seedJoinTierMap();
   fetchJoinTierMapOnce();
@@ -5939,7 +5957,7 @@ function safeJson(key, fallback){
   function finishInitialJoinRender(){
     window.__PKL_JOIN_INITIAL_READY = true;
     document.body.classList.remove("pkl-join-initializing");
-    renderAll();
+    renderAllIfChanged(true);
   }
 
   /* 첫 진입: 오래된 local 모집대기중/대기자 데이터를 먼저 렌더하지 않고 서버 상태 확인 후 1회 렌더 */
@@ -6371,8 +6389,22 @@ function safeJson(key, fallback){
 
   let joinStateBooting = true;
   let joinRemoteStateConfirmed = !!window.__PKL_JOIN_REMOTE_CONFIRMED;
+  let pendingWaitingTimer = null;
+  let lastAppliedRecruitState = "loading";
   window.__PKL_JOIN_REMOTE_CONFIRMED = joinRemoteStateConfirmed;
-  setTimeout(function(){ joinStateBooting = false; }, 4500);
+  setTimeout(function(){
+    joinStateBooting = false;
+    if(lastAppliedRecruitState === "loading"){
+      applyState("waiting", {allowWaiting:true});
+    }
+  }, 1800);
+
+  function clearPendingWaiting(){
+    if(pendingWaitingTimer){
+      clearTimeout(pendingWaitingTimer);
+      pendingWaitingTimer = null;
+    }
+  }
 
   function readLocalRecruitState(options){
     options = options || {};
@@ -6401,13 +6433,36 @@ function safeJson(key, fallback){
     return rawState === "open" ? "open" : (rawState === "closed" || rawState === "close" ? "closed" : (rawState === "waiting" ? "waiting" : "loading"));
   }
 
-  function applyState(rawState){
+  function applyState(rawState, options){
+    options = options || {};
     const statusEl = document.getElementById("joinStatus");
     const panel = document.querySelector(".join-modal-panel");
     let normalized = normalizeState(rawState);
-    if(normalized === "waiting" && !joinRemoteStateConfirmed && document.body.classList.contains("pkl-recruit-loading")){
+
+    /* 첫 진입 때 서버/로컬의 오래된 waiting 값이 먼저 보였다가 open으로 바뀌는 깜빡임 방지.
+       waiting은 짧게 보류하고, open/closed가 안 오면 그때만 표시한다. */
+    if(normalized === "waiting" && joinStateBooting && !options.allowWaiting){
+      if(lastAppliedRecruitState !== "waiting"){
+        applyState("loading", {internal:true});
+      }
+      clearPendingWaiting();
+      pendingWaitingTimer = setTimeout(function(){
+        joinStateBooting = false;
+        applyState("waiting", {allowWaiting:true});
+        if(window.PKLJoinRenderAll) window.PKLJoinRenderAll();
+      }, 900);
+      return;
+    }
+
+    if(normalized === "open" || normalized === "closed"){
+      clearPendingWaiting();
+      joinStateBooting = false;
+    }
+
+    if(normalized === "waiting" && !joinRemoteStateConfirmed && document.body.classList.contains("pkl-recruit-loading") && !options.allowWaiting){
       normalized = "loading";
     }
+    lastAppliedRecruitState = normalized;
     const label = normalized === "open" ? "모집중" : (normalized === "closed" ? "모집마감" : (normalized === "waiting" ? "모집대기중" : "상태 확인중"));
 
     document.body.classList.remove("pkl-recruit-open","pkl-recruit-closed","pkl-recruit-waiting","pkl-recruit-loading");
@@ -6447,7 +6502,7 @@ function safeJson(key, fallback){
           if(state){
             joinRemoteStateConfirmed = true;
             window.__PKL_JOIN_REMOTE_CONFIRMED = true;
-            joinStateBooting = false;
+            if(state !== "waiting") joinStateBooting = false;
             applyState(state);
           }else{
             /* 서버 상태가 아직 없으면 오래된 local 모집대기중으로 떨어뜨리지 않고 로딩 유지 */
@@ -6458,7 +6513,7 @@ function safeJson(key, fallback){
           if(state){
             joinRemoteStateConfirmed = true;
             window.__PKL_JOIN_REMOTE_CONFIRMED = true;
-            joinStateBooting = false;
+            if(state !== "waiting") joinStateBooting = false;
             applyState(state);
           }else{
             /* 서버 상태가 아직 없으면 오래된 local 모집대기중으로 떨어뜨리지 않고 로딩 유지 */
