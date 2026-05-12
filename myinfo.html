@@ -1383,7 +1383,7 @@ async function withdrawAccount(){
 <script src="pkl-user-profile-core.js"></script>
 
 <style id="pklPrimeTransferStyle">
-.prime-transfer-btn{margin-top:10px;height:34px;border:1px solid rgba(250,204,21,.45);border-radius:999px;background:linear-gradient(135deg,rgba(250,204,21,.22),rgba(124,58,237,.26));color:#fff;font-weight:1000;cursor:pointer}
+.prime-transfer-unit{cursor:pointer;text-decoration:none}
 .prime-transfer-modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.62);z-index:99999}
 .prime-transfer-modal.open{display:grid}
 .prime-transfer-card{width:min(460px,calc(100vw - 32px));border:1px solid rgba(216,180,254,.35);border-radius:22px;background:linear-gradient(180deg,rgba(20,12,38,.98),rgba(6,6,14,.98));box-shadow:0 30px 90px rgba(0,0,0,.62),0 0 36px rgba(168,85,247,.22);padding:24px;position:relative;color:#fff}
@@ -1400,7 +1400,6 @@ async function withdrawAccount(){
 .prime-transfer-msg{min-height:18px;color:#fca5a5;font-size:12px;font-weight:900}
 .prime-transfer-submit{width:100%;height:46px;border:0;border-radius:15px;background:linear-gradient(135deg,rgba(250,204,21,.82),rgba(168,85,247,.74));color:#fff;font-weight:1000;cursor:pointer}
 </style>
-
 </head>
 <body>
 <button class="back-home" type="button" onclick="history.back()">← 뒤로가기</button>
@@ -1419,8 +1418,7 @@ async function withdrawAccount(){
               <div class="profile-control">
                 <div class="prime-value" id="primeValue">0</div>
               </div>
-              <div class="prime-unit">보유 프라임</div>
-              <button class="prime-transfer-btn" type="button" onclick="openPrimeTransferModal()">프라임 송금</button>
+              <button class="prime-unit prime-transfer-unit" type="button" onclick="openPrimeTransferModal()">프라임 송금</button>
             </div>
           </div>
 
@@ -2176,83 +2174,19 @@ async function withdrawAccount(){
   </div>
 </div>
 
-
 <script id="pklPrimeTransferLogic">
 let primeTransferSelectedUser=null;
 let primeTransferUsers=[];
-function openPrimeTransferModal(){
-  const modal=document.getElementById('primeTransferModal');
-  if(modal){modal.classList.add('open');modal.setAttribute('aria-hidden','false');}
-  loadPrimeTransferUsers();
-}
-function closePrimeTransferModal(){
-  const modal=document.getElementById('primeTransferModal');
-  if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}
-}
-function getCurrentPrimeTransferUser(){
-  try{return JSON.parse(localStorage.getItem('pklLoginUser')||sessionStorage.getItem('pklLoginUser')||localStorage.getItem('discordUser')||'null')||{};}catch(e){return {};}
-}
-async function loadPrimeTransferUsers(){
-  try{
-    const res=await fetch('/api/pkl-users?limit=500&_='+Date.now(),{headers:{'Cache-Control':'no-store'}});
-    const data=await res.json().catch(()=>null);
-    primeTransferUsers=(Array.isArray(data)?data:(data&&Array.isArray(data.users)?data.users:(data&&Array.isArray(data.rows)?data.rows:[])))||[];
-  }catch(e){primeTransferUsers=[];}
-  renderPrimeTransferSuggest();
-}
+function openPrimeTransferModal(){const modal=document.getElementById('primeTransferModal');if(modal){modal.classList.add('open');modal.setAttribute('aria-hidden','false');}loadPrimeTransferUsers();}
+function closePrimeTransferModal(){const modal=document.getElementById('primeTransferModal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}}
+function getCurrentPrimeTransferUser(){try{return JSON.parse(localStorage.getItem('pklLoginUser')||sessionStorage.getItem('pklLoginUser')||localStorage.getItem('discordUser')||'null')||{};}catch(e){return {};}}
+async function loadPrimeTransferUsers(){try{const res=await fetch('/api/pkl-users?limit=500&_='+Date.now(),{headers:{'Cache-Control':'no-store'}});const data=await res.json().catch(()=>null);primeTransferUsers=(Array.isArray(data)?data:(data&&Array.isArray(data.users)?data.users:(data&&Array.isArray(data.rows)?data.rows:[])))||[];}catch(e){primeTransferUsers=[];}renderPrimeTransferSuggest();}
 function userLabel(u){return (u.nickname||u.nick||u.name||u.discord_username||'')+' '+(u.pubg_id||u.pubgId||u.gameId||'');}
-function renderPrimeTransferSuggest(){
-  const box=document.getElementById('primeTransferSuggest');
-  const input=document.getElementById('primeTransferUserSearch');
-  if(!box||!input)return;
-  const q=String(input.value||'').trim().toLowerCase();
-  const me=getCurrentPrimeTransferUser();
-  const meId=String(me.discord_id||me.discordId||me.id||me.uid||'').replace(/^discord-/,'');
-  const list=primeTransferUsers.filter(u=>{
-    const did=String(u.discord_id||u.discordId||u.id||'').replace(/^discord-/,'');
-    if(meId&&did&&meId===did)return false;
-    return q && userLabel(u).toLowerCase().includes(q);
-  }).slice(0,8);
-  box.innerHTML=list.map((u,i)=>`<button type="button" class="prime-transfer-user ${primeTransferSelectedUser&&((primeTransferSelectedUser.discord_id||primeTransferSelectedUser.id)===(u.discord_id||u.id))?'is-selected':''}" data-i="${i}">${u.nickname||u.name||u.discord_username||'이름없음'} <span style="opacity:.65">${u.pubg_id||u.pubgId||''}</span></button>`).join('');
-  box.querySelectorAll('.prime-transfer-user').forEach(btn=>{
-    btn.onclick=function(){
-      primeTransferSelectedUser=list[Number(btn.dataset.i)];
-      input.value=userLabel(primeTransferSelectedUser).trim();
-      renderPrimeTransferSuggest();
-    };
-  });
-}
-function updatePrimeTransferFee(){
-  const amount=Number(document.getElementById('primeTransferAmount')?.value||0)||0;
-  const fee=Math.floor(amount*0.1);
-  const receive=Math.max(0,amount-fee);
-  const el=document.getElementById('primeTransferFee');
-  if(el)el.textContent=`수수료 10%: ${fee.toLocaleString()} / 받는 금액: ${receive.toLocaleString()}`;
-}
-document.addEventListener('input',function(e){
-  if(e.target&&e.target.id==='primeTransferUserSearch')renderPrimeTransferSuggest();
-  if(e.target&&e.target.id==='primeTransferAmount')updatePrimeTransferFee();
-});
-async function submitPrimeTransfer(){
-  const msg=document.getElementById('primeTransferMsg');
-  const amount=Number(document.getElementById('primeTransferAmount')?.value||0)||0;
-  if(msg)msg.textContent='';
-  if(!primeTransferSelectedUser){if(msg)msg.textContent='받는 유저를 선택해주세요.';return;}
-  if(!amount||amount<1){if(msg)msg.textContent='송금할 금액을 입력해주세요.';return;}
-  try{
-    const res=await fetch('/api/pkl-prime-transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:getCurrentPrimeTransferUser(),to:primeTransferSelectedUser,amount})});
-    const data=await res.json().catch(()=>null);
-    if(!res.ok||!data||data.ok===false)throw new Error((data&&data.message)||'송금 실패');
-    if(msg){msg.style.color='#86efac';msg.textContent='송금 완료';}
-    const primeValue=document.getElementById('primeValue');
-    if(primeValue&&data.senderPrime!=null)primeValue.textContent=Number(data.senderPrime).toLocaleString();
-    setTimeout(closePrimeTransferModal,650);
-  }catch(err){
-    if(msg){msg.style.color='#fca5a5';msg.textContent=err.message||String(err);}
-  }
-}
+function renderPrimeTransferSuggest(){const box=document.getElementById('primeTransferSuggest');const input=document.getElementById('primeTransferUserSearch');if(!box||!input)return;const q=String(input.value||'').trim().toLowerCase();const me=getCurrentPrimeTransferUser();const meId=String(me.discord_id||me.discordId||me.id||me.uid||'').replace(/^discord-/,'');const list=primeTransferUsers.filter(u=>{const did=String(u.discord_id||u.discordId||u.id||'').replace(/^discord-/,'');if(meId&&did&&meId===did)return false;return q&&userLabel(u).toLowerCase().includes(q);}).slice(0,8);box.innerHTML=list.map((u,i)=>`<button type="button" class="prime-transfer-user ${primeTransferSelectedUser&&((primeTransferSelectedUser.discord_id||primeTransferSelectedUser.id)===(u.discord_id||u.id))?'is-selected':''}" data-i="${i}">${u.nickname||u.name||u.discord_username||'이름없음'} <span style="opacity:.65">${u.pubg_id||u.pubgId||''}</span></button>`).join('');box.querySelectorAll('.prime-transfer-user').forEach(btn=>{btn.onclick=function(){primeTransferSelectedUser=list[Number(btn.dataset.i)];input.value=userLabel(primeTransferSelectedUser).trim();renderPrimeTransferSuggest();};});}
+function updatePrimeTransferFee(){const amount=Number(document.getElementById('primeTransferAmount')?.value||0)||0;const fee=Math.floor(amount*0.1);const receive=Math.max(0,amount-fee);const el=document.getElementById('primeTransferFee');if(el)el.textContent=`수수료 10%: ${fee.toLocaleString()} / 받는 금액: ${receive.toLocaleString()}`;}
+document.addEventListener('input',function(e){if(e.target&&e.target.id==='primeTransferUserSearch')renderPrimeTransferSuggest();if(e.target&&e.target.id==='primeTransferAmount')updatePrimeTransferFee();});
+async function submitPrimeTransfer(){const msg=document.getElementById('primeTransferMsg');const amount=Number(document.getElementById('primeTransferAmount')?.value||0)||0;if(msg)msg.textContent='';if(!primeTransferSelectedUser){if(msg)msg.textContent='받는 유저를 선택해주세요.';return;}if(!amount||amount<1){if(msg)msg.textContent='송금할 금액을 입력해주세요.';return;}try{const res=await fetch('/api/pkl-prime-transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:getCurrentPrimeTransferUser(),to:primeTransferSelectedUser,amount})});const data=await res.json().catch(()=>null);if(!res.ok||!data||data.ok===false)throw new Error((data&&data.message)||'송금 실패');if(msg){msg.style.color='#86efac';msg.textContent='송금 완료';}const primeValue=document.getElementById('primeValue');if(primeValue&&data.senderPrime!=null)primeValue.textContent=Number(data.senderPrime).toLocaleString();setTimeout(closePrimeTransferModal,650);}catch(err){if(msg){msg.style.color='#fca5a5';msg.textContent=err.message||String(err);}}}
 </script>
-
 </body>
 </html>
 

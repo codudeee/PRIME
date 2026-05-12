@@ -3273,15 +3273,8 @@ document.addEventListener("DOMContentLoaded", function(){
     if(loading) return cache.slice();
     if(!force && cache.length) return cache.slice();
     if(!force){
-      var seeded=seedUsers();
-      if(seeded.length){
-        cache=seeded;
-        if(!backgroundRefreshStarted){
-          backgroundRefreshStarted=true;
-          setTimeout(function(){ fetchUsers(true).then(function(users){ paintTierUsers(users); }).catch(function(){}); }, 0);
-        }
-        return cache.slice();
-      }
+      /* Supabase 단일 원본: seedUsers/local 캐시를 먼저 그리면 잠깐 보였다가 Supabase 결과로 사라지는 깜빡임이 생긴다.
+         티어표는 최초부터 Supabase fetch 결과만 렌더한다. */
     }
     if(force) cache=[];
     loading=true;

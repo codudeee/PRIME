@@ -6194,72 +6194,22 @@ body .modal-layer [class*="streak"]{
 }
 
 
-/* PKL final team slot size / dropdown layer fix */
-#rerollModeDropdown,
-#rerollModeDropdown .pkl-custom-select-list,
-#rerollModeList{
-  z-index:30001 !important;
-}
-#pklTeamModeDropdown,
-#pklTeamModeDropdown .pkl-custom-select-list{
-  z-index:20000 !important;
-}
-
-.builder-layout.pkl-mode-10 .team-grid{
-  grid-template-columns:repeat(5,minmax(150px,1fr)) !important;
-  gap:10px !important;
-}
-.builder-layout.pkl-mode-20 .team-grid{
-  grid-template-columns:repeat(10,minmax(110px,1fr)) !important;
-  gap:8px !important;
-}
-.builder-layout .team-card{
-  min-width:0 !important;
-}
-.builder-layout.pkl-mode-10 .team-card,
-.builder-layout.pkl-mode-20 .team-card{
-  min-height:302px !important;
-}
-.builder-layout.pkl-mode-duo .team-card{
-  min-height:220px !important;
-}
-.builder-layout.pkl-mode-10 .slot-list,
-.builder-layout.pkl-mode-20 .slot-list{
-  display:grid !important;
-  gap:8px !important;
-  padding:9px !important;
-}
-.builder-layout.pkl-mode-10:not(.pkl-mode-duo) .slot-list,
-.builder-layout.pkl-mode-20:not(.pkl-mode-duo) .slot-list{
-  grid-template-rows:repeat(4,minmax(54px,1fr)) !important;
-}
-.builder-layout.pkl-mode-10:not(.pkl-mode-duo) .team-slot,
-.builder-layout.pkl-mode-20:not(.pkl-mode-duo) .team-slot{
-  min-height:54px !important;
-}
-.builder-layout.pkl-mode-duo .slot-list{
-  grid-template-rows:repeat(2,minmax(78px,1fr)) !important;
-}
-.builder-layout.pkl-mode-duo .team-slot{
-  min-height:78px !important;
-}
-.builder-layout.pkl-mode-buddy .team-card.buddy-first{
-  border-right-color:rgba(216,180,254,.12) !important;
-  margin-right:-4px !important;
-}
-.builder-layout.pkl-mode-buddy .team-card.buddy-second{
-  border-left-color:rgba(216,180,254,.12) !important;
-  margin-left:-4px !important;
-}
-.builder-layout.pkl-mode-buddy .team-card.buddy-first::after{
-  content:"";
-  position:absolute;
-  top:42px;
-  right:-6px;
-  bottom:14px;
-  width:12px;
-  background:linear-gradient(180deg,rgba(168,85,247,.18),rgba(168,85,247,.04));
-  border-top:1px solid rgba(216,180,254,.22);
-  border-bottom:1px solid rgba(216,180,254,.22);
-  pointer-events:none;
-}
+/* PKL team final visual correction */
+#rerollModeDropdown,#rerollModeDropdown .pkl-custom-select-list,#rerollModeList{z-index:30001!important}
+#pklTeamModeDropdown,#pklTeamModeDropdown .pkl-custom-select-list{z-index:20000!important}
+.builder-layout.pkl-mode-10 .team-grid{grid-template-columns:repeat(5,minmax(150px,1fr))!important;gap:10px!important}
+.builder-layout.pkl-mode-20 .team-grid{grid-template-columns:repeat(10,minmax(110px,1fr))!important;gap:8px!important}
+.builder-layout .team-card{min-width:0!important;overflow:hidden!important}
+.builder-layout.pkl-mode-10 .team-card,.builder-layout.pkl-mode-20 .team-card{min-height:302px!important}
+.builder-layout.pkl-mode-duo .team-card{min-height:220px!important}
+.builder-layout.pkl-mode-10 .slot-list,.builder-layout.pkl-mode-20 .slot-list{display:grid!important;gap:8px!important;padding:9px!important}
+.builder-layout.pkl-mode-10:not(.pkl-mode-duo) .slot-list,.builder-layout.pkl-mode-20:not(.pkl-mode-duo) .slot-list{grid-template-rows:repeat(4,minmax(54px,1fr))!important}
+.builder-layout.pkl-mode-10:not(.pkl-mode-duo) .team-slot,.builder-layout.pkl-mode-20:not(.pkl-mode-duo) .team-slot{min-height:54px!important}
+.builder-layout.pkl-mode-duo .slot-list{grid-template-rows:repeat(2,minmax(78px,1fr))!important}
+.builder-layout.pkl-mode-duo .team-slot{min-height:78px!important}
+/* 깐부: 가운데 연결선 제거. 두 팀은 붙어 보이지만 슬롯/팀은 그대로 분리 */
+.builder-layout.pkl-mode-buddy .team-card.buddy-first{margin-right:-5px!important;border-right-color:transparent!important;border-top-right-radius:8px!important;border-bottom-right-radius:8px!important}
+.builder-layout.pkl-mode-buddy .team-card.buddy-second{margin-left:-5px!important;border-left-color:transparent!important;border-top-left-radius:8px!important;border-bottom-left-radius:8px!important}
+.builder-layout.pkl-mode-buddy .team-card.buddy-first::after,
+.builder-layout.pkl-mode-buddy .team-card.buddy-second::before{content:none!important;display:none!important}
+.builder-layout.pkl-mode-buddy .buddy-label{border-color:rgba(216,180,254,.32)!important;background:rgba(168,85,247,.20)!important;color:#eadbff!important}
