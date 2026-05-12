@@ -834,19 +834,20 @@ function getInitials(text=''){
 }
 
 function getUsers(){
-  const merged=[];
-  function add(list){
-    if(!Array.isArray(list)) return;
-    list.forEach(u=>{ if(u && typeof u==='object') merged.push(u); });
-  }
-  try{ add(window.PKLSupabaseUsers); }catch(e){}
-  try{ if(window.PKLUsersSource && typeof window.PKLUsersSource.localUsers==='function') add(window.PKLUsersSource.localUsers()); }catch(e){}
-  try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.users === 'function') add(window.PKLUserProfile.users()); }catch(e){}
-  const seen=new Set();
-  return merged.filter(u=>{
-    const key=String(u.discordId||u.discord_id||u.nickname||u.name||u.pubgId||u.pubg_id||'').trim();
-    if(!key || seen.has(key)) return false;
-    seen.add(key);
+  /* 전적검색 유저 자동완성은 Supabase에서 방금 읽어온 window.PKLSupabaseUsers만 사용한다.
+     PKLUsersSource/PKLUserProfile 메모리 캐시를 섞으면 admin/tier에서 정리한 구버전 객체가 다시 합쳐질 수 있다. */
+  const source = Array.isArray(window.PKLSupabaseUsers) ? window.PKLSupabaseUsers : [];
+  const seenId=new Set();
+  const seenNick=new Set();
+  return source.filter(u=>{
+    const did=String(u.discordId||u.discord_id||'').trim().toLowerCase().replace(/^discord-/, '');
+    const nick=String(u.nickname||u.name||u.nick||'').trim().toLowerCase();
+    const key=did || nick;
+    if(!key) return false;
+    if(did && seenId.has(did)) return false;
+    if(nick && seenNick.has(nick)) return false;
+    if(did) seenId.add(did);
+    if(nick) seenNick.add(nick);
     return true;
   });
 }

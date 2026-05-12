@@ -2875,7 +2875,8 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
 
 document.addEventListener("DOMContentLoaded", function(){
     syncTop();
-    renderPklTierMembers();
+    /* Supabase fetch 전 구버전/빈 state 렌더 금지.
+       티어표 멤버는 아래 Supabase 전용 renderer가 1회만 그린다. */
     const modal = document.getElementById("mailboxModal");
     if(modal){
       modal.addEventListener("click", e => {
@@ -3243,10 +3244,17 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function uniqueTierUsers(list){
     var seen=new Set();
+    var seenNick=new Set();
     return (Array.isArray(list)?list:[]).map(mapUser).filter(function(u,i){
       var k=keyOf(u,i);
-      if(!k||seen.has(k)) return false;
+      var n=clean(u.nickname||u.name||u.nick).toLowerCase();
+      if(!k) return false;
+      if(seen.has(k)) return false;
+      /* 운영 기준상 nickname 중복 생성 금지.
+         Supabase/이벤트/구버전 객체가 섞여 같은 닉네임이 한 번 더 들어와도 렌더 소스에서 제거한다. */
+      if(n && seenNick.has(n)) return false;
       seen.add(k);
+      if(n) seenNick.add(n);
       return tierOf(u) && tierOf(u)!=='none';
     }).sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
   }
