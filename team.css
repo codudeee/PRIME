@@ -6039,103 +6039,111 @@ body .modal-layer [class*="streak"]{
 }
 
 
-/* PKL team box polish only */
-.builder-layout.pkl-mode-10 .team-board,
-.builder-layout.pkl-mode-20 .team-board{
-  overflow:hidden !important;
-}
-
+/* PKL visible team-box fix: pair wrapper + cleaner geometry */
 .builder-layout.pkl-mode-10 .team-grid{
-  grid-template-columns:repeat(5,minmax(150px,1fr)) !important;
+  grid-template-columns:repeat(5,minmax(148px,1fr)) !important;
   gap:10px !important;
-  align-items:stretch !important;
 }
-
 .builder-layout.pkl-mode-20 .team-grid{
-  grid-template-columns:repeat(10,minmax(112px,1fr)) !important;
+  grid-template-columns:repeat(10,minmax(108px,1fr)) !important;
   gap:8px !important;
-  align-items:stretch !important;
 }
-
 .builder-layout .team-card{
   min-width:0 !important;
+  overflow:hidden !important;
 }
-
-.builder-layout.pkl-mode-10 .team-card{
-  min-height:278px !important;
-}
-
+.builder-layout.pkl-mode-10 .team-card,
 .builder-layout.pkl-mode-20 .team-card{
-  min-height:278px !important;
+  min-height:280px !important;
 }
-
-.builder-layout.pkl-mode-10 .slot-list,
-.builder-layout.pkl-mode-20 .slot-list{
-  gap:7px !important;
+.builder-layout.pkl-mode-duo .team-card{
+  min-height:188px !important;
 }
-
-.builder-layout.pkl-mode-10 .team-slot,
-.builder-layout.pkl-mode-20 .team-slot{
-  min-height:58px !important;
+.builder-layout.pkl-mode-duo .slot-list{
+  grid-template-columns:1fr !important;
 }
-
 .builder-layout.pkl-mode-duo .team-slot{
-  min-height:82px !important;
+  min-height:72px !important;
 }
 
-/* 깐부 묶음: 두 팀 사이를 하나의 페어처럼 연결 */
-.builder-layout.pkl-mode-buddy .team-card.buddy-first{
-  border-right-color:rgba(216,180,254,.10) !important;
-  border-top-right-radius:8px !important;
-  border-bottom-right-radius:8px !important;
-  margin-right:-5px !important;
+/* Buddy mode now renders as one visible pair-box, not just colored borders */
+.builder-layout.pkl-mode-buddy .team-grid{
+  align-items:stretch !important;
 }
-.builder-layout.pkl-mode-buddy .team-card.buddy-second{
-  border-left-color:rgba(216,180,254,.10) !important;
-  border-top-left-radius:8px !important;
-  border-bottom-left-radius:8px !important;
-  margin-left:-5px !important;
-}
-.builder-layout.pkl-mode-buddy .team-card.buddy-first::after{
-  content:"";
-  position:absolute;
-  top:42px;
-  right:-7px;
-  bottom:12px;
-  width:14px;
-  border-top:1px solid rgba(216,180,254,.24);
-  border-bottom:1px solid rgba(216,180,254,.24);
+.builder-layout.pkl-mode-buddy .buddy-pair{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:0 !important;
+  padding:5px !important;
+  border:1px solid rgba(216,180,254,.34) !important;
+  border-radius:17px !important;
   background:
-    linear-gradient(180deg,rgba(168,85,247,.18),rgba(168,85,247,.035));
-  pointer-events:none;
-  z-index:4;
+    linear-gradient(180deg,rgba(168,85,247,.12),rgba(9,8,18,.32)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.025),
+    0 0 20px rgba(168,85,247,.10) !important;
 }
-.builder-layout.pkl-mode-buddy .team-card.buddy-second::before{
-  content:"";
-  position:absolute;
-  top:42px;
-  left:-7px;
-  bottom:12px;
-  width:14px;
-  background:linear-gradient(180deg,rgba(168,85,247,.10),rgba(168,85,247,.02));
-  pointer-events:none;
-  z-index:3;
+.builder-layout.pkl-mode-buddy .buddy-pair .team-card{
+  border-radius:12px !important;
+  border-color:rgba(216,180,254,.18) !important;
+  box-shadow:none !important;
+}
+.builder-layout.pkl-mode-buddy .buddy-pair .team-card:first-child{
+  border-top-right-radius:7px !important;
+  border-bottom-right-radius:7px !important;
+  margin-right:3px !important;
+}
+.builder-layout.pkl-mode-buddy .buddy-pair .team-card:last-child{
+  border-top-left-radius:7px !important;
+  border-bottom-left-radius:7px !important;
+  margin-left:3px !important;
 }
 .builder-layout.pkl-mode-buddy .buddy-label{
-  border-color:rgba(216,180,254,.30) !important;
+  margin-left:auto !important;
+  padding:3px 7px !important;
+  border-radius:999px !important;
+  border:1px solid rgba(216,180,254,.35) !important;
   background:rgba(168,85,247,.22) !important;
   color:#eadbff !important;
+  font-size:10px !important;
+  font-weight:1000 !important;
 }
 
-/* 10팀 깐부 아래줄 7~10팀 같은 모션/크기 유지 */
+/* 10팀 buddy: 3 pairs on top, 2 pairs centered below */
 .builder-layout.pkl-mode-10.pkl-mode-buddy .team-grid{
-  grid-template-columns:repeat(6,minmax(126px,1fr)) !important;
+  grid-template-columns:repeat(6,minmax(116px,1fr)) !important;
+  gap:10px !important;
 }
-.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(n+7){
-  transform:none !important;
-  margin-top:0 !important;
+.builder-layout.pkl-mode-10.pkl-mode-buddy .buddy-pair{
+  grid-column:span 2 !important;
 }
-.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(7){grid-column:2 !important;}
-.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(8){grid-column:3 !important;}
-.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(9){grid-column:4 !important;}
-.builder-layout.pkl-mode-10.pkl-mode-buddy .team-card:nth-child(10){grid-column:5 !important;}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .buddy-pair:nth-child(4){
+  grid-column:2 / span 2 !important;
+}
+.builder-layout.pkl-mode-10.pkl-mode-buddy .buddy-pair:nth-child(5){
+  grid-column:4 / span 2 !important;
+}
+
+/* 20팀 buddy: 5 pair-boxes per row = 10 teams per row */
+.builder-layout.pkl-mode-20.pkl-mode-buddy .team-grid{
+  grid-template-columns:repeat(10,minmax(98px,1fr)) !important;
+  gap:8px !important;
+}
+.builder-layout.pkl-mode-20.pkl-mode-buddy .buddy-pair{
+  grid-column:span 2 !important;
+}
+
+/* Supabase tier waiting names must remain visible */
+.builder-layout.pkl-mode-20 .player-card{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) auto !important;
+  gap:6px !important;
+}
+.builder-layout.pkl-mode-20 .player-name{
+  display:block !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}

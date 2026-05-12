@@ -42,21 +42,21 @@
   let draggedPlayerId = null;
   let pklSupabaseUsersCache = [];
 
-  function normalizeIdentityValue(value){
+  function pklTeamNorm(value){
     return String(value || '').trim().toLowerCase();
   }
 
-  function getUserDiscordId(user){
+  function pklTeamDiscord(user){
     user = user || {};
-    return normalizeIdentityValue(user.discord_id || user.discordId || user.discord || user.user_id || user.userId || user.uid || user.id || '');
+    return pklTeamNorm(user.discord_id || user.discordId || user.discord || user.user_id || user.userId || user.uid || user.id || '');
   }
 
-  function getUserAnyName(user){
+  function pklTeamName(user){
     user = user || {};
-    return normalizeIdentityValue(user.nickname || user.nick || user.name || user.displayName || user.discord_username || user.discordUsername || '');
+    return pklTeamNorm(user.nickname || user.nick || user.name || user.displayName || user.discord_username || user.discordUsername || '');
   }
 
-  function normalizeSupabaseUser(row){
+  function normalizeSupabaseUserForTeam(row){
     row = row || {};
     return {
       ...row,
@@ -68,31 +68,35 @@
       name: row.nickname || row.nick || row.name || row.discord_username || row.discordUsername || '',
       pubgId: row.pubg_id || row.pubgId || row.game_id || row.gameId || '',
       gameId: row.pubg_id || row.pubgId || row.game_id || row.gameId || '',
-      tier: row.tier || row.member_tier || row.grade || row.title || ''
+      tier: row.tier || row.member_tier || row.memberTier || row.grade || row.title || ''
     };
   }
 
   async function loadSupabaseUsersForTeam(){
-    try{
-      const res = await fetch('/api/pkl-users?limit=500&_=' + Date.now(), {headers:{'Cache-Control':'no-store'}});
-      if(!res.ok) return [];
-      const data = await res.json().catch(()=>null);
-      const rows = Array.isArray(data) ? data : (Array.isArray(data?.users) ? data.users : (Array.isArray(data?.rows) ? data.rows : []));
-      pklSupabaseUsersCache = rows.map(normalizeSupabaseUser).filter(u => u.discord_id || u.nickname);
-      return pklSupabaseUsersCache;
-    }catch(error){
-      return [];
+    const endpoints = ['/api/pkl-users?limit=500', '/api/pkl-supabase-store?type=users&limit=500'];
+    for(const endpoint of endpoints){
+      try{
+        const res = await fetch(endpoint + (endpoint.includes('?') ? '&' : '?') + '_=' + Date.now(), {headers:{'Cache-Control':'no-store'}});
+        if(!res.ok) continue;
+        const data = await res.json().catch(()=>null);
+        const rows = Array.isArray(data) ? data : (Array.isArray(data?.users) ? data.users : (Array.isArray(data?.rows) ? data.rows : (Array.isArray(data?.data) ? data.data : [])));
+        if(rows.length){
+          pklSupabaseUsersCache = rows.map(normalizeSupabaseUserForTeam).filter(u => u.discord_id || u.nickname);
+          return pklSupabaseUsersCache;
+        }
+      }catch(error){}
     }
+    return pklSupabaseUsersCache;
   }
 
   function findSupabaseUserForJoinItem(item){
     item = item || {};
-    const discord = getUserDiscordId(item);
-    const name = getUserAnyName(item);
+    const discord = pklTeamDiscord(item);
+    const name = pklTeamName(item);
     return pklSupabaseUsersCache.find(user => {
-      const userDiscord = getUserDiscordId(user);
+      const userDiscord = pklTeamDiscord(user);
       if(discord && userDiscord && discord === userDiscord) return true;
-      const userName = getUserAnyName(user);
+      const userName = pklTeamName(user);
       return !!(name && userName && name === userName);
     }) || null;
   }
@@ -382,27 +386,43 @@ if (rerollListModal) {
   }
 
   function renderTeams() {
-    ensureTeamModeState(state.teamMode || 'squad10');
-    teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
+    const cfg = ensureTeamModeState(state.teamMode || 'squad10');
+
+    function renderSingleTeam(team, teamIndex, pairIndex){
       const slots = team.slots.map((playerId, slotIndex) => `
         <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
           ${playerId ? renderPlayerCard(playerId) : '<div class="empty-slot">비어있음</div>'}
         </div>
       `).join('');
 
-      const cfg = getTeamModeConfig(state.teamMode || 'squad10');
-      const buddyIndex = Math.floor(teamIndex / 2) + 1;
-      const buddyLabel = cfg.buddy ? `깐부 ${buddyIndex}` : '';
       return `
-        <section class="team-card ${cfg.buddy ? `is-buddy-team ${teamIndex % 2 === 0 ? "buddy-first" : "buddy-second"}` : ""}" data-buddy-index="${buddyIndex}">
+        <section class="team-card ${cfg.buddy ? (teamIndex % 2 === 0 ? 'buddy-first' : 'buddy-second') : ''}" data-team-number="${teamIndex + 1}" data-buddy-index="${pairIndex || ''}">
           <div class="team-head">
             <span class="team-name">${team.name}</span>
-            ${buddyLabel ? `<span class="buddy-label">${buddyLabel}</span>` : ''}
+            ${cfg.buddy ? `<span class="buddy-label">깐부 ${pairIndex}</span>` : ''}
           </div>
           <div class="slot-list">${slots}</div>
         </section>
       `;
-    }).join('');
+    }
+
+    if(cfg.buddy){
+      const pairs = [];
+      for(let i = 0; i < state.teams.length; i += 2){
+        const pairIndex = Math.floor(i / 2) + 1;
+        const first = state.teams[i];
+        const second = state.teams[i + 1];
+        pairs.push(`
+          <div class="buddy-pair" data-buddy-index="${pairIndex}">
+            ${first ? renderSingleTeam(first, i, pairIndex) : ''}
+            ${second ? renderSingleTeam(second, i + 1, pairIndex) : ''}
+          </div>
+        `);
+      }
+      teamGrid.innerHTML = pairs.join('');
+    }else{
+      teamGrid.innerHTML = state.teams.map((team, teamIndex) => renderSingleTeam(team, teamIndex, '')).join('');
+    }
 
     bindDropZones();
     bindPlayerCards();
@@ -762,6 +782,14 @@ const teamIndex = Number(slot.dataset.teamIndex);
         const current = window.PKLJoinRealtime.state();
         if (current && Array.isArray(current.waitList)) return current.waitList;
       }
+    } catch (error) {}
+    try {
+      const saved = JSON.parse(localStorage.getItem(JOIN_WAITLIST_STORAGE_KEY) || '[]');
+      return Array.isArray(saved) ? saved : [];
+    } catch (error) {
+      return [];
+    }
+  }
     } catch (error) {}
     try {
       const saved = JSON.parse(localStorage.getItem(JOIN_WAITLIST_STORAGE_KEY) || '[]');
