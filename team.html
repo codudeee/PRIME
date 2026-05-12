@@ -130,7 +130,7 @@
         <div id="tierPools" class="tier-pools"></div>
       </aside>
 
-      <section class="team-board" aria-label="1팀부터 10팀까지 팀박스">
+      <section class="team-board" aria-label="팀구성 팀박스">
         <div class="board-title-row">
           <div>
             <h2>팀 박스</h2>
@@ -178,24 +178,14 @@
     <div class="section-title">운영</div>
     <div class="team-mode-select-box">
       <div class="section-title">모드선택</div>
-      <div class="pkl-custom-select pkl-team-mode-dropdown" id="pklTeamModeDropdown" data-value="squad10">
-        <button class="pkl-custom-select-trigger" id="pklTeamModeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-          <span id="pklTeamModeText">10팀 스쿼드</span>
-          <span class="pkl-custom-select-arrow" aria-hidden="true"></span>
-        </button>
-        <div class="pkl-custom-select-list" id="pklTeamModeList" role="listbox" aria-label="팀구성 모드선택">
-          <button class="pkl-custom-select-option is-active" type="button" role="option" data-value="squad10">10팀 스쿼드</button>
-          <button class="pkl-custom-select-option" type="button" role="option" data-value="squad20">20팀 스쿼드</button>
-          <button class="pkl-custom-select-option" type="button" role="option" data-value="squad10Buddy">10팀 스쿼드 깐부</button>
-          <button class="pkl-custom-select-option" type="button" role="option" data-value="squad20Buddy">20팀 스쿼드 깐부</button>
-          <button class="pkl-custom-select-option" type="button" role="option" data-value="duo10">10팀 듀오</button>
-          <button class="pkl-custom-select-option" type="button" role="option" data-value="duo20">20팀 듀오</button>
-          <button class="pkl-custom-select-option" type="button" role="option" data-value="duo10Buddy">10팀 듀오 깐부</button>
-          <button class="pkl-custom-select-option" type="button" role="option" data-value="duo20Buddy">20팀 듀오 깐부</button>
-        </div>
-      </div>
+      <select id="pklTeamModeSelect" class="team-mode-select" aria-label="팀구성 모드선택">
+        <option value="squad10">10팀 스쿼드</option>
+        <option value="squad20">20팀 스쿼드</option>
+        <option value="duo10">10팀 듀오</option>
+        <option value="duo20">20팀 듀오</option>
+      </select>
     </div>
-<button id="ruleButton" class="control-big-button" type="button" aria-disabled="true">룰 설정</button>
+    <button id="ruleButton" class="control-big-button" type="button" aria-disabled="true">룰 설정</button>
     <button id="loadWaitingButton" class="control-big-button" type="button">불러오기</button>
     <button id="resetButton" class="control-reset-button" type="button">초기화</button>
   </div>
@@ -674,5 +664,6 @@
     </section>';
 })();
 </script>
+
 </body>
 </html>

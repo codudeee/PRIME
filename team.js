@@ -39,68 +39,8 @@
   });
 
   let state = loadState();
+  ensureTeamModeState(state.teamMode || 'squad10');
   let draggedPlayerId = null;
-  let pklSupabaseUsersCache = [];
-
-  function pklTeamNorm(value){
-    return String(value || '').trim().toLowerCase();
-  }
-
-  function pklTeamDiscord(user){
-    user = user || {};
-    return pklTeamNorm(user.discord_id || user.discordId || user.discord || user.user_id || user.userId || user.uid || user.id || '');
-  }
-
-  function pklTeamName(user){
-    user = user || {};
-    return pklTeamNorm(user.nickname || user.nick || user.name || user.displayName || user.discord_username || user.discordUsername || '');
-  }
-
-  function normalizeSupabaseUserForTeam(row){
-    row = row || {};
-    return {
-      ...row,
-      uid: row.id || row.uid || row.user_id || row.discord_id || row.discordId || '',
-      id: row.id || row.uid || row.user_id || row.discord_id || row.discordId || '',
-      discord_id: row.discord_id || row.discordId || '',
-      discordId: row.discord_id || row.discordId || '',
-      nickname: row.nickname || row.nick || row.name || row.discord_username || row.discordUsername || '',
-      name: row.nickname || row.nick || row.name || row.discord_username || row.discordUsername || '',
-      pubgId: row.pubg_id || row.pubgId || row.game_id || row.gameId || '',
-      gameId: row.pubg_id || row.pubgId || row.game_id || row.gameId || '',
-      tier: row.tier || row.member_tier || row.memberTier || row.grade || row.title || ''
-    };
-  }
-
-  async function loadSupabaseUsersForTeam(){
-    const endpoints = ['/api/pkl-users?limit=500', '/api/pkl-supabase-store?type=users&limit=500'];
-    for(const endpoint of endpoints){
-      try{
-        const res = await fetch(endpoint + (endpoint.includes('?') ? '&' : '?') + '_=' + Date.now(), {headers:{'Cache-Control':'no-store'}});
-        if(!res.ok) continue;
-        const data = await res.json().catch(()=>null);
-        const rows = Array.isArray(data) ? data : (Array.isArray(data?.users) ? data.users : (Array.isArray(data?.rows) ? data.rows : (Array.isArray(data?.data) ? data.data : [])));
-        if(rows.length){
-          pklSupabaseUsersCache = rows.map(normalizeSupabaseUserForTeam).filter(u => u.discord_id || u.nickname);
-          return pklSupabaseUsersCache;
-        }
-      }catch(error){}
-    }
-    return pklSupabaseUsersCache;
-  }
-
-  function findSupabaseUserForJoinItem(item){
-    item = item || {};
-    const discord = pklTeamDiscord(item);
-    const name = pklTeamName(item);
-    return pklSupabaseUsersCache.find(user => {
-      const userDiscord = pklTeamDiscord(user);
-      if(discord && userDiscord && discord === userDiscord) return true;
-      const userName = pklTeamName(user);
-      return !!(name && userName && name === userName);
-    }) || null;
-  }
-
 
   function pklTeamCanEdit(){
     return !!(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentHasRole === "function" && window.PKLRoleSystem.currentHasRole("operator"));
@@ -118,21 +58,69 @@
 
   const tierPools = document.getElementById('tierPools');
   const teamGrid = document.getElementById('teamGrid');
-  const teamModeDropdown = document.getElementById('pklTeamModeDropdown');
-  const teamModeTrigger = document.getElementById('pklTeamModeTrigger');
-  const teamModeText = document.getElementById('pklTeamModeText');
-  const teamModeList = document.getElementById('pklTeamModeList');
-  const teamModeOptions = Array.from(document.querySelectorAll('#pklTeamModeList .pkl-custom-select-option'));
-  const teamModeSelect = {
-    get value(){
-      return teamModeDropdown ? teamModeDropdown.dataset.value || 'squad10' : 'squad10';
-    },
-    set value(nextValue){
-      setTeamModeDropdownValue(nextValue || 'squad10', false);
-    }
-  };
+
+  const teamModeSelect = document.getElementById('pklTeamModeSelect');
   const teamBoardModeText = document.getElementById('teamBoardModeText');
   const builderLayout = document.querySelector('.builder-layout');
+
+  const PKL_TEAM_MODE_CONFIG = {
+    squad10: { key:'squad10', label:'10팀 스쿼드', teams:10, slots:4, modeClass:'pkl-mode-10 pkl-mode-squad' },
+    squad20: { key:'squad20', label:'20팀 스쿼드', teams:20, slots:4, modeClass:'pkl-mode-20 pkl-mode-squad' },
+    duo10: { key:'duo10', label:'10팀 듀오', teams:10, slots:2, modeClass:'pkl-mode-10 pkl-mode-duo' },
+    duo20: { key:'duo20', label:'20팀 듀오', teams:20, slots:2, modeClass:'pkl-mode-20 pkl-mode-duo' }
+  };
+
+  function getTeamModeConfig(modeKey){
+    return PKL_TEAM_MODE_CONFIG[modeKey] || PKL_TEAM_MODE_CONFIG.squad10;
+  }
+
+  function ensureTeamModeState(modeKey){
+    const cfg = getTeamModeConfig(modeKey || state.teamMode || 'squad10');
+    state.teamMode = cfg.key;
+
+    if(!Array.isArray(state.teams)) state.teams = [];
+
+    const nextTeams = [];
+    for(let i=0;i<cfg.teams;i++){
+      const prev = state.teams[i] || {};
+      const prevSlots = Array.isArray(prev.slots) ? prev.slots : [];
+      nextTeams.push({
+        id: prev.id || `team-${i+1}`,
+        name: `${i+1}팀`,
+        slots: Array.from({length:cfg.slots}, (_,idx)=> prevSlots[idx] || null)
+      });
+    }
+
+    state.teams = nextTeams;
+    state.selectedSlots = Array.isArray(state.selectedSlots)
+      ? state.selectedSlots.filter(slot => slot && slot.teamIndex < cfg.teams && slot.slotIndex < cfg.slots)
+      : [];
+
+    if(teamModeSelect && teamModeSelect.value !== cfg.key) teamModeSelect.value = cfg.key;
+    if(teamBoardModeText) teamBoardModeText.textContent = cfg.label;
+    if(builderLayout){
+      builderLayout.classList.remove('pkl-mode-10','pkl-mode-20','pkl-mode-duo','pkl-mode-squad');
+      cfg.modeClass.split(/\s+/).forEach(cls => cls && builderLayout.classList.add(cls));
+    }
+
+    try{
+      document.documentElement.dataset.pklTeamMode = cfg.key;
+      document.documentElement.dataset.pklTeamCount = String(cfg.teams);
+      document.documentElement.dataset.pklTeamSlots = String(cfg.slots);
+    }catch(e){}
+
+    return cfg;
+  }
+
+  function changeTeamMode(modeKey){
+    const cfg = ensureTeamModeState(modeKey);
+    render();
+    try{
+      window.dispatchEvent(new CustomEvent('pkl-team-mode-changed',{detail:{mode:cfg.key, teams:cfg.teams, slots:cfg.slots, label:cfg.label}}));
+    }catch(e){}
+  }
+
+
   const boardSummary = document.getElementById('boardSummary');
   const rerollCheckButton = document.getElementById('rerollCheckButton');
   const currentTime = document.getElementById('currentTime');
@@ -173,118 +161,17 @@
 
   document.addEventListener('DOMContentLoaded', init);
 
-  
-  const PKL_TEAM_MODE_CONFIG = {
-    squad10: { key:'squad10', label:'10팀 스쿼드', teams:10, slots:4, buddy:false, modeClass:'pkl-mode-10 pkl-mode-squad' },
-    squad20: { key:'squad20', label:'20팀 스쿼드', teams:20, slots:4, buddy:false, modeClass:'pkl-mode-20 pkl-mode-squad' },
-    squad10Buddy: { key:'squad10Buddy', label:'10팀 스쿼드 깐부', teams:10, slots:4, buddy:true, modeClass:'pkl-mode-10 pkl-mode-squad pkl-mode-buddy' },
-    squad20Buddy: { key:'squad20Buddy', label:'20팀 스쿼드 깐부', teams:20, slots:4, buddy:true, modeClass:'pkl-mode-20 pkl-mode-squad pkl-mode-buddy' },
-    duo10: { key:'duo10', label:'10팀 듀오', teams:10, slots:2, buddy:false, modeClass:'pkl-mode-10 pkl-mode-duo' },
-    duo20: { key:'duo20', label:'20팀 듀오', teams:20, slots:2, buddy:false, modeClass:'pkl-mode-20 pkl-mode-duo' },
-    duo10Buddy: { key:'duo10Buddy', label:'10팀 듀오 깐부', teams:10, slots:2, buddy:true, modeClass:'pkl-mode-10 pkl-mode-duo pkl-mode-buddy' },
-    duo20Buddy: { key:'duo20Buddy', label:'20팀 듀오 깐부', teams:20, slots:2, buddy:true, modeClass:'pkl-mode-20 pkl-mode-duo pkl-mode-buddy' }
-  };
-
-  function setTeamModeDropdownValue(modeKey, shouldApply){
-    const cfg = getTeamModeConfig(modeKey);
-    if(teamModeDropdown) teamModeDropdown.dataset.value = cfg.key;
-    if(teamModeText) teamModeText.textContent = cfg.label;
-    teamModeOptions.forEach(option => {
-      const active = option.dataset.value === cfg.key;
-      option.classList.toggle('is-active', active);
-      option.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-    if(shouldApply) changeTeamMode(cfg.key);
-  }
-
-  function bindTeamModeDropdown(){
-    if(!teamModeDropdown || !teamModeTrigger || !teamModeList) return;
-    teamModeTrigger.addEventListener('click', function(event){
-      event.preventDefault();
-      const open = teamModeDropdown.classList.toggle('is-open');
-      teamModeTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
-    teamModeOptions.forEach(option => {
-      option.addEventListener('click', function(event){
-        event.preventDefault();
-        setTeamModeDropdownValue(option.dataset.value || 'squad10', true);
-        teamModeDropdown.classList.remove('is-open');
-        teamModeTrigger.setAttribute('aria-expanded','false');
-      });
-    });
-    document.addEventListener('click', function(event){
-      if(!teamModeDropdown.contains(event.target)){
-        teamModeDropdown.classList.remove('is-open');
-        teamModeTrigger.setAttribute('aria-expanded','false');
-      }
-    });
-  }
-
-  function getTeamModeConfig(modeKey){
-    return PKL_TEAM_MODE_CONFIG[modeKey] || PKL_TEAM_MODE_CONFIG.squad10;
-  }
-
-  function ensureTeamModeState(modeKey){
-    const cfg = getTeamModeConfig(modeKey || state.teamMode || 'squad10');
-    state.teamMode = cfg.key;
-
-    if(!Array.isArray(state.teams)) state.teams = [];
-
-    const nextTeams = [];
-    for(let i=0; i<cfg.teams; i++){
-      const prev = state.teams[i] || {};
-      const prevSlots = Array.isArray(prev.slots) ? prev.slots : [];
-      nextTeams.push({
-        id: prev.id || `team-${i + 1}`,
-        name: `${i + 1}팀`,
-        slots: Array.from({length:cfg.slots}, (_, slotIndex) => prevSlots[slotIndex] || null)
-      });
-    }
-    state.teams = nextTeams;
-
-    state.selectedSlots = Array.isArray(state.selectedSlots)
-      ? state.selectedSlots.filter(slot => slot && slot.teamIndex < cfg.teams && slot.slotIndex < cfg.slots)
-      : [];
-
-    if(teamModeSelect && teamModeSelect.value !== cfg.key) setTeamModeDropdownValue(cfg.key, false);
-    if(teamBoardModeText) teamBoardModeText.textContent = cfg.label;
-    if(builderLayout){
-      builderLayout.classList.remove('pkl-mode-10','pkl-mode-20','pkl-mode-duo','pkl-mode-squad','pkl-mode-buddy');
-      cfg.modeClass.split(/\s+/).forEach(cls => cls && builderLayout.classList.add(cls));
-    }
-
-    return cfg;
-  }
-
-  function changeTeamMode(modeKey){
-    const cfg = ensureTeamModeState(modeKey);
-    render();
-    try{
-      window.dispatchEvent(new CustomEvent('pkl-team-mode-changed', {
-        detail:{mode:cfg.key, teams:cfg.teams, slots:cfg.slots, label:cfg.label, buddy:!!cfg.buddy}
-      }));
-    }catch(error){}
-  }
-
-
-  async function init() {
+  function init() {
     fillTierSelect();
     bindControls();
     bindNewPlayerTierDropdown();
     bindRerollModeDropdown();
     fillMatchTimeSelects();
-    await loadSupabaseUsersForTeam();
     syncJoinWaitListIntoTeamBoard(true);
     syncPlayersWithUserSources();
     render();
     startClock();
     bindUserSyncEvents();
-    window.addEventListener('pkl-join-state-updated', async function(){
-      await loadSupabaseUsersForTeam();
-      syncJoinWaitListIntoTeamBoard(true);
-      syncPlayersWithUserSources();
-      render();
-    });
   }
 
   function fillTierSelect() {
@@ -306,7 +193,6 @@ const saveMemoButton = document.getElementById('saveMemoButton');
     if (startButton) startButton.addEventListener('click', openMatchTimeModal);
     if (saveMatchTimeButton) saveMatchTimeButton.addEventListener('click', saveMatchTimeSettings);
     if (rerollListButton) rerollListButton.addEventListener('click', openRerollListModal);
-    bindTeamModeDropdown();
     if (addRerollUserButton) addRerollUserButton.addEventListener('click', addManualRerollUser);
     if (rerollUserInput) {
       rerollUserInput.addEventListener('focus', refreshRerollUserAutocomplete);
@@ -386,20 +272,18 @@ if (rerollListModal) {
   }
 
   function renderTeams() {
-    const cfg = ensureTeamModeState(state.teamMode || 'squad10');
+    ensureTeamModeState(state.teamMode || 'squad10');
     teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
       const slots = team.slots.map((playerId, slotIndex) => `
         <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
-          ${playerId ? renderPlayerCard(playerId) : '<div class="empty-slot">비어있음</div>'}
+          ${playerId ? renderPlayerCard(playerId) : '<div class="empty-slot"></div>'}
         </div>
       `).join('');
-      const buddyIndex = Math.floor(teamIndex / 2) + 1;
-      const buddyClass = cfg.buddy ? (teamIndex % 2 === 0 ? 'is-buddy-team buddy-first' : 'is-buddy-team buddy-second') : '';
+
       return `
-        <section class="team-card ${buddyClass}" data-team-number="${teamIndex + 1}" data-buddy-index="${cfg.buddy ? buddyIndex : ''}">
+        <section class="team-card">
           <div class="team-head">
             <span class="team-name">${team.name}</span>
-            ${cfg.buddy ? `<span class="buddy-label">깐부 ${buddyIndex}</span>` : ''}
           </div>
           <div class="slot-list">${slots}</div>
         </section>
@@ -738,7 +622,11 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function isJoinRecruitClosed() {
-    return String(readJoinRecruitState().state || '').toLowerCase() === 'closed';
+    const st = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === 'function'
+      ? window.PKLJoinRealtime.getState()
+      : null;
+    const state = st && st.recruitState ? st.recruitState.state : '';
+    return state === 'closed';
   }
 
   function parsePrisonUntilMs(text) {
@@ -760,10 +648,10 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function readJoinWaitList() {
     try {
-      if (window.PKLJoinRealtime && typeof window.PKLJoinRealtime.state === 'function') {
-        const current = window.PKLJoinRealtime.state();
-        if (current && Array.isArray(current.waitList)) return current.waitList;
-      }
+      const st = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === 'function'
+        ? window.PKLJoinRealtime.getState()
+        : null;
+      if (st && Array.isArray(st.waitList)) return st.waitList;
     } catch (error) {}
     try {
       const saved = JSON.parse(localStorage.getItem(JOIN_WAITLIST_STORAGE_KEY) || '[]');
@@ -824,23 +712,21 @@ const teamIndex = Number(slot.dataset.teamIndex);
   function syncJoinWaitListIntoTeamBoard(forceLoad) {
     if (!forceLoad && isJoinRecruitClosed()) return;
     const joinList = readJoinWaitList().filter(item => {
-      const supabaseUser = findSupabaseUserForJoinItem(item);
-      const adminUser = supabaseUser || findAdminUserForJoinItem(item);
-      const accountUser = supabaseUser || findAccountUserForJoinItem(item, adminUser);
+      const adminUser = findAdminUserForJoinItem(item);
+      const accountUser = findAccountUserForJoinItem(item, adminUser);
       return !isPrisonerForJoin(adminUser) && !isPrisonerForJoin(accountUser) && !isPrisonerForJoin(item);
     });
     /* join 대기 명단은 pklJoinState/current가 원본이다. team 페이지는 읽기/분류만 하고 대기 명단을 다시 저장하지 않는다. */
     const activeKeys = new Set();
 
     joinList.forEach(item => {
-      const supabaseUser = findSupabaseUserForJoinItem(item);
-      const adminUser = supabaseUser || findAdminUserForJoinItem(item);
-      const accountUser = supabaseUser || findAccountUserForJoinItem(item, adminUser);
+      const adminUser = findAdminUserForJoinItem(item);
+      const accountUser = findAccountUserForJoinItem(item, adminUser);
       const identity = getJoinWaitItemKey(accountUser || adminUser || item);
       if (identity) activeKeys.add(identity);
 
       const displayName = (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname || (accountUser && (accountUser.nickname || accountUser.nick || accountUser.name)) || '참가자';
-      const tier = resolveUserTierKey(accountUser) !== 'none' ? resolveUserTierKey(accountUser) : (resolveUserTierKey(adminUser) !== 'none' ? resolveUserTierKey(adminUser) : (resolveUserTierKey(item) !== 'none' ? resolveUserTierKey(item) : 'tier0'));
+      const tier = resolveUserTierKey(accountUser) !== 'none' ? resolveUserTierKey(accountUser) : (resolveUserTierKey(item) !== 'none' ? resolveUserTierKey(item) : 'tier0');
       const player = findPlayerForJoinItem(item, adminUser, accountUser);
 
       if (player) {
@@ -3194,7 +3080,14 @@ function startClock() {
     insertPlayerIntoWaitingTier(playerId, player.tier);
     clearSlotSelectionFast();
     setStatus(`${getPlayerName(playerId)}님을 ${getTierLabel(player.tier)} 대기칸으로 되돌렸습니다.`);
-    render();
+    
+  if(teamModeSelect){
+    teamModeSelect.addEventListener('change', function(){
+      changeTeamMode(teamModeSelect.value);
+    });
+  }
+
+render();
   });
 
 
