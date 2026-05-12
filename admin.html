@@ -5784,125 +5784,41 @@ a,
 </style>
 
 <style id="pkl-prime-adjust-style">
-.modal-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.modal-prime-top{height:34px;border:1px solid rgba(216,180,254,.34);border-radius:11px;background:linear-gradient(180deg,rgba(124,58,237,.28),rgba(49,20,88,.74));color:#fff;font-weight:1000;font-size:12px;letter-spacing:-.2px;cursor:pointer;box-shadow:0 0 14px rgba(124,58,237,.16),inset 0 1px 0 rgba(255,255,255,.08)}
-.modal-prime-top:hover{border-color:rgba(233,213,255,.58);box-shadow:0 0 18px rgba(167,139,250,.24),inset 0 1px 0 rgba(255,255,255,.10)}
-.prime-adjust-modal{position:fixed;inset:0;z-index:9999;display:none;place-items:center;background:rgba(2,0,8,.72);backdrop-filter:blur(10px)}
-.prime-adjust-modal.open{display:grid}
-.prime-adjust-box{width:min(430px,calc(100vw - 28px));border:1px solid rgba(216,180,254,.32);border-radius:20px;background:linear-gradient(180deg,rgba(20,12,38,.98),rgba(6,5,12,.98));box-shadow:0 24px 80px rgba(0,0,0,.65),0 0 34px rgba(124,58,237,.18);padding:20px}
-.prime-adjust-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
-.prime-adjust-head h2{margin:0;font-size:19px;letter-spacing:-.4px}.prime-adjust-head p{margin:5px 0 0;color:#c4b5fd;font-size:12px;font-weight:850;line-height:1.45}.prime-adjust-close{width:32px;height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#fff;font-weight:1000;cursor:pointer}
-.prime-adjust-grid{display:grid;gap:10px}.prime-adjust-field label{display:block;margin:0 0 7px;color:#ddd6fe;font-size:12px;font-weight:1000}.prime-adjust-field input,.prime-adjust-field textarea,.prime-adjust-field select{width:100%;border:1px solid rgba(216,180,254,.18);border-radius:12px;background:rgba(0,0,0,.28);color:#fff;font-weight:900;outline:none}.prime-adjust-field input,.prime-adjust-field select{height:42px;padding:0 12px}.prime-adjust-field textarea{min-height:76px;padding:12px;resize:vertical}.prime-adjust-actions{display:flex;gap:8px;margin-top:14px}.prime-adjust-actions button{flex:1;height:42px;border-radius:12px;border:1px solid rgba(216,180,254,.26);color:#fff;font-weight:1000;cursor:pointer}.prime-adjust-save{background:linear-gradient(180deg,rgba(124,58,237,.34),rgba(59,7,100,.78))}.prime-adjust-cancel{background:rgba(255,255,255,.06)}
-</style>
-
-<style id="pkl-admin-modal-speed-layer-20260513">
-/* 2026-05 관리자 모달 체감 보정: 완료/확인 모달은 항상 최상단, blur 최소화 */
-#pklNoticeLayer{z-index:2147483647!important;backdrop-filter:blur(2px)!important;background:rgba(4,3,10,.34)!important}
-#modal.modal{z-index:2147483300!important}
-#primeAdjustModal.prime-adjust-modal,.prime-adjust-modal{z-index:2147483200!important}
-.memo-delete-modal,.temp-edit-modal{z-index:2147483100!important}
-</style>
-
-<style id="pkl-admin-modal-clean-ui-20260513">
-/* 관리자 모달 UI 정리: 기존 렌더/저장 로직 변경 없이 회원정보수정 모달 스타일을 재사용 */
-.temp-edit-box{position:relative;}
-.temp-edit-box .modal-head.pkl-admin-edit-head{
-  position:relative;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  min-height:40px;
-  margin:0 0 16px;
-  padding:0 48px;
-}
-.temp-edit-box .modal-head.pkl-admin-edit-head h2{margin:0;text-align:center;font-size:22px;letter-spacing:-.4px;}
-.temp-edit-x,
-.prime-adjust-close{
-  position:absolute;
-  right:0;
-  top:0;
-  width:36px;
-  height:36px;
-  border-radius:12px;
-  border:1px solid rgba(216,180,254,.24);
-  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(124,58,237,.08));
-  color:#fff;
-  font-size:20px;
+/* PKL 프라임 지급/압수 모달 - 회원정보수정 모달 계열로 통일 */
+.modal-prime-top{
+  height:42px;
+  border-radius:13px;
+  border:1px solid rgba(251,191,36,.38);
+  background:linear-gradient(180deg,rgba(245,158,11,.38),rgba(120,53,15,.70));
+  color:#fff7d6;
   font-weight:1000;
-  line-height:1;
+  font-size:13px;
+  letter-spacing:-.2px;
   cursor:pointer;
-  box-shadow:0 0 16px rgba(124,58,237,.14),inset 0 1px 0 rgba(255,255,255,.08);
-  transition:border-color .16s ease,background .16s ease,box-shadow .16s ease,transform .16s ease;
+  box-shadow:0 0 16px rgba(245,158,11,.18),inset 0 1px 0 rgba(255,255,255,.08);
+  transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease,background .16s ease;
 }
-.temp-edit-x:hover,
-.prime-adjust-close:hover{
-  border-color:rgba(233,213,255,.54);
-  background:linear-gradient(180deg,rgba(124,58,237,.20),rgba(49,20,88,.54));
-  box-shadow:0 0 22px rgba(167,139,250,.28),inset 0 1px 0 rgba(255,255,255,.10);
+.modal-prime-top:hover{
   transform:translateY(-1px);
-}
-.temp-edit-actions.pkl-admin-edit-actions{
-  display:grid!important;
-  grid-template-columns:1fr 1fr 1.2fr!important;
-  gap:10px!important;
-  margin-top:18px!important;
-}
-.pkl-admin-bottom-btn{
-  height:44px!important;
-  border-radius:14px!important;
-  font-size:12px!important;
-  font-weight:1000!important;
-  padding:0 12px!important;
-  white-space:nowrap;
-}
-.temp-edit-actions.pkl-admin-edit-actions .modal-delete-top{
-  background:linear-gradient(180deg,rgba(239,68,68,.22),rgba(69,10,10,.62))!important;
-  border:1px solid rgba(248,113,113,.38)!important;
-  color:#fecaca!important;
-  box-shadow:0 0 16px rgba(239,68,68,.13),inset 0 1px 0 rgba(255,255,255,.06)!important;
-}
-.temp-edit-actions.pkl-admin-edit-actions .modal-delete-top:hover{
-  color:#fff!important;
-  border-color:rgba(248,113,113,.58)!important;
-  box-shadow:0 0 22px rgba(239,68,68,.22)!important;
-  transform:translateY(-1px);
-}
-.modal-prime-top,
-.temp-edit-actions.pkl-admin-edit-actions .modal-prime-top{
-  background:linear-gradient(180deg,rgba(251,191,36,.34),rgba(120,53,15,.72))!important;
-  border:1px solid rgba(251,191,36,.50)!important;
-  color:#fff7d6!important;
-  text-shadow:0 0 10px rgba(251,191,36,.26)!important;
-  box-shadow:0 0 18px rgba(251,191,36,.18),inset 0 1px 0 rgba(255,255,255,.10)!important;
-}
-.modal-prime-top:hover,
-.temp-edit-actions.pkl-admin-edit-actions .modal-prime-top:hover{
-  border-color:rgba(253,230,138,.76)!important;
-  box-shadow:0 0 26px rgba(251,191,36,.30),inset 0 1px 0 rgba(255,255,255,.12)!important;
-  transform:translateY(-1px);
-}
-.temp-edit-actions.pkl-admin-edit-actions .temp-edit-save{
-  background:linear-gradient(180deg,rgba(124,58,237,.64),rgba(76,29,149,.62))!important;
-  border:1px solid rgba(216,180,254,.42)!important;
-  box-shadow:0 0 20px rgba(124,58,237,.20),inset 0 1px 0 rgba(255,255,255,.08)!important;
-}
-.temp-edit-actions.pkl-admin-edit-actions .temp-edit-save:hover{
-  border-color:rgba(233,213,255,.64)!important;
-  box-shadow:0 0 28px rgba(167,139,250,.28)!important;
-  transform:translateY(-1px);
+  border-color:rgba(253,224,71,.62);
+  background:linear-gradient(180deg,rgba(251,191,36,.46),rgba(146,64,14,.72));
+  box-shadow:0 0 22px rgba(245,158,11,.28),inset 0 1px 0 rgba(255,255,255,.10);
 }
 #primeAdjustModal.prime-adjust-modal{
+  position:fixed;
+  inset:0;
+  z-index:2147483200!important;
   display:none;
   align-items:center;
   justify-content:center;
-  place-items:initial;
   background:rgba(0,0,0,.68);
   backdrop-filter:blur(10px);
 }
 #primeAdjustModal.prime-adjust-modal.open{display:flex;}
 #primeAdjustModal .prime-adjust-box{
-  position:relative;
-  width:min(620px,calc(100vw - 34px));
+  width:min(650px,calc(100vw - 34px));
+  max-height:calc(100vh - 48px);
+  overflow:visible;
   border-radius:22px;
   border:1px solid rgba(216,180,254,.22);
   background:linear-gradient(180deg,rgba(22,18,38,.98),rgba(8,7,16,.98));
@@ -5911,33 +5827,62 @@ a,
 }
 #primeAdjustModal .prime-adjust-head{
   position:relative;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  min-height:40px;
+  display:block;
   margin:0 0 16px;
-  padding:0 48px;
   text-align:center;
 }
-#primeAdjustModal .prime-adjust-head h2{margin:0;text-align:center;font-size:22px;letter-spacing:-.4px;color:#fff;}
-#primeAdjustModal .prime-adjust-head p{display:none;}
+#primeAdjustModal .prime-adjust-head h2{
+  margin:0;
+  font-size:22px;
+  font-weight:1000;
+  letter-spacing:-.5px;
+  color:#fff;
+}
+#primeAdjustModal .prime-adjust-head p{
+  margin:6px 0 0;
+  color:rgba(231,225,255,.66);
+  font-size:12px;
+  font-weight:1000;
+  line-height:1.4;
+}
+#primeAdjustModal .prime-adjust-close{
+  position:absolute;
+  right:0;
+  top:-2px;
+  width:36px;
+  height:36px;
+  border-radius:12px;
+  border:1px solid rgba(216,180,254,.24);
+  background:rgba(255,255,255,.055);
+  color:#fff;
+  font-size:22px;
+  font-weight:1000;
+  line-height:1;
+  cursor:pointer;
+  box-shadow:0 0 14px rgba(124,58,237,.14),inset 0 0 10px rgba(255,255,255,.025);
+  transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease,background .16s ease;
+}
+#primeAdjustModal .prime-adjust-close:hover{
+  transform:translateY(-1px);
+  border-color:rgba(233,213,255,.48);
+  background:rgba(124,58,237,.16);
+  box-shadow:0 0 20px rgba(124,58,237,.24),inset 0 0 12px rgba(255,255,255,.04);
+}
 #primeAdjustModal .prime-adjust-grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:14px;
-  margin-top:0;
 }
 #primeAdjustModal .prime-adjust-field{
-  min-height:86px;
+  min-height:94px;
   border:1px solid rgba(216,180,254,.12);
   border-radius:16px;
   background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(124,58,237,.035));
   padding:12px;
   box-shadow:inset 0 0 18px rgba(255,255,255,.025);
+  overflow:visible;
 }
-#primeAdjustModal .prime-adjust-target-field,
-#primeAdjustModal .prime-adjust-reason-field{grid-column:1/-1;}
-#primeAdjustModal .prime-adjust-reason-field{min-height:112px;}
+#primeAdjustModal .prime-adjust-field.full{grid-column:1/-1;min-height:132px;}
 #primeAdjustModal .prime-adjust-field label{
   display:block;
   margin:0 0 8px!important;
@@ -5947,74 +5892,96 @@ a,
   text-align:center;
 }
 #primeAdjustModal .prime-adjust-field input,
-#primeAdjustModal .prime-adjust-field textarea,
-#primeAdjustModal .prime-adjust-field select{
+#primeAdjustModal .prime-adjust-field textarea{
   width:100%;
-  border-radius:14px;
-  border:1px solid rgba(168,139,250,.35);
-  background:
-    linear-gradient(180deg,rgba(124,58,237,.35),rgba(0,0,0,.25)),
-    rgba(0,0,0,.35);
+  border-radius:13px;
+  border:1px solid rgba(216,180,254,.16);
+  background:rgba(0,0,0,.24);
   color:#fff;
   text-align:center;
-  font-weight:1000;
-  letter-spacing:.2px;
-  box-shadow:0 0 18px rgba(124,58,237,.15),inset 0 0 12px rgba(255,255,255,.04);
+  font-weight:900;
   outline:none;
-  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .16s ease;
+  box-shadow:inset 0 0 14px rgba(255,255,255,.018);
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
 }
-#primeAdjustModal .prime-adjust-field input,
-#primeAdjustModal .prime-adjust-field select{height:44px;padding:0 14px;}
-#primeAdjustModal .prime-adjust-field select{
-  appearance:none;
-  -webkit-appearance:none;
-  cursor:pointer;
-  padding-right:42px;
-  background-image:url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>"),linear-gradient(180deg,rgba(124,58,237,.35),rgba(0,0,0,.25));
-  background-repeat:no-repeat,no-repeat;
-  background-position:right 12px center,center;
-  background-color:rgba(0,0,0,.35);
-}
-#primeAdjustModal .prime-adjust-field select option{background:#100d20;color:#fff;font-weight:900;}
-#primeAdjustModal .prime-adjust-field textarea{min-height:76px;padding:14px;resize:vertical;}
+#primeAdjustModal .prime-adjust-field input{height:46px;padding:0 12px;}
+#primeAdjustModal .prime-adjust-field textarea{height:78px;min-height:78px;max-height:120px;padding:18px 14px;resize:vertical;line-height:1.45;}
 #primeAdjustModal .prime-adjust-field input:hover,
 #primeAdjustModal .prime-adjust-field textarea:hover,
-#primeAdjustModal .prime-adjust-field select:hover{
-  border-color:#a78bfa;
-  box-shadow:0 0 22px rgba(167,139,250,.25),inset 0 0 12px rgba(255,255,255,.04);
-}
 #primeAdjustModal .prime-adjust-field input:focus,
-#primeAdjustModal .prime-adjust-field textarea:focus,
-#primeAdjustModal .prime-adjust-field select:focus{
-  border-color:#c4b5fd;
-  box-shadow:0 0 26px rgba(196,181,253,.35),inset 0 0 12px rgba(255,255,255,.04);
+#primeAdjustModal .prime-adjust-field textarea:focus{
+  border-color:rgba(216,180,254,.36);
+  background:rgba(16,9,32,.42);
+  box-shadow:0 0 18px rgba(124,58,237,.16),inset 0 0 14px rgba(255,255,255,.025);
 }
-#primeAdjustModal .prime-adjust-field input[readonly]{color:#e9d5ff;opacity:.94;}
-#primeAdjustModal .prime-adjust-actions{display:grid;grid-template-columns:1fr;margin-top:14px;gap:0;}
+#primeAdjustType{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;}
+#primeAdjustTypeCustom{
+  position:relative!important;
+  width:100%!important;
+  z-index:20;
+}
+#primeAdjustTypeCustom.open{z-index:10000!important;}
+#primeAdjustTypeCustom .pkl-role-select-btn{
+  width:100%!important;
+  height:46px!important;
+  min-height:46px!important;
+  padding:0 46px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:15px!important;
+}
+#primeAdjustTypeCustom .pkl-role-select-arrow{
+  position:absolute!important;
+  right:13px!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+}
+#primeAdjustTypeCustom.open .pkl-role-select-arrow{transform:translateY(-50%) rotate(180deg)!important;}
+#primeAdjustTypeCustom .pkl-role-select-menu{
+  position:absolute!important;
+  left:0!important;
+  right:0!important;
+  top:calc(100% + 8px)!important;
+}
+#primeAdjustModal .prime-adjust-actions{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  margin-top:18px;
+}
 #primeAdjustModal .prime-adjust-save{
   width:100%;
   height:48px;
-  border-radius:15px;
-  border:1px solid rgba(216,180,254,.44);
-  background:linear-gradient(180deg,rgba(124,58,237,.68),rgba(76,29,149,.66));
+  border-radius:14px;
+  border:1px solid rgba(216,180,254,.28);
+  background:linear-gradient(180deg,rgba(124,58,237,.72),rgba(76,29,149,.52));
   color:#fff;
   font-size:14px;
   font-weight:1000;
-  box-shadow:0 0 24px rgba(124,58,237,.24),inset 0 1px 0 rgba(255,255,255,.09);
   cursor:pointer;
-  transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease;
+  box-shadow:0 0 18px rgba(124,58,237,.20),inset 0 1px 0 rgba(255,255,255,.08);
+  transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease,background .16s ease;
 }
 #primeAdjustModal .prime-adjust-save:hover{
-  border-color:rgba(233,213,255,.72);
-  box-shadow:0 0 32px rgba(167,139,250,.34),inset 0 1px 0 rgba(255,255,255,.11);
   transform:translateY(-1px);
+  border-color:rgba(233,213,255,.50);
+  background:linear-gradient(180deg,rgba(139,92,246,.82),rgba(76,29,149,.62));
+  box-shadow:0 0 26px rgba(124,58,237,.30),inset 0 1px 0 rgba(255,255,255,.10);
 }
 #primeAdjustModal .prime-adjust-cancel{display:none!important;}
-@media(max-width:760px){
-  .temp-edit-actions.pkl-admin-edit-actions{grid-template-columns:1fr!important;}
-  #primeAdjustModal .prime-adjust-box{width:calc(100vw - 24px);}
+@media(max-width:720px){
+  #primeAdjustModal .prime-adjust-box{width:min(430px,calc(100vw - 28px));padding:20px;}
   #primeAdjustModal .prime-adjust-grid{grid-template-columns:1fr;}
 }
+</style>
+
+<style id="pkl-admin-modal-speed-layer-20260513">
+/* 2026-05 관리자 모달 체감 보정: 완료/확인 모달은 항상 최상단, blur 최소화 */
+#pklNoticeLayer{z-index:2147483647!important;backdrop-filter:blur(2px)!important;background:rgba(4,3,10,.34)!important}
+#modal.modal{z-index:2147483300!important}
+#primeAdjustModal.prime-adjust-modal,.prime-adjust-modal{z-index:2147483200!important}
+.memo-delete-modal,.temp-edit-modal{z-index:2147483100!important}
 </style>
 </head>
 <body>
@@ -7353,23 +7320,50 @@ function pklUserPayloadForApi(u){
     raw:(u.raw&&typeof u.raw==='object')?u.raw:{}
   };
 }
+function setPrimeAdjustType(value){
+  const select=document.getElementById("primeAdjustType");
+  const text=document.getElementById("primeAdjustTypeCustomText");
+  const custom=document.getElementById("primeAdjustTypeCustom");
+  const next=value==="seize"?"seize":"grant";
+  if(select)select.value=next;
+  if(text)text.textContent=next==="seize"?"압수":"지급";
+  if(custom){
+    custom.querySelectorAll(".pkl-role-option").forEach(btn=>btn.classList.toggle("active",btn.dataset.value===next));
+  }
+}
+window.togglePrimeAdjustTypeCustom=function(e){
+  if(e)e.stopPropagation();
+  const custom=document.getElementById("primeAdjustTypeCustom");
+  if(!custom)return;
+  custom.classList.toggle("open");
+};
+window.selectPrimeAdjustTypeCustom=function(value,e){
+  if(e)e.stopPropagation();
+  setPrimeAdjustType(value);
+  const custom=document.getElementById("primeAdjustTypeCustom");
+  if(custom)custom.classList.remove("open");
+};
+document.addEventListener("click",function(e){
+  const custom=document.getElementById("primeAdjustTypeCustom");
+  if(custom&&!custom.contains(e.target))custom.classList.remove("open");
+});
 function openPrimeAdjustModal(){
   if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}
   const u=state.users[current];
   if(!u){pklAlert("선택된 회원이 없습니다.","처리 불가");return;}
   const target=document.getElementById("primeAdjustTarget");
-  const targetText=`${u.nickname||u.name||"회원"} · 현재 ${Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0} 프라임`;
-  if(target)target.textContent=targetText;
-  const targetView=document.getElementById("primeAdjustTargetView"); if(targetView)targetView.value=targetText;
+  if(target)target.textContent=`${u.nickname||u.name||"회원"} · 현재 ${Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0)||0} 프라임`;
   const amount=document.getElementById("primeAdjustAmount"); if(amount)amount.value="";
   const reason=document.getElementById("primeAdjustReason"); if(reason)reason.value="";
-  const type=document.getElementById("primeAdjustType"); if(type)type.value="grant";
+  setPrimeAdjustType("grant");
   const modal=document.getElementById("primeAdjustModal");
   if(modal){modal.classList.add("open");modal.setAttribute("aria-hidden","false");}
 }
 function closePrimeAdjustModal(){
   const modal=document.getElementById("primeAdjustModal");
   if(modal){modal.classList.remove("open");modal.setAttribute("aria-hidden","true");}
+  const custom=document.getElementById("primeAdjustTypeCustom");
+  if(custom)custom.classList.remove("open");
 }
 async function submitPrimeAdjust(){
   if(!pklCanOperate()){pklAlert("운영자 이상 권한이 필요합니다.","권한 제한");return;}
@@ -7569,7 +7563,7 @@ function pklSeoulTimeOnly(value){
 
 <div id="tempEditModal" class="temp-edit-modal">
   <div class="temp-edit-box">
-    <div class="modal-head pkl-admin-edit-head"><h2>회원 정보 수정</h2><button class="temp-edit-x" type="button" onclick="closeMemberEditModal()">×</button></div>
+    <div class="modal-head"><h2>회원 정보 수정</h2><div class="modal-head-actions"><button class="modal-delete-top" data-min-role="admin" onclick="deleteMemberData()">회원데이터삭제</button><button class="modal-prime-top" data-min-role="operator" onclick="openPrimeAdjustModal()">프라임지급/압수</button></div></div>
     <div class="temp-edit-grid">
       <div class="temp-edit-field"><label>닉네임</label><input id="editNick" type="text"></div>
       <div class="temp-edit-field"><label>배그아이디</label><input id="editPubg" type="text"></div>
@@ -7614,10 +7608,9 @@ function pklSeoulTimeOnly(value){
       <div class="temp-edit-field temp-edit-empty" aria-hidden="true"></div>
       <div class="temp-edit-field temp-edit-empty" aria-hidden="true"></div>
     </div>
-    <div class="temp-edit-actions pkl-admin-edit-actions">
-      <button class="modal-delete-top pkl-admin-bottom-btn" data-min-role="admin" onclick="deleteMemberData()">회원데이터삭제</button>
-      <button class="modal-prime-top pkl-admin-bottom-btn" data-min-role="operator" onclick="openPrimeAdjustModal()">프라임지급/압수</button>
-      <button class="temp-edit-save pkl-admin-bottom-btn" data-min-role="operator" onclick="saveMemberEdit()">회원정보저장</button>
+    <div class="temp-edit-actions">
+      <button class="temp-edit-save" data-min-role="operator" onclick="saveMemberEdit()">저장</button>
+      <button class="temp-edit-close" onclick="closeMemberEditModal()">닫기</button>
     </div>
   </div>
 </div>
@@ -8241,14 +8234,27 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 <div id="primeAdjustModal" class="prime-adjust-modal" aria-hidden="true">
   <div class="prime-adjust-box">
     <div class="prime-adjust-head">
-      <h2>프라임 지급/압수</h2><p id="primeAdjustTarget">선택 회원</p>
+      <h2>프라임 지급/압수</h2>
+      <p id="primeAdjustTarget">선택 회원</p>
       <button class="prime-adjust-close" type="button" onclick="closePrimeAdjustModal()">×</button>
     </div>
     <div class="prime-adjust-grid">
-      <div class="prime-adjust-field prime-adjust-target-field"><label>대상 회원</label><input id="primeAdjustTargetView" type="text" readonly value="선택 회원"></div>
-      <div class="prime-adjust-field"><label>처리 유형</label><select id="primeAdjustType"><option value="grant">지급</option><option value="seize">압수</option></select></div>
+      <div class="prime-adjust-field">
+        <label>처리 유형</label>
+        <select id="primeAdjustType" aria-hidden="true"><option value="grant">지급</option><option value="seize">압수</option></select>
+        <div class="pkl-role-select" id="primeAdjustTypeCustom">
+          <button type="button" class="pkl-role-select-btn" onclick="togglePrimeAdjustTypeCustom(event)">
+            <span class="pkl-role-select-text" id="primeAdjustTypeCustomText">지급</span>
+            <span class="pkl-role-select-arrow">▾</span>
+          </button>
+          <div class="pkl-role-select-menu" id="primeAdjustTypeCustomMenu">
+            <button type="button" class="pkl-role-option active" data-value="grant" onclick="selectPrimeAdjustTypeCustom('grant',event)">지급</button>
+            <button type="button" class="pkl-role-option" data-value="seize" onclick="selectPrimeAdjustTypeCustom('seize',event)">압수</button>
+          </div>
+        </div>
+      </div>
       <div class="prime-adjust-field"><label>프라임 수량</label><input id="primeAdjustAmount" type="number" min="1" step="1" placeholder="숫자만 입력"></div>
-      <div class="prime-adjust-field prime-adjust-reason-field"><label>사유 / 우편 내용</label><textarea id="primeAdjustReason" placeholder="예: 이벤트 보상 지급"></textarea></div>
+      <div class="prime-adjust-field full"><label>사유 / 우편 내용</label><textarea id="primeAdjustReason" placeholder="예: 이벤트 보상 지급"></textarea></div>
     </div>
     <div class="prime-adjust-actions">
       <button class="prime-adjust-save" type="button" onclick="submitPrimeAdjust()">저장하고 우편 발송</button>
