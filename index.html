@@ -892,6 +892,12 @@ font-weight:700;
     var form=document.getElementById("pklNoticeForm");
     var title=document.getElementById("pklNoticeTitleInput");
     var body=document.getElementById("pklNoticeBodyInput");
+    [form,title,body].forEach(function(el){
+      if(!el) return;
+      ["pointerdown","mousedown","click","focusin","keydown"].forEach(function(type){
+        el.addEventListener(type,function(ev){ev.stopPropagation();},true);
+      });
+    });
     title.focus({preventScroll:true});
     document.getElementById("pklNoticeFormCancel").addEventListener("click",function(){editingId=null;renderModal();});
     form.addEventListener("submit",function(e){
@@ -923,11 +929,12 @@ font-weight:700;
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&modal.classList.contains("open")) closeModal();});
   function handleNoticeDataUpdated(e){
     if(e && e.detail && e.detail.key && e.detail.key!==STORAGE_KEY) return;
+    if(editingId) return;
     if(e && e.detail && e.detail.local){renderPreview(); if(modal.classList.contains("open")) renderModal(); return;}
     hydrateNotices(true);
   }
   window.addEventListener("pkl-supabase-data-updated",handleNoticeDataUpdated);
-  window.addEventListener("pkl-supabase-sync-ready",function(){hydrateNotices(true);});
+  window.addEventListener("pkl-supabase-sync-ready",function(){if(!editingId) hydrateNotices(true);});
   syncNoticeAdminState();
   renderPreview();
   hydrateNotices(true);

@@ -380,6 +380,17 @@ padding-right:66px;
     return hasAdminRole(current);
   }
   function syncAdmin(){document.body.classList.toggle("rule-admin",isRuleAdmin());}
+  function stopEditorEventBubble(root){
+    if(!root) return;
+    ["pointerdown","mousedown","click","focusin","keydown"].forEach(function(type){
+      root.addEventListener(type,function(e){
+        var target=e.target;
+        if(target && target.closest && target.closest('input,textarea,[contenteditable="true"],.rule-edit-form,.rule-block')){
+          e.stopPropagation();
+        }
+      },true);
+    });
+  }
   function normalizeRules(value){
     if(typeof value === "string"){
       try{value=JSON.parse(value);}catch(e){value={};}
@@ -570,6 +581,8 @@ padding-right:66px;
     saveBtn.hidden=false;
     cancelBtn.hidden=false;
     setEditable(true);
+    stopEditorEventBubble(editForm);
+    stopEditorEventBubble(panel);
     editTitle.focus({preventScroll:true});
   }
   function saveEdit(){
@@ -646,10 +659,11 @@ padding-right:66px;
   if(cancelBtn) cancelBtn.addEventListener("click",function(){stopEdit(true);});
   window.addEventListener("pkl-supabase-data-updated",function(e){
     if(e && e.detail && e.detail.key && e.detail.key!==STORAGE_KEY) return;
+    if(detail.classList.contains("editing")) return;
     if(e && e.detail && e.detail.local){applySaved();setRule(activeId,true);return;}
     hydrateRules(true);
   });
-  window.addEventListener("pkl-supabase-sync-ready",function(){hydrateRules(true);});
+  window.addEventListener("pkl-supabase-sync-ready",function(){if(!detail.classList.contains("editing")) hydrateRules(true);});
   setRule(activeId,true);
   hydrateRules(true);
 })();

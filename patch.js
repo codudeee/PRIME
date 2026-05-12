@@ -106,7 +106,19 @@
     if(window.PKLRoleSystem && typeof window.PKLRoleSystem.showAccessModal === "function") window.PKLRoleSystem.showAccessModal("관리자만 패치노트를 수정할 수 있습니다.", "권한 제한");
   }
 
+  function stopPatchEditorEventBubble(){
+    [els.patchEditorModal, els.patchInputVersion, els.patchInputDate, els.patchInputTitle, els.patchInputItems].forEach(el => {
+      if(!el) return;
+      ["pointerdown","mousedown","click","focusin","keydown"].forEach(type => {
+        el.addEventListener(type, ev => {
+          if(ev.target && ev.target.closest && ev.target.closest('input,textarea,.pkl-patch-modal-card')) ev.stopPropagation();
+        }, true);
+      });
+    });
+  }
+
   function bindEvents(){
+    stopPatchEditorEventBubble();
     els.patchAddBtnSide?.addEventListener("click", () => openEditor("add"));
     els.patchEditBtn?.addEventListener("click", () => openEditor("edit"));
     els.patchDeleteBtn?.addEventListener("click", openConfirm);
@@ -204,7 +216,7 @@
     els.patchInputItems.value = itemsToText(note.items || []);
     els.patchEditorModal?.classList.add("open");
     els.patchEditorModal?.setAttribute("aria-hidden","false");
-    setTimeout(() => els.patchInputTitle?.focus(), 30);
+    setTimeout(() => els.patchInputTitle?.focus({preventScroll:true}), 30);
   }
 
   function closeEditor(){
