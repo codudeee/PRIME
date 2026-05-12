@@ -10,7 +10,7 @@
     { id: 'beast', label: '짐승', weight: 1, badgeClass: 'grade-role-beast' }
   ];
 
-  const TEAM_COUNT = 10;
+  const TEAM_COUNT = 20;
   const SLOT_COUNT = 4;
   const ADMIN_STORAGE_KEY = 'pklAdminState_v3';
   const ACCOUNT_STORAGE_KEY = 'pklUsers';
