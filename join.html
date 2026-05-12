@@ -5229,14 +5229,6 @@ function safeJson(key, fallback){
     renderCancelList();
   }
 
-  window.PKLJoinRenderAll = renderAll;
-  window.addEventListener("pkl-join-state-render-request", function(){
-    renderAll();
-  });
-  window.addEventListener("pkl-join-state-updated", function(){
-    renderAll();
-  });
-
   function resetJoinPanel(){
     saveList(STORAGE_KEY, []);
     saveList(CANCEL_KEY, []);
@@ -6028,10 +6020,10 @@ function safeJson(key, fallback){
   [deadlineAmpm, deadlineHour, deadlineMinute].forEach(function(el){
     if(el) el.addEventListener("change", updateDeadlinePreview);
   });
-  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "모집대기중";
+  if(deadlineText && !deadlineText.textContent.trim() && !localStorage.getItem("pklJoinRecruitState")) deadlineText.textContent = "모집대기중";
 
   restoreRecruitState();
-  if(deadlineText && !deadlineText.textContent.trim()) deadlineText.textContent = "모집대기중";
+  if(deadlineText && !deadlineText.textContent.trim() && !localStorage.getItem("pklJoinRecruitState")) deadlineText.textContent = "모집대기중";
 })();
 </script>
 
@@ -6962,6 +6954,34 @@ body.pkl-recruit-waiting #joinCancelBtn,
     if(t&&t.closest&&t.closest('#joinCloseConfirmYes')) setTimeout(function(){writeBotMessage('closed','confirm-click');},260);
   },true);
 })();
+</script>
+
+
+<script id="pklJoinRecruitRealtimeFix">
+window.addEventListener('pkl-join-state-updated', function(e){
+  try{
+    const st=(e.detail&&e.detail.recruitState)||{};
+    const raw=JSON.stringify(st||{});
+    localStorage.setItem('pklJoinRecruitState', raw);
+
+    const status=document.getElementById('joinStatus');
+    if(status){
+      if(st.state==='open'){
+        status.textContent='모집중';
+        document.body.classList.add('pkl-recruit-open');
+        document.body.classList.remove('pkl-recruit-waiting','pkl-recruit-closed');
+      }else if(st.state==='closed'){
+        status.textContent='모집마감';
+        document.body.classList.add('pkl-recruit-closed');
+        document.body.classList.remove('pkl-recruit-open','pkl-recruit-waiting');
+      }else{
+        status.textContent='모집대기중';
+        document.body.classList.add('pkl-recruit-waiting');
+        document.body.classList.remove('pkl-recruit-open','pkl-recruit-closed');
+      }
+    }
+  }catch(err){}
+});
 </script>
 
 </body>
