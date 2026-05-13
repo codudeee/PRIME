@@ -3287,6 +3287,55 @@ window.addEventListener('load', restoreDiscordSession);
 }
 </style>
 
+
+
+<!-- PKL: result match dropdown click recovery - keeps existing UI, fixes blocked open event -->
+<style id="pkl-result-dropdown-click-recovery-style">
+  #matchDropdown.pkl-match-dropdown{position:relative!important;z-index:214748200!important;pointer-events:auto!important;}
+  #matchDropdownTrigger.pkl-match-trigger{pointer-events:auto!important;cursor:pointer!important;position:relative!important;z-index:214748201!important;}
+  #matchDropdownMenu.pkl-match-menu{z-index:214748202!important;pointer-events:auto!important;}
+  #matchDropdown.open #matchDropdownMenu{display:grid!important;}
+  #matchDropdownMenu .pkl-match-option{pointer-events:auto!important;cursor:pointer!important;}
+</style>
+<script id="pkl-result-dropdown-click-recovery-script">
+(function(){
+  'use strict';
+  function byId(id){return document.getElementById(id);}
+  function close(){var d=byId('matchDropdown'); if(d) d.classList.remove('open');}
+  function open(){var d=byId('matchDropdown'); if(d) d.classList.add('open');}
+  function toggle(){var d=byId('matchDropdown'); if(d) d.classList.toggle('open');}
+  function selectMatch(id){
+    if(!id) return;
+    try{ window.selectedMatchId=id; }catch(e){}
+    var native=byId('matchSelect');
+    if(native) native.value=id;
+    try{ if(typeof window.pklResultApplySelectedMatchState==='function') window.pklResultApplySelectedMatchState(); }catch(e){}
+    try{ if(typeof window.renderAll==='function') window.renderAll(); }catch(e){}
+    close();
+  }
+  document.addEventListener('click',function(e){
+    var trigger=e.target && e.target.closest && e.target.closest('#matchDropdownTrigger');
+    if(trigger){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      toggle();
+      return;
+    }
+    var opt=e.target && e.target.closest && e.target.closest('#matchDropdownMenu [data-match]');
+    if(opt){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      selectMatch(opt.getAttribute('data-match'));
+      return;
+    }
+    var drop=byId('matchDropdown');
+    if(drop && !drop.contains(e.target)) close();
+  },true);
+})();
+</script>
+
 </body>
 </html>
 
