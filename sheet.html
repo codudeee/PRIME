@@ -8787,23 +8787,27 @@ function pklApplySupabaseSheetStateOnce(){
     .catch(()=>false);
 }
 (function pklBootSheetSafely(){
-  const hasLocalSheet=pklSheetHasMeaningfulState(state);
-  const afterBoot=()=>{
-    pklLoadSheetSupabaseUsersOnce().then(()=>{ try{ renderSheet(); renderBoard(); }catch(e){} });
-    pklApplySupabaseSheetStateOnce().then(()=>pklLoadSheetSupabaseUsersOnce()).then(()=>{ try{ renderSheet(); renderBoard(); }catch(e){} });
+  /* 첫 진입 최적화: Supabase 원격 시트/티어 조회를 기다리면 tbody가 비어 있고
+     tfoot의 '+ 라운드 추가' 버튼만 먼저 보인다. 기본 시트는 저장하지 않는
+     save() 보호가 이미 있으므로, 화면은 즉시 그리고 데이터만 뒤에서 교체한다. */
+  try{ render(); }catch(e){}
+
+  const refreshVisibleSheet=()=>{
+    try{ renderSheet(); renderBoard(); renderFeeds(); updateTopTimes(); }catch(e){}
   };
-  if(hasLocalSheet){
-    render();
-    afterBoot();
-  }else{
-    pklApplySupabaseSheetStateOnce().then(()=>{
-      render();
-      afterBoot();
-    }).catch(()=>{
-      render();
-      afterBoot();
-    });
-  }
+
+  // 티어/배지는 늦게 와도 점수 입력칸 표시를 막지 않게 뒤에서만 보정한다.
+  setTimeout(function(){
+    pklLoadSheetSupabaseUsersOnce().then(refreshVisibleSheet).catch(()=>{});
+  }, 0);
+
+  // 원격 경기 상태도 부팅 렌더를 막지 않고, 도착했을 때만 현재 DOM을 교체한다.
+  setTimeout(function(){
+    pklApplySupabaseSheetStateOnce()
+      .then(()=>pklLoadSheetSupabaseUsersOnce())
+      .then(refreshVisibleSheet)
+      .catch(()=>{});
+  }, 0);
 })();
 window.addEventListener('pagehide',()=>{ try{ pklPersistSheetStateNow(); }catch(e){} });
 window.addEventListener('beforeunload',()=>{ try{ pklPersistSheetStateNow(); }catch(e){} });
