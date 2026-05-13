@@ -12889,6 +12889,278 @@ window.addEventListener('DOMContentLoaded',()=>{
 })();
 </script>
 
+
+
+<style id="pklConsentCheckboxRestoreFinal20260513">
+#surrenderModal .surrender-check-list,
+#fireModal .fire-check-list{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:9px !important;
+}
+#surrenderModal .surrender-check-item,
+#fireModal .surrender-check-item{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:10px !important;
+  min-height:42px !important;
+  padding:0 13px !important;
+  cursor:pointer !important;
+}
+#surrenderModal .surrender-check-item input.surrender-member-check,
+#fireModal .surrender-check-item input.fire-member-check{
+  display:inline-block !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  position:relative !important;
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  width:22px !important;
+  height:22px !important;
+  min-width:22px !important;
+  flex:0 0 22px !important;
+  border-radius:7px !important;
+  border:1px solid rgba(255,255,255,.28) !important;
+  background:rgba(5,6,14,.92) !important;
+  box-shadow:inset 0 0 10px rgba(0,0,0,.45) !important;
+  margin:0 !important;
+}
+#surrenderModal .surrender-check-item input.surrender-member-check:checked,
+#fireModal .surrender-check-item input.fire-member-check:checked{
+  border-color:rgba(255,77,109,.92) !important;
+  background:linear-gradient(135deg,rgba(255,77,109,.96),rgba(155,92,255,.50)) !important;
+  box-shadow:0 0 12px rgba(255,77,109,.38), inset 0 0 10px rgba(255,255,255,.13) !important;
+}
+#fireModal .surrender-check-item input.fire-member-check:checked{
+  border-color:rgba(255,138,43,.92) !important;
+  background:linear-gradient(135deg,rgba(255,138,43,.92),rgba(155,92,255,.60)) !important;
+  box-shadow:0 0 12px rgba(255,138,43,.38), inset 0 0 10px rgba(255,255,255,.13) !important;
+}
+#surrenderModal .surrender-check-item input.surrender-member-check:checked::after,
+#fireModal .surrender-check-item input.fire-member-check:checked::after{
+  content:"" !important;
+  position:absolute !important;
+  left:7px !important;
+  top:3px !important;
+  width:7px !important;
+  height:13px !important;
+  border:solid #fff !important;
+  border-width:0 3px 3px 0 !important;
+  transform:rotate(45deg) !important;
+}
+#surrenderModal .surrender-check-item.is-agreed .surrender-member-name,
+#fireModal .surrender-check-item.is-agreed .surrender-member-name{
+  color:rgba(255,255,255,.55) !important;
+  text-decoration:line-through !important;
+  text-decoration-thickness:2px !important;
+  text-decoration-color:rgba(255,77,109,.88) !important;
+}
+#fireModal .surrender-check-item.is-agreed .surrender-member-name{
+  text-decoration-color:rgba(255,138,43,.88) !important;
+}
+</style>
+<script id="pklConsentModalCheckboxRestoreFinal20260513">
+(function(){
+  if(window.__PKL_CONSENT_MODAL_CHECKBOX_RESTORE_20260513__) return;
+  window.__PKL_CONSENT_MODAL_CHECKBOX_RESTORE_20260513__=true;
+
+  function escHtml(v){
+    return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c];});
+  }
+  function rawName(member){
+    if(typeof member==='string') return member.replace(/\s+/g,' ').trim();
+    var m=member||{};
+    return String(m.name||m.nickname||m.nick||m.displayName||m.pubgId||m.pubgID||m.pubgName||m.gameId||m.username||'').replace(/\s+/g,' ').trim();
+  }
+  function addMember(out,seen,member){
+    var name=rawName(member);
+    if(!name || name==='-' || /^(🍗|⛔)/.test(name)) return;
+    var key=name.replace(/\s+/g,'').toLowerCase();
+    if(seen[key]) return;
+    seen[key]=true;
+    var base=(member&&typeof member==='object'&&!Array.isArray(member))?Object.assign({},member):{};
+    base.name=name;
+    out.push(base);
+  }
+  function readHeaderMembers(){
+    var out=[], seen={};
+    try{
+      for(var i=0;i<8;i++){
+        var h=document.getElementById('h'+i);
+        if(!h) continue;
+        var nameEl=h.querySelector('.user-name,.member-name,[data-member-name]');
+        var name=nameEl?String(nameEl.textContent||'').replace(/\s+/g,' ').trim():'';
+        if(!name){
+          var clone=h.cloneNode(true);
+          clone.querySelectorAll('.pkl-tier-badge,.tier-head-badge,.role-badge,.user-role-badge,.admin-role-badge,.member-role-badge,[data-tier],[data-role],script,style').forEach(function(el){el.remove();});
+          name=String(clone.textContent||'').replace(/\s+/g,' ').trim();
+        }
+        if(!name) continue;
+        var member={name:name};
+        var badge=h.querySelector('.pkl-tier-badge,.tier-head-badge,.role-badge,.user-role-badge,.admin-role-badge,.member-role-badge,[data-tier],[data-role]');
+        if(badge) member.__badgeHtml=badge.outerHTML;
+        addMember(out,seen,member);
+      }
+    }catch(e){}
+    return out;
+  }
+  function finalConsentMembers(view){
+    var out=[], seen={};
+    function pushList(list){(Array.isArray(list)?list:[]).forEach(function(m){addMember(out,seen,m);});}
+    pushList(view&&view.members);
+    if(!out.length){try{pushList((typeof currentView==='function'?currentView():null)||{} .members);}catch(e){}}
+    if(!out.length){try{pushList((typeof getViewById==='function'?getViewById(selectedTeamId):null)||{} .members);}catch(e){}}
+    if(!out.length) readHeaderMembers().forEach(function(m){addMember(out,seen,m);});
+    if(!out.length){
+      try{
+        var active=document.querySelector('.team-card.active');
+        if(active){
+          active.querySelectorAll('.member-row:not(.team-extra-row),.score-member,.team-member').forEach(function(row){
+            var el=row.querySelector('.member-name,.user-name,[data-member-name]');
+            addMember(out,seen,{name:el?el.textContent:row.textContent});
+          });
+        }
+      }catch(e){}
+    }
+    if(!out.length){
+      try{
+        var filled=(typeof visibleTeams==='function'?visibleTeams():[]).filter(function(v){return v&&Array.isArray(v.members)&&v.members.some(rawName);});
+        if(filled.length===1) pushList(filled[0].members);
+      }catch(e){}
+    }
+    return out;
+  }
+  try{ pklConsentMembers=finalConsentMembers; }catch(e){}
+
+  function badgeHtml(member){
+    try{ if(typeof pklSurrenderBadgeHtml==='function') return pklSurrenderBadgeHtml(member)||''; }catch(e){}
+    return member&&member.__badgeHtml ? ' '+member.__badgeHtml : '';
+  }
+  function ensureSurrenderRecord(viewId,members){
+    if(typeof pklGetSurrenderConsentRecord==='function') return pklGetSurrenderConsentRecord(viewId,members);
+    var item={checked:{},done:false,time:0};
+    return {store:{},key:String(viewId||''),item:item};
+  }
+  function saveSurrenderRecord(rec){
+    try{ if(typeof pklSaveSurrenderConsentRecord==='function') pklSaveSurrenderConsentRecord(rec); }catch(e){}
+  }
+  function viewName(view){
+    var n=String((view&&(view.viewName||view.name))||'').trim();
+    return n ? (n.endsWith('팀')?n:n+'팀') : '선택 팀';
+  }
+
+  function renderSurrenderFinal(){
+    var list=document.getElementById('surrenderCheckList');
+    var team=document.getElementById('surrenderTeamName');
+    var progress=document.getElementById('surrenderProgress');
+    var final=document.getElementById('surrenderFinalMessage');
+    if(!list||!team||!progress||!final) return;
+    var info=(typeof getSurrenderInfo==='function')?getSurrenderInfo():null;
+    var view=info&&info.view?info.view:(typeof currentView==='function'?currentView():null);
+    var members=finalConsentMembers(view);
+    var rec=ensureSurrenderRecord(view&&view.viewId,members);
+    team.textContent=viewName(view);
+    if(!members.length){
+      list.innerHTML='<div class="empty">등록된 팀원이 없습니다.</div>';
+      progress.textContent='0 / 0 동의';
+      final.classList.remove('show');
+      return;
+    }
+    list.innerHTML=members.map(function(m,i){
+      var id=String((view&&view.viewId)||'')+':'+i+':'+rawName(m);
+      var checked=!!(rec.item&&rec.item.checked&&rec.item.checked[id]);
+      return '<label class="surrender-check-item '+(checked?'is-agreed':'')+'">'
+        +'<input type="checkbox" class="surrender-member-check" data-member-key="'+escHtml(id)+'" '+(checked?'checked disabled':'')+' '+(rec.item&&rec.item.done?'disabled':'')+'>'
+        +'<span class="surrender-member-name"><span class="user-name">'+escHtml(rawName(m))+'</span>'+badgeHtml(m)+'</span>'
+        +'</label>';
+    }).join('');
+    var agreed=members.filter(function(m,i){return rec.item.checked[String((view&&view.viewId)||'')+':'+i+':'+rawName(m)];}).length;
+    progress.textContent=agreed+' / '+members.length+' 동의';
+    final.classList.toggle('show',!!(rec.item&&rec.item.done));
+  }
+  function renderFireFinal(){
+    var list=document.getElementById('fireCheckList');
+    var progress=document.getElementById('fireProgress');
+    var final=document.getElementById('fireFinalMessage');
+    if(!list||!progress||!final) return;
+    var info=(typeof getActiveFireInfo==='function')?getActiveFireInfo():null;
+    var view=info&&info.view?info.view:(typeof currentView==='function'?currentView():null);
+    var members=finalConsentMembers(view);
+    var sessionIndex=info&&info.record&&Array.isArray(info.record.sessions)?info.record.sessions.length-1:0;
+    if(!members.length){
+      list.innerHTML='<div class="empty">등록된 팀원이 없습니다.</div>';
+      progress.textContent='0 / 0 동의';
+      final.classList.remove('show');
+      return;
+    }
+    list.innerHTML=members.map(function(m,i){
+      var id=String((info&&info.key)||(view&&view.viewId)||'')+':'+sessionIndex+':'+i+':'+rawName(m);
+      var checked=!!(info&&info.item&&info.item.checked&&info.item.checked[id]);
+      return '<label class="surrender-check-item '+(checked?'is-agreed':'')+'">'
+        +'<input type="checkbox" class="fire-member-check" data-member-key="'+escHtml(id)+'" '+(checked?'checked disabled':'')+' '+(info&&info.item&&info.item.done?'disabled':'')+'>'
+        +'<span class="surrender-member-name"><span class="user-name">'+escHtml(rawName(m))+'</span>'+badgeHtml(m)+'</span>'
+        +'</label>';
+    }).join('');
+    var agreed=members.filter(function(m,i){var id=String((info&&info.key)||(view&&view.viewId)||'')+':'+sessionIndex+':'+i+':'+rawName(m);return info.item.checked[id];}).length;
+    progress.textContent=agreed+' / '+members.length+' 동의';
+    final.classList.toggle('show',!!(info&&info.item&&info.item.done));
+  }
+  try{ renderSurrenderModal=renderSurrenderFinal; }catch(e){}
+  try{ renderFireModal=renderFireFinal; }catch(e){}
+
+  document.addEventListener('change',function(e){
+    var s=e.target&&e.target.closest&&e.target.closest('.surrender-member-check');
+    var f=e.target&&e.target.closest&&e.target.closest('.fire-member-check');
+    if(!s&&!f) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    if(s){
+      var info=(typeof getSurrenderInfo==='function')?getSurrenderInfo():null;
+      var view=info&&info.view?info.view:(typeof currentView==='function'?currentView():null);
+      var members=finalConsentMembers(view);
+      var rec=ensureSurrenderRecord(view&&view.viewId,members);
+      var key=s.getAttribute('data-member-key');
+      if(key) rec.item.checked[key]=true;
+      saveSurrenderRecord(rec);
+      var all=members.length && members.every(function(m,i){return rec.item.checked[String((view&&view.viewId)||'')+':'+i+':'+rawName(m)];});
+      if(all && !rec.item.done){
+        rec.item.done=true; rec.item.time=Date.now(); saveSurrenderRecord(rec);
+        try{ if(typeof completeSurrender==='function') completeSurrender(view&&view.viewId); }catch(err){}
+        try{ if(typeof save==='function') save(); }catch(err){}
+      }
+      renderSurrenderFinal();
+      try{ if(all && typeof render==='function') render(); }catch(err){}
+      return false;
+    }
+    if(f){
+      var infoF=(typeof getActiveFireInfo==='function')?getActiveFireInfo():null;
+      var viewF=infoF&&infoF.view?infoF.view:(typeof currentView==='function'?currentView():null);
+      var membersF=finalConsentMembers(viewF);
+      var sessionIndexF=infoF&&infoF.record&&Array.isArray(infoF.record.sessions)?infoF.record.sessions.length-1:0;
+      var keyF=f.getAttribute('data-member-key');
+      if(keyF && infoF && infoF.item) infoF.item.checked[keyF]=true;
+      var allF=membersF.length && membersF.every(function(m,i){return infoF.item.checked[String((infoF&&infoF.key)||(viewF&&viewF.viewId)||'')+':'+sessionIndexF+':'+i+':'+rawName(m)];});
+      if(allF && infoF && infoF.item && !infoF.item.done){
+        try{ if(typeof completeFire==='function') completeFire(viewF&&viewF.viewId); }catch(err){}
+      }
+      try{ if(typeof save==='function') save(); }catch(err){}
+      renderFireFinal();
+      try{ if(allF && typeof render==='function') render(); }catch(err){}
+      return false;
+    }
+  },true);
+
+  document.addEventListener('click',function(e){
+    var openS=e.target&&e.target.closest&&e.target.closest('#openSurrenderModal');
+    var openF=e.target&&e.target.closest&&e.target.closest('#openFireModal');
+    if(openS){setTimeout(renderSurrenderFinal,0); setTimeout(renderSurrenderFinal,80);}
+    if(openF){setTimeout(renderFireFinal,0); setTimeout(renderFireFinal,80);}
+  },true);
+})();
+</script>
+
 </body>
 </html>
 
