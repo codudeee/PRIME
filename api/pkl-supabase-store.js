@@ -23,21 +23,6 @@ function normalizeRole(v){
   return raw || 'user';
 }
 
-function forceGeneralMember(user){
-  const out = Object.assign({}, user || {});
-  out.role = 'user';
-  out.memberRole = 'user';
-  out.userRole = 'user';
-  out.authRole = 'user';
-  out.adminRole = '일반';
-  out.memberRoleName = '일반';
-  out.is_admin = false;
-  out.isAdmin = false;
-  out.admin = false;
-  out.manager = false;
-  out.operator = false;
-  return out;
-}
 function normalizeTier(v){
   const raw = clean(v);
   if(!raw || raw === '없음' || raw.toLowerCase() === 'none') return 'none';
@@ -185,35 +170,77 @@ async function readUserDocs(options={}){
   return { users, count: users.length, limit, offset, q };
 }
 async function writeUserDoc(user, forceAdmin=false){
-  // PKL 권한 보호: 로그인/회원 티어 저장 과정에서 기존 관리자/운영자 role을 user로 강제 변환하지 않는다.
-  // 신규 가입은 discord-callback / register API에서만 user로 지정하고, 기존 회원 저장은 Supabase role을 그대로 보존한다.
-  const u = normalizeUser(forceAdmin ? {...(user || {}), role:'admin', memberRole:'admin'} : (user || {}));
+  const input = (user && typeof user === 'object') ? user : {};
+  const u = normalizeUser(forceAdmin ? {...input, role:'admin', memberRole:'admin', is_admin:true} : input);
   const discordId = explicitDiscordId(u);
   if(!discordId) throw new Error('discord_id가 없어 저장할 수 없습니다.');
-  const role = forceAdmin ? 'admin' : normalizeRole(u.memberRole || u.role || (u.is_admin ? 'admin' : 'user'));
+
+  // PKL 운영 필드 보호:
+  // 로그인/회원가입/일반 동기화 저장은 기존 Supabase users 운영값(role/is_admin/tier/prime/warnings)을 덮어쓰면 안 된다.
+  // 기존 회원 권한 변경은 updateUserWithLog / 관리자 PATCH 흐름에서만 처리한다.
+  let existingRow = null;
+  try{
+    const { json } = await supabaseFetch(`users?select=*&discord_id=eq.${encodeURIComponent(discordId)}&limit=1`);
+    existingRow = Array.isArray(json) && json[0] ? json[0] : null;
+  }catch(e){ existingRow = null; }
+
+  const existingRaw = existingRow && existingRow.raw && typeof existingRow.raw === 'object' ? existingRow.raw : {};
+  const existingUser = existingRow ? rowToUser(existingRow) : null;
+  const incomingTier = normalizeTier(u.memberTier != null ? u.memberTier : (u.gradeRole != null ? u.gradeRole : (u.tierRole != null ? u.tierRole : (u.tier != null ? u.tier : 'none'))));
+  const existingTier = existingRow ? normalizeTier(existingRow.tier != null ? existingRow.tier : existingUser?.tier) : 'none';
+  const keepExistingTier = !!(existingRow && existingTier !== 'none' && incomingTier === 'none');
+  const tier = keepExistingTier ? existingTier : incomingTier;
+  const role = forceAdmin ? 'admin' : (existingRow ? normalizeRole(existingRow.role || existingUser?.role || existingUser?.memberRole || (existingRow.is_admin ? 'admin' : 'user')) : normalizeRole(u.memberRole || u.role || (u.is_admin ? 'admin' : 'user')));
+  const prime = existingRow ? (Number(existingRow.prime ?? existingRow.points ?? existingUser?.prime ?? 0) || 0) : (Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0) || 0);
+  const warnings = existingRow ? (Number(existingRow.warnings ?? existingUser?.warnings ?? 0) || 0) : (Number(u.warnings ?? 0) || 0);
+  const raw = {
+    ...existingRaw,
+    ...u,
+    role,
+    memberRole: role,
+    userRole: role,
+    authRole: role,
+    adminRole: role === 'admin' ? '관리자' : (role === 'operator' ? '운영자' : (role === 'prisoner' ? '수감자' : '일반')),
+    memberRoleName: role === 'admin' ? '관리자' : (role === 'operator' ? '운영자' : (role === 'prisoner' ? '수감자' : '일반')),
+    is_admin: role === 'admin',
+    isAdmin: role === 'admin',
+    admin: role === 'admin',
+    manager: role === 'admin' || role === 'operator',
+    operator: role === 'operator',
+    tier: tier === 'none' ? '없음' : tier,
+    memberTier: tier,
+    gradeRole: tier,
+    tierRole: tier,
+    prime,
+    points: prime,
+    dia: prime,
+    chicken: prime,
+    warnings
+  };
   const body = {
     discord_id: discordId,
     discord_username: clean(u.discordUsername || u.username || u.displayName || u.nickname),
     nickname: clean(u.nickname || u.displayName || u.nick || u.name),
     pubg_id: clean(u.pubgId || u.gameId || u.ref),
-    tier: normalizeTier(u.memberTier != null ? u.memberTier : (u.gradeRole != null ? u.gradeRole : (u.tierRole != null ? u.tierRole : (u.tier != null ? u.tier : 'none')))),
-    prime: Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0) || 0,
-    warnings: Number(u.warnings ?? 0) || 0,
+    tier,
+    prime,
+    warnings,
     role,
-    raw: u,
+    is_admin: role === 'admin',
+    raw,
     updated_at: new Date().toISOString()
   };
+
   async function upsert(obj){
     const { json } = await supabaseFetch('users?on_conflict=discord_id', {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
       body: JSON.stringify(obj)
     });
-    return Array.isArray(json) && json[0] ? rowToUser(json[0]) : normalizeUser({...u, role});
+    return Array.isArray(json) && json[0] ? rowToUser(json[0]) : normalizeUser({...u, role, tier, prime, warnings});
   }
   return await upsert(body);
 }
-
 
 function hasExplicitAccessRoleInput(src={}){
   if(!src || typeof src !== 'object') return false;
