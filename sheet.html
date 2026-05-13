@@ -7322,44 +7322,33 @@ function pklBindTierDragOnce(){
   },true);
 }
 pklBindTierDragOnce();
-function pklSheetHeaderTierValue(member,user){
-  const values=[
-    user?.memberTier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.tierRole,user?.gradeRole,user?.roleName,
-    member?.memberTier,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,member?.tierRole,member?.gradeRole,member?.roleName,
-    member?.tier0,member?.tier1,member?.tierName,member?.tierLabel,member?.memberTierName
-  ];
-  for(const value of values){
-    const raw=String(value||'').trim();
-    if(!raw || raw==='없음' || raw.toLowerCase()==='none') continue;
-    const role=(typeof pklTierScoreRoleFromText==='function') ? pklTierScoreRoleFromText(raw) : '';
-    return role || raw;
-  }
-  return '';
-}
-function pklSheetHeaderTierBadgeHtml(member,user){
-  const tierValue=pklSheetHeaderTierValue(member,user);
-  const source={...(member||{}),...(user||{})};
-  if(tierValue){
-    source.memberTier=source.memberTier || tierValue;
-    source.tier=source.tier || tierValue;
-    source.grade=source.grade || tierValue;
-    source.tierRole=source.tierRole || tierValue;
-  }
-  if(window.PKLTierBadge){
-    if(typeof window.PKLTierBadge.renderForUser==='function'){
-      const html=window.PKLTierBadge.renderForUser(source);
-      if(html) return html;
+function pklSheetTierBadgeHtml(member, user){
+  const source = user || member || {};
+  let badge = '';
+  try{
+    if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function'){
+      badge = window.PKLTierBadge.renderForUser(user) || '';
     }
-    if(tierValue && typeof window.PKLTierBadge.render==='function'){
-      const html=window.PKLTierBadge.render(tierValue);
-      if(html) return html;
-    }
-  }
-  if(tierValue){
-    const lane=(typeof pklTierScoreLaneFromRole==='function') ? (pklTierScoreLaneFromRole(tierValue) || tierValue) : tierValue;
-    return `<span class="tier-head-badge">${escape(lane)}</span>`;
-  }
-  return '';
+  }catch(e){}
+  if(badge) return badge;
+  const rawTier = [
+    source.memberTier, source.tier, source.grade, source.memberGrade, source.pklTier, source.rank, source.level,
+    member && member.memberTier, member && member.tier, member && member.grade, member && member.memberGrade, member && member.pklTier, member && member.rank, member && member.level,
+    member && member.tier0, member && member.tier1
+  ].map(v=>String(v||'').trim()).find(Boolean);
+  const role = pklTierScoreRoleFromText(rawTier);
+  if(!role && !rawTier) return '';
+  const labelMap = {
+    tier0_high:'0티어 상', tier0_mid:'0티어 중', tier0_low:'0티어 하',
+    tier1_high:'1티어 상', tier1_mid:'1티어 중', tier1_low:'1티어 하',
+    tier2_high:'2티어 상', tier2_mid:'2티어 중', tier2_low:'2티어 하',
+    tier3_high:'3티어 상', tier3_mid:'3티어 중', tier3_low:'3티어 하',
+    tier4_high:'4티어 상', tier4_mid:'4티어 중', tier4_low:'4티어 하',
+    beast:'짐승'
+  };
+  const label = labelMap[role] || rawTier;
+  const tierClass = role ? (' role-' + role.replace(/_(high|mid|low)$/,'')) : '';
+  return `<span class="tier-head-badge${tierClass}">${escape(label)}</span>`;
 }
 function pklSheetHeaderNameHtml(member){
   if(!member) return '';
@@ -7370,7 +7359,7 @@ function pklSheetHeaderNameHtml(member){
     ''
   ).trim();
   if(!name) return '';
-  const badge = pklSheetHeaderTierBadgeHtml(member,user);
+  const badge = pklSheetTierBadgeHtml(member, user);
   return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
 }
 
@@ -7393,7 +7382,7 @@ function renderSheet(){
   for(let i=0;i<4;i++){
     const h=document.getElementById('h'+i);
     const m=view.members[i];
-    h.innerHTML = m && m.name ? pklSheetHeaderNameHtml(m) : '';
+    h.innerHTML = pklSheetHeaderNameHtml(m);
     h.style.opacity='1';
   }
   const body=document.getElementById('recordBody');
