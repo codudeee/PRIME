@@ -7198,17 +7198,17 @@ body{
   box-shadow:none !important;
 }
 
-/* === PKL SAFE FIX: duo kanbu nickname fit ===
+/* === PKL SAFE FIX: duo kanbu nickname micro fit ===
    - 일반 듀오는 현재 상태 유지
-   - 듀오 깐부 슬롯만 닉네임이 잘리지 않는 선으로 크기/간격 보정
+   - 듀오 깐부 닉네임만 살짝 축소해서 잘림 방지
    - 티어배지 크기와 스쿼드 계열은 건드리지 않음
 */
 .team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-card,
 .team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .team-card.is-partner-team .team-slot .player-card{
   min-width:0 !important;
   max-width:100% !important;
-  padding:4px 6px !important;
-  gap:4px !important;
+  padding:4px 5px !important;
+  gap:3px !important;
   overflow:hidden !important;
 }
 
@@ -7216,9 +7216,9 @@ body{
 .team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .team-card.is-partner-team .team-slot .player-name{
   min-width:0 !important;
   max-width:100% !important;
-  font-size:17px !important;
-  line-height:1.05 !important;
-  letter-spacing:-0.45px !important;
+  font-size:16px !important;
+  line-height:1.04 !important;
+  letter-spacing:-0.55px !important;
   white-space:nowrap !important;
   overflow:hidden !important;
   text-overflow:clip !important;
