@@ -1462,23 +1462,16 @@ async function pklResultFetchMatchesFromServer(){
     }
   }catch(e){}
 
-  if(!next.length){
-    /* 과거 저장본에서 shared key가 비어 있는 사이트를 위한 1회 복구.
-       localStorage를 지웠을 때 회차가 사라지는 원인은 shared 저장 누락이므로,
-       서버 match_logs에 남은 실제 저장본을 읽어 shared 원본으로 승격한다. */
-    try{
-      var res=await fetch('/api/pkl-data-store?type=match_logs',{cache:'no-store'});
-      var data=await res.json().catch(function(){return null;});
-      var rows=Array.isArray(data&&data.rows)?data.rows:[];
-      next=rows.map(function(r){return (r&&(r.raw||r.snapshot))||r;}).filter(function(m){return m&&m.id;});
-      if(next.length){
-        next.sort(function(a,b){return new Date(b.savedAt||b.saved_at||b.updated_at||0)-new Date(a.savedAt||a.saved_at||a.updated_at||0);});
-        pklResultSharedSet(RESULT_MATCHES_KEY,next);
-      }
-    }catch(_e){}
-  }
+  /* 삭제한 회차가 다시 살아나는 원인 제거:
+     match_logs는 과거 저장/기록 테이블이라 결과표 회차 원본으로 복구하지 않는다.
+     결과표는 pkl_shared_data.PKL_RESULT_MATCHES_V1 하나만 읽는다. */
 
-  MATCHES=Array.isArray(next)?next.map(function(m){return Object.assign({},m);}):[];
+  MATCHES=pklResultSanitizeIncomingMatches(next);
+  try{
+    if(Array.isArray(next) && JSON.stringify(MATCHES)!==JSON.stringify(next)){
+      await pklResultSharedSet(RESULT_MATCHES_KEY,MATCHES);
+    }
+  }catch(_cleanSave){}
   try{localStorage.setItem(RESULT_MATCHES_KEY,JSON.stringify(MATCHES));}catch(e){}
   if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})) {
     selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
@@ -1496,12 +1489,11 @@ function pklResultSharedSet(key,value){
          PKLSupabaseDataSync.setShared(RESULT_MATCHES_KEY)는 match_logs로 저장하는
          구버전 호환 분기가 있어 관리자 화면에서 과거 회차가 섞일 수 있으므로
          여기서는 shared API로 직접 저장한다. */
-      fetch('/api/pkl-data-store',{
+      return fetch('/api/pkl-data-store',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({type:'shared',key:key,value:(typeof value==='string'?JSON.parse(value):value)})
-      }).catch(function(){});
-      return;
+      }).then(function(res){return res.json().catch(function(){return null;});}).catch(function(){return null;});
     }
     if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function'){
       window.PKLSupabaseDataSync.setShared(key,text);
@@ -1513,7 +1505,7 @@ function pklResultSharedSet(key,value){
 function pklResultSaveMatches(){
   pklResultSortMatches();
   const text=JSON.stringify(Array.isArray(MATCHES)?MATCHES:[]);
-  pklResultSharedSet(RESULT_MATCHES_KEY,text);
+  return pklResultSharedSet(RESULT_MATCHES_KEY,text);
 }
 function pklResultRefreshMatchesFromStorage(){
   const before=selectedMatchId;
@@ -1602,19 +1594,59 @@ function pklResultCleanMatchTitle(m){
   }
   return raw && !/^match[_\-]?\d{8,}$/i.test(raw) ? raw : 'PKL 회차';
 }
+function pklResultHasRealSnapshot(m){
+  const snap=m && m.snapshot;
+  if(!snap || typeof snap!=='object') return false;
+  const teams=Array.isArray(snap.teams)?snap.teams:[];
+  const rounds=Array.isArray(snap.rounds)?snap.rounds:[];
+  const hasMember=teams.some(function(t){
+    return Array.isArray(t&&t.members) && t.members.some(function(mem){
+      return String(mem && (mem.name||mem.nickname||mem.nick||mem.displayName||mem.pubgId) || '').trim();
+    });
+  });
+  if(hasMember) return true;
+  return rounds.some(function(r){
+    if(!r || typeof r!=='object') return false;
+    if(String(r.map||'').trim()) return true;
+    const rt=r.teams&&typeof r.teams==='object'?r.teams:{};
+    return Object.keys(rt).some(function(k){
+      const v=rt[k]||{};
+      const kills=Array.isArray(v.kills)?v.kills:[];
+      const deaths=Array.isArray(v.deaths)?v.deaths:[];
+      return kills.some(function(n){return Number(n)>0;}) || deaths.some(function(n){return Number(n)>0;}) || Number(v.chicken)>0 || Number(v.stop)>0;
+    });
+  });
+}
+function pklResultSanitizeIncomingMatches(list){
+  const raw=Array.isArray(list)?list:[];
+  const byKey=new Map();
+  raw.forEach(function(item){
+    if(!item || typeof item!=='object') return;
+    const m=Object.assign({},item);
+    const title=String(m.title||'').trim();
+    const no=pklResultRoundNo(m);
+    const real=pklResultHasRealSnapshot(m);
+    const generic=!title || title==='PKL 회차' || /^PKL\s*회차$/i.test(title) || /^match[_\-]?\d{8,}/i.test(title);
+    /* 관리자 패널에서 실수로 생긴 빈 회차/무제 회차는 결과표에 표시하지 않는다.
+       시트지 무료/유료 저장으로 들어온 실제 스냅샷만 결과표 원본으로 인정한다. */
+    if(!real && (generic || no>=999999 || (m.snapshot && !real))) return;
+    if(no>=1000) return;
+    if(!m.id) m.id='match_'+String(m.savedAt||m.saved_at||Date.now())+'_'+Math.random().toString(36).slice(2,7);
+    m.title=pklResultCleanMatchTitle(m);
+    const key=(no<999999 ? 'round:'+no+':'+(String(m.kind||'league')==='normal'?'normal':'league') : 'id:'+String(m.id));
+    const prev=byKey.get(key);
+    if(!prev || String(m.savedAt||m.saved_at||m.id).localeCompare(String(prev.savedAt||prev.saved_at||prev.id),'ko')>=0) byKey.set(key,m);
+  });
+  const out=Array.from(byKey.values());
+  return out.sort(function(a,b){
+    const an=pklResultRoundNo(a), bn=pklResultRoundNo(b);
+    if(an!==bn) return an-bn;
+    return String(a.savedAt||a.id||'').localeCompare(String(b.savedAt||b.id||''),'ko');
+  });
+}
 function pklResultSortMatches(){
   if(!Array.isArray(MATCHES)) MATCHES=[];
-  const seen=new Set();
-  MATCHES=MATCHES.filter(function(m){
-    if(!m || typeof m!=='object') return false;
-    if(!m.id) m.id='match_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-    const no=pklResultRoundNo(m);
-    const key=(no<999999 ? 'round:'+no : 'id:'+String(m.id));
-    if(seen.has(key)) return false;
-    seen.add(key);
-    m.title=pklResultCleanMatchTitle(m);
-    return true;
-  }).sort(function(a,b){
+  MATCHES=pklResultSanitizeIncomingMatches(MATCHES).sort(function(a,b){
     const an=pklResultRoundNo(a), bn=pklResultRoundNo(b);
     if(an!==bn) return an-bn;
     return String(a.savedAt||a.id||'').localeCompare(String(b.savedAt||b.id||''),'ko');
@@ -2418,7 +2450,7 @@ function openResultDeleteAllConfirm(){
   modal.classList.add('open');
   modal.setAttribute('aria-hidden','false');
 }
-function deleteAllResultAdminMatches(){
+async function deleteAllResultAdminMatches(){
   if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
   const ids=(Array.isArray(MATCHES)?MATCHES:[]).map(m=>m&&m.id).filter(Boolean);
   MATCHES=[];
@@ -2427,7 +2459,8 @@ function deleteAllResultAdminMatches(){
   selectedMatchId='';
   pendingDeleteMatchId=null;
   pendingDeleteAllMatches=false;
-  pklResultSaveMatches();
+  try{localStorage.removeItem(RESULT_MATCHES_KEY);}catch(_e){}
+  await pklResultSharedSet(RESULT_MATCHES_KEY,[]);
   closeResultDeleteConfirm();
   renderAll();
   renderResultAdminModal();
@@ -2472,7 +2505,8 @@ function deleteResultAdminMatch(){
   adminEditingMatchId=(MATCHES[0]&&MATCHES[0].id)||null;
   selectedMatchId=adminEditingMatchId || '';
   pendingDeleteMatchId=null;
-  pklResultSaveMatches();
+  try{localStorage.removeItem(RESULT_MATCHES_KEY);}catch(_e){}
+  await pklResultSharedSet(RESULT_MATCHES_KEY,[]);
   closeResultDeleteConfirm();
   renderAll();
   renderResultAdminModal();
