@@ -6291,19 +6291,20 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 /* PKL 누적수정: 스코어보드 5칸씩 아래로 증가 + 점수시트와 같은 스크롤 */
 .board{min-height:0 !important;overflow:hidden !important;}
 #teamGrid.team-grid{
+  height:100% !important;
   min-height:0 !important;
   overflow-y:auto !important;
   overflow-x:hidden !important;
   align-content:start !important;
   grid-template-columns:repeat(5,minmax(0,1fr)) !important;
   grid-template-rows:none !important;
-  grid-auto-rows:minmax(158px,1fr) !important;
+  grid-auto-rows:calc((100% - 10px) / 2) !important;
   padding-right:12px !important;
 }
 #teamGrid.team-grid.duo{
   grid-template-columns:repeat(5,minmax(0,1fr)) !important;
   grid-template-rows:none !important;
-  grid-auto-rows:minmax(132px,1fr) !important;
+  grid-auto-rows:calc((100% - 10px) / 2) !important;
 }
 #teamGrid::-webkit-scrollbar{width:9px;height:9px;}
 #teamGrid::-webkit-scrollbar-track{background:rgba(0,0,0,.25);border-radius:999px;}
@@ -8266,6 +8267,16 @@ function completeFire(viewId){
   clearColdView(info.view.viewId);
   addFeed('불판',`${teamFeedName(info.view.viewName)} 갑자기 불타올라 ${roundIndex>=0 ? (roundIndex+1)+'라운드' : '현재'}까지 불판 사용 했습니다.`, `fire:${info.key}:${doneAt}`);
   pklAddItemHistory('불판', info.view, doneAt, {roundIndex});
+  // 불판으로 콜드를 해제한 뒤에도 점수 차이가 다시/계속 콜드 기준이면 시트지를 다시 잠근다.
+  // 수동 조작 없이 콜드 상태가 풀린 채 유지되는 것을 방지한다.
+  setTimeout(()=>{
+    try{
+      const latest=getViewById(info.view.viewId);
+      if(latest && !isColdView(latest.viewId) && pklColdPercentOfView(latest)<=-30){
+        enterColdView(latest);
+      }
+    }catch(e){}
+  },2600);
 
   try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(20);}catch(e){}
 }
@@ -11273,12 +11284,12 @@ document.addEventListener("DOMContentLoaded", function(){
     const key=String(item.key || (type+":"+team+":"+time));
     if(seen[key]) return;
     seen[key]=true;
-    const verb=type==="불판" ? "불판을 사용했습니다." : "서렌을 쳤습니다.";
+    const verb=type==="불판" ? "불판을 사용" : "서렌";
     rows.push({
       type:type,
       time:time,
       key:key,
-      html:'<tr class="pkl-item-history-log-row pkl-item-history-log-'+esc(type)+'"><td><div class="pkl-item-history-log"><span class="pkl-item-history-log-type">'+esc(type)+'</span><span class="pkl-item-history-log-text">'+esc(team)+'이 '+esc(formatHistoryTime(time))+'에 '+esc(verb)+'</span></div></td></tr>'
+      html:'<tr class="pkl-item-history-log-row pkl-item-history-log-'+esc(type)+'"><td><div class="pkl-item-history-log"><span class="pkl-item-history-log-type">'+esc(type)+'</span><span class="pkl-item-history-log-text">'+esc(team)+' '+esc(formatHistoryTime(time))+' '+esc(verb)+'</span></div></td></tr>'
     });
   }
 
