@@ -6452,7 +6452,6 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 (function(){
 'use strict';
 const STORAGE_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
-const TEAM_IMPORT_KEY='PKL_TEAM_TO_SHEET_IMPORT_V1';
 const MAPS=['','에','미','사','태','론','비','데'];
 
 const baseTeams=Array.from({length:10},(_,i)=>({
@@ -6477,17 +6476,6 @@ function pklIsTypingSheetScore(){
 }
 
 function load(){
-  try{
-    const importedRaw = sessionStorage.getItem(TEAM_IMPORT_KEY) || localStorage.getItem(TEAM_IMPORT_KEY);
-    if(importedRaw){
-      const imported = JSON.parse(importedRaw);
-      if(imported && Array.isArray(imported.teams) && Array.isArray(imported.rounds)){
-        try{ localStorage.setItem(STORAGE_KEY, importedRaw); }catch(_e){}
-        try{ sessionStorage.removeItem(TEAM_IMPORT_KEY); }catch(_e){}
-        try{ localStorage.removeItem(TEAM_IMPORT_KEY); }catch(_e){}
-      }
-    }
-  }catch(_e){}
   try{
     const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
     if(saved && Array.isArray(saved.teams) && Array.isArray(saved.rounds)){
@@ -7334,40 +7322,42 @@ function pklBindTierDragOnce(){
   },true);
 }
 pklBindTierDragOnce();
-function pklSheetMemberName(member){
-  return String(
-    (member && (member.name || member.nickname || member.nick || member.displayName || member.pubgId || member.pubgID || member.pubgName || member.gameId || member.username)) ||
-    ''
-  ).trim();
-}
-function pklSheetMemberTierCandidates(member){
-  if(!member || typeof member!=='object') return [];
-  return [
-    member.memberTier, member.tier, member.tier0, member.tier1, member.grade, member.memberGrade,
-    member.pklTier, member.rank, member.level, member.roleTier, member.titleTier, member.badgeTier,
-    member.tierName, member.tierLabel, member.role, member.gradeRole, member.baseRole
-  ].map(v=>String(v||'').trim()).filter(Boolean);
-}
-function pklSheetHeaderBadgeHtml(member){
-  const user = pklFindTierUserByMember(member);
-  if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function'){
-    const html = window.PKLTierBadge.renderForUser(user) || '';
-    if(html) return html;
+function pklSheetHeaderTierValue(member,user){
+  const values=[
+    user?.memberTier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.tierRole,user?.gradeRole,user?.roleName,
+    member?.memberTier,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,member?.tierRole,member?.gradeRole,member?.roleName,
+    member?.tier0,member?.tier1,member?.tierName,member?.tierLabel,member?.memberTierName
+  ];
+  for(const value of values){
+    const raw=String(value||'').trim();
+    if(!raw || raw==='없음' || raw.toLowerCase()==='none') continue;
+    const role=(typeof pklTierScoreRoleFromText==='function') ? pklTierScoreRoleFromText(raw) : '';
+    return role || raw;
   }
-  const candidates=[];
-  if(user){
-    candidates.push(user.memberTier,user.tier,user.tier0,user.tier1,user.grade,user.memberGrade,user.pklTier,user.rank,user.level,user.roleTier,user.titleTier,user.badgeTier,user.tierName,user.tierLabel,user.role,user.gradeRole,user.baseRole);
+  return '';
+}
+function pklSheetHeaderTierBadgeHtml(member,user){
+  const tierValue=pklSheetHeaderTierValue(member,user);
+  const source={...(member||{}),...(user||{})};
+  if(tierValue){
+    source.memberTier=source.memberTier || tierValue;
+    source.tier=source.tier || tierValue;
+    source.grade=source.grade || tierValue;
+    source.tierRole=source.tierRole || tierValue;
   }
-  candidates.push(...pklSheetMemberTierCandidates(member));
-  for(const raw of candidates){
-    const role = pklTierScoreRoleFromText(raw);
-    if(!role) continue;
-    if(window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function'){
-      const html = window.PKLTierBadge.render(role) || window.PKLTierBadge.render(raw) || '';
+  if(window.PKLTierBadge){
+    if(typeof window.PKLTierBadge.renderForUser==='function'){
+      const html=window.PKLTierBadge.renderForUser(source);
       if(html) return html;
     }
-    const label = pklTierScoreLaneFromRole(role) || String(raw||'').trim();
-    if(label) return `<span class="tier-head-badge">${escape(label)}</span>`;
+    if(tierValue && typeof window.PKLTierBadge.render==='function'){
+      const html=window.PKLTierBadge.render(tierValue);
+      if(html) return html;
+    }
+  }
+  if(tierValue){
+    const lane=(typeof pklTierScoreLaneFromRole==='function') ? (pklTierScoreLaneFromRole(tierValue) || tierValue) : tierValue;
+    return `<span class="tier-head-badge">${escape(lane)}</span>`;
   }
   return '';
 }
@@ -7376,11 +7366,11 @@ function pklSheetHeaderNameHtml(member){
   const user = pklFindTierUserByMember(member);
   const name = String(
     (user && (user.nickname || user.nick || user.name || user.displayName || user.pubgId || user.pubgID || user.pubgName || user.gameId || user.username)) ||
-    pklSheetMemberName(member) ||
+    (member && (member.name || member.nickname || member.nick || member.displayName || member.pubgId || member.pubgID || member.pubgName || member.gameId || member.username)) ||
     ''
   ).trim();
   if(!name) return '';
-  const badge = pklSheetHeaderBadgeHtml(member);
+  const badge = pklSheetHeaderTierBadgeHtml(member,user);
   return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
 }
 
