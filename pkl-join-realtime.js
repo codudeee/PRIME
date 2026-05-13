@@ -34,8 +34,8 @@
       emit({version:2,waitList:arr(read(WAIT_KEY,[])),cancelList:arr(read(CANCEL_KEY,[])),recruitState:{state:'loading'},updatedAt:now()});
     });
   }
-  if(!Storage.prototype.__pklJoinRealtimePatched){Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(String(k)===RECRUIT_KEY?350:500);if(!window.__PKL_JOIN_SUPPRESS_LOCAL_RENDER){emit(stateFromLocal());}}}catch(e){}return ret;};Storage.prototype.__pklJoinRealtimePatched=true;}
-  try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(500);if(!window.__PKL_JOIN_SUPPRESS_LOCAL_RENDER){emit(stateFromLocal());}}}catch(e){}return ret;};}catch(e){}
+  if(!Storage.prototype.__pklJoinRealtimePatched){Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(String(k)===RECRUIT_KEY?350:500);if(window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT){return ret;}emit(stateFromLocal());}}catch(e){}return ret;};Storage.prototype.__pklJoinRealtimePatched=true;}
+  try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(500);if(window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT){return ret;}emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
   /* 2차 청소: storage 이벤트 기반 자동 join 재렌더 금지. 클릭/저장 흐름에서만 emit한다. */
-  window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,queueSave:queueSave,state:stateFromLocal,getState:stateFromLocal,apply:applyState,fetchNow:poll}; start();
+  window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,queueSave:queueSave,state:stateFromLocal,getState:stateFromLocal,apply:applyState,fetchNow:poll,suppressLocalEmit:function(fn){var prev=window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT;window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT=true;try{return typeof fn==='function'?fn():undefined;}finally{window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT=prev;}}}; start();
 })();
