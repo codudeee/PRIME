@@ -982,7 +982,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
     }
 
     const select = [
-      'id','discord_id','discord_username','nickname','tier','title','role','prime','warnings','is_admin','banned','prison_until','created_at'
+      'id','discord_id','discord_username','nickname','tier','title','role','prime','warnings','banned','prison_until','created_at'
     ].join(',');
 
     return fetch(`${config.url}/rest/v1/users?select=${encodeURIComponent(select)}&order=created_at.asc&limit=1000`, {

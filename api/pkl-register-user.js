@@ -147,7 +147,6 @@ async function handler(req,res){
       user.authRole="user";
       user.adminRole="일반";
       user.memberRoleName="일반";
-      user.is_admin=false;
       user.isAdmin=false;
       user.admin=false;
       user.manager=false;

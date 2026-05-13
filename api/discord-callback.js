@@ -138,7 +138,6 @@ async function registerServerUser(discordUser, nickname){
     merged.authRole = "user";
     merged.adminRole = "일반";
     merged.memberRoleName = "일반";
-    merged.is_admin = false;
     merged.isAdmin = false;
     merged.admin = false;
     merged.manager = false;

@@ -190,7 +190,7 @@ async function writeUserDoc(user, forceAdmin=false){
   if(!discordId) throw new Error('discord_id가 없어 저장할 수 없습니다.');
 
   // PKL 운영 필드 보호:
-  // 로그인/회원가입/일반 동기화 저장은 기존 Supabase users 운영값(role/is_admin/tier/prime/warnings)을 덮어쓰면 안 된다.
+  // 로그인/회원가입/일반 동기화 저장은 기존 Supabase users 운영값(role/tier/prime/warnings)을 덮어쓰면 안 된다.
   // 기존 회원 권한 변경은 updateUserWithLog / 관리자 PATCH 흐름에서만 처리한다.
   let existingRow = null;
   try{
@@ -204,7 +204,7 @@ async function writeUserDoc(user, forceAdmin=false){
   const existingTier = existingRow ? normalizeTier(existingRow.tier != null ? existingRow.tier : existingUser?.tier) : 'none';
   const keepExistingTier = !!(existingRow && existingTier !== 'none' && incomingTier === 'none');
   const tier = keepExistingTier ? existingTier : incomingTier;
-  const role = forceAdmin ? 'admin' : (existingRow ? normalizeRole(existingRow.role || existingUser?.role || existingUser?.memberRole || (existingRow.is_admin ? 'admin' : 'user')) : normalizeRole(u.memberRole || u.role || (u.is_admin ? 'admin' : 'user')));
+  const role = forceAdmin ? 'admin' : (existingRow ? normalizeRole(existingRow.role || existingUser?.role || existingUser?.memberRole) : normalizeRole(u.memberRole || u.role || (u.is_admin ? 'admin' : 'user')));
   const prime = existingRow ? (Number(existingRow.prime ?? existingRow.points ?? existingUser?.prime ?? 0) || 0) : (Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0) || 0);
   const warnings = existingRow ? (Number(existingRow.warnings ?? existingUser?.warnings ?? 0) || 0) : (Number(u.warnings ?? 0) || 0);
   const raw = {
@@ -216,7 +216,6 @@ async function writeUserDoc(user, forceAdmin=false){
     authRole: role,
     adminRole: role === 'admin' ? '관리자' : (role === 'operator' ? '운영자' : (role === 'prisoner' ? '수감자' : '일반')),
     memberRoleName: role === 'admin' ? '관리자' : (role === 'operator' ? '운영자' : (role === 'prisoner' ? '수감자' : '일반')),
-    is_admin: role === 'admin',
     isAdmin: role === 'admin',
     admin: role === 'admin',
     manager: role === 'admin' || role === 'operator',
@@ -240,7 +239,6 @@ async function writeUserDoc(user, forceAdmin=false){
     prime,
     warnings,
     role,
-    is_admin: role === 'admin',
     raw,
     updated_at: new Date().toISOString()
   };
@@ -394,7 +392,6 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
     role:safeMemberRole,
     adminRole:safeMemberRole === 'admin' ? '관리자' : (safeMemberRole === 'operator' ? '운영자' : (safeMemberRole === 'prisoner' ? '수감자' : '일반')),
     memberRoleName:safeMemberRole === 'admin' ? '관리자' : (safeMemberRole === 'operator' ? '운영자' : (safeMemberRole === 'prisoner' ? '수감자' : '일반')),
-    is_admin:safeMemberRole === 'admin',
     isAdmin:safeMemberRole === 'admin',
     admin:safeMemberRole === 'admin',
     history:Array.isArray(nextInput.history)?nextInput.history:(Array.isArray(raw.history)?raw.history:[]),
@@ -409,7 +406,6 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
     pubg_id: clean(nextInput.pubgId || row.pubg_id),
     tier: normalizeTier(nextInput.memberTier != null ? nextInput.memberTier : (nextInput.gradeRole != null ? nextInput.gradeRole : (nextInput.tierRole != null ? nextInput.tierRole : (nextInput.tier != null ? nextInput.tier : (row.tier || 'none'))))),
     role: safeMemberRole,
-    is_admin: safeMemberRole === 'admin',
     prime: Number(nextInput.prime ?? nextInput.points ?? row.prime ?? 0) || 0,
     warnings: Number(nextInput.warnings ?? row.warnings ?? 0) || 0,
     raw: mergedRaw,
