@@ -2111,7 +2111,7 @@ function renderMatchDropdown(){
   const menu=document.getElementById('matchDropdownMenu');
   if(!label || !menu) return;
   const current=MATCHES.find(m=>m.id===selectedMatchId) || MATCHES[0];
-  label.textContent=current ? current.title : '회차 선택';
+  label.textContent=current ? current.title : '저장된 회차 없음';
   menu.innerHTML=MATCHES.map(m=>`
     <button type="button" class="pkl-match-option ${m.id===selectedMatchId?'active':''}" data-match="${esc(m.id)}">
       <span>${esc(m.title)}</span>
@@ -2495,7 +2495,7 @@ function closeResultDeleteConfirm(){
   modal.classList.remove('open');
   modal.setAttribute('aria-hidden','true');
 }
-function deleteResultAdminMatch(){
+async function deleteResultAdminMatch(){
   if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
   if(pendingDeleteAllMatches){ deleteAllResultAdminMatches(); return; }
   const deletedId=pendingDeleteMatchId;
@@ -2505,11 +2505,11 @@ function deleteResultAdminMatch(){
   adminEditingMatchId=(MATCHES[0]&&MATCHES[0].id)||null;
   selectedMatchId=adminEditingMatchId || '';
   pendingDeleteMatchId=null;
-  try{localStorage.removeItem(RESULT_MATCHES_KEY);}catch(_e){}
-  await pklResultSharedSet(RESULT_MATCHES_KEY,[]);
+  await pklResultSaveMatches();
   closeResultDeleteConfirm();
   renderAll();
   renderResultAdminModal();
+  pklResultPermissionToast('회차가 삭제되었습니다.');
 }
 
 function resultAddScoreRound(){
@@ -2545,7 +2545,7 @@ function bindResultAdminModal(){
     renderResultAdminModal();
   });
   document.getElementById('adminAddMatchBtn')?.addEventListener('click',addResultAdminMatch);
-  document.getElementById('adminSaveMatchBtn')?.addEventListener('click',resultEnableSheetEdit);
+  document.getElementById('adminSaveMatchBtn')?.addEventListener('click',saveResultAdminForm);
   document.getElementById('adminToggleMatchKindBtn')?.addEventListener('click',toggleResultAdminMatchKind);
   document.getElementById('adminDeleteMatchBtn')?.addEventListener('click',openResultDeleteConfirm);
   document.getElementById('adminDeleteAllMatchesBtn')?.addEventListener('click',openResultDeleteAllConfirm);
@@ -3333,6 +3333,111 @@ window.addEventListener('load', restoreDiscordSession);
     var drop=byId('matchDropdown');
     if(drop && !drop.contains(e.target)) close();
   },true);
+})();
+</script>
+
+
+
+<!-- PKL: result admin modal recovery - unify visible rounds and admin list, restore buttons -->
+<style id="pkl-result-admin-recovery-style">
+  #resultAdminModal, #resultDeleteConfirmModal{pointer-events:auto!important;}
+  #resultAdminModal.open{display:flex!important;}
+  #resultAdminModal .pkl-result-admin-panel,
+  #resultAdminModal button,
+  #resultAdminModal input,
+  #resultDeleteConfirmModal button{pointer-events:auto!important;}
+  #adminMatchList .admin-match-item{cursor:pointer!important;}
+</style>
+<script id="pkl-result-admin-recovery-script">
+(function(){
+  'use strict';
+  var KEY='PKL_RESULT_MATCHES_V1';
+  var pendingId=null;
+  var pendingAll=false;
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+  function readLocal(){try{var v=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+  function getMatches(){
+    try{if(Array.isArray(window.MATCHES)) return window.MATCHES;}catch(e){}
+    return readLocal();
+  }
+  function setMatches(list){
+    list=Array.isArray(list)?list:[];
+    try{window.MATCHES=list;}catch(e){}
+    try{localStorage.setItem(KEY,JSON.stringify(list));}catch(e){}
+    try{
+      if(typeof window.pklResultSharedSet==='function') window.pklResultSharedSet(KEY,list);
+      else fetch('/api/pkl-data-store',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'shared',key:KEY,value:list})}).catch(function(){});
+    }catch(e){}
+  }
+  function sort(list){
+    return (Array.isArray(list)?list:[]).slice().sort(function(a,b){
+      function no(x){var t=String((x&&x.title)||'');var m=t.match(/(\d+)\s*회차/);return m?Number(m[1]):0;}
+      return no(b)-no(a);
+    });
+  }
+  function currentId(){
+    var active=document.querySelector('#adminMatchList .admin-match-item.active');
+    if(active) return active.getAttribute('data-admin-match');
+    var sel=document.getElementById('matchSelect');
+    if(sel&&sel.value) return sel.value;
+    var list=getMatches();
+    return list[0]&&list[0].id;
+  }
+  function fillForm(m){
+    function set(id,v){var el=document.getElementById(id);if(el)el.value=v||'';}
+    if(!m){['adminMatchTitle','adminMatchDate','adminMatchStart','adminMatchEnd','adminMatchMaps','adminMatchType','adminMatchTeamCount'].forEach(function(id){set(id,'');});return;}
+    set('adminMatchTitle',m.title);set('adminMatchDate',m.date);set('adminMatchStart',m.time);set('adminMatchEnd',m.endTime);set('adminMatchMaps',m.maps);set('adminMatchType',m.type);set('adminMatchTeamCount',m.teamCount||10);
+  }
+  function renderAdminList(selected){
+    var listEl=document.getElementById('adminMatchList'); if(!listEl) return;
+    var list=sort(getMatches());
+    if(!list.length){listEl.innerHTML='<div class="admin-empty-match">저장된 회차가 없습니다.</div>';fillForm(null);return;}
+    selected=selected||currentId()||(list[0]&&list[0].id);
+    if(!list.some(function(m){return String(m&&m.id)===String(selected);})){selected=list[0].id;}
+    listEl.innerHTML=list.map(function(m){return '<button type="button" class="admin-match-item '+(String(m.id)===String(selected)?'active':'')+'" data-admin-match="'+esc(m.id)+'"><span>'+esc(m.title||'PKL 회차')+'</span><small>'+esc(m.maps||'맵 정보 없음')+'</small></button>';}).join('');
+    fillForm(list.find(function(m){return String(m.id)===String(selected);})||list[0]);
+  }
+  function refreshPage(){
+    try{if(typeof window.renderAll==='function') window.renderAll();}catch(e){}
+    try{if(typeof window.renderResultAdminModal==='function') window.renderResultAdminModal();}catch(e){}
+    setTimeout(renderAdminList,30);
+  }
+  function openConfirm(title,desc,all,id){
+    pendingAll=!!all; pendingId=id||null;
+    var modal=document.getElementById('resultDeleteConfirmModal'); if(!modal) return;
+    var t=document.getElementById('resultDeleteConfirmTitle'); if(t) t.textContent=title;
+    var d=modal.querySelector('.pkl-delete-confirm-desc'); if(d) d.textContent=desc;
+    try{document.body.appendChild(modal);}catch(e){}
+    modal.classList.add('open');modal.setAttribute('aria-hidden','false');modal.style.display='flex';modal.style.zIndex='2147483646';
+  }
+  function closeConfirm(){var modal=document.getElementById('resultDeleteConfirmModal'); if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');modal.style.display='none';} pendingAll=false; pendingId=null;}
+  function deleteSelected(){
+    var list=getMatches();
+    if(pendingAll){setMatches([]);closeConfirm();refreshPage();return;}
+    var id=pendingId||currentId(); if(!id) return;
+    setMatches(list.filter(function(m){return String(m&&m.id)!==String(id);}));
+    closeConfirm();refreshPage();
+  }
+  function saveSelected(){
+    var id=currentId(); if(!id) return;
+    var list=getMatches();
+    var m=list.find(function(x){return String(x&&x.id)===String(id);}); if(!m) return;
+    function val(id){var el=document.getElementById(id);return el?String(el.value||'').trim():'';}
+    m.title=val('adminMatchTitle')||m.title;m.date=val('adminMatchDate');m.time=val('adminMatchStart');m.endTime=val('adminMatchEnd');m.maps=val('adminMatchMaps');m.type=val('adminMatchType');m.teamCount=Math.max(1,Math.min(20,Number(val('adminMatchTeamCount')||m.teamCount||10)));
+    setMatches(list);refreshPage();
+  }
+  document.addEventListener('click',function(e){
+    var item=e.target&&e.target.closest&&e.target.closest('#adminMatchList [data-admin-match]');
+    if(item){e.preventDefault();e.stopPropagation();renderAdminList(item.getAttribute('data-admin-match'));return;}
+    if(e.target&&e.target.closest&&e.target.closest('#adminDeleteMatchBtn')){e.preventDefault();e.stopPropagation();openConfirm('해당 회차를 삭제하시겠습니까?','삭제 시 해당 회차의 결과표 표시 데이터가 삭제됩니다.',false,currentId());return;}
+    if(e.target&&e.target.closest&&e.target.closest('#adminDeleteAllMatchesBtn')){e.preventDefault();e.stopPropagation();openConfirm('모든 회차를 삭제하시겠습니까?','현재 결과표의 모든 회차를 한 번에 삭제합니다.',true,null);return;}
+    if(e.target&&e.target.closest&&e.target.closest('#resultDeleteNoBtn')){e.preventDefault();e.stopPropagation();closeConfirm();return;}
+    if(e.target&&e.target.closest&&e.target.closest('#resultDeleteYesBtn')){e.preventDefault();e.stopPropagation();deleteSelected();return;}
+    if(e.target&&e.target.closest&&e.target.closest('#adminSaveMatchBtn')){e.preventDefault();e.stopPropagation();saveSelected();return;}
+    if(e.target&&e.target.id==='resultDeleteConfirmModal'){closeConfirm();}
+  },true);
+  document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('#adminPanelBtn')){setTimeout(renderAdminList,80);setTimeout(renderAdminList,350);}},true);
+  window.PKLResultAdminRecoveryRender=renderAdminList;
 })();
 </script>
 
