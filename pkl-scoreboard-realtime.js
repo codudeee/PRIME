@@ -124,11 +124,14 @@
     var snap=buildSnapshot();
     var payload=JSON.stringify(snap);
     var sheet=cellLivePayload();
+    var liveObj=null;
+    try{liveObj=sheet?JSON.parse(sheet):null;}catch(e){liveObj=null;}
+    if(!liveHasMeaningfulData(liveObj)) return;
     var compare=payload+'|'+sheet;
     if(compare===lastPayloadText) return;
     lastPayloadText=compare;
     writeLocalSnapshot(snap);
-    var body={id:'live_scoreboard',payload:{payload:snap,live:sheet?JSON.parse(sheet):null},updated_at:snap.updatedAt};
+    var body={id:'live_scoreboard',payload:{payload:snap,live:liveObj},updated_at:snap.updatedAt};
     publishInFlight=true;
     try{
       sb('live_scores',{method:'POST',body:JSON.stringify(body)})
@@ -179,14 +182,58 @@
     if(!p) return null;
     try{return typeof p==='string'?JSON.parse(p):p;}catch(e){return null;}
   }
+  function filledMemberCount(st){
+    try{return (Array.isArray(st&&st.teams)?st.teams:[]).reduce(function(sum,t){return sum+(Array.isArray(t&&t.members)?t.members:[]).filter(function(m){return memberName(m);}).length;},0);}catch(e){return 0;}
+  }
+  function liveFilledMemberCount(live){
+    try{return (Array.isArray(live&&live.teams)?live.teams:[]).reduce(function(sum,t){return sum+(Array.isArray(t&&t.members)?t.members:[]).filter(function(m){return memberName(m);}).length;},0);}catch(e){return 0;}
+  }
+
+  function stateScoreActivityCount(st){
+    try{
+      var count=0;
+      if(Array.isArray(st&&st.feeds)) count+=st.feeds.length;
+      ['fires','surrenders','colds'].forEach(function(k){if(st&&st[k]&&typeof st[k]==='object') count+=Object.keys(st[k]).length;});
+      (Array.isArray(st&&st.rounds)?st.rounds:[]).forEach(function(r){
+        if(clean(r&&r.map)) count+=1;
+        Object.keys((r&&r.teams)||{}).forEach(function(teamId){
+          var d=r.teams[teamId]||{};
+          if(num(d.chicken)) count+=1;
+          if(num(d.stop)) count+=1;
+          if(Array.isArray(d.kills)) d.kills.forEach(function(v){if(num(v)) count+=1;});
+          if(Array.isArray(d.deaths)) d.deaths.forEach(function(v){if(num(v)) count+=1;});
+        });
+      });
+      return count;
+    }catch(e){return 0;}
+  }
+  function liveScoreActivityCount(live){return stateScoreActivityCount(live);}
+  function liveHasMeaningfulData(live){
+    try{
+      if(!live || typeof live!=='object') return false;
+      if(Number(live.resetNonce||0)>0) return true;
+      if(liveFilledMemberCount(live)>0) return true;
+      if(liveScoreActivityCount(live)>0) return true;
+      return false;
+    }catch(e){return false;}
+  }
+
   function mergeLiveIntoState(live){
     if(!live || !Array.isArray(live.rounds)) return null;
     if(resetLockedAgainst(live && live.resetNonce)) return null;
     var st=readSheetState();
     try{
-      var localMs=Date.parse((st&&st.savedAt)||(st&&st.teamExportedAt)||(st&&st.updatedAt)||'');
+      var localMs=Date.parse((st&&st.savedAt)||(st&&st.teamExportedAt)||(st&&st.updatedAt)||(st&&st.updatedFromTeamBoardAt)||'');
       var liveMs=Date.parse((live&&live.updatedAt)||'');
       if(localMs && liveMs && localMs-liveMs>250) return null;
+    }catch(e){}
+    try{
+      var localFilled=filledMemberCount(st), remoteFilled=liveFilledMemberCount(live);
+      var localResetForMembers=Number((st&&st.resetNonce)||0), remoteResetForMembers=Number((live&&live.resetNonce)||0);
+      var localActivity=stateScoreActivityCount(st), remoteActivity=liveScoreActivityCount(live);
+      if(localActivity>0 && remoteActivity<localActivity && remoteResetForMembers<=localResetForMembers) return null;
+      if(localFilled>0 && remoteFilled>0 && remoteFilled<localFilled && remoteResetForMembers<=localResetForMembers) return null;
+      if(localFilled>0 && remoteFilled===0 && remoteResetForMembers<=localResetForMembers) return null;
     }catch(e){}
     if(live.seq && Number(live.seq)<lastLiveSeq) return null;
     try{
@@ -260,7 +307,7 @@
     if(!bridge || typeof bridge.applyState!=='function') return;
     try{
       if(bridge.isTyping && bridge.isTyping()) return;
-      if(bridge.getLastLocalEditAt && Date.now()-Number(bridge.getLastLocalEditAt()||0)<350) return;
+      if(bridge.getLastLocalEditAt && Date.now()-Number(bridge.getLastLocalEditAt()||0)<2500) return;
     }catch(e){}
     var st=mergeLiveIntoState(readRemoteLive(doc));
     if(st) bridge.applyState(normalizeLiveState(st));
@@ -269,7 +316,7 @@
     startFallbackPoll();
   }
   function bindSheetPublisher(){
-    schedulePublish(450);
+    /* 첫 로드 직후 빈 기본 시트를 live_scores에 게시하지 않는다. 입력/변경 때만 게시한다. */
     document.addEventListener('input',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field&&e.target.dataset.field!=='map'){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?180:550);}},true);
     document.addEventListener('change',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?180:550);}},true);
     document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-map-pick],[data-stop-pick]')) schedulePublish(180);},true);

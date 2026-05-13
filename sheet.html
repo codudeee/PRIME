@@ -6316,6 +6316,8 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 #teamGrid::-webkit-scrollbar-thumb{border-radius:999px;background:linear-gradient(180deg,#b77eff,#6744ff) !important;}
 #teamGrid .team-card{min-height:0 !important;}
 </style>
+
+<link rel="stylesheet" href="./pkl-horizontal-scroll-only.css?v=20260513-scroll-only">
 </head>
 <body>
 <div class="app">
@@ -6545,6 +6547,32 @@ function pklSheetHasMeaningfulState(st){
 function pklSheetTime(st){
   const t=Date.parse(st && st.savedAt || '');
   return Number.isFinite(t) ? t : 0;
+}
+function pklSheetFilledMemberCount(st){
+  try{
+    return (Array.isArray(st && st.teams) ? st.teams : []).reduce((sum,t)=>sum + (Array.isArray(t && t.members) ? t.members : []).filter(m=>String((m&&(m.name||m.nickname||m.nick||m.pubgId||m.gameId))||'').trim()).length,0);
+  }catch(e){return 0;}
+}
+function pklSheetScoreActivityCount(st){
+  try{
+    let count=0;
+    if(Array.isArray(st && st.feeds)) count+=st.feeds.length;
+    if(st && st.fires && typeof st.fires==='object') count+=Object.keys(st.fires).length;
+    if(st && st.surrenders && typeof st.surrenders==='object') count+=Object.keys(st.surrenders).length;
+    if(st && st.colds && typeof st.colds==='object') count+=Object.keys(st.colds).length;
+    (Array.isArray(st && st.rounds)?st.rounds:[]).forEach(r=>{
+      if(String((r&&r.map)||'').trim()) count+=1;
+      const teams=(r&&r.teams&&typeof r.teams==='object') ? r.teams : {};
+      Object.keys(teams).forEach(k=>{
+        const d=teams[k]||{};
+        if(Number(d.chicken||0)!==0) count+=1;
+        if(Number(d.stop||0)!==0) count+=1;
+        if(Array.isArray(d.kills)) count+=d.kills.filter(v=>Number(v||0)!==0).length;
+        if(Array.isArray(d.deaths)) count+=d.deaths.filter(v=>Number(v||0)!==0).length;
+      });
+    });
+    return count;
+  }catch(e){return 0;}
 }
 function pklSheetCanPersistState(st){
   if(pklSheetHasMeaningfulState(st)) return true;
@@ -8730,6 +8758,15 @@ window.PKLSheetLiveBridge={
   applyState:function(next){
     if(!next || !Array.isArray(next.teams) || !Array.isArray(next.rounds)) return false;
     try{
+      const localReset=Number(state && state.resetNonce || 0);
+      const remoteReset=Number(next && next.resetNonce || 0);
+      if((pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<15000) && remoteReset<=localReset) return false;
+      const localFilled=pklSheetFilledMemberCount(state);
+      const remoteFilled=pklSheetFilledMemberCount(next);
+      const localActivity=pklSheetScoreActivityCount(state);
+      const remoteActivity=pklSheetScoreActivityCount(next);
+      if(localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset) return false;
+      if(localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset) return false;
       next.rounds.forEach(function(r){
         Object.keys((r&&r.teams)||{}).forEach(function(k){
           var d=r.teams[k]||{};
@@ -8763,6 +8800,19 @@ function pklApplySupabaseSheetStateOnce(){
     const remoteTime=pklSheetTime(next);
     const remoteReset=Number(next.resetNonce||0);
     const localReset=Number(state && state.resetNonce || 0);
+    const localFilled=pklSheetFilledMemberCount(state);
+    const remoteFilled=pklSheetFilledMemberCount(next);
+    if((pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<15000) && remoteReset<=localReset){
+      return false;
+    }
+    const localActivity=pklSheetScoreActivityCount(state);
+    const remoteActivity=pklSheetScoreActivityCount(next);
+    if(localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset){
+      return false;
+    }
+    if(localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset){
+      return false;
+    }
     if(localMeaningful && !remoteMeaningful && remoteReset<=localReset){
       return false;
     }
@@ -8785,23 +8835,27 @@ function pklApplySupabaseSheetStateOnce(){
     .catch(()=>false);
 }
 (function pklBootSheetSafely(){
-  const hasLocalSheet=pklSheetHasMeaningfulState(state);
-  const afterBoot=()=>{
-    pklLoadSheetSupabaseUsersOnce().then(()=>{ try{ renderSheet(); renderBoard(); }catch(e){} });
-    pklApplySupabaseSheetStateOnce().then(()=>pklLoadSheetSupabaseUsersOnce()).then(()=>{ try{ renderSheet(); renderBoard(); }catch(e){} });
+  /* 첫 진입 최적화: Supabase 원격 시트/티어 조회를 기다리면 tbody가 비어 있고
+     tfoot의 '+ 라운드 추가' 버튼만 먼저 보인다. 기본 시트는 저장하지 않는
+     save() 보호가 이미 있으므로, 화면은 즉시 그리고 데이터만 뒤에서 교체한다. */
+  try{ render(); }catch(e){}
+
+  const refreshVisibleSheet=()=>{
+    try{ renderSheet(); renderBoard(); renderFeeds(); updateTopTimes(); }catch(e){}
   };
-  if(hasLocalSheet){
-    render();
-    afterBoot();
-  }else{
-    pklApplySupabaseSheetStateOnce().then(()=>{
-      render();
-      afterBoot();
-    }).catch(()=>{
-      render();
-      afterBoot();
-    });
-  }
+
+  // 티어/배지는 늦게 와도 점수 입력칸 표시를 막지 않게 뒤에서만 보정한다.
+  setTimeout(function(){
+    pklLoadSheetSupabaseUsersOnce().then(refreshVisibleSheet).catch(()=>{});
+  }, 0);
+
+  // 원격 경기 상태도 부팅 렌더를 막지 않고, 도착했을 때만 현재 DOM을 교체한다.
+  setTimeout(function(){
+    pklApplySupabaseSheetStateOnce()
+      .then(()=>pklLoadSheetSupabaseUsersOnce())
+      .then(refreshVisibleSheet)
+      .catch(()=>{});
+  }, 0);
 })();
 window.addEventListener('pagehide',()=>{ try{ pklPersistSheetStateNow(); }catch(e){} });
 window.addEventListener('beforeunload',()=>{ try{ pklPersistSheetStateNow(); }catch(e){} });
@@ -12473,7 +12527,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
 })();
 </script>
 
-<script src="pkl-scoreboard-realtime.js?v=20260513b"></script>
+<script src="pkl-scoreboard-realtime.js?v=20260513live1"></script>
 
 <style id="pklItemHistoryContentOnlyFinalOverride">
 .pkl-item-history-table{table-layout:auto !important;width:100% !important;max-width:100% !important;}
