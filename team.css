@@ -7286,3 +7286,45 @@ body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-check.is-disabled{
 body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-check.is-disabled input{
   pointer-events:none;
 }
+
+/* === PKL FINAL: normal duo only nickname/tier max fit ===
+   - 일반 듀오(pkl-mode-40 + pkl-mode-duo)만 적용
+   - 듀오 깐부(pkl-mode-partner), 스쿼드 모드 미수정
+   - 슬롯 안에서 잘리지 않는 선으로 닉네임/티어배지만 확대
+*/
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-duo:not(.pkl-mode-partner) > .team-board .team-card .team-slot .player-card{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:7px !important;
+  width:100% !important;
+  height:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  padding:4px 8px !important;
+  overflow:hidden !important;
+}
+
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-duo:not(.pkl-mode-partner) > .team-board .team-card .team-slot .player-name{
+  flex:0 1 auto !important;
+  min-width:0 !important;
+  max-width:calc(100% - 54px) !important;
+  font-size:22px !important;
+  line-height:1.02 !important;
+  letter-spacing:-0.75px !important;
+  font-weight:1000 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-duo:not(.pkl-mode-partner) > .team-board .team-card .team-slot .player-tier.member-role-badge{
+  flex:0 0 auto !important;
+  min-width:44px !important;
+  height:22px !important;
+  line-height:20px !important;
+  padding:0 7px !important;
+  font-size:12px !important;
+  border-radius:7px !important;
+  white-space:nowrap !important;
+}
