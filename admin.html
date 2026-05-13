@@ -8356,7 +8356,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       var uc=document.getElementById('userCount'); if(uc) uc.textContent='불러오기 실패';
     }
   }
-  document.addEventListener('DOMContentLoaded',function(){setTimeout(loadUsers,20);});
+  /* 구형 20명 단일 로더 자동 실행 중단: 아래 canonical 페이지네이션 로더만 사용 */
   window.PKLAdminReloadSupabaseUsers=loadUsers;
 })();
 </script>
@@ -8707,35 +8707,102 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     try{ renderWelcomeIfNeeded(); }catch(e){}
   };
   var __pklAdminUsersLoadInFlight=false;
-  async function load(){
+  var __pklAdminUsersPageSize=20;
+  var __pklAdminUsersOffset=0;
+  var __pklAdminUsersTotal=null;
+  var __pklAdminUsersHasMore=true;
+  var __pklAdminUsersScrollBound=false;
+
+  function adminUsers(){
+    return (typeof state!=='undefined' && state && Array.isArray(state.users)) ? state.users : [];
+  }
+  function mergeAdminUserPages(base,next){
+    var merged=[];
+    var seen=new Set();
+    (Array.isArray(base)?base:[]).concat(Array.isArray(next)?next:[]).forEach(function(row){
+      var u=normalize(row);
+      if(!u) return;
+      var did=didOf(u);
+      if(!did || seen.has(did)) return;
+      seen.add(did);
+      merged.push(u);
+    });
+    return merged.sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
+  }
+  function setAdminUsers(users){
+    if(typeof state!=='undefined'){
+      state=Object.assign({},state||{}, {
+        users:Array.isArray(users)?users:[],
+        pending:Array.isArray(state&&state.pending)?state.pending:[],
+        bans:Array.isArray(state&&state.bans)?state.bans:[],
+        warningRecords:Array.isArray(state&&state.warningRecords)?state.warningRecords:[]
+      });
+      window.state=state;
+    }
+    if(typeof current!=='number'||current<0||current>=adminUsers().length) current=0;
+    bumpUsersCacheVersion();
+    window.render();
+    updateAdminUsersLoadHint();
+  }
+  function updateAdminUsersLoadHint(){
+    var wrap=document.getElementById('userList'); if(!wrap) return;
+    var old=wrap.querySelector('.pkl-admin-users-more-hint'); if(old) old.remove();
+    var count=adminUsers().length;
+    var label=__pklAdminUsersLoadInFlight ? '회원 데이터를 더 불러오는 중입니다.' : (__pklAdminUsersHasMore ? '아래로 내리면 회원을 20명씩 추가로 불러옵니다.' : '불러온 회원이 마지막입니다.');
+    var hint=document.createElement('div');
+    hint.className='pkl-admin-users-more-hint';
+    hint.textContent=(__pklAdminUsersTotal!=null ? (count+' / '+__pklAdminUsersTotal+'명 · ') : (count+'명 · ')) + label;
+    hint.style.cssText='margin:8px 0 2px;padding:12px 10px;border:1px solid rgba(216,180,254,.13);border-radius:14px;background:rgba(255,255,255,.035);color:rgba(221,214,254,.78);font-size:12px;font-weight:900;text-align:center;';
+    wrap.appendChild(hint);
+  }
+  async function fetchAdminUsersPage(offset){
+    var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
+    var data=await res.json().catch(function(){return {};});
+    if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
+    if(typeof data.count==='number' && isFinite(data.count)) __pklAdminUsersTotal=data.count;
+    return data.users;
+  }
+  async function load(append){
     if(__pklAdminUsersLoadInFlight) return;
+    if(append && !__pklAdminUsersHasMore) return;
     __pklAdminUsersLoadInFlight=true;
-    var wrap=document.getElementById('userList'); if(wrap && !wrap.children.length) wrap.innerHTML='<div class="pkl-users-loading-card">Supabase 유저 목록을 불러오는 중입니다.</div>';
+    var wrap=document.getElementById('userList');
+    if(wrap && !append && !wrap.children.length) wrap.innerHTML='<div class="pkl-users-loading-card">Supabase 유저 목록을 불러오는 중입니다.</div>';
+    updateAdminUsersLoadHint();
     try{
-      var res=await fetch('/api/pkl-users?limit=20&offset=0',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
-      var data=await res.json().catch(function(){return {};});
-      if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
-      var users=unique(data.users);
-      if(typeof state!=='undefined'){ state=Object.assign({},state||{},{users:users,pending:Array.isArray(state&&state.pending)?state.pending:[],bans:Array.isArray(state&&state.bans)?state.bans:[],warningRecords:Array.isArray(state&&state.warningRecords)?state.warningRecords:[]}); window.state=state; }
-      if(typeof current!=='number'||current<0||current>=users.length) current=0;
-      bumpUsersCacheVersion();
-      window.render();
+      var offset=append ? __pklAdminUsersOffset : 0;
+      var page=await fetchAdminUsersPage(offset);
+      var merged=append ? mergeAdminUserPages(adminUsers(),page) : unique(page);
+      __pklAdminUsersOffset=offset+page.length;
+      __pklAdminUsersHasMore=page.length>=__pklAdminUsersPageSize && (__pklAdminUsersTotal==null || __pklAdminUsersOffset<__pklAdminUsersTotal);
+      setAdminUsers(merged);
     }catch(err){
       console.error('PKL admin canonical users load failed',err);
-      var list=document.getElementById('userList'); if(list) list.innerHTML='<div class="pending-empty">Supabase 유저를 불러오지 못했습니다.<br>users SELECT 정책/API 응답을 확인해주세요.</div>';
+      var list=document.getElementById('userList'); if(list && !append) list.innerHTML='<div class="pending-empty">Supabase 유저를 불러오지 못했습니다.<br>users SELECT 정책/API 응답을 확인해주세요.</div>';
       var uc=document.getElementById('userCount'); if(uc) uc.textContent='불러오기 실패';
     }finally{
       __pklAdminUsersLoadInFlight=false;
+      updateAdminUsersLoadHint();
     }
+  }
+  function bindAdminUserInfiniteScroll(){
+    if(__pklAdminUsersScrollBound) return;
+    var wrap=document.getElementById('userList'); if(!wrap) return;
+    __pklAdminUsersScrollBound=true;
+    wrap.addEventListener('scroll',function(){
+      if(__pklAdminUsersLoadInFlight || !__pklAdminUsersHasMore) return;
+      if(wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 140) load(true);
+    },{passive:true});
   }
   document.addEventListener('DOMContentLoaded',function(){
     var users=document.getElementById('userManageTab');
     document.querySelectorAll('#dashboardManageTab,#userManageTab,#pendingManageTab,#bansManageTab,#warningsManageTab,#settingsManageTab,.admin-screen').forEach(function(el){el.style.display='none';});
     if(users) users.style.display='grid';
     if(typeof setAdminNavActiveByScreen==='function') setAdminNavActiveByScreen('userManageTab');
-    setTimeout(load,20);
+    setTimeout(function(){bindAdminUserInfiniteScroll();load(false);},20);
   });
-  window.PKLAdminReloadSupabaseUsers=load;
+  window.PKLAdminReloadSupabaseUsers=function(){__pklAdminUsersOffset=0;__pklAdminUsersTotal=null;__pklAdminUsersHasMore=true;return load(false);};
+  window.PKLAdminLoadMoreSupabaseUsers=function(){return load(true);};
 })();
 </script>
 

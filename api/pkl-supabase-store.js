@@ -167,7 +167,7 @@ async function readUserDocs(options={}){
     if (nickKey) seenNickname.add(nickKey);
     users.push(u);
   }
-  return { users, count: users.length, limit, offset, q };
+  return { users, count: Number.isFinite(count) ? count : users.length, limit, offset, q };
 }
 async function writeUserDoc(user, forceAdmin=false){
   const input = (user && typeof user === 'object') ? user : {};
