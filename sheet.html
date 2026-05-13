@@ -6537,35 +6537,38 @@ function teamData(round,teamId){if(!round.teams[teamId])round.teams[teamId]={kil
 
 function pklTierScoreRoleFromText(text){
   const raw=String(text||"").trim();
-  const compact=raw.replace(/\s+/g,"");
+  const compact=raw.replace(/\s+/g,"").replace(/[-_]/g,"").toLowerCase();
   const map={
-    "0티어":"tier0_mid","0":"tier0_mid","0티어상":"tier0_high","0상":"tier0_high",
+    "tier0":"tier0_mid","grade roletier0":"tier0_mid","graderoletier0":"tier0_mid","0티어":"tier0_mid",
+    "tier1":"tier1_mid","graderoletier1":"tier1_mid","1티어":"tier1_mid",
+    "tier2":"tier2_mid","graderoletier2":"tier2_mid","2티어":"tier2_mid",
+    "tier3":"tier3_mid","graderoletier3":"tier3_mid","3티어":"tier3_mid",
+    "tier4":"tier4_mid","graderoletier4":"tier4_mid","4티어":"tier4_mid",
+    "tier0high":"tier0_high","tier0mid":"tier0_mid","tier0low":"tier0_low",
+    "tier1high":"tier1_high","tier1mid":"tier1_mid","tier1low":"tier1_low",
+    "tier2high":"tier2_high","tier2mid":"tier2_mid","tier2low":"tier2_low",
+    "tier3high":"tier3_high","tier3mid":"tier3_mid","tier3low":"tier3_low",
+    "tier4high":"tier4_high","tier4mid":"tier4_mid","tier4low":"tier4_low",
+    "0티어상":"tier0_high","0상":"tier0_high",
     "0티어중":"tier0_mid","0중":"tier0_mid",
     "0티어하":"tier0_low","0하":"tier0_low",
-    "1티어":"tier1_mid","1":"tier1_mid","1티어상":"tier1_high","1상":"tier1_high",
+    "1티어상":"tier1_high","1상":"tier1_high",
     "1티어중":"tier1_mid","1중":"tier1_mid",
     "1티어하":"tier1_low","1하":"tier1_low",
-    "2티어":"tier2_mid","2":"tier2_mid","2티어상":"tier2_high","2상":"tier2_high",
+    "2티어상":"tier2_high","2상":"tier2_high",
     "2티어중":"tier2_mid","2중":"tier2_mid",
     "2티어하":"tier2_low","2하":"tier2_low",
-    "3티어":"tier3_mid","3":"tier3_mid","3티어상":"tier3_high","3상":"tier3_high",
+    "3티어상":"tier3_high","3상":"tier3_high",
     "3티어중":"tier3_mid","3중":"tier3_mid",
     "3티어하":"tier3_low","3하":"tier3_low",
-    "4티어":"tier4_mid","4":"tier4_mid","4티어상":"tier4_high","4상":"tier4_high",
+    "4티어상":"tier4_high","4상":"tier4_high",
     "4티어중":"tier4_mid","4중":"tier4_mid",
     "4티어하":"tier4_low","4하":"tier4_low",
-    "tier0":"tier0_mid","tier1":"tier1_mid","tier2":"tier2_mid","tier3":"tier3_mid","tier4":"tier4_mid",
-    "grade-role-tier0":"tier0_mid","grade-role-tier1":"tier1_mid","grade-role-tier2":"tier2_mid","grade-role-tier3":"tier3_mid","grade-role-tier4":"tier4_mid",
-    "role-tier0":"tier0_mid","role-tier1":"tier1_mid","role-tier2":"tier2_mid","role-tier3":"tier3_mid","role-tier4":"tier4_mid",
     "짐승":"beast",
     "beast":"beast"
   };
   if(map[compact]) return map[compact];
   if(/^tier[0-4]_(high|mid|low)$/.test(raw) || raw==="beast") return raw;
-  const basic=compact.match(/^tier([0-4])$/);
-  if(basic) return `tier${basic[1]}_mid`;
-  const grade=compact.match(/(?:grade)?role(?:tier)?([0-4])/);
-  if(grade) return `tier${grade[1]}_mid`;
   return "";
 }
 function pklTierScoreLaneFromRole(role){
