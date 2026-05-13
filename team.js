@@ -1904,6 +1904,7 @@ function rerollAll() {
     if (matchEndTimeGroup) matchEndTimeGroup.querySelectorAll('[data-time-part]').forEach(cell => cell.dataset.value = '');
     setStatus('팀구성 보드를 깨끗이 초기화했습니다.');
     render();
+    return persistTeamBuilderStateNow({ keepalive: true });
   }
 
   function hasMatchTimeSettings() {
@@ -1921,9 +1922,13 @@ function completeTeams() {
         const importedCount = result && typeof result.count === 'number' ? result.count : Number(result || 0);
         const goSheet = () => { window.location.assign('sheet.html'); };
         const finish = () => {
-          resetBuilder();
+          const resetResult = resetBuilder();
           setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 시트지로 이동합니다.`);
-          goSheet();
+          if (resetResult && typeof resetResult.then === 'function') {
+            resetResult.finally(goSheet);
+          } else {
+            goSheet();
+          }
         };
         if (result && result.remoteSave && typeof result.remoteSave.then === 'function') {
           result.remoteSave.then(finish).catch(() => finish());
@@ -3430,12 +3435,47 @@ function startClock() {
   }
 
   function saveState() {
-    const stateJson = JSON.stringify(state);
-    localStorage.setItem(STORAGE_KEY, stateJson);
-    if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
-      window.PKLSupabaseDataSync.setShared(STORAGE_KEY, state).catch(() => {});
-    }
+    persistTeamBuilderStateNow();
   }
+
+  function persistTeamBuilderStateNow(options = {}) {
+    let stateJson = '';
+    try { stateJson = JSON.stringify(state); } catch (error) { stateJson = ''; }
+    if (!stateJson) return Promise.resolve(null);
+
+    try { localStorage.setItem(STORAGE_KEY, stateJson); } catch (error) {}
+
+    const payload = { type: 'shared', key: STORAGE_KEY, value: state };
+    const saves = [];
+
+    if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
+      try { saves.push(window.PKLSupabaseDataSync.setShared(STORAGE_KEY, state).catch(() => null)); } catch (error) {}
+    }
+
+    if (window.fetch) {
+      try {
+        saves.push(fetch('/api/pkl-data-store', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          keepalive: !!options.keepalive
+        }).then(res => res.ok ? res.json().catch(() => ({ ok: true })) : null).catch(() => null));
+      } catch (error) {}
+    }
+
+    if (options.beacon && navigator.sendBeacon) {
+      try {
+        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        navigator.sendBeacon('/api/pkl-data-store', blob);
+      } catch (error) {}
+    }
+
+    return saves.length ? Promise.allSettled(saves) : Promise.resolve(null);
+  }
+
+  window.addEventListener('pagehide', () => {
+    persistTeamBuilderStateNow({ keepalive: true, beacon: true });
+  });
 
   function parseTeamBuilderState(rawValue) {
     if (!rawValue) return null;
