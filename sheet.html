@@ -6473,6 +6473,44 @@ let pklApplyingRemoteSheetState=false;
 let pklSheetRemoteSaveTimer=null;
 let pklLastLocalSheetEditAt=0;
 let pklDeferredRemoteSheetTimer=null;
+let pklSheetPersistTimer=null;
+
+function pklSheetHasMeaningfulState(st){
+  if(!st || typeof st!=='object') return false;
+  if(Array.isArray(st.feeds) && st.feeds.length) return true;
+  if(st.fires && typeof st.fires==='object' && Object.keys(st.fires).length) return true;
+  if(st.surrenders && typeof st.surrenders==='object' && Object.keys(st.surrenders).length) return true;
+  if(st.colds && typeof st.colds==='object' && Object.keys(st.colds).length) return true;
+  if(Array.isArray(st.teams) && st.teams.some(t=>Array.isArray(t && t.members) && t.members.some(m=>String((m&&(m.name||m.nickname||m.nick||m.pubgId||m.pubgName||m.gameId))||'').trim()))) return true;
+  if(Array.isArray(st.rounds) && st.rounds.some(r=>{
+    if(String((r&&r.map)||'').trim()) return true;
+    const teams=(r&&r.teams&&typeof r.teams==='object') ? r.teams : {};
+    return Object.keys(teams).some(k=>{
+      const d=teams[k]||{};
+      return Number(d.chicken||0)!==0 || Number(d.stop||0)!==0 ||
+        (Array.isArray(d.kills)&&d.kills.some(v=>Number(v||0)!==0)) ||
+        (Array.isArray(d.deaths)&&d.deaths.some(v=>Number(v||0)!==0));
+    });
+  })) return true;
+  return false;
+}
+function pklSheetTime(st){
+  const t=Date.parse(st && st.savedAt || '');
+  return Number.isFinite(t) ? t : 0;
+}
+function pklPersistSheetStateNow(){
+  try{
+    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function'){
+      window.PKLSupabaseDataSync.setShared(STORAGE_KEY, state);
+    }else if(typeof window.saveSharedData==='function'){
+      window.saveSharedData(STORAGE_KEY, state);
+    }
+  }catch(e){}
+}
+function pklScheduleSheetPersist(delay){
+  clearTimeout(pklSheetPersistTimer);
+  pklSheetPersistTimer=setTimeout(pklPersistSheetStateNow, Number(delay||260));
+}
 
 function pklMarkLocalSheetEdit(){
   pklLastLocalSheetEditAt=Date.now();
@@ -6523,8 +6561,9 @@ function save(){
   state.selectedTeamId=selectedTeamId;
   state.savedAt=new Date().toISOString();
   localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
-  /* 전체 시트 상태는 Supabase 공유문서에 저장하지 않음.
-     점수/치킨/LIVE카드 실시간 공유는 pkl-scoreboard-realtime.js가 작은 live payload만 전송한다. */
+  /* 결과저장/초기화 전까지 현재 경기 시트는 Supabase 공유값에도 유지한다.
+     페이지 이동 직후 localStorage 메모리값만 사라져 빈 시트로 덮이는 문제를 막는다. */
+  pklScheduleSheetPersist(220);
   try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(120); }catch(e){}
 }
 function makeRound(no){return {no,map:'',teams:{}}}
@@ -8547,6 +8586,18 @@ window.PKLSheetLiveBridge={
 function pklApplySupabaseSheetStateOnce(){
   const applyNext = (next)=>{
     if(!next || !Array.isArray(next.teams) || !Array.isArray(next.rounds)) return false;
+    const localMeaningful=pklSheetHasMeaningfulState(state);
+    const remoteMeaningful=pklSheetHasMeaningfulState(next);
+    const localTime=pklSheetTime(state);
+    const remoteTime=pklSheetTime(next);
+    const remoteReset=Number(next.resetNonce||0);
+    const localReset=Number(state && state.resetNonce || 0);
+    if(localMeaningful && !remoteMeaningful && remoteReset<=localReset){
+      return false;
+    }
+    if(localMeaningful && remoteTime && localTime && remoteTime < localTime - 1000 && remoteReset<=localReset){
+      return false;
+    }
     state = next;
     selectedTeamId = state.selectedTeamId || selectedTeamId || (state.teams[0] && state.teams[0].id) || 'team1';
     if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId = (visibleTeams()[0] && visibleTeams()[0].viewId) || 'team1';
@@ -8565,6 +8616,7 @@ function pklApplySupabaseSheetStateOnce(){
 render();
 pklLoadSheetSupabaseUsersOnce().then(()=>{ try{ renderSheet(); renderBoard(); }catch(e){} });
 pklApplySupabaseSheetStateOnce().then(()=>pklLoadSheetSupabaseUsersOnce()).then(()=>{ try{ renderSheet(); renderBoard(); }catch(e){} });
+window.addEventListener('pagehide',()=>{ try{ pklPersistSheetStateNow(); }catch(e){} });
 pklStartPreciseTopTimeTicker();
 /* 2차 청소: visibility/storage 기반 상단 잭팟 자동 갱신 제거. */
 })();
