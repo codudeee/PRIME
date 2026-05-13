@@ -1438,9 +1438,6 @@ const STORAGE_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
 const DEMO_NAMES=[['허리','재환','몽몽','오오'],['민혁','석이','아루','가람'],['영원','한수','시온','루키'],['도현','태민','지훈','건우'],['서준','민재','현우','준서'],['유진','하람','지우','은우'],['로한','주원','이준','하준'],['시후','지안','서아','나은'],['태오','현준','규민','재윤'],['민준','수호','도윤','이안']];
 const RESULT_MATCHES_KEY='PKL_RESULT_MATCHES_V1';
 const USER_MATCH_STATS_KEY='PKL_USER_MATCH_STATS_V1';
-const RESULT_DELETED_IDS_KEY='PKL_RESULT_DELETED_IDS_V1';
-const RESULT_CLEAR_ALL_KEY='PKL_RESULT_CLEAR_ALL_V1';
-const RESULT_CLEAR_ONCE_KEY='PKL_RESULT_CLEAR_EXISTING_ONCE_20260513_V1';
 const DEFAULT_MATCHES=[];
 function pklResultLoadMatches(){
   const raw=localStorage.getItem(RESULT_MATCHES_KEY);
@@ -1455,28 +1452,47 @@ function pklResultLoadMatches(){
 async function pklResultFetchMatchesFromServer(){
   var next=null;
   try{
-    var sharedClear=null;
     if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function'){
-      sharedClear=await window.PKLSupabaseDataSync.getShared(RESULT_CLEAR_ALL_KEY);
       var shared=await window.PKLSupabaseDataSync.getShared(RESULT_MATCHES_KEY);
       if(Array.isArray(shared)) next=shared;
       else if(typeof shared==='string'){
         try{var parsed=JSON.parse(shared); if(Array.isArray(parsed)) next=parsed;}catch(_e){}
       }
     }
-    if(String(sharedClear)==='1' && (!Array.isArray(next) || !next.length)) next=[];
   }catch(e){}
-  /* 결과표는 PKL_RESULT_MATCHES_V1 공유 저장값만 단일 원본으로 사용한다.
-     예전 match_logs API fallback은 삭제한 회차를 계속 복원시켜서 제거한다. */
-  if(!Array.isArray(next)) next=[];
-  var deleted=pklResultGetDeletedIds();
-  next=next.filter(function(m){return deleted.indexOf(String(m&&m.id))<0;});
-  MATCHES=next.map(function(m){return Object.assign({},m);});
-  try{localStorage.setItem(RESULT_MATCHES_KEY,JSON.stringify(MATCHES));}catch(e){}
-  if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})){ selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||''; }
-  pklResultApplySelectedMatchState();
-  renderAll();
-  renderResultAdminModal();
+  if(!next){
+    try{
+      var res=await fetch('/api/pkl-data-store?type=match_logs',{cache:'no-store'});
+      var data=await res.json();
+      var rows=Array.isArray(data&&data.rows)?data.rows:[];
+      if(rows.length){
+        next=rows.map(function(r){
+          var raw=(r&&r.raw&&typeof r.raw==='object')?r.raw:null;
+          if(raw) return raw;
+          return {
+            id:r.id,
+            title:r.title||r.id,
+            kind:r.kind||'league',
+            type:(r.kind==='normal')?'일반경기':'프라임 킬내기 리그',
+            snapshot:r.snapshot||{},
+            savedAt:r.saved_at||r.updated_at||''
+          };
+        }).filter(Boolean).sort(function(a,b){
+          return String(b.savedAt||b.saved_at||'').localeCompare(String(a.savedAt||a.saved_at||''));
+        });
+      }
+    }catch(e){}
+  }
+  if(Array.isArray(next)){
+    MATCHES=next.map(function(m){return Object.assign({},m);});
+    try{localStorage.setItem(RESULT_MATCHES_KEY,JSON.stringify(MATCHES));}catch(e){}
+    if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})){
+      selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
+    }
+    pklResultApplySelectedMatchState();
+    renderAll();
+    renderResultAdminModal();
+  }
 }
 function pklResultSharedSet(key,value){
   const text=typeof value==='string'?value:JSON.stringify(value);
@@ -1491,71 +1507,10 @@ function pklResultSharedSet(key,value){
     try{localStorage.setItem(key,text);}catch(_e){}
   }
 }
-function pklResultGetDeletedIds(){
-  try{
-    var raw=localStorage.getItem(RESULT_DELETED_IDS_KEY);
-    var arr=raw?JSON.parse(raw):[];
-    return Array.isArray(arr)?arr.map(String):[];
-  }catch(e){return [];}
-}
-function pklResultPersistDeletedIds(arr){
-  var clean=Array.from(new Set((Array.isArray(arr)?arr:[]).map(String).filter(Boolean))).slice(-500);
-  try{localStorage.setItem(RESULT_DELETED_IDS_KEY,JSON.stringify(clean));}catch(e){}
-  try{
-    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function') window.PKLSupabaseDataSync.setShared(RESULT_DELETED_IDS_KEY,JSON.stringify(clean));
-    else if(typeof window.saveSharedData==='function') window.saveSharedData(RESULT_DELETED_IDS_KEY,JSON.stringify(clean));
-  }catch(e){}
-  return clean;
-}
-function pklResultMarkDeleted(id){
-  if(!id) return;
-  var arr=pklResultGetDeletedIds();
-  if(arr.indexOf(String(id))<0) arr.push(String(id));
-  pklResultPersistDeletedIds(arr);
-}
-async function pklResultClearExistingMatchesOnce(){
-  try{
-    if(localStorage.getItem(RESULT_CLEAR_ONCE_KEY)==='done') return;
-    var done=null;
-    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function'){
-      done=await window.PKLSupabaseDataSync.getShared(RESULT_CLEAR_ONCE_KEY);
-    }
-    if(String(done)==='done'){
-      try{localStorage.setItem(RESULT_CLEAR_ONCE_KEY,'done');}catch(e){}
-      return;
-    }
-    MATCHES=[];
-    selectedMatchId='';
-    state=makeEmptyState();
-    try{localStorage.setItem(RESULT_MATCHES_KEY,'[]');localStorage.setItem(RESULT_CLEAR_ALL_KEY,'1');localStorage.setItem(RESULT_CLEAR_ONCE_KEY,'done');}catch(e){}
-    try{
-      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function'){
-        await window.PKLSupabaseDataSync.setShared(RESULT_MATCHES_KEY,'[]');
-        await window.PKLSupabaseDataSync.setShared(RESULT_CLEAR_ALL_KEY,'1');
-        await window.PKLSupabaseDataSync.setShared(RESULT_CLEAR_ONCE_KEY,'done');
-      }else if(typeof window.saveSharedData==='function'){
-        window.saveSharedData(RESULT_MATCHES_KEY,'[]');
-        window.saveSharedData(RESULT_CLEAR_ALL_KEY,'1');
-        window.saveSharedData(RESULT_CLEAR_ONCE_KEY,'done');
-      }
-    }catch(e){}
-    pklResultApplySelectedMatchState();
-    renderAll();
-    renderResultAdminModal();
-  }catch(e){}
-}
 function pklResultSaveMatches(){
   pklResultSortMatches();
-  var deleted=pklResultGetDeletedIds();
-  if(deleted.length){ MATCHES=MATCHES.filter(function(m){return deleted.indexOf(String(m&&m.id))<0;}); }
   const text=JSON.stringify(Array.isArray(MATCHES)?MATCHES:[]);
   pklResultSharedSet(RESULT_MATCHES_KEY,text);
-  try{
-    var clearValue=(Array.isArray(MATCHES)&&MATCHES.length)?'0':'1';
-    localStorage.setItem(RESULT_CLEAR_ALL_KEY,clearValue);
-    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function') window.PKLSupabaseDataSync.setShared(RESULT_CLEAR_ALL_KEY,clearValue);
-    else if(typeof window.saveSharedData==='function') window.saveSharedData(RESULT_CLEAR_ALL_KEY,clearValue);
-  }catch(e){}
 }
 function pklResultRefreshMatchesFromStorage(){
   const before=selectedMatchId;
@@ -2450,7 +2405,6 @@ function deleteResultAdminMatch(){
   if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
   const deletedId=pendingDeleteMatchId;
   if(!deletedId) return;
-  pklResultMarkDeleted(deletedId);
   MATCHES=MATCHES.filter(x=>String(x.id)!==String(deletedId));
   pklDeleteMatchLinkedData(deletedId);
   adminEditingMatchId=(MATCHES[0]&&MATCHES[0].id)||null;
@@ -2559,7 +2513,7 @@ function bind(){
 }
 function renderAll(){renderBoard();renderSheet();renderSide();}
 bind();renderAll();
-setTimeout(async function(){await pklResultClearExistingMatchesOnce(); await pklResultFetchMatchesFromServer();},60);
+setTimeout(function(){pklResultFetchMatchesFromServer();},60);
 /* 3차 청소: storage/supabase/user 이벤트 기반 결과표 재렌더 금지.
    결과표는 최초 렌더와 저장/삭제/선택 클릭 흐름에서만 갱신한다.
    자동 user event renderSide가 로컬/메모리 유저와 서버 유저를 섞어 중복 표시를 만들 수 있어 제거. */
@@ -3039,6 +2993,124 @@ window.addEventListener('load', restoreDiscordSession);
 }
 </style>
 
+
+
+<style id="pkl-result-side-history-modal-style">
+#resultSideHistoryModal.pkl-usage-modal{position:fixed!important;inset:0!important;z-index:2147483640!important;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);pointer-events:auto!important;}
+#resultSideHistoryModal.open{display:flex!important;}
+#resultSideHistoryModal .pkl-usage-box{position:relative!important;z-index:2147483641!important;pointer-events:auto!important;}
+.result-side-history-btn{width:100%;height:42px;margin-top:10px;border-radius:13px;border:1px solid rgba(139,231,255,.38);background:linear-gradient(180deg,rgba(139,231,255,.18),rgba(155,92,255,.18));color:#fff;font-weight:1000;box-shadow:0 0 14px rgba(139,231,255,.12), inset 0 1px 0 rgba(255,255,255,.12);cursor:pointer;}
+.result-side-history-btn:hover{filter:brightness(1.12);}
+.pkl-side-history-item{border:1px solid rgba(139,231,255,.16);border-radius:14px;background:rgba(139,231,255,.055);padding:12px;display:grid;gap:5px;}
+.pkl-side-history-match{font-size:15px;font-weight:1000;color:#fff;line-height:1.35;}
+.pkl-side-history-text{font-size:13px;font-weight:900;color:#cfc7ff;line-height:1.4;}
+.pkl-side-history-time{font-size:12px;font-weight:900;color:#9ca3af;text-align:right;}
+</style>
+
+<div aria-hidden="true" class="pkl-usage-modal" id="resultSideHistoryModal">
+  <div aria-modal="true" class="pkl-usage-box" role="dialog">
+    <div class="pkl-usage-head">
+      <div><div class="pkl-usage-kicker">MATCH SIDE HISTORY</div><div class="pkl-usage-title">해당 회차 SIDE 내역</div></div>
+      <button class="pkl-usage-close" id="resultSideHistoryCloseBtn" type="button">×</button>
+    </div>
+    <div class="pkl-usage-list" id="resultSideHistoryList"></div>
+  </div>
+</div>
+
+<script id="pkl-result-side-history-button-script">
+(function(){
+  'use strict';
+  var MATCH_KEY='PKL_RESULT_MATCHES_V1';
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+  function readJSON(k,fb){try{var raw=localStorage.getItem(k);return raw?JSON.parse(raw):fb;}catch(e){return fb;}}
+  function currentMatch(){
+    var id=(document.getElementById('matchSelect')||{}).value||'';
+    var list=readJSON(MATCH_KEY,[]);
+    if(!Array.isArray(list)) list=[];
+    return list.find(function(m){return String(m&&m.id)===String(id);})||list[0]||null;
+  }
+  function fmtTime(t){
+    if(!t) return '';
+    var d=new Date(Number(t)||t);
+    if(String(d)==='Invalid Date') return String(t);
+    return d.toLocaleString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  }
+  function feedText(f){return String((f&&f.text)||'');}
+  function normalizeSideRows(snap){
+    var rows=[];
+    var sideBets=Array.isArray(snap&&snap.sideBets)?snap.sideBets:[];
+    var feeds=Array.isArray(snap&&snap.feeds)?snap.feeds:[];
+    sideBets.forEach(function(b,idx){
+      if(!b) return;
+      var a=String(b.a||b.teamA||b.left||'').trim();
+      var c=String(b.b||b.teamB||b.right||'').trim();
+      var text=String(b.text||b.memo||b.rule||'').trim();
+      var keyText=(a&&c)?(a+' VS '+c):text;
+      var matched=feeds.find(function(f){
+        var ft=feedText(f);
+        return keyText && ft.indexOf(keyText)>-1;
+      }) || feeds.find(function(f){
+        var ft=feedText(f);
+        return (a&&ft.indexOf(a)>-1) && (c&&ft.indexOf(c)>-1);
+      });
+      rows.push({
+        match:(a||'팀')+' VS '+(c||'팀'),
+        text:text||'SIDE 내역',
+        time:(b.time||b.createdAt||b.created_at||(matched&&matched.time)||'')
+      });
+    });
+    feeds.forEach(function(f){
+      var type=String(f&&f.type||'');
+      var txt=feedText(f);
+      if(type==='사이드' || /\bVS\b/.test(txt)){
+        var exists=rows.some(function(r){return txt.indexOf(r.match)>-1 || (r.match&&r.match.indexOf(txt)>-1);});
+        if(!exists) rows.push({match:'SIDE',text:txt||'SIDE 내역',time:f&&f.time});
+      }
+    });
+    return rows;
+  }
+  function ensureButton(){
+    var usage=document.getElementById('resultUsageHistoryBtn');
+    var capture=document.getElementById('captureBtn');
+    if(!usage || !capture || document.getElementById('resultSideHistoryBtn')) return;
+    var btn=document.createElement('button');
+    btn.className='result-side-history-btn';
+    btn.id='resultSideHistoryBtn';
+    btn.type='button';
+    btn.textContent='SIDE 내역';
+    capture.parentNode.insertBefore(btn,capture);
+  }
+  function openSideHistory(){
+    var m=currentMatch();
+    var snap=(m&&m.snapshot)||{};
+    var rows=normalizeSideRows(snap);
+    var modal=document.getElementById('resultSideHistoryModal');
+    var list=document.getElementById('resultSideHistoryList');
+    if(!modal || !list) return;
+    if(!rows.length){
+      list.innerHTML='<div class="pkl-usage-empty">이 회차에 저장된 SIDE 내역이 없습니다.</div>';
+    }else{
+      list.innerHTML=rows.map(function(r){
+        return '<div class="pkl-side-history-item"><div class="pkl-side-history-match">'+esc(r.match)+'</div><div class="pkl-side-history-text">'+esc(r.text)+'</div><div class="pkl-side-history-time">'+esc(fmtTime(r.time))+'</div></div>';
+      }).join('');
+    }
+    try{document.body.appendChild(modal);}catch(e){}
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden','false');
+  }
+  function closeSideHistory(){
+    var modal=document.getElementById('resultSideHistoryModal');
+    if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}
+  }
+  document.addEventListener('DOMContentLoaded',ensureButton);
+  if(document.readyState!=='loading') ensureButton();
+  document.addEventListener('click',function(e){
+    if(e.target&&e.target.closest&&e.target.closest('#resultSideHistoryBtn')){e.preventDefault();openSideHistory();return;}
+    if(e.target&&e.target.closest&&e.target.closest('#resultSideHistoryCloseBtn')){e.preventDefault();closeSideHistory();return;}
+    if(e.target&&e.target.id==='resultSideHistoryModal'){closeSideHistory();}
+  },true);
+})();
+</script>
 </body>
 </html>
 
