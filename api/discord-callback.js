@@ -19,7 +19,8 @@ function escapeHtml(value) {
   return String(value == null ? "" : value).replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
 }
 
-const PRODUCTION_HOST = process.env.VERCEL_URL || "prime-theta-five.vercel.app";
+const DEFAULT_PUBLIC_HOST = "prime-theta-five.vercel.app";
+const PRODUCTION_HOST = process.env.PUBLIC_SITE_HOST || process.env.SITE_HOST || DEFAULT_PUBLIC_HOST;
 const PRODUCTION_REDIRECT_URI = `https://${PRODUCTION_HOST}/api/discord-callback`;
 
 function env(name) { return String(process.env[name] || "").trim(); }
@@ -29,10 +30,11 @@ function currentSiteUrl(event) {
   return `${proto}://${host}`.replace(/\/$/, "");
 }
 function getRedirectUri(event) {
-  const configured = env("DISCORD_REDIRECT_URI");
-  const siteUrl = currentSiteUrl(event);
-  if (configured && !/localhost|127\.0\.0\.1/i.test(configured)) return configured.replace(/\/$/, "");
-  return `${siteUrl}/api/discord-callback`;
+  const configured = env("DISCORD_REDIRECT_URI") || env("PUBLIC_DISCORD_REDIRECT_URI");
+  if (configured && /^https:\/\//i.test(configured) && !/localhost|127\.0\.0\.1/i.test(configured)) return configured.replace(/\/$/, "");
+  const publicUrl = env("PUBLIC_SITE_URL") || env("SITE_URL");
+  if (publicUrl && /^https:\/\//i.test(publicUrl) && !/localhost|127\.0\.0\.1/i.test(publicUrl)) return publicUrl.replace(/\/$/, "") + "/api/discord-callback";
+  return PRODUCTION_REDIRECT_URI;
 }
 function mask(value) {
   const v = String(value || "");
@@ -184,9 +186,9 @@ exports.handler = async function(event) {
   const clientId = env("DISCORD_CLIENT_ID") || env("DISCORD_APPLICATION_ID") || env("CLIENT_ID");
   const clientSecret = env("DISCORD_CLIENT_SECRET") || env("DISCORD_SECRET") || env("CLIENT_SECRET");
 
-  if (!code || !returnedState || !savedState || returnedState !== savedState) return { statusCode: 400, headers: { "Content-Type":"text/html; charset=utf-8" }, body: "Discord 로그인 검증에 실패했습니다. 다시 시도해주세요." };
-  if (!/^\d{16,22}$/.test(clientId)) return { statusCode: 500, headers: { "Content-Type":"text/html; charset=utf-8" }, body: oauthErrorHtml("Discord Client ID 오류", "Vercel Environment Variables의 DISCORD_CLIENT_ID에는 Discord Developer Portal의 Application ID 숫자만 넣어야 합니다.", { DISCORD_CLIENT_ID: mask(clientId), Redirect: redirectUri }) };
-  if (!clientSecret) return { statusCode: 500, headers: { "Content-Type":"text/html; charset=utf-8" }, body: oauthErrorHtml("Discord Secret 누락", "Vercel Environment Variables의 DISCORD_CLIENT_SECRET 값이 비어 있습니다.", { DISCORD_CLIENT_ID: mask(clientId), DISCORD_CLIENT_SECRET: "EMPTY", Redirect: redirectUri }) };
+  if (!code || !returnedState || !savedState || returnedState !== savedState) return { statusCode: 302, headers: { "Cache-Control":"no-store", "Location":"/api/discord-login", "Set-Cookie": "pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" }, body: "" };
+  if (!/^\d{16,22}$/.test(clientId)) return { statusCode: 500, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" }, body: oauthErrorHtml("Discord Client ID 오류", "Vercel Environment Variables의 DISCORD_CLIENT_ID에는 Discord Developer Portal의 Application ID 숫자만 넣어야 합니다.", { DISCORD_CLIENT_ID: mask(clientId), Redirect: redirectUri }) };
+  if (!clientSecret) return { statusCode: 500, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" }, body: oauthErrorHtml("Discord Secret 누락", "Vercel Environment Variables의 DISCORD_CLIENT_SECRET 값이 비어 있습니다.", { DISCORD_CLIENT_ID: mask(clientId), DISCORD_CLIENT_SECRET: "EMPTY", Redirect: redirectUri }) };
 
   const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
     method: "POST",
@@ -198,17 +200,17 @@ exports.handler = async function(event) {
     let hint = "Discord 토큰 요청에 실패했습니다.";
     if (detail.includes("invalid_client")) hint = "DISCORD_CLIENT_ID와 DISCORD_CLIENT_SECRET이 서로 다른 Discord 앱 값이거나 Secret 값이 재발급되어 맞지 않습니다.";
     if (detail.includes("invalid_grant")) hint = "Discord Redirect URI가 로그인 요청과 토큰 요청에서 다릅니다.";
-    return { statusCode: 502, headers: { "Content-Type":"text/html; charset=utf-8" }, body: oauthErrorHtml("Discord 토큰 요청 실패", hint, { DiscordError: detail, DISCORD_CLIENT_ID: mask(clientId), DISCORD_CLIENT_SECRET: mask(clientSecret), Redirect: redirectUri }) };
+    return { statusCode: 502, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" }, body: oauthErrorHtml("Discord 토큰 요청 실패", hint, { DiscordError: detail, DISCORD_CLIENT_ID: mask(clientId), DISCORD_CLIENT_SECRET: mask(clientSecret), Redirect: redirectUri }) };
   }
   const token = await tokenRes.json();
   const meRes = await fetch("https://discord.com/api/users/@me", { headers: { Authorization: `${token.token_type} ${token.access_token}` } });
-  if (!meRes.ok) return { statusCode: 502, headers: { "Content-Type":"text/html; charset=utf-8" }, body: `Discord 사용자 정보 요청 실패: ${escapeHtml(await meRes.text())}` };
+  if (!meRes.ok) return { statusCode: 502, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" }, body: `Discord 사용자 정보 요청 실패: ${escapeHtml(await meRes.text())}` };
   const me = await meRes.json();
   const displayName = me.global_name || me.username || `discord_${me.id}`;
   const discordUser = { uid:`discord-${me.id}`, id:`discord-${me.id}`, discordId:me.id, discordUsername:me.username||"", discordGlobalName:me.global_name||"", email:me.email||"", avatar:me.avatar?`https://cdn.discordapp.com/avatars/${me.id}/${me.avatar}.png`:"", nickname:displayName, nick:displayName, name:displayName, displayName, pubgId:displayName, provider:"discord", authType:"discord", join:new Date().toLocaleString("ko-KR"), last:new Date().toLocaleString("ko-KR") };
 
   if (await isBlockedByBanRecords(discordUser)) {
-    return { statusCode: 403, headers: { "Content-Type":"text/html; charset=utf-8", "Set-Cookie": "pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" }, body: oauthErrorHtml("가입 제한", "추방 기록이 있는 계정은 회원가입할 수 없습니다. 운영진에게 문의해주세요.", { Discord: displayName, Reason: "banRecords" }) };
+    return { statusCode: 403, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store", "Set-Cookie": "pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" }, body: oauthErrorHtml("가입 제한", "추방 기록이 있는 계정은 회원가입할 수 없습니다. 운영진에게 문의해주세요.", { Discord: displayName, Reason: "banRecords" }) };
   }
 
   const serverUsers = await readServerUsers(discordUser);
@@ -219,7 +221,7 @@ exports.handler = async function(event) {
 };
   if (existing) await registerServerUser(discordUser, existing.nickname || existing.nick || existing.name);
 
-  return { statusCode: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Set-Cookie": "pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" }, body: callbackHtml(payload) };
+  return { statusCode: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control":"no-store", "Set-Cookie": "pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" }, body: callbackHtml(payload) };
 };
 
 
