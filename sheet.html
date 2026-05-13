@@ -11728,6 +11728,10 @@ function pklBuildMatchUserStats(matchId,title,st){
 }
 function pklSharedSet(key,value){
   try{
+    if(String(key)===RESULT_KEY){
+      pklDirectSharedSet(key, Array.isArray(value)?value:[]);
+      return;
+    }
     if(String(key)==='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1'){
       var text=typeof value==='string'?value:JSON.stringify(value);
       try{ sessionStorage.setItem(key + '_SESSION_BACKUP', text); sessionStorage.setItem(key, text); }catch(e){}
@@ -11857,11 +11861,9 @@ async function saveMatch(kind){
     snapshot:snap,
     savedAt:new Date().toISOString()
   });
+  await pklDirectSharedSet(RESULT_KEY,matches);
   pklSaveResultMatches(matches);
-  await Promise.all([
-    pklDirectSharedSet(RESULT_KEY,matches),
-    pklDirectMatchSave(matches[0])
-  ]);
+  await pklDirectMatchSave(matches[0]);
   if(kind!=='normal') pklUpsertMatchUserStats(id,matchTitle,snap);
   var emptyTeams=Array.from({length:10},function(_,i){return {id:'team'+(i+1),target:0,members:Array.from({length:4},function(){return {name:'',tier:''};})};});
   st.mode=st.mode||'squad';

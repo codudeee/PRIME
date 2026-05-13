@@ -1457,9 +1457,22 @@ async function pklResultFetchMatchesFromServer(){
     }
   }catch(e){}
 
-  /* 관리자 전용 과거 회차가 다시 보이던 원인: match_logs fallback.
-     결과표는 이제 PKL_RESULT_MATCHES_V1 shared 값만 읽는다.
-     match_logs에 남아 있는 예전 데이터는 더 이상 관리자 화면에 병합하지 않는다. */
+  if(!next.length){
+    /* 과거 저장본에서 shared key가 비어 있는 사이트를 위한 1회 복구.
+       localStorage를 지웠을 때 회차가 사라지는 원인은 shared 저장 누락이므로,
+       서버 match_logs에 남은 실제 저장본을 읽어 shared 원본으로 승격한다. */
+    try{
+      var res=await fetch('/api/pkl-data-store?type=match_logs',{cache:'no-store'});
+      var data=await res.json().catch(function(){return null;});
+      var rows=Array.isArray(data&&data.rows)?data.rows:[];
+      next=rows.map(function(r){return (r&&(r.raw||r.snapshot))||r;}).filter(function(m){return m&&m.id;});
+      if(next.length){
+        next.sort(function(a,b){return new Date(b.savedAt||b.saved_at||b.updated_at||0)-new Date(a.savedAt||a.saved_at||a.updated_at||0);});
+        pklResultSharedSet(RESULT_MATCHES_KEY,next);
+      }
+    }catch(_e){}
+  }
+
   MATCHES=Array.isArray(next)?next.map(function(m){return Object.assign({},m);}):[];
   try{localStorage.setItem(RESULT_MATCHES_KEY,JSON.stringify(MATCHES));}catch(e){}
   if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})) {

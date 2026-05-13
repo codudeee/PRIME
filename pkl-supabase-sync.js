@@ -151,8 +151,11 @@
   function saveUsers(users){writeUserAliases(users);return Promise.resolve({ok:true, skipped:true, reason:"Supabase users API is the only writable user source"});}
   function saveMatchList(list){
     list=Array.isArray(list)?list:parse(list,[]);
-    if(!Array.isArray(list)) return Promise.resolve(null);
-    return Promise.all(list.map(function(match,idx){var id=clean(match && (match.id||match.title||match.name)) || ("match_"+idx);return postJSON("/api/pkl-data-store",{type:"match",id:id,payload:match});}));
+    if(!Array.isArray(list)) list=[];
+    /* 결과표 회차 목록은 match_logs가 아니라 pkl_shared_data의
+       PKL_RESULT_MATCHES_V1 하나만 단일 원본으로 저장한다.
+       match_logs는 과거 백업/로그 성격이라 결과표 렌더 원본으로 쓰지 않는다. */
+    return saveShared(RESULT_MATCH_KEY, list);
   }
   function queueSave(key,value){
     key=String(key||""); if(!isKey(key) || BLOCKED_LOCAL_KEYS[key]) return;

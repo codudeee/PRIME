@@ -473,6 +473,44 @@ if(node.nodeType===Node.TEXT_NODE){
     writeMailState(state);
   }
 
+  function mailboxIdentityQuery(){
+    const user=getLoginUser() || {};
+    return String(user.discordId || user.discord_id || user.pubgId || user.pubg_id || user.nickname || user.name || "").trim();
+  }
+  function sameMailIdentity(a,b,ai,bi){
+    if(!a || !b) return false;
+    const ar=a.raw && typeof a.raw==="object" ? a.raw : a;
+    const br=b.raw && typeof b.raw==="object" ? b.raw : b;
+    const idsA=[ar.id,ar.mailId,ar.created_at,ar.createdAt,ar.date,ar.time,ar.title,ar.subject].map(v=>String(v||"").trim()).filter(Boolean);
+    const idsB=[br.id,br.mailId,br.created_at,br.createdAt,br.date,br.time,br.title,br.subject].map(v=>String(v||"").trim()).filter(Boolean);
+    if(idsA.some(v=>idsB.includes(v))) return true;
+    return mailStableKey(a,ai)===mailStableKey(b,bi);
+  }
+  async function persistMailboxPatchToSupabase(mail,index,patch){
+    const q=mailboxIdentityQuery();
+    if(!q || !mail) return;
+    try{
+      const res=await fetch('/api/pkl-users?limit=20&q='+encodeURIComponent(q),{cache:'no-store'});
+      const data=await res.json().catch(function(){return null;});
+      const users=Array.isArray(data && data.users)?data.users:[];
+      const current=getLoginUser();
+      const matched=users.find(function(u){return pklSameMailboxUser(current,u);}) || users[0];
+      if(!matched) return;
+      const mailbox=Array.isArray(matched.mailbox)?matched.mailbox.slice():[];
+      let changed=false;
+      const next=mailbox.map(function(m,i){
+        if(!sameMailIdentity(m,mail,i,index)) return m;
+        changed=true;
+        return Object.assign({},m,patch||{});
+      });
+      if(!changed) return;
+      matched.mailbox=next;
+      await fetch('/api/pkl-users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:matched})});
+      pklSupabaseMailboxCache=next.slice();
+      pklMailboxFetchAt=0;
+    }catch(e){}
+  }
+
   function readMails(){
     let local=[];
     try{
@@ -855,6 +893,7 @@ if(node.nodeType===Node.TEXT_NODE){
     mails[index].isRead=true;
     mails[index].readAt=mails[index].readAt || new Date().toISOString();
     rememberMailState(mails[index],index,{read:true,readAt:mails[index].readAt,deleted:!!mails[index].deleted});
+    persistMailboxPatchToSupabase(mails[index],index,{read:true,isRead:true,readAt:mails[index].readAt});
     saveMails(mails);
 
     const mail=normalizeMail(mails[index],index);
@@ -906,7 +945,9 @@ if(node.nodeType===Node.TEXT_NODE){
         m.read=true;
         m.isRead=true;
         m.readAt=m.readAt||new Date().toISOString();
-        rememberMailState(m,readMails().indexOf(m),{read:true,readAt:m.readAt,deleted:!!m.deleted});
+        var mi=readMails().indexOf(m);
+        rememberMailState(m,mi,{read:true,readAt:m.readAt,deleted:!!m.deleted});
+        persistMailboxPatchToSupabase(m,mi,{read:true,isRead:true,readAt:m.readAt});
       }
     });
     saveMails(mails);
@@ -922,6 +963,7 @@ if(node.nodeType===Node.TEXT_NODE){
       mails[selectedMailIndex].read=true;
       mails[selectedMailIndex].isRead=true;
       rememberMailState(mails[selectedMailIndex],selectedMailIndex,{read:true,readAt:mails[selectedMailIndex].readAt||new Date().toISOString(),deleted:true});
+      persistMailboxPatchToSupabase(mails[selectedMailIndex],selectedMailIndex,{read:true,isRead:true,readAt:mails[selectedMailIndex].readAt||new Date().toISOString(),deleted:true});
     }
     saveMails(mails);
     closeMailDeleteConfirm();
@@ -936,7 +978,9 @@ if(node.nodeType===Node.TEXT_NODE){
         m.deleted=true;
         m.read=true;
         m.isRead=true;
-        rememberMailState(m,readMails().indexOf(m),{read:true,readAt:m.readAt||new Date().toISOString(),deleted:true});
+        var mi=readMails().indexOf(m);
+        rememberMailState(m,mi,{read:true,readAt:m.readAt||new Date().toISOString(),deleted:true});
+        persistMailboxPatchToSupabase(m,mi,{read:true,isRead:true,readAt:m.readAt||new Date().toISOString(),deleted:true});
       }
     });
     saveMails(mails);
