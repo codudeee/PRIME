@@ -23,9 +23,8 @@ function isGradeLikeRole(v){
   return /^[0-4]티어(상|중|하)?$/.test(raw) || raw === '짐승' || raw === '없음' || low === 'none';
 }
 function isProtectedOwner(src={}){
-  const text = [src.email, src.mail, src.handle, src.username, src.discordUsername, src.discord_username, src.nickname, src.nick, src.name, src.displayName, src.loginId]
-    .map(v => clean(v).toLowerCase()).filter(Boolean).join('|');
-  return text.includes('codudeee') || text.includes('codudeee@naver.com');
+  // DB role only. No nickname/email/handle-based owner bypass.
+  return false;
 }
 function normalizeRole(v){
   const raw = clean(v); const low = raw.toLowerCase();

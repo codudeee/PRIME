@@ -33,11 +33,8 @@
     var currents=[];
     currentKeys.forEach(function(k){var u=parse(localStorage.getItem(k))||parse(sessionStorage.getItem(k)); if(u&&typeof u==='object') currents.push(u);});
     try{ if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentUser==='function'){var u=window.PKLRoleSystem.currentUser(); if(u) currents.push(u);} }catch(e){}
-    function isProtectedOwner(u){
-      var text=['email','mail','handle','username','discordUsername','discord_username','nickname','nick','name','displayName','loginId'].map(function(k){return norm(u&&u[k]);}).filter(Boolean).join('|');
-      return text.indexOf('codudeee')>=0 || text.indexOf('codudeeenavercom')>=0;
-    }
-    for(var i=0;i<currents.length;i++){if(isProtectedOwner(currents[i])) return 'admin'; var direct=mapRoleText(roleText(currents[i])); if(direct) return direct;}
+    function isProtectedOwner(u){ return false; }
+    for(var i=0;i<currents.length;i++){var direct=mapRoleText(roleText(currents[i])); if(direct) return direct;}
     function names(u){return ['uid','id','userId','memberId','loginId','email','nickname','nick','name','displayName','userName','pubgId','pubgID','pubgName','gameId','username','discordId','key','ref'].map(function(k){return norm(u&&u[k]);}).filter(Boolean);}
     var tokens=[]; currents.forEach(function(u){tokens=tokens.concat(names(u));});
     var userKeys=['pklUsers','PKL_USERS','pklAdminUsers','PKL_ADMIN_USERS','pklUserList','pklAdminState_v3','pklAdminState','pkl_admin_state','PKL_USER_DB','pklMembers'];

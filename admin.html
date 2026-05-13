@@ -6664,7 +6664,6 @@ function currentAdminRole(){
     const matched=(Array.isArray(state?.users)?state.users:[]).find(u=>pklUserIdentityMatches(u,saved));
     const source=matched||saved;
     const ownerText=[source.email,source.mail,source.handle,source.username,source.discordUsername,source.discord_username,source.nickname,source.nick,source.name,source.displayName,source.loginId].map(v=>String(v??"").trim().toLowerCase()).join('|');
-    if(ownerText.includes('codudeee') || ownerText.includes('codudeee@naver.com')) return 'admin';
     return normalizeMemberRole(source.memberRole||source.adminRole||source.userRole||source.authRole||source.permission||source.type||source.memberRoleName||source.roleName||source.role||"");
   }catch(e){return "guest"}
 }
@@ -8196,7 +8195,6 @@ function getVisibleAdminScreenId(){
   function fallbackRoleFromLogin(){
     var u=window.pklGetCurrentAdminUser()||{};
     var ownerText=[u.email,u.mail,u.handle,u.username,u.discordUsername,u.discord_username,u.nickname,u.nick,u.name,u.displayName,u.loginId].map(function(v){return String(v==null?'':v).trim().toLowerCase();}).join('|');
-    if(ownerText.indexOf('codudeee')>=0 || ownerText.indexOf('codudeee@naver.com')>=0) return 'admin';
     var r=String(u.memberRole||u.userRole||u.authRole||u.adminRole||u.role||"").toLowerCase();
     if(["admin","administrator","owner","master","superadmin"].indexOf(r)>=0||String(u.memberRole||u.role||"").indexOf("관리자")>=0) return "admin";
     if(["operator","staff","moderator","mod"].indexOf(r)>=0||String(u.memberRole||u.role||"").indexOf("운영")>=0) return "operator";
@@ -8416,10 +8414,8 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   window.__PKL_ADMIN_SUPABASE_SINGLE_SOURCE_TIER_SAVE_FINAL__=true;
   function clean(v){return String(v==null?'':v).trim();}
   function isProtectedOwnerUser(u){
-    u=u||{};
-    var text=[u.email,u.mail,u.handle,u.username,u.discordUsername,u.discord_username,u.nickname,u.nick,u.name,u.displayName,u.loginId]
-      .map(function(v){return clean(v).toLowerCase();}).filter(Boolean).join('|');
-    return text.indexOf('codudeee')>=0 || text.indexOf('codudeee@naver.com')>=0;
+    // DB role only. No nickname/email/handle-based owner bypass.
+    return false;
   }
   function normalizeTierValue(v){
     var raw=clean(v);
@@ -8439,7 +8435,6 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return key;
   }
   function memberRoleValue(u){
-    if(isProtectedOwnerUser(u)) return 'admin';
     var raw='user';
     try{raw=(typeof canEditMemberRole==='function'&&canEditMemberRole()) ? (document.getElementById('editMemberRole')?.value||u.memberRole||u.userRole||u.authRole||u.role||'user') : (u.memberRole||u.userRole||u.authRole||u.role||'user');}catch(e){raw=u.memberRole||u.userRole||u.authRole||u.role||'user';}
     try{return typeof normalizeMemberRole==='function'?normalizeMemberRole(raw):raw;}catch(e){return raw||'user';}
