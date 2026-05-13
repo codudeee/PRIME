@@ -7198,24 +7198,38 @@ body{
   box-shadow:none !important;
 }
 
-/* === PKL FINAL TUNE: duo/duo-kanbu slot readability only === */
-/* 스쿼드 계열은 건드리지 않고, 듀오/듀오깐부 슬롯 내부 글자와 티어배지만 살짝 키움. */
-.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-card{
-  gap:3px !important;
+/* === PKL PATCH: duo / duo-kanbu slot name readability only ===
+   - 스쿼드 계열은 건드리지 않음
+   - 듀오/듀오깐부 슬롯 안 닉네임만 크게 보이도록 최종 오버라이드
+*/
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-card,
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-card{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:5px !important;
+  padding:5px 6px !important;
+  text-align:center !important;
 }
-.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-name{
-  font-size:12px !important;
-  line-height:1.12 !important;
-  font-weight:800 !important;
-  letter-spacing:-0.02em !important;
+
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-name,
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-name{
+  font-size:20px !important;
+  line-height:1.05 !important;
+  font-weight:1000 !important;
+  letter-spacing:-0.04em !important;
+  color:#fff !important;
   max-width:100% !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  text-shadow:0 0 8px rgba(255,255,255,.20),0 0 14px rgba(168,85,247,.18) !important;
 }
+
 .team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-tier.member-role-badge,
-.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-tier,
-.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .member-role-badge{
-  min-width:38px !important;
-  height:16px !important;
-  line-height:16px !important;
-  font-size:8.5px !important;
-  padding:0 7px !important;
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-tier.member-role-badge{
+  transform:none !important;
+  margin:0 auto !important;
+  flex:0 0 auto !important;
 }
