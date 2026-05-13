@@ -764,7 +764,7 @@ font-weight:700;
 (function(){
   "use strict";
   var STORAGE_KEY="pklNoticeBoardItems";
-  var noticeItemsCache=[];
+  var noticeItemsCache=readJson("PKL_NOTICE_PREVIEW_CACHE")||[];
   var noticeHydrated=false;
   var noticeHydrating=null;
   var preview=document.getElementById("pklNoticePreviewList");
@@ -844,6 +844,7 @@ font-weight:700;
           }
         }
         noticeItemsCache=next;
+        try{sessionStorage.setItem("PKL_NOTICE_PREVIEW_CACHE",JSON.stringify(next));}catch(e){}
         noticeHydrated=true;
       }catch(e){
         if(!noticeHydrated) noticeItemsCache=[];
@@ -869,6 +870,7 @@ font-weight:700;
       return;
     }
     noticeItemsCache=clean;
+    try{sessionStorage.setItem("PKL_NOTICE_PREVIEW_CACHE",JSON.stringify(clean));}catch(e){}
     noticeHydrated=true;
     renderPreview();
     try{window.dispatchEvent(new CustomEvent("pkl-supabase-data-updated",{detail:{key:STORAGE_KEY,local:true}}));}catch(e){}
