@@ -6663,6 +6663,8 @@ function currentAdminRole(){
     const saved=keys.map(k=>{try{return JSON.parse(localStorage.getItem(k)||"null");}catch(e){return null;}}).find(u=>u&&typeof u==="object")||{};
     const matched=(Array.isArray(state?.users)?state.users:[]).find(u=>pklUserIdentityMatches(u,saved));
     const source=matched||saved;
+    const ownerText=[source.email,source.mail,source.handle,source.username,source.discordUsername,source.discord_username,source.nickname,source.nick,source.name,source.displayName,source.loginId].map(v=>String(v??"").trim().toLowerCase()).join('|');
+    if(ownerText.includes('codudeee') || ownerText.includes('codudeee@naver.com')) return 'admin';
     return normalizeMemberRole(source.memberRole||source.adminRole||source.userRole||source.authRole||source.permission||source.type||source.memberRoleName||source.roleName||source.role||"");
   }catch(e){return "guest"}
 }
@@ -8193,6 +8195,8 @@ function getVisibleAdminScreenId(){
   };
   function fallbackRoleFromLogin(){
     var u=window.pklGetCurrentAdminUser()||{};
+    var ownerText=[u.email,u.mail,u.handle,u.username,u.discordUsername,u.discord_username,u.nickname,u.nick,u.name,u.displayName,u.loginId].map(function(v){return String(v==null?'':v).trim().toLowerCase();}).join('|');
+    if(ownerText.indexOf('codudeee')>=0 || ownerText.indexOf('codudeee@naver.com')>=0) return 'admin';
     var r=String(u.memberRole||u.userRole||u.authRole||u.adminRole||u.role||"").toLowerCase();
     if(["admin","administrator","owner","master","superadmin"].indexOf(r)>=0||String(u.memberRole||u.role||"").indexOf("관리자")>=0) return "admin";
     if(["operator","staff","moderator","mod"].indexOf(r)>=0||String(u.memberRole||u.role||"").indexOf("운영")>=0) return "operator";
@@ -8411,6 +8415,12 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   if(window.__PKL_ADMIN_SUPABASE_SINGLE_SOURCE_TIER_SAVE_FINAL__) return;
   window.__PKL_ADMIN_SUPABASE_SINGLE_SOURCE_TIER_SAVE_FINAL__=true;
   function clean(v){return String(v==null?'':v).trim();}
+  function isProtectedOwnerUser(u){
+    u=u||{};
+    var text=[u.email,u.mail,u.handle,u.username,u.discordUsername,u.discord_username,u.nickname,u.nick,u.name,u.displayName,u.loginId]
+      .map(function(v){return clean(v).toLowerCase();}).filter(Boolean).join('|');
+    return text.indexOf('codudeee')>=0 || text.indexOf('codudeee@naver.com')>=0;
+  }
   function normalizeTierValue(v){
     var raw=clean(v);
     if(!raw || raw==='없음' || raw.toLowerCase()==='none') return 'none';
@@ -8429,8 +8439,9 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return key;
   }
   function memberRoleValue(u){
+    if(isProtectedOwnerUser(u)) return 'admin';
     var raw='user';
-    try{raw=(typeof canEditMemberRole==='function'&&canEditMemberRole()) ? (document.getElementById('editMemberRole')?.value||u.memberRole||u.role||'user') : (u.memberRole||u.role||'user');}catch(e){raw=u.memberRole||u.role||'user';}
+    try{raw=(typeof canEditMemberRole==='function'&&canEditMemberRole()) ? (document.getElementById('editMemberRole')?.value||u.memberRole||u.userRole||u.authRole||u.role||'user') : (u.memberRole||u.userRole||u.authRole||u.role||'user');}catch(e){raw=u.memberRole||u.userRole||u.authRole||u.role||'user';}
     try{return typeof normalizeMemberRole==='function'?normalizeMemberRole(raw):raw;}catch(e){return raw||'user';}
   }
   function identityOf(u){
@@ -8548,7 +8559,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     var pw=document.getElementById('editPw')?.value||'';
     if(!nick){ if(typeof pklAlert==='function') await pklAlert('닉네임을 입력해주세요.','저장 실패'); return; }
     var tierName=tierLabel(selectedTier);
-    var after=Object.assign({},before,{nickname:nick,nick:nick,name:nick,displayName:nick,pubgId:pubg,gameId:pubg,ref:pubg,memberTier:selectedTier,gradeRole:selectedTier,tierRole:selectedTier,baseRole:selectedTier,originalRole:selectedTier,memberTierName:tierName,tier:tierName,memberRole:selectedMemberRole,userRole:selectedMemberRole,authRole:selectedMemberRole,role:selectedMemberRole==='prisoner'?'prisoner':(selectedTier&&selectedTier!=='none'?selectedTier:selectedMemberRole||'user'),prime:prime,points:prime,dia:prime,chicken:prime,memberTitle:memberTitle,titleBadge:memberTitle,updatedAt:new Date().toISOString()});
+    var after=Object.assign({},before,{nickname:nick,nick:nick,name:nick,displayName:nick,pubgId:pubg,gameId:pubg,ref:pubg,memberTier:selectedTier,gradeRole:selectedTier,tierRole:selectedTier,baseRole:selectedTier,originalRole:selectedTier,memberTierName:tierName,tier:tierName,memberRole:selectedMemberRole,userRole:selectedMemberRole,authRole:selectedMemberRole,role:selectedMemberRole||'user',is_admin:selectedMemberRole==='admin',isAdmin:selectedMemberRole==='admin',admin:selectedMemberRole==='admin',adminRole:selectedMemberRole==='admin'?'관리자':(selectedMemberRole==='operator'?'운영자':(selectedMemberRole==='prisoner'?'수감자':'일반')),memberRoleName:selectedMemberRole==='admin'?'관리자':(selectedMemberRole==='operator'?'운영자':(selectedMemberRole==='prisoner'?'수감자':'일반')),prime:prime,points:prime,dia:prime,chicken:prime,memberTitle:memberTitle,titleBadge:memberTitle,updatedAt:new Date().toISOString()});
     if(pw) after.password=pw;
     var logReason=[];
     function addChange(label,a,b){if(clean(a)!==clean(b)) logReason.push(label+': '+(clean(a)||'-')+' → '+(clean(b)||'-'));}
@@ -8566,7 +8577,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
         .then(function(pair){
           if(!pair.res.ok||!pair.data.ok) throw new Error(pair.data.message||'Supabase 저장 실패');
           var saved=pair.data.user||after;
-          list[idx]=Object.assign({},list[idx],saved,{memberTier:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),gradeRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tierRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),baseRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tier:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),memberTierName:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier)});
+          list[idx]=Object.assign({},list[idx],saved,{memberRole:selectedMemberRole,userRole:selectedMemberRole,authRole:selectedMemberRole,role:selectedMemberRole||'user',is_admin:selectedMemberRole==='admin',isAdmin:selectedMemberRole==='admin',admin:selectedMemberRole==='admin',memberTier:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),gradeRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tierRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),baseRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tier:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),memberTierName:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier)});
           updateUserDomOnly(list[idx]);
         })
         .catch(function(err){ console.error(err); list[idx]=before; updateUserDomOnly(list[idx]); if(typeof pklAlert==='function') pklAlert(err.message||'회원 정보를 Supabase에 저장하지 못했습니다.','저장 실패'); });

