@@ -18,6 +18,7 @@
   const JOIN_CANCEL_STORAGE_KEY = 'pklJoinCancelList';
   const JOIN_RECRUIT_STATE_STORAGE_KEY = 'pklJoinRecruitState';
   const SHEET_STORAGE_KEY = 'PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
+  const SHEET_TEAM_IMPORT_KEY = 'PKL_TEAM_TO_SHEET_IMPORT_V1';
 
   const defaultState = () => ({
     players: [],
@@ -1961,6 +1962,8 @@ function completeTeams() {
     sheetState.updatedFromTeamBoardAt = new Date().toISOString();
     const sheetJson = JSON.stringify(sheetState);
     localStorage.setItem(SHEET_STORAGE_KEY, sheetJson);
+    // sheet.html 첫 진입 시 다른 초기화/렌더보다 먼저 팀구성 값을 집어넣기 위한 1회성 전달 키
+    localStorage.setItem(SHEET_TEAM_IMPORT_KEY, sheetJson);
     window.dispatchEvent(new StorageEvent('storage', { key: SHEET_STORAGE_KEY, newValue: sheetJson }));
     try {
       window.dispatchEvent(new CustomEvent('pkl-sheet-teams-imported', { detail: { state: sheetState, teams } }));
@@ -2030,8 +2033,25 @@ function completeTeams() {
 
   function createSheetMemberFromSlot(teamIndex, slotIndex) {
     const playerId = state.teams[teamIndex] && state.teams[teamIndex].slots[slotIndex];
-    if (!playerId) return { name: '', tier: '', memberTier: '' };
-    const player = state.players.find(item => item.id === playerId);
+    let player = playerId ? state.players.find(item => item.id === playerId) : null;
+
+    // 상태 저장 타이밍이 꼬였을 때도 화면에 실제 배치된 카드 기준으로 시트지에 보낸다.
+    if (!player) {
+      const slotEl = document.querySelector(`.team-slot[data-team-index="${teamIndex}"][data-slot-index="${slotIndex}"]`);
+      const card = slotEl && slotEl.querySelector('.player-card');
+      const domPlayerId = card && card.dataset ? card.dataset.playerId : '';
+      if (domPlayerId) player = state.players.find(item => item.id === domPlayerId) || null;
+      if (!player && card) {
+        const nameEl = card.querySelector('.player-name');
+        const name = nameEl ? String(nameEl.textContent || '').trim() : '';
+        if (name) {
+          const badgeEl = card.querySelector('.pkl-tier-badge,[data-tier],.tier-badge,.grade-role-badge');
+          const tierText = badgeEl ? String(badgeEl.textContent || badgeEl.dataset.tier || '').trim() : '';
+          return { name, tier: tierText, memberTier: tierText };
+        }
+      }
+    }
+
     if (!player) return { name: '', tier: '', memberTier: '' };
     hydratePlayerIdentity(player);
     const displayName = resolvePlayerDisplayName(player);
