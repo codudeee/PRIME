@@ -3365,6 +3365,14 @@ document.addEventListener("DOMContentLoaded", function(){
           if(!res.ok || !data.ok) throw new Error(data.message || 'tier users fetch failed');
           var rows = Array.isArray(data.users) ? data.users : [];
           all = all.concat(rows);
+
+          // 2차 최적화: 전체 페이지를 모두 기다리지 말고 첫 페이지가 도착하는 즉시 유저칸을 먼저 그린다.
+          // 이후 추가 페이지가 있으면 최종 결과만 한 번 더 보정한다.
+          if(offset === 0 && rows.length){
+            cache = normalizeUsers(all);
+            schedulePaint(cache.slice(), true);
+          }
+
           if(rows.length < limit) break;
           offset += limit;
         }

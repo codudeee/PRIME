@@ -143,14 +143,28 @@ async function readUserDocs(options={}){
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
   const offset = Math.max(0, Number(options.offset || 0));
   const q = clean(options.q || '');
-  let path = `users?select=*&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
+  const tierOnly = !!options.tierOnly;
+
+  // 티어표 전용 요청은 화면에 필요한 컬럼만 가져오고 count=exact를 쓰지 않는다.
+  // count=exact + select=* 는 유저가 늘수록 티어표 유저칸 표시를 늦춘다.
+  const select = tierOnly
+    ? 'discord_id,discord_username,nickname,pubg_id,tier,role,created_at,updated_at'
+    : '*';
+  let path = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
+  if(tierOnly){
+    path += `&tier=not.is.null&tier=neq.%EC%97%86%EC%9D%8C&tier=neq.none`;
+  }
   if(q){
     const term = encodeURIComponent(`*${escapeLike(q)}*`);
     path += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
   }
-  const { json, headers } = await supabaseFetch(path, { headers: { Prefer: 'count=exact' } });
+  const { json, headers } = await supabaseFetch(path, tierOnly ? {} : { headers: { Prefer: 'count=exact' } });
   const range = headers.get('content-range') || '';
-  const count = Number((range.split('/')[1] || '').replace('*',''));
+  let count = Number((range.split('/')[1] || '').replace('*',''));
+  if(tierOnly && !Number.isFinite(count)){
+    const pageLength = Array.isArray(json) ? json.length : 0;
+    count = offset + pageLength + (pageLength >= limit ? 1 : 0);
+  }
   const rawUsers = (Array.isArray(json) ? json : []).map(rowToUser).filter(u => !!u.discordId);
   // Supabase users is the only source, but the API also normalizes the page result once here.
   // This prevents the client pages from each doing their own cache/nickname merge and creating duplicate visible users.
