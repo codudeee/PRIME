@@ -7326,3 +7326,25 @@ body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-check.is-disabled in
   border-radius:7px !important;
   white-space:nowrap !important;
 }
+
+
+/* === PKL FIX: restore team control panel visibility ===
+   컨트롤 패널 자체는 숨기지 않는다. 일반 유저는 JS에서 리스트 버튼만 활성화한다. */
+body.pkl-team-viewer-only .control-panel .control-section-box,
+body.pkl-team-viewer-only .control-panel .control-bottom-actions{
+  display:flex !important;
+}
+body.pkl-team-viewer-only .control-panel .control-section-box,
+body.pkl-team-viewer-only .control-panel .control-bottom-actions{
+  visibility:visible !important;
+}
+body.pkl-team-viewer-only .control-panel .pkl-viewer-disabled-control{
+  opacity:.45 !important;
+  pointer-events:none !important;
+  filter:grayscale(.25) brightness(.82) !important;
+}
+body.pkl-team-viewer-only #rerollListButton{
+  opacity:1 !important;
+  pointer-events:auto !important;
+  filter:none !important;
+}

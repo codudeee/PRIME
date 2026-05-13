@@ -456,10 +456,14 @@ if (rerollListModal) {
     const user = findFullUserForViewer(loginUser) || loginUser || {};
     const rawRole = String(getViewerRoleValue(user) || '').trim();
     const role = rawRole.toLowerCase();
+    const rawTitle = String(user.title || user.memberTitle || user.badge || '').trim();
+    const title = rawTitle.toLowerCase();
     return !!(
-      user.isAdmin || user.admin || user.manager ||
-      role === 'admin' || role === 'manager' || role === 'owner' || role === 'operator' ||
-      ['관리자', '총관리자', '운영자', '운영진'].includes(rawRole)
+      user.isAdmin || user.is_admin || user.admin || user.manager || user.isManager || user.operator || user.isOperator ||
+      role === 'admin' || role === 'administrator' || role === 'manager' || role === 'owner' || role === 'operator' || role === 'staff' ||
+      title === 'admin' || title === 'administrator' || title === 'manager' || title === 'operator' ||
+      ['관리자', '총관리자', '운영자', '운영진'].includes(rawRole) ||
+      ['관리자', '총관리자', '운영자', '운영진'].includes(rawTitle)
     );
   }
 
