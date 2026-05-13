@@ -6523,6 +6523,7 @@ let pklApplyingRemoteSheetState=false;
 let pklSheetRemoteSaveTimer=null;
 let pklLastLocalSheetEditAt=0;
 let pklDeferredRemoteSheetTimer=null;
+let pklSheetInitialBooting=true;
 
 function pklMarkLocalSheetEdit(){
   pklLastLocalSheetEditAt=Date.now();
@@ -6576,6 +6577,7 @@ function load(){
 }
 function save(){
   if(pklApplyingRemoteSheetState) return;
+  if(pklSheetInitialBooting) return;
   pklMarkLocalSheetEdit();
   state.selectedTeamId=selectedTeamId;
   state.savedAt=new Date().toISOString();
@@ -7239,6 +7241,36 @@ function bindPklTestResetMeButton(){
   btn.addEventListener('click', pklResetSheetAndPlaceMe);
 }
 
+function pklIsValidSheetState(value){
+  return !!(value && typeof value==='object' && Array.isArray(value.teams) && Array.isArray(value.rounds));
+}
+function pklNormalizeRemoteSheetState(value){
+  if(typeof value==='string'){
+    try{return JSON.parse(value);}catch(e){return null;}
+  }
+  return value && typeof value==='object' ? value : null;
+}
+function pklLoadSheetStateFromSupabaseOnce(){
+  if(!(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function')){
+    return Promise.resolve(false);
+  }
+  return window.PKLSupabaseDataSync.getShared(STORAGE_KEY).then(function(remote){
+    const next=pklNormalizeRemoteSheetState(remote);
+    if(!pklIsValidSheetState(next)) return false;
+    state=next;
+    selectedTeamId=state.selectedTeamId || selectedTeamId || 'team1';
+    if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId=visibleTeams()[0]?.viewId || 'team1';
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+    return true;
+  }).catch(function(){ return false; });
+}
+function pklBootSheetRender(){
+  pklLoadSheetStateFromSupabaseOnce().finally(function(){
+    pklSheetInitialBooting=false;
+    bindTopTimeInputs();
+    render();
+  });
+}
 function pklApplyRemoteSheetState(){
   if(pklApplyingRemoteSheetState) return;
   if(pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<650){
@@ -8534,7 +8566,7 @@ window.PKLSheetLiveBridge={
   markLocalEdit:function(){pklMarkLocalSheetEdit();},
   getLastLocalEditAt:function(){return pklLastLocalSheetEditAt||0;}
 };
-render();
+pklBootSheetRender();
 pklStartPreciseTopTimeTicker();
 /* 2차 청소: visibility/storage 기반 상단 잭팟 자동 갱신 제거. */
 })();

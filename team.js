@@ -18,7 +18,6 @@
   const JOIN_CANCEL_STORAGE_KEY = 'pklJoinCancelList';
   const JOIN_RECRUIT_STATE_STORAGE_KEY = 'pklJoinRecruitState';
   const SHEET_STORAGE_KEY = 'PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
-  const SHEET_TEAM_IMPORT_KEY = 'PKL_TEAM_TO_SHEET_IMPORT_V1';
 
   const defaultState = () => ({
     players: [],
@@ -1962,8 +1961,6 @@ function completeTeams() {
     sheetState.updatedFromTeamBoardAt = new Date().toISOString();
     const sheetJson = JSON.stringify(sheetState);
     localStorage.setItem(SHEET_STORAGE_KEY, sheetJson);
-    // sheet.html 첫 진입 시 다른 초기화/렌더보다 먼저 팀구성 값을 집어넣기 위한 1회성 전달 키
-    localStorage.setItem(SHEET_TEAM_IMPORT_KEY, sheetJson);
     window.dispatchEvent(new StorageEvent('storage', { key: SHEET_STORAGE_KEY, newValue: sheetJson }));
     try {
       window.dispatchEvent(new CustomEvent('pkl-sheet-teams-imported', { detail: { state: sheetState, teams } }));
@@ -1976,8 +1973,15 @@ function completeTeams() {
   }
 
   function saveSheetStateToSupabaseNow(sheetJson) {
-    // PKL 2026-05-10: 팀 편성 완료 시 시트 전체 상태를 Supabase 공유문서에 직접 PATCH하지 않는다.
-    // 시트 전달은 같은 브라우저 localStorage만 사용하고, 실제 실시간 공유는 sheet.html의 pklLiveScoreboard/current만 사용한다.
+    let sheetState = null;
+    try { sheetState = typeof sheetJson === 'string' ? JSON.parse(sheetJson) : sheetJson; } catch (error) { sheetState = null; }
+    if (!sheetState || typeof sheetState !== 'object') return Promise.resolve(null);
+    if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
+      return window.PKLSupabaseDataSync.setShared(SHEET_STORAGE_KEY, sheetState).catch(() => null);
+    }
+    if (typeof window.saveSharedData === 'function') {
+      try { return Promise.resolve(window.saveSharedData(SHEET_STORAGE_KEY, sheetState)).catch(() => null); } catch (error) {}
+    }
     return Promise.resolve(null);
   }
 
@@ -2033,25 +2037,8 @@ function completeTeams() {
 
   function createSheetMemberFromSlot(teamIndex, slotIndex) {
     const playerId = state.teams[teamIndex] && state.teams[teamIndex].slots[slotIndex];
-    let player = playerId ? state.players.find(item => item.id === playerId) : null;
-
-    // 상태 저장 타이밍이 꼬였을 때도 화면에 실제 배치된 카드 기준으로 시트지에 보낸다.
-    if (!player) {
-      const slotEl = document.querySelector(`.team-slot[data-team-index="${teamIndex}"][data-slot-index="${slotIndex}"]`);
-      const card = slotEl && slotEl.querySelector('.player-card');
-      const domPlayerId = card && card.dataset ? card.dataset.playerId : '';
-      if (domPlayerId) player = state.players.find(item => item.id === domPlayerId) || null;
-      if (!player && card) {
-        const nameEl = card.querySelector('.player-name');
-        const name = nameEl ? String(nameEl.textContent || '').trim() : '';
-        if (name) {
-          const badgeEl = card.querySelector('.pkl-tier-badge,[data-tier],.tier-badge,.grade-role-badge');
-          const tierText = badgeEl ? String(badgeEl.textContent || badgeEl.dataset.tier || '').trim() : '';
-          return { name, tier: tierText, memberTier: tierText };
-        }
-      }
-    }
-
+    if (!playerId) return { name: '', tier: '', memberTier: '' };
+    const player = state.players.find(item => item.id === playerId);
     if (!player) return { name: '', tier: '', memberTier: '' };
     hydratePlayerIdentity(player);
     const displayName = resolvePlayerDisplayName(player);
