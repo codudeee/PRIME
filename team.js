@@ -1937,12 +1937,16 @@ function completeTeams() {
     const sheetState = loadSheetStateForTeamExport();
     const exportCfg = getTeamModeConfig(state.teamMode || 'squad10');
     const teams = createSheetTeamsFromTeamBoard(sheetState.teams);
-    sheetState.mode = exportCfg.slots === 2 ? 'duo' : 'squad';
+    // 시트지는 점수 입력칸이 항상 [맵선택 + 4명 칸] 구조라서,
+    // 듀오/스쿼드 모두 실제 팀박스 1칸 = 시트지 1팀으로 보낸다.
+    // mode를 duo로 넘기면 sheet.html이 한 팀을 A/B로 다시 쪼개서
+    // 듀오 팀이 비어 보이는 문제가 생긴다.
+    sheetState.mode = 'squad';
     sheetState.pklTeamMode = exportCfg.key;
     sheetState.pklTeamCount = exportCfg.teams;
     sheetState.pklTeamSlots = exportCfg.slots;
     sheetState.pklBuddyMode = !!exportCfg.buddy;
-    sheetState.selectedTeamId = sheetState.selectedTeamId || 'team1';
+    sheetState.selectedTeamId = resolveFirstFilledSheetTeamId(teams) || 'team1';
     sheetState.teams = teams;
     sheetState.rounds = Array.isArray(sheetState.rounds) && sheetState.rounds.length
       ? sheetState.rounds
@@ -2008,9 +2012,20 @@ function completeTeams() {
         pklTeamMode: cfg.key,
         pklBuddyIndex: cfg.buddy ? Math.floor(teamIndex / 2) + 1 : null,
         pklBuddyMode: !!cfg.buddy,
-        members: Array.from({ length: slotCount }, (_, slotIndex) => createSheetMemberFromSlot(teamIndex, slotIndex))
+        // sheet.html의 점수 입력 헤더는 4칸 고정이다.
+        // 듀오 모드는 앞 2칸만 채우고 나머지 2칸은 빈칸으로 둔다.
+        members: Array.from({ length: 4 }, (_, slotIndex) => (
+          slotIndex < slotCount ? createSheetMemberFromSlot(teamIndex, slotIndex) : { name: '', tier: '', memberTier: '' }
+        ))
       };
     });
+  }
+
+  function resolveFirstFilledSheetTeamId(teams) {
+    const index = Array.isArray(teams)
+      ? teams.findIndex(team => Array.isArray(team.members) && team.members.some(member => String(member && member.name || '').trim()))
+      : -1;
+    return index >= 0 ? `team${index + 1}` : '';
   }
 
   function createSheetMemberFromSlot(teamIndex, slotIndex) {
