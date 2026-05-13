@@ -3096,6 +3096,85 @@ window.addEventListener('load', restoreDiscordSession);
   },true);
 })();
 </script>
+
+
+<style id="pkl-result-control-buttons-polish-final">
+/* RESULT CONTROL button group polish: layout/design only */
+.result-side .side-panel{
+  gap:10px !important;
+}
+.result-side #adminPanelBtn,
+.result-side #resultUsageHistoryBtn,
+.result-side #resultSideHistoryBtn,
+.result-side #captureBtn{
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  width:100% !important;
+  height:48px !important;
+  min-height:48px !important;
+  margin:0 !important;
+  padding:0 16px !important;
+  border-radius:15px !important;
+  box-sizing:border-box !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  font-size:15px !important;
+  font-weight:1000 !important;
+  line-height:1 !important;
+  letter-spacing:-.15px !important;
+  color:#fff !important;
+  cursor:pointer !important;
+  transition:transform .16s ease, filter .16s ease, border-color .16s ease, box-shadow .16s ease !important;
+}
+.result-side #adminPanelBtn{
+  margin-top:4px !important;
+  border:1px solid rgba(255,255,255,.22) !important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.045)),
+    rgba(22,21,34,.94) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 10px 24px rgba(0,0,0,.26) !important;
+}
+.result-side #resultUsageHistoryBtn{
+  border:1px solid rgba(255,214,91,.46) !important;
+  background:
+    linear-gradient(180deg,rgba(255,214,91,.18),rgba(155,92,255,.16)),
+    rgba(42,31,35,.86) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.13),0 0 16px rgba(255,214,91,.12) !important;
+}
+.result-side #resultSideHistoryBtn{
+  border:1px solid rgba(112,222,255,.42) !important;
+  background:
+    linear-gradient(180deg,rgba(112,222,255,.15),rgba(155,92,255,.16)),
+    rgba(24,31,48,.86) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.13),0 0 16px rgba(112,222,255,.11) !important;
+}
+.result-side #captureBtn{
+  border:1px solid rgba(201,168,255,.50) !important;
+  background:
+    linear-gradient(180deg,rgba(157,92,255,.72),rgba(82,35,170,.84)),
+    rgba(55,24,120,.96) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 12px 28px rgba(0,0,0,.30),0 0 22px rgba(155,92,255,.20) !important;
+}
+.result-side #adminPanelBtn:hover,
+.result-side #resultUsageHistoryBtn:hover,
+.result-side #resultSideHistoryBtn:hover,
+.result-side #captureBtn:hover{
+  transform:translateY(-1px) !important;
+  filter:brightness(1.10) !important;
+}
+.result-side #adminPanelBtn:active,
+.result-side #resultUsageHistoryBtn:active,
+.result-side #resultSideHistoryBtn:active,
+.result-side #captureBtn:active{
+  transform:translateY(0) scale(.99) !important;
+}
+.result-side .capture-toast{
+  margin-top:0 !important;
+}
+</style>
+
 </body>
 </html>
 
