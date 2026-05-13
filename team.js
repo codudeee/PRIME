@@ -1,4 +1,14 @@
 (() => {
+  try {
+    document.documentElement.classList.add('pkl-team-booting');
+    if (!document.getElementById('pklTeamBootStyle')) {
+      const style = document.createElement('style');
+      style.id = 'pklTeamBootStyle';
+      style.textContent = 'html.pkl-team-booting .builder-layout{opacity:0;pointer-events:none;}';
+      document.head.appendChild(style);
+    }
+  } catch (error) {}
+
   const STORAGE_KEY = 'pklTeamBuilderState.v1';
 
   const TIERS = [
@@ -186,6 +196,12 @@
     bindUserSyncEvents();
     startClock();
 
+    const releaseBootRender = () => {
+      render();
+      saveState();
+      try { document.documentElement.classList.remove('pkl-team-booting'); } catch (error) {}
+    };
+
     const supabaseReady = (window.PKLGetSupabaseConfig && typeof window.PKLGetSupabaseConfig === 'function')
       ? window.PKLGetSupabaseConfig().catch(() => window.PKL_SUPABASE_CONFIG || null)
       : Promise.resolve(window.PKL_SUPABASE_CONFIG || null);
@@ -195,24 +211,26 @@
         loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
           syncJoinWaitListIntoTeamBoard(true);
           syncPlayersWithUserSources();
-          render();
-          refreshJoinWaitListFromSupabaseOnce();
+          refreshJoinWaitListFromSupabaseOnce(true).finally(releaseBootRender);
         });
       });
     });
   }
 
-  function refreshJoinWaitListFromSupabaseOnce() {
+  function refreshJoinWaitListFromSupabaseOnce(skipRender) {
     const realtime = window.PKLJoinRealtime;
-    if (!realtime || typeof realtime.fetchNow !== 'function') return;
-    realtime.fetchNow().then(() => loadSupabaseUsersForJoinWaitListOnce(true)).then(() => {
+    if (!realtime || typeof realtime.fetchNow !== 'function') return Promise.resolve(false);
+    return realtime.fetchNow().then(() => loadSupabaseUsersForJoinWaitListOnce(true)).then(() => {
       syncJoinWaitListIntoTeamBoard(true);
       syncPlayersWithUserSources();
-      renderTierPools();
-      renderTeams();
-      renderSummary();
-      saveState();
-    }).catch(() => {});
+      if (!skipRender) {
+        renderTierPools();
+        renderTeams();
+        renderSummary();
+        saveState();
+      }
+      return true;
+    }).catch(() => false);
   }
 
   function fillTierSelect() {
@@ -1930,8 +1948,11 @@ function completeTeams() {
           try { window.location.assign(target); } catch (error) { window.location.href = target; }
         };
         const pendingSaves = [result && result.remoteSave, joinResetSave].filter(item => item && typeof item.finally === 'function');
-        setTimeout(goSheet, 180);
-        if (pendingSaves.length) Promise.allSettled(pendingSaves).catch(() => null);
+        if (pendingSaves.length) {
+          Promise.allSettled(pendingSaves).finally(() => setTimeout(goSheet, 80));
+        } else {
+          setTimeout(goSheet, 180);
+        }
       }
     });
   }
@@ -1945,7 +1966,8 @@ function completeTeams() {
     sheetState.pklTeamCount = exportCfg.teams;
     sheetState.pklTeamSlots = exportCfg.slots;
     sheetState.pklBuddyMode = isPartnerTeamModeConfig(exportCfg);
-    sheetState.selectedTeamId = sheetState.selectedTeamId || 'team1';
+    const firstFilledTeam = teams.find(team => Array.isArray(team.members) && team.members.some(member => String(member && member.name || '').trim()));
+    sheetState.selectedTeamId = firstFilledTeam && firstFilledTeam.id ? firstFilledTeam.id : 'team1';
     sheetState.teams = teams;
     sheetState.rounds = Array.isArray(sheetState.rounds) && sheetState.rounds.length
       ? sheetState.rounds
@@ -1960,6 +1982,7 @@ function completeTeams() {
     sheetState.updatedFromTeamBoardAt = new Date().toISOString();
     const sheetJson = JSON.stringify(sheetState);
     localStorage.setItem(SHEET_STORAGE_KEY, sheetJson);
+    try { localStorage.setItem('PKL_TEAM_EXPORT_TO_SHEET_PENDING_V1', sheetJson); } catch (error) {}
     try { window.dispatchEvent(new StorageEvent('storage', { key: SHEET_STORAGE_KEY, newValue: sheetJson })); } catch (error) {}
     try {
       window.dispatchEvent(new CustomEvent('pkl-sheet-teams-imported', { detail: { state: sheetState, teams } }));
@@ -2042,8 +2065,17 @@ function completeTeams() {
 
 
   function saveSheetStateToSupabaseNow(sheetJson) {
-    // PKL 2026-05-10: 팀 편성 완료 시 시트 전체 상태를 Supabase 공유문서에 직접 PATCH하지 않는다.
-    // 시트 전달은 같은 브라우저 localStorage만 사용하고, 실제 실시간 공유는 sheet.html의 pklLiveScoreboard/current만 사용한다.
+    // PKL 2026-05-13: pkl-supabase-sync가 운영 키를 localStorage 디스크에 남기지 않기 때문에
+    // 페이지 이동 직전에는 지연 queueSave에 맡기지 않고 시트 상태를 Supabase shared에 즉시 저장한다.
+    const text = typeof sheetJson === 'string' ? sheetJson : JSON.stringify(sheetJson || {});
+    try {
+      if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
+        return window.PKLSupabaseDataSync.setShared(SHEET_STORAGE_KEY, text);
+      }
+      if (typeof window.saveSharedData === 'function') return window.saveSharedData(SHEET_STORAGE_KEY, text);
+    } catch (error) {
+      console.warn('[PKL] sheet immediate save skipped', error);
+    }
     return Promise.resolve(null);
   }
 

@@ -6527,6 +6527,16 @@ function pklIsTypingSheetScore(){
 
 function load(){
   try{
+    const pendingRaw=localStorage.getItem('PKL_TEAM_EXPORT_TO_SHEET_PENDING_V1');
+    if(pendingRaw){
+      const pending=JSON.parse(pendingRaw);
+      if(pending && Array.isArray(pending.teams) && pending.teams.some(team=>Array.isArray(team.members) && team.members.some(member=>String(member && member.name || '').trim()))){
+        localStorage.setItem(STORAGE_KEY, pendingRaw);
+        localStorage.removeItem('PKL_TEAM_EXPORT_TO_SHEET_PENDING_V1');
+      }
+    }
+  }catch(e){}
+  try{
     const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
     if(saved && Array.isArray(saved.teams) && Array.isArray(saved.rounds)){
       const next={
@@ -6535,7 +6545,7 @@ function load(){
         pklTeamCount:Number(saved.pklTeamCount || (saved.teams ? saved.teams.length : 10)) || 10,
         pklTeamSlots:Number(saved.pklTeamSlots || (saved.mode === 'duo' ? 2 : 4)) || 4,
         pklBuddyMode:!!saved.pklBuddyMode,
-        selectedTeamId:saved.selectedTeamId || 'team1',
+        selectedTeamId:saved.selectedTeamId || '',
         teams:saved.teams.length ? saved.teams : baseTeams,
         rounds:saved.rounds.length ? saved.rounds : Array.from({length:30},(_,i)=>makeRound(i+1)),
         feeds:Array.isArray(saved.feeds) ? saved.feeds : [],
@@ -6555,6 +6565,10 @@ function load(){
         id:team.id || ('team'+(index+1)),
         members:Array.isArray(team.members) && team.members.length ? team.members : (baseTeams[index]?.members || [])
       }));
+      if(!next.selectedTeamId){
+        const first = next.teams.find(team=>Array.isArray(team.members) && team.members.some(member=>String(member && member.name || '').trim()));
+        next.selectedTeamId = first && first.id ? first.id : 'team1';
+      }
       return next;
     }
   }catch(e){}
@@ -7237,8 +7251,8 @@ function pklApplyRemoteSheetState(){
   pklApplyingRemoteSheetState=true;
   try{
     state=next;
-    selectedTeamId=state.selectedTeamId || selectedTeamId || 'team1';
-    if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId=visibleTeams()[0]?.viewId || 'team1';
+    selectedTeamId=state.selectedTeamId || selectedTeamId || pklFirstFilledSheetViewId();
+    pklNormalizeSheetSelectedTeam();
     bindTopTimeInputs();
     render();
   }finally{
@@ -7254,7 +7268,7 @@ function pklAutoSelectOwnTeamOnce(){
   if(mine && mine.viewId && selectedTeamId!==mine.viewId){ selectedTeamId=mine.viewId; pklOwnTeamAutoSelected=true; }
 }
 function render(){
-  if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId=visibleTeams()[0].viewId;
+  pklNormalizeSheetSelectedTeam();
   pklAutoSelectOwnTeamOnce();
   bindColdEntryModal();checkColdStates();renderMode();renderSelect();renderBoard();renderSheet();renderFeeds();renderSideBets();updateAdminPanelButtonLabel();updateTopBetJackpot();updateTopTimes();save();
 }
@@ -7281,6 +7295,20 @@ function renderSelect(){
 
 function isGeneratedScoreboardView(view){
   return Boolean(view && Array.isArray(view.members) && view.members.some(member=>String(member && member.name || '').trim()));
+}
+
+function pklFirstFilledSheetViewId(){
+  const first = visibleTeams().find(isGeneratedScoreboardView);
+  return first && first.viewId ? first.viewId : 'team1';
+}
+
+function pklNormalizeSheetSelectedTeam(){
+  const views = visibleTeams();
+  const current = views.find(t=>t.viewId===selectedTeamId);
+  const firstFilled = views.find(isGeneratedScoreboardView);
+  if(!current || (!isGeneratedScoreboardView(current) && firstFilled)){
+    selectedTeamId = firstFilled && firstFilled.viewId ? firstFilled.viewId : (views[0] && views[0].viewId) || 'team1';
+  }
 }
 
 function scoreboardViews(){
@@ -7407,9 +7435,19 @@ function pklSheetHeaderNameHtml(member){
     ''
   ).trim();
   if(!name) return '';
-  const badge = (user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function')
-    ? (window.PKLTierBadge.renderForUser(user) || '')
-    : '';
+  let badge = '';
+  try{
+    if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function'){
+      badge = window.PKLTierBadge.renderForUser(user) || '';
+    }
+    if(!badge && typeof pklSheetScoreTierBadgeHtml === 'function'){
+      badge = pklSheetScoreTierBadgeHtml(member) || '';
+    }
+    if(!badge){
+      const tier = (member && (member.memberTier || member.tier || member.grade || member.pklTier)) || '';
+      if(tier && window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function') badge = window.PKLTierBadge.render(tier) || '';
+    }
+  }catch(e){}
   return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
 }
 
