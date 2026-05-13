@@ -608,7 +608,7 @@ button{
   height:20px !important;
   min-height:20px !important;
   padding:0 8px !important;
-  line-height:20px !important;
+  line-height:17px !important;
   font-size:10px !important;
 }
 
@@ -627,7 +627,7 @@ button{
   height:18px !important;
   min-height:18px !important;
   line-height:18px !important;
-  padding:0 7px !important;
+  padding:0 5px !important;
   font-size:9px !important;
 }
 
@@ -750,7 +750,7 @@ button{
 .tier-list .player-name{
   min-width:0 !important;
   flex:1 1 auto !important;
-  font-size:12px !important;
+  font-size:10px !important;
   line-height:1.1 !important;
   font-weight:1000 !important;
   letter-spacing:-.35px !important;
@@ -862,7 +862,7 @@ button{
 
 .team-slot .player-tier.member-role-badge{
   font-size:11px !important;
-  height:22px !important;
+  height:19px !important;
   line-height:22px !important;
   min-width:52px !important;
 }
@@ -5652,7 +5652,7 @@ body .modal-layer [class*="streak"]{
 
 .pkl-reroll-suggest-box.is-open{
   display:grid !important;
-  gap:7px !important;
+  gap:5px !important;
 }
 
 .pkl-reroll-suggest-item{
@@ -7231,12 +7231,10 @@ body{
 }
 
 
-/* 일반 유저 팀구성 권한: 리스트 버튼만 열람 가능 */
+/* 일반 유저 팀구성 권한: 컨트롤 패널은 유지하고 리스트 버튼만 열람 가능 */
 body.pkl-team-viewer-only .control-panel .control-section-box:not(:first-of-type),
 body.pkl-team-viewer-only .control-panel .control-bottom-actions{
-  opacity:.42;
-  pointer-events:none;
-  filter:saturate(.72);
+  display:none !important;
 }
 body.pkl-team-viewer-only #rerollListButton{
   opacity:1 !important;
@@ -7301,15 +7299,15 @@ body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-check.is-disabled in
   height:100% !important;
   min-width:0 !important;
   max-width:100% !important;
-  padding:4px 8px !important;
+  padding:3px 6px !important;
   overflow:hidden !important;
 }
 
 .team-page > .builder-layout.pkl-mode-40.pkl-mode-duo:not(.pkl-mode-partner) > .team-board .team-card .team-slot .player-name{
   flex:0 1 auto !important;
   min-width:0 !important;
-  max-width:calc(100% - 54px) !important;
-  font-size:22px !important;
+  max-width:calc(100% - 44px) !important;
+  font-size:18px !important;
   line-height:1.02 !important;
   letter-spacing:-0.75px !important;
   font-weight:1000 !important;
@@ -7320,7 +7318,7 @@ body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-check.is-disabled in
 
 .team-page > .builder-layout.pkl-mode-40.pkl-mode-duo:not(.pkl-mode-partner) > .team-board .team-card .team-slot .player-tier.member-role-badge{
   flex:0 0 auto !important;
-  min-width:44px !important;
+  min-width:36px !important;
   height:22px !important;
   line-height:20px !important;
   padding:0 7px !important;

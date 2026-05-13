@@ -46,7 +46,12 @@
   let supabaseUsersLoadedOnce = false;
 
   function pklTeamCanEdit(){
-    return !!(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentHasRole === "function" && window.PKLRoleSystem.currentHasRole("operator"));
+    if (window.PKLRoleSystem && typeof window.PKLRoleSystem.currentHasRole === "function") {
+      if (window.PKLRoleSystem.currentHasRole("operator") || window.PKLRoleSystem.currentHasRole("admin")) return true;
+    }
+    if (window.PKLPagePermissions && typeof window.PKLPagePermissions.isOperatorUp === "function" && window.PKLPagePermissions.isOperatorUp()) return true;
+    if (window.PKLPagePermissions && typeof window.PKLPagePermissions.isAdmin === "function" && window.PKLPagePermissions.isAdmin()) return true;
+    return isTeamManagerViewer();
   }
   function pklTeamDeny(){
     if(window.PKLRoleSystem && typeof window.PKLRoleSystem.showAccessModal === "function") window.PKLRoleSystem.showAccessModal("관리자/운영자만 팀구성 기능을 사용할 수 있습니다.", "권한 제한");
@@ -487,16 +492,16 @@ if (rerollListModal) {
   }
 
   function isTeamControlManager() {
-    return isTeamManagerViewer();
+    return pklTeamCanEdit();
   }
 
   function applyTeamControlAccess() {
     const canManage = isTeamControlManager();
     document.body.classList.toggle('pkl-team-viewer-only', !canManage);
 
-    const allowOnlyListIds = new Set(['rerollListButton']);
+    const listButton = document.getElementById('rerollListButton');
     document.querySelectorAll('.control-panel button, .control-panel select, .control-panel input, .control-panel textarea, .control-panel .pkl-custom-select-trigger').forEach(control => {
-      const isListButton = allowOnlyListIds.has(control.id);
+      const isListButton = control === listButton || control.id === 'rerollListButton';
       if (canManage || isListButton) {
         control.disabled = false;
         control.removeAttribute('aria-disabled');
@@ -508,7 +513,6 @@ if (rerollListModal) {
       control.classList.add('pkl-viewer-disabled-control');
     });
 
-    const listButton = document.getElementById('rerollListButton');
     if (listButton) {
       listButton.disabled = false;
       listButton.removeAttribute('aria-disabled');
