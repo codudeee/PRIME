@@ -1626,10 +1626,11 @@ function pklResultSanitizeIncomingMatches(list){
     const title=String(m.title||'').trim();
     const no=pklResultRoundNo(m);
     const real=pklResultHasRealSnapshot(m);
+    const manualAdmin=!!(m.adminCreated || m.manualCreated || m.createdByAdmin || String(m.source||'')==='admin');
     const generic=!title || title==='PKL 회차' || /^PKL\s*회차$/i.test(title) || /^match[_\-]?\d{8,}/i.test(title);
     /* 관리자 패널에서 실수로 생긴 빈 회차/무제 회차는 결과표에 표시하지 않는다.
-       시트지 무료/유료 저장으로 들어온 실제 스냅샷만 결과표 원본으로 인정한다. */
-    if(!real && (generic || no>=999999 || (m.snapshot && !real))) return;
+       단, 관리자패널의 '+ 회차 추가'로 직접 만든 회차는 실제 운영 회차로 인정한다. */
+    if(!real && !manualAdmin && (generic || no>=999999 || (m.snapshot && !real))) return;
     if(no>=1000) return;
     if(!m.id) m.id='match_'+String(m.savedAt||m.saved_at||Date.now())+'_'+Math.random().toString(36).slice(2,7);
     m.title=pklResultCleanMatchTitle(m);
@@ -2301,6 +2302,8 @@ function addResultAdminMatch(){
     id:id,
     title:'PKL '+no+'회차',
     date:'',time:'',endTime:'',maps:'',type:'프라임 킬내기 리그',kind:'league',teamCount:10,
+    adminCreated:true,
+    source:'admin',
     snapshot:{mode:'squad',selectedTeamId:'',teams:[],rounds:[],feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''},
     savedAt:new Date(now).toISOString()
   };
@@ -3433,6 +3436,17 @@ window.addEventListener('load', restoreDiscordSession);
     if(e.target&&e.target.closest&&e.target.closest('#adminDeleteAllMatchesBtn')){e.preventDefault();e.stopPropagation();openConfirm('모든 회차를 삭제하시겠습니까?','현재 결과표의 모든 회차를 한 번에 삭제합니다.',true,null);return;}
     if(e.target&&e.target.closest&&e.target.closest('#resultDeleteNoBtn')){e.preventDefault();e.stopPropagation();closeConfirm();return;}
     if(e.target&&e.target.closest&&e.target.closest('#resultDeleteYesBtn')){e.preventDefault();e.stopPropagation();deleteSelected();return;}
+    if(e.target&&e.target.closest&&e.target.closest('#adminAddMatchBtn')){
+      /* 원본 addResultAdminMatch가 sanitize에서 빈 회차를 제거하던 문제를 보완한다. */
+      e.preventDefault();e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      var list=getMatches().slice();
+      var max=0;
+      list.forEach(function(m){var mm=String((m&&m.title)||'').match(/(\d+)\s*회차/); if(mm) max=Math.max(max,Number(mm[1]));});
+      var no=max+1, now=Date.now();
+      var m={id:'match_'+now+'_'+no,title:'PKL '+no+'회차',date:'',time:'',endTime:'',maps:'',type:'프라임 킬내기 리그',kind:'league',teamCount:10,adminCreated:true,source:'admin',snapshot:{mode:'squad',selectedTeamId:'',teams:[],rounds:[],feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''},savedAt:new Date(now).toISOString()};
+      list.push(m); setMatches(list); refreshPage(); renderAdminList(m.id); return;
+    }
     if(e.target&&e.target.closest&&e.target.closest('#adminSaveMatchBtn')){e.preventDefault();e.stopPropagation();saveSelected();return;}
     if(e.target&&e.target.id==='resultDeleteConfirmModal'){closeConfirm();}
   },true);
