@@ -51,7 +51,21 @@
     }
     if (window.PKLPagePermissions && typeof window.PKLPagePermissions.isOperatorUp === "function" && window.PKLPagePermissions.isOperatorUp()) return true;
     if (window.PKLPagePermissions && typeof window.PKLPagePermissions.isAdmin === "function" && window.PKLPagePermissions.isAdmin()) return true;
-    return isTeamManagerViewer();
+
+    const loginUser = readCurrentLoginUser();
+    const user = findFullUserForViewer(loginUser) || loginUser || {};
+    const rawRole = String(getViewerRoleValue(user) || '').trim();
+    const role = rawRole.toLowerCase();
+    const rawTitle = String(user.title || user.memberTitle || user.badge || '').trim();
+    const title = rawTitle.toLowerCase();
+
+    return !!(
+      user.isAdmin || user.is_admin || user.admin || user.manager || user.isManager || user.operator || user.isOperator ||
+      role === 'admin' || role === 'administrator' || role === 'manager' || role === 'owner' || role === 'operator' || role === 'staff' ||
+      title === 'admin' || title === 'administrator' || title === 'manager' || title === 'operator' ||
+      ['관리자', '총관리자', '운영자', '운영진'].includes(rawRole) ||
+      ['관리자', '총관리자', '운영자', '운영진'].includes(rawTitle)
+    );
   }
   function pklTeamDeny(){
     if(window.PKLRoleSystem && typeof window.PKLRoleSystem.showAccessModal === "function") window.PKLRoleSystem.showAccessModal("관리자/운영자만 팀구성 기능을 사용할 수 있습니다.", "권한 제한");
@@ -234,11 +248,13 @@ const saveMemoButton = document.getElementById('saveMemoButton');
     const startButton = document.getElementById('startButton');
     const rerollListButton = document.getElementById('rerollListButton');
 
-    if (saveMemoButton) saveMemoButton.addEventListener('click', saveMemo);
-    if (savePlayerButton) savePlayerButton.addEventListener('click', addPlayer);
-    if (ruleButton) ruleButton.addEventListener('click', showRuleConstructionToast);
-    if (startButton) startButton.addEventListener('click', openMatchTimeModal);
-    if (saveMatchTimeButton) saveMatchTimeButton.addEventListener('click', saveMatchTimeSettings);
+    bindTeamControlViewerGuard();
+
+    if (saveMemoButton) saveMemoButton.addEventListener('click', () => { if (!isTeamControlManager()) return; saveMemo(); });
+    if (savePlayerButton) savePlayerButton.addEventListener('click', () => { if (!isTeamControlManager()) return; addPlayer(); });
+    if (ruleButton) ruleButton.addEventListener('click', () => { if (!isTeamControlManager()) return; showRuleConstructionToast(); });
+    if (startButton) startButton.addEventListener('click', () => { if (!isTeamControlManager()) return; openMatchTimeModal(); });
+    if (saveMatchTimeButton) saveMatchTimeButton.addEventListener('click', () => { if (!isTeamControlManager()) return; saveMatchTimeSettings(); });
     if (rerollListButton) rerollListButton.addEventListener('click', openRerollListModal);
     if (addRerollUserButton) addRerollUserButton.addEventListener('click', () => { if (!isTeamControlManager()) return; addManualRerollUser(); });
     if (rerollUserInput) {
@@ -499,20 +515,25 @@ if (rerollListModal) {
     return pklTeamCanEdit();
   }
 
+  function isRerollListButtonTarget(target) {
+    const listButton = document.getElementById('rerollListButton');
+    return !!(listButton && (target === listButton || (target && target.closest && target.closest('#rerollListButton'))));
+  }
+
   function applyTeamControlAccess() {
     const canManage = isTeamControlManager();
     document.body.classList.toggle('pkl-team-viewer-only', !canManage);
 
     const listButton = document.getElementById('rerollListButton');
-    document.querySelectorAll('.control-panel button, .control-panel select, .control-panel input, .control-panel textarea, .control-panel .pkl-custom-select-trigger').forEach(control => {
+    document.querySelectorAll('.control-panel button, .control-panel select, .control-panel input, .control-panel textarea, .control-panel .pkl-custom-select-trigger, .control-panel .pkl-custom-select, .control-panel .pkl-team-mode-dropdown').forEach(control => {
       const isListButton = control === listButton || control.id === 'rerollListButton';
       if (canManage || isListButton) {
-        control.disabled = false;
+        if ('disabled' in control) control.disabled = false;
         control.removeAttribute('aria-disabled');
         control.classList.remove('pkl-viewer-disabled-control');
         return;
       }
-      control.disabled = true;
+      if ('disabled' in control) control.disabled = true;
       control.setAttribute('aria-disabled', 'true');
       control.classList.add('pkl-viewer-disabled-control');
     });
@@ -522,6 +543,30 @@ if (rerollListModal) {
       listButton.removeAttribute('aria-disabled');
       listButton.classList.remove('pkl-viewer-disabled-control');
     }
+  }
+
+  function bindTeamControlViewerGuard() {
+    const panel = document.querySelector('.control-panel');
+    if (!panel || panel.dataset.pklViewerGuardBound === 'true') return;
+    panel.dataset.pklViewerGuardBound = 'true';
+
+    const blockViewerControl = event => {
+      if (isTeamControlManager()) return;
+      if (isRerollListButtonTarget(event.target)) return;
+      if (event.target && event.target.closest && event.target.closest('#rerollListModal')) return;
+      const control = event.target && event.target.closest && event.target.closest('button, select, input, textarea, .pkl-custom-select, .pkl-custom-select-trigger, .pkl-team-mode-dropdown');
+      if (!control) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+      closeTeamModeDropdown();
+      closeRerollModeDropdown();
+      closeRerollUserSuggestions();
+    };
+
+    ['click', 'pointerdown', 'mousedown', 'keydown', 'input', 'change'].forEach(type => {
+      panel.addEventListener(type, blockViewerControl, true);
+    });
   }
 
   function isCurrentUserInJoinWaitingList() {
@@ -1600,12 +1645,14 @@ const teamIndex = Number(slot.dataset.teamIndex);
     if (!teamModeDropdown || !teamModeTrigger || !teamModeList) return;
 
     teamModeTrigger.addEventListener('click', () => {
+      if (!isTeamControlManager()) { closeTeamModeDropdown(); return; }
       const isOpen = teamModeDropdown.classList.toggle('is-open');
       teamModeTrigger.setAttribute('aria-expanded', String(isOpen));
     });
 
     teamModeOptions.forEach(option => {
       option.addEventListener('click', () => {
+        if (!isTeamControlManager()) { closeTeamModeDropdown(); return; }
         setTeamModeDropdownValue(option.dataset.value || 'squad20', true);
         closeTeamModeDropdown();
       });
@@ -1653,12 +1700,14 @@ const teamIndex = Number(slot.dataset.teamIndex);
     if (!rerollModeDropdown || !rerollModeTrigger || !rerollModeList) return;
 
     rerollModeTrigger.addEventListener('click', () => {
+      if (!isTeamControlManager()) { closeRerollModeDropdown(); return; }
       const isOpen = rerollModeDropdown.classList.toggle('is-open');
       rerollModeTrigger.setAttribute('aria-expanded', String(isOpen));
     });
 
     rerollModeOptions.forEach(option => {
       option.addEventListener('click', () => {
+        if (!isTeamControlManager()) { closeRerollModeDropdown(); return; }
         setRerollModeValue(option.dataset.value || 'selected', true);
         closeRerollModeDropdown();
       });
@@ -2685,10 +2734,7 @@ function saveMatchTimeSettings() {
             <button class="pkl-reroll-remove" type="button" data-reroll-action="remove" aria-label="리롤 목록에서 제거">×</button>
           ` : `
             <div class="pkl-reroll-count-view" aria-label="리롤 횟수">${count}</div>
-            <label class="pkl-reroll-paid-check is-disabled" aria-disabled="true">
-              <input type="checkbox" disabled ${request.paid ? 'checked' : ''} />
-              <span>확인완료</span>
-            </label>
+            <span class="pkl-reroll-paid-view ${request.paid ? 'is-paid' : ''}">${request.paid ? '확인완료' : '미확인'}</span>
           `}
         </div>
       `;

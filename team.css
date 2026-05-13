@@ -7322,3 +7322,38 @@ body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-check.is-disabled in
   border-radius:7px !important;
   white-space:nowrap !important;
 }
+
+/* === PKL TEAM PERMISSION FIX: user/guest can open list only === */
+body.pkl-team-viewer-only .control-panel .pkl-viewer-disabled-control{
+  opacity:.48;
+  cursor:not-allowed !important;
+  pointer-events:none !important;
+}
+body.pkl-team-viewer-only .control-panel #rerollListButton{
+  opacity:1 !important;
+  cursor:pointer !important;
+  pointer-events:auto !important;
+}
+body.pkl-team-viewer-only .control-panel .pkl-custom-select.is-open,
+body.pkl-team-viewer-only .control-panel .pkl-team-mode-dropdown.is-open{
+  pointer-events:none !important;
+}
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-view{
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:12px;
+  border:1px solid rgba(216,180,254,.16);
+  background:rgba(255,255,255,.04);
+  color:rgba(255,255,255,.62);
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:-.02em;
+  pointer-events:none;
+}
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-view.is-paid{
+  color:#fff;
+  border-color:rgba(34,211,238,.28);
+  background:rgba(34,211,238,.10);
+}
