@@ -17,10 +17,10 @@ module.exports = async function handler(req, res) {
   try {
     if (!supabaseStore) throw new Error('Supabase store module load failed');
     if (req.method === 'GET') {
-      const limit = intParam(req.query && req.query.limit, 20, 1, 100);
+      const tierOnly = String((req.query && (req.query.tierOnly || req.query.tier_only)) || '').trim() === '1';
+      const limit = intParam(req.query && req.query.limit, tierOnly ? 500 : 20, 1, tierOnly ? 500 : 100);
       const offset = intParam(req.query && req.query.offset, 0, 0, 1000000);
       const q = String((req.query && req.query.q) || '').trim();
-      const tierOnly = String((req.query && (req.query.tierOnly || req.query.tier_only)) || '').trim() === '1';
       const result = await supabaseStore.readUserDocs({ limit, offset, q, tierOnly });
       return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, tierOnly });
     }
