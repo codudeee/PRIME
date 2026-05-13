@@ -6686,15 +6686,62 @@ function pklNormalizeSheetUsersPayload(data){
 }
 function pklLoadSheetSupabaseUsersOnce(){
   if(pklSheetSupabaseUsersPromise) return pklSheetSupabaseUsersPromise;
-  pklSheetSupabaseUsersPromise = fetch('/api/pkl-users?limit=1000&offset=0&tierOnly=1', {
+  /* /api/pkl-users는 서버에서 limit 최대값이 100으로 제한된다.
+     시트 헤더 4명 배지는 아래 pklEnsureSheetHeaderTierUsers()에서
+     필요한 유저만 q 검색으로 추가 조회한다. */
+  pklSheetSupabaseUsersPromise = fetch('/api/pkl-users?limit=100&offset=0&tierOnly=1', {
     cache:'no-store',
     headers:{Accept:'application/json','Cache-Control':'no-store'}
   }).then(res=>res.ok ? res.json() : null).then(data=>{
     const users = pklNormalizeSheetUsersPayload(data).filter(u=>u && typeof u === 'object');
-    if(users.length) pklSheetSupabaseUsersCache = users;
+    pklMergeSheetSupabaseUsers(users);
     return pklSheetSupabaseUsersCache;
   }).catch(()=>pklSheetSupabaseUsersCache);
   return pklSheetSupabaseUsersPromise;
+}
+function pklSheetUserCacheKey(user){
+  if(!user || typeof user !== 'object') return '';
+  return pklNormUserKey(user.discord_id || user.discordId || user.uid || user.id || user.userId || user.memberId || user.nickname || user.name || user.pubgId || user.pubg_id || user.gameId);
+}
+function pklMergeSheetSupabaseUsers(users){
+  if(!Array.isArray(users) || !users.length) return;
+  const seen = new Set(pklSheetSupabaseUsersCache.map(pklSheetUserCacheKey).filter(Boolean));
+  users.forEach(user=>{
+    if(!user || typeof user !== 'object') return;
+    const key = pklSheetUserCacheKey(user);
+    if(key && seen.has(key)) return;
+    if(key) seen.add(key);
+    pklSheetSupabaseUsersCache.push(user);
+  });
+}
+const pklSheetHeaderTierFetchPending = new Set();
+function pklSheetMemberSearchKeys(member){
+  return [
+    member && member.discord_id, member && member.discordId, member && member.userUid, member && member.accountId,
+    member && member.name, member && member.nickname, member && member.nick, member && member.displayName,
+    member && member.pubgId, member && member.pubg_id, member && member.pubgID, member && member.pubgName, member && member.gameId
+  ].map(v=>String(v||'').trim()).filter(Boolean);
+}
+function pklEnsureSheetHeaderTierUsers(view){
+  if(!view || !Array.isArray(view.members)) return;
+  view.members.forEach(member=>{
+    if(!member) return;
+    if(pklTierRoleOfMember(member)) return;
+    const searchKey = pklSheetMemberSearchKeys(member).find(Boolean);
+    const pendingKey = pklNormUserKey(searchKey);
+    if(!searchKey || !pendingKey || pklSheetHeaderTierFetchPending.has(pendingKey)) return;
+    pklSheetHeaderTierFetchPending.add(pendingKey);
+    fetch('/api/pkl-users?limit=10&offset=0&tierOnly=1&q=' + encodeURIComponent(searchKey), {
+      cache:'no-store',
+      headers:{Accept:'application/json','Cache-Control':'no-store'}
+    }).then(res=>res.ok ? res.json() : null).then(data=>{
+      const users = pklNormalizeSheetUsersPayload(data).filter(u=>u && typeof u === 'object');
+      if(users.length){
+        pklMergeSheetSupabaseUsers(users);
+        try{ renderSheet(); renderBoard(); }catch(e){}
+      }
+    }).catch(()=>{});
+  });
 }
 function pklReadTierUsers(){
   const users=[];
@@ -7469,6 +7516,7 @@ function pklSheetHeaderNameHtml(member){
 
 function renderSheet(){
   const view=currentView(), realId=realTeamId(view.viewId), offset=view.memberOffset||0;
+  pklEnsureSheetHeaderTierUsers(view);
   const surrendered=isViewSurrendered(view.viewId);
   const cold=isColdView(view.viewId);
   const fireRound=getLatestFireRound(view.viewId);

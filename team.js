@@ -1902,6 +1902,7 @@ function rerollAll() {
     matchTimeSettingsConfirmed = false;
     if (matchStartTimeGroup) matchStartTimeGroup.querySelectorAll('[data-time-part]').forEach(cell => cell.dataset.value = '');
     if (matchEndTimeGroup) matchEndTimeGroup.querySelectorAll('[data-time-part]').forEach(cell => cell.dataset.value = '');
+    saveState();
     setStatus('팀구성 보드를 깨끗이 초기화했습니다.');
     render();
   }
