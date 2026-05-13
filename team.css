@@ -7055,3 +7055,42 @@ body{
   height:20px !important;
   min-height:20px !important;
 }
+
+/* === PKL duo layout cleanup: horizontal 2-slot rows + duo partner grouped pairs === */
+.builder-layout.pkl-mode-duo:not(.pkl-mode-partner) .slot-list{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  grid-template-rows:1fr !important;
+  gap:5px !important;
+}
+.builder-layout.pkl-mode-duo:not(.pkl-mode-partner) .team-slot{
+  min-height:56px !important;
+  height:100% !important;
+}
+.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-grid{
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  grid-template-rows:repeat(4,minmax(0,1fr)) !important;
+  gap:8px !important;
+}
+.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-pair-card{
+  min-height:0 !important;
+}
+.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-pair-body{
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:5px !important;
+  padding:5px !important;
+}
+.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-pair-card .slot-list{
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  grid-template-rows:1fr !important;
+  gap:3px !important;
+  padding:3px !important;
+}
+.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-pair-card .team-slot{
+  min-height:48px !important;
+  padding:3px !important;
+}
+.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-pair-count::before{
+  content:'' !important;
+}

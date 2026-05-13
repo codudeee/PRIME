@@ -352,11 +352,13 @@ if (rerollListModal) {
       if (!first) continue;
       const pairNumber = Math.floor(teamIndex / 2) + 1;
       const pairLabel = second ? `${first.name} · ${second.name}` : first.name;
+      const cfg = getTeamModeConfig(state.teamMode || 'squad20');
+      const pairSlotCount = (cfg.slots || 4) * (second ? 2 : 1);
       pairs.push(`
         <section class="team-pair-card" data-pair-index="${pairNumber}">
           <div class="team-pair-head">
             <span class="team-pair-title">${pairLabel}</span>
-            <span class="team-pair-count">${second ? 8 : 4} SLOT</span>
+            <span class="team-pair-count">${pairSlotCount} SLOT</span>
           </div>
           <div class="team-pair-body">
             ${renderTeamCard(first, teamIndex)}
