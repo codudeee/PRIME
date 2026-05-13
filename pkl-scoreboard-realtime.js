@@ -230,8 +230,30 @@
   }
   function startFallbackPoll(){
     if(fallbackPollTimer) return;
-    var tick=function(){try{sb('live_scores?id=eq.live_scoreboard&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){var doc=rows&&rows[0];var snap=readRemotePayload(doc);if(snap){writeLocalSnapshot(snap);renderSnapshot(snap);}applySheetFromDoc(doc);}).catch(function(){});}catch(e){}};
-    tick(); fallbackPollTimer=null;
+    var busy=false;
+    var tick=function(){
+      if(busy) return;
+      busy=true;
+      try{
+        sb('live_scores?id=eq.live_scoreboard&select=payload,updated_at&limit=1',{method:'GET'})
+          .then(function(rows){
+            var doc=rows&&rows[0];
+            var snap=readRemotePayload(doc);
+            if(snap){writeLocalSnapshot(snap);renderSnapshot(snap);}
+            applySheetFromDoc(doc);
+          })
+          .catch(function(){})
+          .finally(function(){busy=false;});
+      }catch(e){busy=false;}
+    };
+    tick();
+    fallbackPollTimer=setInterval(function(){
+      if(document.hidden) return;
+      tick();
+    }, 900);
+    document.addEventListener('visibilitychange', function(){
+      if(!document.hidden) setTimeout(tick, 120);
+    });
   }
   function applySheetFromDoc(doc){
     var bridge=window.PKLSheetLiveBridge;
@@ -260,14 +282,11 @@
 })();
 
 
-<script>
-window.addEventListener('pkl-team-mode-change', function(e){
-  document.documentElement.dataset.teamMode = e.detail.mode || 'squad10';
-});
-</script>
-
-
 // PKL_SCOREBOARD_MODE_HELPER
+window.addEventListener('pkl-team-mode-change', function(e){
+  document.documentElement.dataset.teamMode = (e.detail && e.detail.mode) || 'squad10';
+});
+
 (function(){
   if(window.__PKL_SCOREBOARD_MODE_HELPER__) return;
   window.__PKL_SCOREBOARD_MODE_HELPER__ = true;
