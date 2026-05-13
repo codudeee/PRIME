@@ -6689,6 +6689,9 @@ function pklTierScoreRoleFromText(text){
   const raw=String(text||"").trim();
   const compact=raw.replace(/\s+/g,"");
   const map={
+    "tier0":"tier0_mid","tier1":"tier1_mid","tier2":"tier2_mid","tier3":"tier3_mid","tier4":"tier4_mid",
+    "grade-role-tier0":"tier0_mid","grade-role-tier1":"tier1_mid","grade-role-tier2":"tier2_mid","grade-role-tier3":"tier3_mid","grade-role-tier4":"tier4_mid",
+    "0티어":"tier0_mid","1티어":"tier1_mid","2티어":"tier2_mid","3티어":"tier3_mid","4티어":"tier4_mid",
     "0티어상":"tier0_high","0상":"tier0_high",
     "0티어중":"tier0_mid","0중":"tier0_mid",
     "0티어하":"tier0_low","0하":"tier0_low",
@@ -7525,10 +7528,12 @@ pklBindTierDragOnce();
 function pklSheetManualTierBadgeHtml(tier){
   const key=pklTierScoreRoleFromText(tier);
   if(!key || key==='none') return '';
-  if(window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function'){
-    const html=window.PKLTierBadge.render(key);
-    if(html) return html;
-  }
+  try{
+    if(window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function'){
+      const html=window.PKLTierBadge.render(key, { extraClass:'member-role-badge' });
+      if(html) return html;
+    }
+  }catch(e){}
   const label={
     tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',
     tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',
@@ -7539,8 +7544,9 @@ function pklSheetManualTierBadgeHtml(tier){
   }[key] || '';
   if(!label) return '';
   const cls=key.indexOf('tier0')===0?'role-tier0':key.indexOf('tier1')===0?'role-tier1':key.indexOf('tier2')===0?'role-tier2':key.indexOf('tier3')===0?'role-tier3':key.indexOf('tier4')===0?'role-tier4':key==='beast'?'role-beast':'role-none';
-  return `<span class="pkl-tier-badge tier-mark ${cls}" data-pkl-tier-badge="1" data-tier="${escape(key)}">${escape(label)}</span>`;
+  return `<span class="pkl-tier-badge tier-mark member-role-badge ${cls}" data-pkl-tier-badge="1" data-tier="${escape(key)}">${escape(label)}</span>`;
 }
+
 function pklSheetMemberTierCandidates(member, user){
   return [
     user?.memberTier,user?.gradeRole,user?.tierRole,user?.baseRole,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.memberTierName,user?.tierName,
@@ -7551,14 +7557,14 @@ function pklSheetHeaderNameHtml(member){
   if(!member) return '';
   const user = pklFindTierUserByMember(member);
   const name = String(
-    (user && (user.nickname || user.nick || user.name || user.displayName || user.pubgId || user.pubgID || user.pubgName || user.gameId || user.username)) ||
     (member && (member.name || member.nickname || member.nick || member.displayName || member.pubgId || member.pubgID || member.pubgName || member.gameId || member.username)) ||
+    (user && (user.nickname || user.nick || user.name || user.displayName || user.pubgId || user.pubgID || user.pubgName || user.gameId || user.username)) ||
     ''
   ).trim();
   if(!name) return '';
   let badge = '';
   if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function'){
-    badge = window.PKLTierBadge.renderForUser(user) || '';
+    try{ badge = window.PKLTierBadge.renderForUser(user, { extraClass:'member-role-badge' }) || ''; }catch(e){}
   }
   if(!badge){
     const candidates=pklSheetMemberTierCandidates(member, user);
@@ -7569,6 +7575,7 @@ function pklSheetHeaderNameHtml(member){
   }
   return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
 }
+
 
 function renderSheet(){
   const view=currentView(), realId=realTeamId(view.viewId), offset=view.memberOffset||0;
@@ -7913,21 +7920,21 @@ function getSurrenderInfo(viewId){
 
 function pklSurrenderBadgeHtml(member){
   if(member && member.__badgeHtml) return ' ' + member.__badgeHtml;
-  const user = pklSheetBadgeFindUser(member && member.name);
-
+  const user = pklSheetBadgeFindUser(member && member.name) || pklFindTierUserByMember(member);
   if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === "function"){
-    const html = window.PKLTierBadge.renderForUser(user);
-    return html ? " " + html : "";
+    try{
+      const html = window.PKLTierBadge.renderForUser(user, { extraClass:'member-role-badge' });
+      if(html) return " " + html;
+    }catch(e){}
   }
-
-  const tier = (user && user.memberTier) || (member && member.memberTier) || (member && member.tier) || "";
-  if(tier && window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
-    const html = window.PKLTierBadge.render(tier);
-    return html ? " " + html : "";
+  const candidates=pklSheetMemberTierCandidates(member, user);
+  for(const candidate of candidates){
+    const html=pklSheetManualTierBadgeHtml(candidate);
+    if(html) return ' ' + html;
   }
-
   return "";
 }
+
 
 
 function pklConsentMemberName(member){
@@ -12870,6 +12877,45 @@ window.addEventListener('DOMContentLoaded',()=>{
   }
   window.addEventListener('pkl-team-mode-changed', function(e){ applyMode(e.detail); });
   applyMode({});
+})();
+</script>
+
+
+<script id="pkl-sheet-fire-surrender-modal-restore-20260513">
+(function(){
+  if(window.__PKL_SHEET_FIRE_SURRENDER_MODAL_RESTORE_20260513__) return;
+  window.__PKL_SHEET_FIRE_SURRENDER_MODAL_RESTORE_20260513__=true;
+  function showModal(id){
+    var modal=document.getElementById(id);
+    if(!modal) return;
+    try{ if(typeof pklSetConsentModalTarget==='function') pklSetConsentModalTarget((currentView()||{}).viewId); }catch(e){}
+    document.querySelectorAll('.modal').forEach(function(m){m.classList.remove('open','show');});
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden','false');
+    try{ if(id==='surrenderModal' && typeof renderSurrenderModal==='function') renderSurrenderModal(); }catch(e){}
+    try{ if(id==='fireModal' && typeof renderFireModal==='function') renderFireModal(); }catch(e){}
+  }
+  document.addEventListener('click',function(e){
+    var surrender=e.target && e.target.closest && e.target.closest('#openSurrenderModal');
+    var fire=e.target && e.target.closest && e.target.closest('#openFireModal');
+    if(!surrender && !fire) return;
+    if(e.preventDefault) e.preventDefault();
+    if(e.stopPropagation) e.stopPropagation();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    try{
+      if(typeof pklCanEditViewSheet==='function' && !pklCanEditViewSheet(currentView())){
+        if(typeof pklBlockSheetAction==='function') pklBlockSheetAction();
+        return;
+      }
+    }catch(err){}
+    if(fire){
+      try{ if(typeof isFireTimeBlocked==='function' && isFireTimeBlocked()){ if(typeof showFireBlockedToast==='function') showFireBlockedToast('종료 1시간 전으로 불판 사용불가 합니다.', fire); return; } }catch(err){}
+      try{ if(typeof isCurrentViewSurrendered==='function' && isCurrentViewSurrendered()){ if(typeof showFireBlockedToast==='function') showFireBlockedToast(null, fire); return; } }catch(err){}
+      showModal('fireModal');
+      return;
+    }
+    showModal('surrenderModal');
+  },true);
 })();
 </script>
 

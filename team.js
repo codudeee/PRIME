@@ -2044,10 +2044,14 @@ function completeTeams() {
     const displayName = resolvePlayerDisplayName(player);
     const accountUser = resolvePlayerAccountUser(player, displayName);
     const memberTier = accountUser && accountUser.memberTier ? String(accountUser.memberTier).trim() : '';
+    const tierKey = resolveUserTierKey(accountUser || player) || player.tier || '';
+    const tierLabel = memberTier || resolveUserTierLabel(accountUser || player) || getTierLabel(tierKey) || '';
     return {
       name: displayName,
-      tier: memberTier || player.tier || '',
-      memberTier,
+      tier: tierKey || tierLabel || '',
+      memberTier: tierLabel || tierKey || '',
+      __tierKey: tierKey || '',
+      tierName: tierLabel || '',
       userUid: player.userUid || (accountUser && (accountUser.uid || accountUser.id)) || '',
       accountId: player.accountId || (accountUser && (accountUser.id || accountUser.uid)) || '',
       pubgId: player.pubgId || (accountUser && (accountUser.pubgId || accountUser.gameId)) || ''
