@@ -3252,6 +3252,25 @@ document.addEventListener("DOMContentLoaded", function(){
   var loadingPromise = null;
   var lastPaintSignature = '';
   var pendingRender = 0;
+  var PREVIEW_CACHE_KEY = 'PKL_TIER_RENDER_PREVIEW_V1';
+  var PREVIEW_CACHE_TTL = 1000 * 60 * 5;
+
+  function readPreviewCache(){
+    try{
+      var raw = sessionStorage.getItem(PREVIEW_CACHE_KEY);
+      if(!raw) return [];
+      var box = JSON.parse(raw);
+      if(!box || !Array.isArray(box.users)) return [];
+      if(Date.now() - Number(box.time || 0) > PREVIEW_CACHE_TTL) return [];
+      return normalizeUsers(box.users);
+    }catch(e){ return []; }
+  }
+  function writePreviewCache(users){
+    try{
+      if(!Array.isArray(users) || !users.length) return;
+      sessionStorage.setItem(PREVIEW_CACHE_KEY, JSON.stringify({time:Date.now(), users:users.slice(0, 500)}));
+    }catch(e){}
+  }
 
   function clean(v){ return String(v == null ? '' : v).trim(); }
   function escapeCss(v){
@@ -3370,6 +3389,7 @@ document.addEventListener("DOMContentLoaded", function(){
           // 이후 추가 페이지가 있으면 최종 결과만 한 번 더 보정한다.
           if(offset === 0 && rows.length){
             cache = normalizeUsers(all);
+            writePreviewCache(cache);
             schedulePaint(cache.slice(), true);
           }
 
@@ -3377,6 +3397,7 @@ document.addEventListener("DOMContentLoaded", function(){
           offset += limit;
         }
         cache = normalizeUsers(all);
+        writePreviewCache(cache);
         return cache.slice();
       }catch(err){
         console.error('PKL tier users load failed', err);
@@ -3489,7 +3510,14 @@ document.addEventListener("DOMContentLoaded", function(){
   window.pklTierSetUserRole = function(userKey, targetLane){ setUserTier(userKey, targetLane); return true; };
 
   document.addEventListener('DOMContentLoaded', function(){
-    requestAnimationFrame(function(){ renderTier(false); });
+    requestAnimationFrame(function(){
+      var preview = readPreviewCache();
+      if(preview.length){
+        cache = preview;
+        schedulePaint(preview, true);
+      }
+      renderTier(false);
+    });
   });
 })();
 </script>
