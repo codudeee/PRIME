@@ -7198,38 +7198,34 @@ body{
   box-shadow:none !important;
 }
 
-/* === PKL PATCH: duo / duo-kanbu slot name readability only ===
-   - 스쿼드 계열은 건드리지 않음
-   - 듀오/듀오깐부 슬롯 안 닉네임만 크게 보이도록 최종 오버라이드
+/* === PKL SAFE FIX: duo kanbu nickname fit ===
+   - 일반 듀오는 현재 상태 유지
+   - 듀오 깐부 슬롯만 닉네임이 잘리지 않는 선으로 크기/간격 보정
+   - 티어배지 크기와 스쿼드 계열은 건드리지 않음
 */
-.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-card,
-.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-card{
-  display:flex !important;
-  flex-direction:column !important;
-  align-items:center !important;
-  justify-content:center !important;
-  gap:5px !important;
-  padding:5px 6px !important;
-  text-align:center !important;
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-card,
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .team-card.is-partner-team .team-slot .player-card{
+  min-width:0 !important;
+  max-width:100% !important;
+  padding:4px 6px !important;
+  gap:4px !important;
+  overflow:hidden !important;
 }
 
-.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-name,
-.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-name{
-  font-size:20px !important;
-  line-height:1.05 !important;
-  font-weight:1000 !important;
-  letter-spacing:-0.04em !important;
-  color:#fff !important;
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-name,
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .team-card.is-partner-team .team-slot .player-name{
+  min-width:0 !important;
   max-width:100% !important;
+  font-size:17px !important;
+  line-height:1.05 !important;
+  letter-spacing:-0.45px !important;
   white-space:nowrap !important;
   overflow:hidden !important;
-  text-overflow:ellipsis !important;
-  text-shadow:0 0 8px rgba(255,255,255,.20),0 0 14px rgba(168,85,247,.18) !important;
+  text-overflow:clip !important;
+  word-break:keep-all !important;
 }
 
-.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-tier.member-role-badge,
-.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-tier.member-role-badge{
-  transform:none !important;
-  margin:0 auto !important;
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-tier.member-role-badge,
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .team-card.is-partner-team .team-slot .player-tier.member-role-badge{
   flex:0 0 auto !important;
 }
