@@ -1916,13 +1916,15 @@ function completeTeams() {
       onConfirm: () => {
         const result = exportTeamBoardToSheet();
         const importedCount = result && typeof result.count === 'number' ? result.count : Number(result || 0);
+        const joinResetSave = resetJoinRecruitmentAfterTeamComplete();
         saveState();
-        setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 현재 팀보드는 유지한 채 시트지로 이동합니다.`);
+        setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 모집 상태를 초기화했습니다. 현재 팀보드는 유지한 채 시트지로 이동합니다.`);
         const goSheet = () => { window.location.href = 'sheet.html'; };
-        if (result && result.remoteSave && typeof result.remoteSave.finally === 'function') {
+        const pendingSaves = [result && result.remoteSave, joinResetSave].filter(item => item && typeof item.finally === 'function');
+        if (pendingSaves.length) {
           let moved = false;
           const moveOnce = () => { if (moved) return; moved = true; goSheet(); };
-          result.remoteSave.finally(() => setTimeout(moveOnce, 80));
+          Promise.allSettled(pendingSaves).finally(() => setTimeout(moveOnce, 80));
           setTimeout(moveOnce, 1800);
         } else {
           setTimeout(goSheet, 250);
@@ -2040,6 +2042,70 @@ function completeTeams() {
     // PKL 2026-05-10: 팀 편성 완료 시 시트 전체 상태를 Supabase 공유문서에 직접 PATCH하지 않는다.
     // 시트 전달은 같은 브라우저 localStorage만 사용하고, 실제 실시간 공유는 sheet.html의 pklLiveScoreboard/current만 사용한다.
     return Promise.resolve(null);
+  }
+
+
+  function createResetJoinRecruitmentState() {
+    return {
+      version: 2,
+      waitList: [],
+      cancelList: [],
+      recruitState: {
+        state: 'waiting',
+        hostHtml: '',
+        openTime: '',
+        deadlineText: '모집대기중',
+        feeText: '',
+        feeInput: '',
+        deadlineConfigured: false
+      },
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  function resetJoinRecruitmentAfterTeamComplete() {
+    const joinState = createResetJoinRecruitmentState();
+    const saves = [];
+
+    try { localStorage.setItem(JOIN_WAITLIST_STORAGE_KEY, JSON.stringify([])); } catch (error) {}
+    try { localStorage.setItem(JOIN_CANCEL_STORAGE_KEY, JSON.stringify([])); } catch (error) {}
+    try { localStorage.setItem(JOIN_RECRUIT_STATE_STORAGE_KEY, JSON.stringify(joinState.recruitState)); } catch (error) {}
+    try { localStorage.removeItem('pklJoinFeeInfo'); } catch (error) {}
+    try {
+      Object.keys(localStorage).forEach(key => {
+        if (String(key).indexOf('pklJoinDepositRequested_') === 0) localStorage.removeItem(key);
+      });
+      localStorage.removeItem('pklJoinDepositRequests');
+    } catch (error) {}
+
+    try {
+      window.dispatchEvent(new CustomEvent('pkl-join-state-updated', { detail: joinState }));
+    } catch (error) {}
+
+    try {
+      if (window.PKLJoinRealtime && typeof window.PKLJoinRealtime.save === 'function') {
+        const saved = window.PKLJoinRealtime.save();
+        if (saved && typeof saved.then === 'function') saves.push(saved);
+      }
+    } catch (error) {}
+
+    try {
+      saves.push(fetch('/api/pkl-data-store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'live_scores', id: 'join_state', payload: joinState })
+      }).then(response => response.ok ? response.json().catch(() => null) : null).catch(() => null));
+    } catch (error) {}
+
+    try {
+      if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
+        saves.push(window.PKLSupabaseDataSync.setShared(JOIN_WAITLIST_STORAGE_KEY, []));
+        saves.push(window.PKLSupabaseDataSync.setShared(JOIN_CANCEL_STORAGE_KEY, []));
+        saves.push(window.PKLSupabaseDataSync.setShared(JOIN_RECRUIT_STATE_STORAGE_KEY, joinState.recruitState));
+      }
+    } catch (error) {}
+
+    return Promise.allSettled(saves.filter(Boolean));
   }
 
   function loadSheetStateForTeamExport() {
