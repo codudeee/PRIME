@@ -7139,28 +7139,61 @@ body{
   min-height:0 !important;
 }
 
-/* === PKL FINAL HOTFIX: remove kanbu badges + transparent slots === */
+/* === PKL FINAL FIX: kanbu mode uses normal transparent slot style, no kanbu bottom labels === */
+/* 깐부 모드 전용: 기존 안정화된 스쿼드 슬롯 톤과 맞추고, 깐부 라벨/연결바 pseudo 요소 제거 */
 .team-page > .builder-layout.pkl-mode-partner > .team-board .team-card::before,
 .team-page > .builder-layout.pkl-mode-partner > .team-board .team-card::after,
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card .team-head::before,
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card .team-head::after,
-.team-page .pkl-kanbu-pair-card::before,
-.team-page .pkl-kanbu-pair-card::after{
-  display:none !important;
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-head::before,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-head::after,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-card::before,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-card::after,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-head::before,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-head::after,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card.is-partner-left + .team-card.is-partner-right::before{
   content:none !important;
-}
-
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card,
-.team-page .pkl-kanbu-pair-card,
-.team-page .pkl-kanbu-pair-body{
-  background:transparent !important;
-  backdrop-filter:none !important;
-  -webkit-backdrop-filter:none !important;
+  display:none !important;
+  width:0 !important;
+  height:0 !important;
+  opacity:0 !important;
+  background:none !important;
   box-shadow:none !important;
+  border:0 !important;
 }
 
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card .team-slot{
-  background:rgba(255,255,255,0.015) !important;
-  border:1px solid rgba(168,85,247,0.16) !important;
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.02) !important;
+.team-page > .builder-layout.pkl-mode-partner > .team-board .pkl-kanbu-pair-card{
+  border:1px solid rgba(167,139,250,.20) !important;
+  background:rgba(0,0,0,.06) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-card,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card.is-partner-team{
+  border-color:rgba(225,205,255,.105) !important;
+  background:rgba(0,0,0,.04) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025) !important;
+  margin:0 !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-head,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card.is-partner-team .team-head{
+  background:linear-gradient(90deg,rgba(109,77,255,.54),rgba(155,92,255,.30),rgba(255,255,255,.030)) !important;
+  border-bottom:1px solid rgba(232,210,255,.24) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 8px 18px rgba(0,0,0,.22),0 0 14px rgba(155,92,255,.18) !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card.is-partner-team .team-slot{
+  border-radius:12px !important;
+  border:1px solid rgba(225,205,255,.105) !important;
+  background:linear-gradient(180deg,rgba(255,255,255,.032),rgba(255,255,255,.006)),rgba(0,0,0,.18) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),inset 0 0 16px rgba(155,92,255,.020) !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot:hover,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card.is-partner-team .team-slot:hover{
+  border-color:rgba(238,220,255,.28) !important;
+  background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.065),transparent 54%),linear-gradient(180deg,rgba(255,255,255,.052),rgba(255,255,255,.010)),rgba(8,6,18,.36) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.070),inset 0 0 20px rgba(155,92,255,.060),0 0 14px rgba(180,140,255,.12) !important;
+}
+.team-page > .builder-layout.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .empty-slot,
+.team-page > .builder-layout.pkl-mode-partner > .team-board .team-card.is-partner-team .team-slot .empty-slot{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
 }
