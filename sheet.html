@@ -6522,11 +6522,24 @@ function save(){
 }
 function makeRound(no){return {no,map:'',teams:{}}}
 function visibleTeams(){
-  if(state.mode==='squad') return state.teams.map((t,i)=>({...t,viewId:t.id,viewName:t.members[0]?.name||`${i+1}팀`,memberOffset:0,members:t.members.slice(0,4)}));
+  const teams=Array.isArray(state.teams)?state.teams:[];
+  const slots=Number(state.pklTeamSlots || (state.mode==='duo'?2:4)) || 4;
+  const teamMode=String(state.pklTeamMode||'');
+  const directDuoExport=slots===2 && /duo/i.test(teamMode) && teams.some(t=>Array.isArray(t.members) && t.members.length<=2);
+  if(state.mode==='squad' || directDuoExport){
+    return teams.map((t,i)=>({
+      ...t,
+      viewId:t.id || ('team'+(i+1)),
+      viewName:(t.members&&t.members[0]&&t.members[0].name)||`${i+1}팀`,
+      memberOffset:0,
+      members:(Array.isArray(t.members)?t.members:[]).slice(0, slots===2?2:4)
+    }));
+  }
   const out=[];
-  state.teams.forEach((t,i)=>{
-    out.push({...t,viewId:t.id+'a',viewName:(t.members[0]?.name||`${i+1}팀`)+' A',memberOffset:0,members:t.members.slice(0,2)});
-    out.push({...t,viewId:t.id+'b',viewName:(t.members[2]?.name||`${i+1}팀`)+' B',memberOffset:2,members:t.members.slice(2,4)});
+  teams.forEach((t,i)=>{
+    const members=Array.isArray(t.members)?t.members:[];
+    out.push({...t,viewId:t.id+'a',viewName:(members[0]?.name||`${i+1}팀`)+' A',memberOffset:0,members:members.slice(0,2)});
+    out.push({...t,viewId:t.id+'b',viewName:(members[2]?.name||`${i+1}팀`)+' B',memberOffset:2,members:members.slice(2,4)});
   });
   return out;
 }
@@ -7259,7 +7272,8 @@ function renderBoard(){
           const memberScore=killScore-deathScore;
           const canDrag=pklIsSheetStaff();
           const dragAttrs=canDrag ? ` draggable="true" data-pkl-member-drag="1" data-real-team="${realTeamId(view.viewId)}" data-member-index="${(view.memberOffset||0)+i}" title="관리자/운영자 드래그 이동"` : '';
-          return `<div class="member-row ${canDrag?'pkl-member-draggable':''}"${dragAttrs}><span class="member-name">${m.name ? escape(m.name) : '&nbsp;'}</span><span class="member-kd">${memberScore} (${killScore}/${deathScore})</span></div>`;
+          const memberNameHtml = m && m.name ? pklSheetHeaderNameHtml(m) : '<span class="member-name">&nbsp;</span>';
+          return `<div class="member-row ${canDrag?'pkl-member-draggable':''}"${dragAttrs}>${memberNameHtml}<span class="member-kd">${memberScore} (${killScore}/${deathScore})</span></div>`;
         }).join('')}
         <div class="member-row team-extra-row"><span class="member-name">🍗 ${st.chicken}</span><span class="member-kd">⛔ ${st.stop}</span></div>
       </div>

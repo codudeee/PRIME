@@ -18,6 +18,7 @@
   const JOIN_CANCEL_STORAGE_KEY = 'pklJoinCancelList';
   const JOIN_RECRUIT_STATE_STORAGE_KEY = 'pklJoinRecruitState';
   const SHEET_STORAGE_KEY = 'PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
+  const RESULT_MATCHES_KEY = 'PKL_RESULT_MATCHES_V1';
 
   const defaultState = () => ({
     players: [],
@@ -1938,7 +1939,7 @@ function completeTeams() {
     sheetState.pklTeamMode = exportCfg.key;
     sheetState.pklTeamCount = exportCfg.teams;
     sheetState.pklTeamSlots = exportCfg.slots;
-    sheetState.pklBuddyMode = !!exportCfg.buddy;
+    sheetState.pklBuddyMode = isPartnerTeamModeConfig(exportCfg);
     sheetState.selectedTeamId = sheetState.selectedTeamId || 'team1';
     sheetState.teams = teams;
     sheetState.rounds = Array.isArray(sheetState.rounds) && sheetState.rounds.length
@@ -1958,12 +1959,82 @@ function completeTeams() {
     try {
       window.dispatchEvent(new CustomEvent('pkl-sheet-teams-imported', { detail: { state: sheetState, teams } }));
     } catch (error) {}
-    const remoteSave = saveSheetStateToSupabaseNow(sheetJson);
+    const resultMatchSave = saveTeamExportToResultMatches(sheetState);
+    const remoteSave = Promise.all([saveSheetStateToSupabaseNow(sheetJson), resultMatchSave].filter(Boolean));
     return {
       count: teams.reduce((sum, team) => sum + team.members.filter(member => member.name).length, 0),
       remoteSave
     };
   }
+
+  function isPartnerTeamModeConfig(cfg) {
+    return !!(cfg && cfg.modeClass && String(cfg.modeClass).includes('pkl-mode-partner'));
+  }
+
+  function readResultMatchesForTeamExport() {
+    try {
+      const raw = localStorage.getItem(RESULT_MATCHES_KEY) || '[]';
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function resultRoundNoFromMatch(match) {
+    const title = String(match && match.title || '');
+    const id = String(match && match.id || '');
+    let found = title.match(/(?:PKL\s*)?(\d{1,4})\s*회차/);
+    if (found) return Number(found[1]);
+    found = id.match(/(?:round|match|pkl)[_\-]?(\d{1,4})(?!\d)/i);
+    if (found) return Number(found[1]);
+    return 0;
+  }
+
+  function nextResultRoundNumber(matches) {
+    const nums = (Array.isArray(matches) ? matches : [])
+      .map(resultRoundNoFromMatch)
+      .filter(num => Number.isFinite(num) && num > 0 && num < 999999);
+    return (nums.length ? Math.max(...nums) : 0) + 1;
+  }
+
+  function saveSharedTeamExportValue(key, value) {
+    const text = typeof value === 'string' ? value : JSON.stringify(value);
+    try { localStorage.setItem(key, text); } catch (error) {}
+    try {
+      if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
+        return window.PKLSupabaseDataSync.setShared(key, text);
+      }
+      if (typeof window.saveSharedData === 'function') return window.saveSharedData(key, text);
+    } catch (error) {}
+    return Promise.resolve(null);
+  }
+
+  function saveTeamExportToResultMatches(sheetState) {
+    const snapshot = JSON.parse(JSON.stringify(sheetState || {}));
+    const matches = readResultMatchesForTeamExport();
+    const roundNo = nextResultRoundNumber(matches);
+    const filledTeamCount = Array.isArray(snapshot.teams)
+      ? snapshot.teams.filter(team => Array.isArray(team.members) && team.members.some(member => String(member && member.name || '').trim())).length
+      : 0;
+    const now = new Date();
+    const match = {
+      id: `match_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      title: `PKL ${roundNo}회차`,
+      date: now.toLocaleDateString('ko-KR'),
+      start: snapshot.startTime || state.matchStartTime || '',
+      end: snapshot.endTime || state.matchEndTime || '',
+      maps: '',
+      type: '프라임 킬내기 리그',
+      teamCount: filledTeamCount || Number(snapshot.pklTeamCount || 0) || 0,
+      kind: 'paid',
+      savedAt: now.toISOString(),
+      snapshot
+    };
+    const nextMatches = matches.concat(match).sort((a, b) => resultRoundNoFromMatch(a) - resultRoundNoFromMatch(b));
+    return saveSharedTeamExportValue(RESULT_MATCHES_KEY, JSON.stringify(nextMatches));
+  }
+
 
   function saveSheetStateToSupabaseNow(sheetJson) {
     // PKL 2026-05-10: 팀 편성 완료 시 시트 전체 상태를 Supabase 공유문서에 직접 PATCH하지 않는다.
@@ -2003,8 +2074,8 @@ function completeTeams() {
         id: `team${teamIndex + 1}`,
         target: Number(oldTeam.target || 0),
         pklTeamMode: cfg.key,
-        pklBuddyIndex: cfg.buddy ? Math.floor(teamIndex / 2) + 1 : null,
-        pklBuddyMode: !!cfg.buddy,
+        pklBuddyIndex: isPartnerTeamModeConfig(cfg) ? Math.floor(teamIndex / 2) + 1 : null,
+        pklBuddyMode: isPartnerTeamModeConfig(cfg),
         members: Array.from({ length: slotCount }, (_, slotIndex) => createSheetMemberFromSlot(teamIndex, slotIndex))
       };
     });
