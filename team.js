@@ -1,14 +1,4 @@
 (() => {
-  try {
-    document.documentElement.classList.add('pkl-team-booting');
-    if (!document.getElementById('pklTeamBootStyle')) {
-      const style = document.createElement('style');
-      style.id = 'pklTeamBootStyle';
-      style.textContent = 'html.pkl-team-booting .builder-layout{opacity:0;pointer-events:none;}';
-      document.head.appendChild(style);
-    }
-  } catch (error) {}
-
   const STORAGE_KEY = 'pklTeamBuilderState.v1';
 
   const TIERS = [
@@ -28,7 +18,6 @@
   const JOIN_CANCEL_STORAGE_KEY = 'pklJoinCancelList';
   const JOIN_RECRUIT_STATE_STORAGE_KEY = 'pklJoinRecruitState';
   const SHEET_STORAGE_KEY = 'PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
-  const RESULT_MATCHES_KEY = 'PKL_RESULT_MATCHES_V1';
 
   const defaultState = () => ({
     players: [],
@@ -54,9 +43,6 @@
   let draggedPlayerId = null;
   let supabaseUsersCache = [];
   let supabaseUsersLoadedOnce = false;
-  let teamBoardRemoteSaveTimer = null;
-  let suppressTeamBoardRemoteSave = false;
-  let teamBoardRemoteLoadedOnce = false;
 
   function pklTeamCanEdit(){
     return !!(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentHasRole === "function" && window.PKLRoleSystem.currentHasRole("operator"));
@@ -196,41 +182,31 @@
     bindUserSyncEvents();
     startClock();
 
-    const releaseBootRender = () => {
-      render();
-      saveState();
-      try { document.documentElement.classList.remove('pkl-team-booting'); } catch (error) {}
-    };
-
     const supabaseReady = (window.PKLGetSupabaseConfig && typeof window.PKLGetSupabaseConfig === 'function')
       ? window.PKLGetSupabaseConfig().catch(() => window.PKL_SUPABASE_CONFIG || null)
       : Promise.resolve(window.PKL_SUPABASE_CONFIG || null);
 
     supabaseReady.finally(() => {
-      loadTeamBoardStateFromSharedOnce().finally(() => {
-        loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
-          syncJoinWaitListIntoTeamBoard(true);
-          syncPlayersWithUserSources();
-          refreshJoinWaitListFromSupabaseOnce(true).finally(releaseBootRender);
-        });
+      loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
+        syncJoinWaitListIntoTeamBoard(true);
+        syncPlayersWithUserSources();
+        render();
+        refreshJoinWaitListFromSupabaseOnce();
       });
     });
   }
 
-  function refreshJoinWaitListFromSupabaseOnce(skipRender) {
+  function refreshJoinWaitListFromSupabaseOnce() {
     const realtime = window.PKLJoinRealtime;
-    if (!realtime || typeof realtime.fetchNow !== 'function') return Promise.resolve(false);
-    return realtime.fetchNow().then(() => loadSupabaseUsersForJoinWaitListOnce(true)).then(() => {
+    if (!realtime || typeof realtime.fetchNow !== 'function') return;
+    realtime.fetchNow().then(() => loadSupabaseUsersForJoinWaitListOnce(true)).then(() => {
       syncJoinWaitListIntoTeamBoard(true);
       syncPlayersWithUserSources();
-      if (!skipRender) {
-        renderTierPools();
-        renderTeams();
-        renderSummary();
-        saveState();
-      }
-      return true;
-    }).catch(() => false);
+      renderTierPools();
+      renderTeams();
+      renderSummary();
+      saveState();
+    }).catch(() => {});
   }
 
   function fillTierSelect() {
@@ -1929,46 +1905,26 @@ function rerollAll() {
   function hasMatchTimeSettings() {
     return Boolean(matchTimeSettingsConfirmed && String(state.matchStartTime || '').trim() && String(state.matchEndTime || '').trim());
   }
-
-  function clearTeamBoardStateAfterComplete() {
-    if (teamBoardRemoteSaveTimer) {
-      clearTimeout(teamBoardRemoteSaveTimer);
-      teamBoardRemoteSaveTimer = null;
-    }
-
-    const previousMode = state && state.teamMode ? state.teamMode : 'squad20';
-    state = defaultState();
-    state.teamMode = previousMode;
-    state.updatedAt = new Date().toISOString();
-    ensureTeamModeState(state.teamMode);
-    matchTimeSettingsConfirmed = false;
-
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (error) {}
-    return saveTeamBoardStateToSharedNow();
-  }
 function completeTeams() {
     showPklConfirmModal({
       title: '팀구성 완료',
-      message: '현재 팀 박스에 배치된 유저를 시트지에 자동 등록합니다.<br>등록 후에도 현재 팀구성 보드는 유지됩니다.<br>게임진행 전 시작/종료 타이머를 꼭 확인 해 주시고<br>참가,리롤 입완체크를 끝낸 후 완료 버튼을 눌러주세요.',
+      message: '현재 팀 박스에 배치된 유저를 시트지에 자동 등록합니다.<br>등록 후 현재 팀구성 보드는 자동으로 초기화됩니다.<br>게임진행 전 시작/종료 타이머를 꼭 확인 해 주시고<br>참가,리롤 입완체크를 끝낸 후 완료 버튼을 눌러주세요.',
       danger: false,
       confirmText: '완료',
       cancelText: '취소',
       onConfirm: () => {
         const result = exportTeamBoardToSheet();
         const importedCount = result && typeof result.count === 'number' ? result.count : Number(result || 0);
-        let joinResetSave = null;
-        try { joinResetSave = resetJoinRecruitmentAfterTeamComplete(); } catch (error) { console.warn('[PKL] join reset after team complete skipped', error); }
-        const boardClearSave = clearTeamBoardStateAfterComplete();
-        setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 모집 상태를 초기화했습니다. 다음 팀구성을 위해 팀보드를 비운 뒤 시트지로 이동합니다.`);
-        const goSheet = () => {
-          const target = new URL('sheet.html', window.location.href).href;
-          try { window.location.assign(target); } catch (error) { window.location.href = target; }
-        };
-        const pendingSaves = [result && result.remoteSave, joinResetSave, boardClearSave].filter(item => item && typeof item.finally === 'function');
-        if (pendingSaves.length) {
-          Promise.allSettled(pendingSaves).finally(() => setTimeout(goSheet, 80));
+        resetBuilder();
+        setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 시트지로 이동합니다.`);
+        const goSheet = () => { window.location.href = 'sheet.html'; };
+        if (result && result.remoteSave && typeof result.remoteSave.finally === 'function') {
+          let moved = false;
+          const moveOnce = () => { if (moved) return; moved = true; goSheet(); };
+          result.remoteSave.finally(() => setTimeout(moveOnce, 80));
+          setTimeout(moveOnce, 1800);
         } else {
-          setTimeout(goSheet, 180);
+          setTimeout(goSheet, 250);
         }
       }
     });
@@ -1982,9 +1938,8 @@ function completeTeams() {
     sheetState.pklTeamMode = exportCfg.key;
     sheetState.pklTeamCount = exportCfg.teams;
     sheetState.pklTeamSlots = exportCfg.slots;
-    sheetState.pklBuddyMode = isPartnerTeamModeConfig(exportCfg);
-    const firstFilledTeam = teams.find(team => Array.isArray(team.members) && team.members.some(member => String(member && member.name || '').trim()));
-    sheetState.selectedTeamId = firstFilledTeam && firstFilledTeam.id ? firstFilledTeam.id : 'team1';
+    sheetState.pklBuddyMode = !!exportCfg.buddy;
+    sheetState.selectedTeamId = sheetState.selectedTeamId || 'team1';
     sheetState.teams = teams;
     sheetState.rounds = Array.isArray(sheetState.rounds) && sheetState.rounds.length
       ? sheetState.rounds
@@ -1999,165 +1954,21 @@ function completeTeams() {
     sheetState.updatedFromTeamBoardAt = new Date().toISOString();
     const sheetJson = JSON.stringify(sheetState);
     localStorage.setItem(SHEET_STORAGE_KEY, sheetJson);
-    try { localStorage.setItem('PKL_TEAM_EXPORT_TO_SHEET_PENDING_V1', sheetJson); } catch (error) {}
-    try { window.dispatchEvent(new StorageEvent('storage', { key: SHEET_STORAGE_KEY, newValue: sheetJson })); } catch (error) {}
+    window.dispatchEvent(new StorageEvent('storage', { key: SHEET_STORAGE_KEY, newValue: sheetJson }));
     try {
       window.dispatchEvent(new CustomEvent('pkl-sheet-teams-imported', { detail: { state: sheetState, teams } }));
     } catch (error) {}
-    const resultMatchSave = saveTeamExportToResultMatches(sheetState);
-    const remoteSave = Promise.all([saveSheetStateToSupabaseNow(sheetJson), resultMatchSave].filter(Boolean));
+    const remoteSave = saveSheetStateToSupabaseNow(sheetJson);
     return {
       count: teams.reduce((sum, team) => sum + team.members.filter(member => member.name).length, 0),
       remoteSave
     };
   }
 
-  function isPartnerTeamModeConfig(cfg) {
-    return !!(cfg && cfg.modeClass && String(cfg.modeClass).includes('pkl-mode-partner'));
-  }
-
-  function readResultMatchesForTeamExport() {
-    try {
-      const raw = localStorage.getItem(RESULT_MATCHES_KEY) || '[]';
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      return [];
-    }
-  }
-
-  function resultRoundNoFromMatch(match) {
-    const title = String(match && match.title || '');
-    const id = String(match && match.id || '');
-    let found = title.match(/(?:PKL\s*)?(\d{1,4})\s*회차/);
-    if (found) return Number(found[1]);
-    found = id.match(/(?:round|match|pkl)[_\-]?(\d{1,4})(?!\d)/i);
-    if (found) return Number(found[1]);
-    return 0;
-  }
-
-  function nextResultRoundNumber(matches) {
-    const nums = (Array.isArray(matches) ? matches : [])
-      .map(resultRoundNoFromMatch)
-      .filter(num => Number.isFinite(num) && num > 0 && num < 999999);
-    return (nums.length ? Math.max(...nums) : 0) + 1;
-  }
-
-  function saveSharedTeamExportValue(key, value) {
-    const text = typeof value === 'string' ? value : JSON.stringify(value);
-    try { localStorage.setItem(key, text); } catch (error) {}
-    try {
-      if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
-        return window.PKLSupabaseDataSync.setShared(key, text);
-      }
-      if (typeof window.saveSharedData === 'function') return window.saveSharedData(key, text);
-    } catch (error) {}
-    return Promise.resolve(null);
-  }
-
-  function saveTeamExportToResultMatches(sheetState) {
-    const snapshot = JSON.parse(JSON.stringify(sheetState || {}));
-    const matches = readResultMatchesForTeamExport();
-    const roundNo = nextResultRoundNumber(matches);
-    const filledTeamCount = Array.isArray(snapshot.teams)
-      ? snapshot.teams.filter(team => Array.isArray(team.members) && team.members.some(member => String(member && member.name || '').trim())).length
-      : 0;
-    const now = new Date();
-    const match = {
-      id: `match_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      title: `PKL ${roundNo}회차`,
-      date: now.toLocaleDateString('ko-KR'),
-      start: snapshot.startTime || state.matchStartTime || '',
-      end: snapshot.endTime || state.matchEndTime || '',
-      maps: '',
-      type: '프라임 킬내기 리그',
-      teamCount: filledTeamCount || Number(snapshot.pklTeamCount || 0) || 0,
-      kind: 'paid',
-      savedAt: now.toISOString(),
-      snapshot
-    };
-    const nextMatches = matches.concat(match).sort((a, b) => resultRoundNoFromMatch(a) - resultRoundNoFromMatch(b));
-    return saveSharedTeamExportValue(RESULT_MATCHES_KEY, JSON.stringify(nextMatches));
-  }
-
-
   function saveSheetStateToSupabaseNow(sheetJson) {
-    // PKL 2026-05-13: pkl-supabase-sync가 운영 키를 localStorage 디스크에 남기지 않기 때문에
-    // 페이지 이동 직전에는 지연 queueSave에 맡기지 않고 시트 상태를 Supabase shared에 즉시 저장한다.
-    const text = typeof sheetJson === 'string' ? sheetJson : JSON.stringify(sheetJson || {});
-    try {
-      if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
-        return window.PKLSupabaseDataSync.setShared(SHEET_STORAGE_KEY, text);
-      }
-      if (typeof window.saveSharedData === 'function') return window.saveSharedData(SHEET_STORAGE_KEY, text);
-    } catch (error) {
-      console.warn('[PKL] sheet immediate save skipped', error);
-    }
+    // PKL 2026-05-10: 팀 편성 완료 시 시트 전체 상태를 Supabase 공유문서에 직접 PATCH하지 않는다.
+    // 시트 전달은 같은 브라우저 localStorage만 사용하고, 실제 실시간 공유는 sheet.html의 pklLiveScoreboard/current만 사용한다.
     return Promise.resolve(null);
-  }
-
-
-  function createResetJoinRecruitmentState() {
-    return {
-      version: 2,
-      waitList: [],
-      cancelList: [],
-      recruitState: {
-        state: 'waiting',
-        hostHtml: '',
-        openTime: '',
-        deadlineText: '모집대기중',
-        feeText: '',
-        feeInput: '',
-        deadlineConfigured: false
-      },
-      updatedAt: new Date().toISOString()
-    };
-  }
-
-  function resetJoinRecruitmentAfterTeamComplete() {
-    const joinState = createResetJoinRecruitmentState();
-    const saves = [];
-
-    try { localStorage.setItem(JOIN_WAITLIST_STORAGE_KEY, JSON.stringify([])); } catch (error) {}
-    try { localStorage.setItem(JOIN_CANCEL_STORAGE_KEY, JSON.stringify([])); } catch (error) {}
-    try { localStorage.setItem(JOIN_RECRUIT_STATE_STORAGE_KEY, JSON.stringify(joinState.recruitState)); } catch (error) {}
-    try { localStorage.removeItem('pklJoinFeeInfo'); } catch (error) {}
-    try {
-      Object.keys(localStorage).forEach(key => {
-        if (String(key).indexOf('pklJoinDepositRequested_') === 0) localStorage.removeItem(key);
-      });
-      localStorage.removeItem('pklJoinDepositRequests');
-    } catch (error) {}
-
-    try {
-      window.dispatchEvent(new CustomEvent('pkl-join-state-updated', { detail: joinState }));
-    } catch (error) {}
-
-    try {
-      if (window.PKLJoinRealtime && typeof window.PKLJoinRealtime.save === 'function') {
-        const saved = window.PKLJoinRealtime.save();
-        if (saved && typeof saved.then === 'function') saves.push(saved);
-      }
-    } catch (error) {}
-
-    try {
-      saves.push(fetch('/api/pkl-data-store', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'live_scores', id: 'join_state', payload: joinState })
-      }).then(response => response.ok ? response.json().catch(() => null) : null).catch(() => null));
-    } catch (error) {}
-
-    try {
-      if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
-        saves.push(window.PKLSupabaseDataSync.setShared(JOIN_WAITLIST_STORAGE_KEY, []));
-        saves.push(window.PKLSupabaseDataSync.setShared(JOIN_CANCEL_STORAGE_KEY, []));
-        saves.push(window.PKLSupabaseDataSync.setShared(JOIN_RECRUIT_STATE_STORAGE_KEY, joinState.recruitState));
-      }
-    } catch (error) {}
-
-    return Promise.allSettled(saves.filter(Boolean));
   }
 
   function loadSheetStateForTeamExport() {
@@ -2192,8 +2003,8 @@ function completeTeams() {
         id: `team${teamIndex + 1}`,
         target: Number(oldTeam.target || 0),
         pklTeamMode: cfg.key,
-        pklBuddyIndex: isPartnerTeamModeConfig(cfg) ? Math.floor(teamIndex / 2) + 1 : null,
-        pklBuddyMode: isPartnerTeamModeConfig(cfg),
+        pklBuddyIndex: cfg.buddy ? Math.floor(teamIndex / 2) + 1 : null,
+        pklBuddyMode: !!cfg.buddy,
         members: Array.from({ length: slotCount }, (_, slotIndex) => createSheetMemberFromSlot(teamIndex, slotIndex))
       };
     });
@@ -3582,105 +3393,7 @@ function startClock() {
   }
 
   function saveState() {
-    try { state.updatedAt = new Date().toISOString(); } catch (error) {}
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (error) {}
-    scheduleTeamBoardStateRemoteSave();
-  }
-
-  function scheduleTeamBoardStateRemoteSave() {
-    if (suppressTeamBoardRemoteSave) return;
-    if (teamBoardRemoteSaveTimer) clearTimeout(teamBoardRemoteSaveTimer);
-    teamBoardRemoteSaveTimer = setTimeout(() => {
-      teamBoardRemoteSaveTimer = null;
-      saveTeamBoardStateToSharedNow();
-    }, 450);
-  }
-
-  function saveTeamBoardStateToSharedNow() {
-    let snapshot = '';
-    try { snapshot = JSON.stringify(state); } catch (error) { return Promise.resolve(null); }
-    try {
-      if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
-        return window.PKLSupabaseDataSync.setShared(STORAGE_KEY, snapshot).catch(() => null);
-      }
-    } catch (error) {}
-    try {
-      return fetch('/api/pkl-data-store', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'shared', key: STORAGE_KEY, value: snapshot })
-      }).then(response => response.ok ? response.json().catch(() => null) : null).catch(() => null);
-    } catch (error) {
-      return Promise.resolve(null);
-    }
-  }
-
-  function normalizeTeamBoardSharedValue(value) {
-    if (!value) return null;
-    if (typeof value === 'string') {
-      try { return JSON.parse(value); } catch (error) { return null; }
-    }
-    if (value && typeof value === 'object') return value;
-    return null;
-  }
-
-  function countPlacedTeamBoardPlayers(saved) {
-    if (!saved || !Array.isArray(saved.teams)) return 0;
-    return saved.teams.reduce((sum, team) => sum + ((team && Array.isArray(team.slots)) ? team.slots.filter(Boolean).length : 0), 0);
-  }
-
-  function getTeamBoardSavedTime(saved) {
-    const time = Date.parse(String(saved && saved.updatedAt || saved && saved.savedAt || ''));
-    return Number.isFinite(time) ? time : 0;
-  }
-
-  function shouldUseSharedTeamBoardState(sharedState) {
-    if (!sharedState || !Array.isArray(sharedState.players) || !Array.isArray(sharedState.teams)) return false;
-    let localState = null;
-    try { localState = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (error) {}
-    const sharedTime = getTeamBoardSavedTime(sharedState);
-    const localTime = getTeamBoardSavedTime(localState);
-    if (sharedTime && localTime) return sharedTime >= localTime;
-    if (countPlacedTeamBoardPlayers(sharedState) > countPlacedTeamBoardPlayers(localState)) return true;
-    return !localState;
-  }
-
-  function loadTeamBoardStateFromSharedOnce() {
-    if (teamBoardRemoteLoadedOnce) return Promise.resolve(false);
-    teamBoardRemoteLoadedOnce = true;
-    const applyShared = value => {
-      const sharedState = normalizeTeamBoardSharedValue(value);
-      if (!shouldUseSharedTeamBoardState(sharedState)) return false;
-      suppressTeamBoardRemoteSave = true;
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedState));
-        state = loadState();
-        ensureTeamModeState(state.teamMode || 'squad20');
-        return true;
-      } catch (error) {
-        return false;
-      } finally {
-        setTimeout(() => { suppressTeamBoardRemoteSave = false; }, 0);
-      }
-    };
-
-    try {
-      if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function') {
-        return window.PKLSupabaseDataSync.getShared(STORAGE_KEY).then(applyShared).catch(() => false);
-      }
-    } catch (error) {}
-
-    try {
-      return fetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent(STORAGE_KEY) + '&_=' + Date.now(), { cache: 'no-store' })
-        .then(response => response.ok ? response.json().catch(() => null) : null)
-        .then(data => {
-          const row = data && Array.isArray(data.rows) ? data.rows[0] : null;
-          return applyShared(row ? (row.value || row.payload || row.data) : null);
-        })
-        .catch(() => false);
-    } catch (error) {
-      return Promise.resolve(false);
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
 
   function loadState() {

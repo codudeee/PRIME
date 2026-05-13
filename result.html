@@ -1623,31 +1623,15 @@ function resultNormalizeMembers(members){
 function resultTeamHasMembers(team){
   return resultNormalizeMembers(team && team.members).length > 0;
 }
-function resultFindTierUserByMember(member){
-  const keys=pklResultUserKeys(member||{});
-  const name=pklResultNorm(member && (member.name || member.nickname || member.nick || member.displayName || member.pubgId || member.gameId));
-  const users=pklResultReadUsers();
-  return users.find(u=>pklResultUserKeys(u).some(k=>keys.includes(k))) || users.find(u=>name && pklResultUserKeys(u).includes(name)) || null;
-}
-function resultMemberNameHtml(member){
-  if(!member) return '';
-  const user=resultFindTierUserByMember(member);
-  const name=String((user && (user.nickname||user.nick||user.name||user.displayName||user.pubgId||user.gameId||user.username)) || (member.name||member.nickname||member.nick||member.displayName||member.pubgId||member.gameId||'')).trim();
-  if(!name) return '';
-  const badge=(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser==='function') ? (window.PKLTierBadge.renderForUser(user)||'') : '';
-  return `<span class="user-role-line"><span class="member-name">${esc(name)}</span>${badge ? ' '+badge : ''}</span>`;
-}
 function visibleTeams(){
   return (state.teams||[])
+    .slice(0,10)
     .filter(resultTeamHasMembers)
     .map((t,i)=>({
       id:t.id||'team'+(i+1),
       viewId:t.id||'team'+(i+1),
       target:Number(t.target||0),
-      members:resultNormalizeMembers(t.members),
-      pklTeamMode:t.pklTeamMode || state.pklTeamMode || '',
-      pklBuddyIndex:t.pklBuddyIndex || null,
-      pklBuddyMode:!!(t.pklBuddyMode || state.pklBuddyMode)
+      members:resultNormalizeMembers(t.members)
     }));
 }
 
@@ -1863,7 +1847,7 @@ function renderBoard(){
           const cleanName = String(m && (m.name || m.nickname || m.nick || m.displayName || m.pubgId) || '').trim();
           if(!cleanName || cleanName === '-') return '';
           const scoreText = `${st.memberScores[i]||0} (${st.kills[i]||0}/${st.deaths[i]||0})`;
-          const nameHtml = resultMemberNameHtml(m) || `<span class="member-name">${esc(cleanName)}</span>`;
+          const nameHtml = `<span class="member-name">${esc(cleanName)}</span>`;
           return `<div class="member-row has-name">${nameHtml}<span class="member-kd">${scoreText}</span></div>`;
         }).join('')}
       </div>
@@ -1901,12 +1885,7 @@ function renderSheet(){
     if(body) body.innerHTML='<tr><td colspan="9" class="pkl-result-empty-sheet">표시할 회차 데이터가 없습니다.</td></tr>';
     return;
   }
-  [0,1,2,3].forEach(i=>{
-    const h=document.getElementById('h'+i);
-    if(!h) return;
-    const member=team.members[i];
-    h.innerHTML=(member && String(member.name||'').trim()!=='-') ? (resultMemberNameHtml(member) || esc(member.name||'')) : '';
-  });
+  [0,1,2,3].forEach(i=>{document.getElementById('h'+i).textContent=(team.members[i]&&String(team.members[i].name||'').trim()!=='-'?team.members[i].name:'');});
   const surrendered=resultIsSurrendered(team.viewId);
   const rows=(state.rounds||[]).slice(0,30).map((r,ri)=>{
     const d=teamData(r,team.id);
