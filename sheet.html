@@ -6267,32 +6267,49 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 
 
 <style id="pkl-scoreboard-mode-layout-style">
-/* PKL FIX: 스코어보드는 10칸 단위로 가로 배치하고, 20팀 이상은 아래 줄로 이어지게 한다. */
+/* PKL FIX: 스코어보드는 처음처럼 위 5칸 / 아래 5칸 기준으로 유지하고, 10칸 초과분만 아래로 스크롤한다. */
 #teamGrid.team-grid{
-  grid-template-columns:repeat(10,minmax(0,1fr)) !important;
-  grid-auto-rows:minmax(118px,1fr) !important;
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
   grid-template-rows:none !important;
-  gap:7px !important;
-  padding:9px !important;
+  grid-auto-rows:162px !important;
+  gap:10px !important;
+  padding:12px !important;
   align-content:start !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  scrollbar-width:thin !important;
+  scrollbar-color:rgba(155,92,255,.95) rgba(10,8,22,.65) !important;
+}
+#teamGrid.team-grid::-webkit-scrollbar{width:10px !important;}
+#teamGrid.team-grid::-webkit-scrollbar-track{
+  background:rgba(10,8,22,.65) !important;
+  border-left:1px solid rgba(155,92,255,.22) !important;
+  border-radius:999px !important;
+}
+#teamGrid.team-grid::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg,rgba(155,92,255,.95),rgba(56,217,255,.45)) !important;
+  border-radius:999px !important;
+  box-shadow:0 0 10px rgba(155,92,255,.55) !important;
 }
 #teamGrid .team-card{
   min-width:0 !important;
-  min-height:118px !important;
+  min-height:0 !important;
+  height:162px !important;
+  padding:7px 9px !important;
 }
 #teamGrid .card-score-main{
-  min-height:24px !important;
-  height:24px !important;
-  font-size:12px !important;
+  min-height:30px !important;
+  height:30px !important;
+  font-size:16px !important;
 }
-#teamGrid .score-gauge-text{font-size:12px !important;line-height:1 !important;}
-#teamGrid .member-list{padding:5px 6px !important;gap:2px !important;}
+#teamGrid .score-gauge-text{font-size:16px !important;line-height:1 !important;font-weight:1000 !important;}
+#teamGrid .member-list{padding:6px 8px !important;gap:3px !important;}
 #teamGrid .member-row{
-  min-height:19px !important;
-  height:auto !important;
+  min-height:21px !important;
+  height:21px !important;
   grid-template-columns:minmax(0,1fr) auto !important;
-  gap:4px !important;
-  font-size:11px !important;
+  gap:7px !important;
+  font-size:15px !important;
   line-height:1.05 !important;
 }
 #teamGrid .member-name{
@@ -6306,7 +6323,7 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
   display:inline-flex !important;
   align-items:center !important;
   justify-content:center !important;
-  gap:3px !important;
+  gap:4px !important;
   max-width:100% !important;
   overflow:hidden !important;
 }
@@ -6315,18 +6332,20 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
   overflow:hidden !important;
   text-overflow:ellipsis !important;
   white-space:nowrap !important;
+  font-size:15px !important;
+  font-weight:1000 !important;
 }
 #teamGrid .pkl-score-member-name-wrap .pkl-tier-badge,
 #teamGrid .pkl-score-member-name-wrap .tier-head-badge{
   flex:0 0 auto !important;
-  transform:scale(.72) !important;
+  transform:scale(.82) !important;
   transform-origin:center !important;
   margin-left:1px !important;
 }
-#teamGrid .member-kd{font-size:10px !important;white-space:nowrap !important;}
-#teamGrid .member-row.team-extra-row{min-height:20px !important;height:20px !important;gap:8px !important;}
+#teamGrid .member-kd{font-size:15px !important;white-space:nowrap !important;font-weight:1000 !important;}
+#teamGrid .member-row.team-extra-row{min-height:22px !important;height:22px !important;gap:8px !important;}
 #teamGrid .member-row.team-extra-row .member-name,
-#teamGrid .member-row.team-extra-row .member-kd{font-size:12px !important;}
+#teamGrid .member-row.team-extra-row .member-kd{font-size:15px !important;font-weight:1000 !important;}
 </style>
 
 </head>
