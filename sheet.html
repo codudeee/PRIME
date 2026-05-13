@@ -2645,23 +2645,20 @@ body:has(#pklColdEntryModal.is-open) #pklFireBlockToast{
   font-weight:1000 !important;
 }
 
-/* PKL sheet score-input header nickname + tier badge visibility only */
-.record-table th .user-role-line .pkl-tier-badge,
-.record-table th .user-role-line .tier-mark{
+.record-table th .user-role-line .tier-mark,
+.record-table th .user-role-line .pkl-tier-badge{
   flex:0 0 auto !important;
-  min-width:48px !important;
-  height:20px !important;
-  min-height:20px !important;
-  line-height:20px !important;
-  padding:0 7px !important;
-  font-size:10px !important;
-  margin-left:2px !important;
-  white-space:nowrap !important;
+  display:inline-flex !important;
+  min-width:52px !important;
+  height:22px !important;
+  min-height:22px !important;
+  padding:0 8px !important;
+  font-size:11px !important;
+  line-height:22px !important;
+  vertical-align:middle !important;
+  opacity:1 !important;
+  visibility:visible !important;
 }
-.record-table th .user-role-line .user-name{
-  max-width:72px !important;
-}
-
 /* PKL clean map circle dropdown */
 .pkl-map-field{
   position:relative;
@@ -6557,18 +6554,23 @@ function pklTierScoreRoleFromText(text){
   const raw=String(text||"").trim();
   const compact=raw.replace(/\s+/g,"");
   const map={
+    "0티어":"tier0_mid","0":"tier0_mid","tier0":"tier0_mid",
     "0티어상":"tier0_high","0상":"tier0_high",
     "0티어중":"tier0_mid","0중":"tier0_mid",
     "0티어하":"tier0_low","0하":"tier0_low",
+    "1티어":"tier1_mid","1":"tier1_mid","tier1":"tier1_mid",
     "1티어상":"tier1_high","1상":"tier1_high",
     "1티어중":"tier1_mid","1중":"tier1_mid",
     "1티어하":"tier1_low","1하":"tier1_low",
+    "2티어":"tier2_mid","2":"tier2_mid","tier2":"tier2_mid",
     "2티어상":"tier2_high","2상":"tier2_high",
     "2티어중":"tier2_mid","2중":"tier2_mid",
     "2티어하":"tier2_low","2하":"tier2_low",
+    "3티어":"tier3_mid","3":"tier3_mid","tier3":"tier3_mid",
     "3티어상":"tier3_high","3상":"tier3_high",
     "3티어중":"tier3_mid","3중":"tier3_mid",
     "3티어하":"tier3_low","3하":"tier3_low",
+    "4티어":"tier4_mid","4":"tier4_mid","tier4":"tier4_mid",
     "4티어상":"tier4_high","4상":"tier4_high",
     "4티어중":"tier4_mid","4중":"tier4_mid",
     "4티어하":"tier4_low","4하":"tier4_low",
@@ -6576,8 +6578,6 @@ function pklTierScoreRoleFromText(text){
     "beast":"beast"
   };
   if(map[compact]) return map[compact];
-  if(/^tier[0-4]$/.test(raw)) return raw + "_mid";
-  if(/^tier[0-4]$/.test(compact)) return compact + "_mid";
   if(/^tier[0-4]_(high|mid|low)$/.test(raw) || raw==="beast") return raw;
   return "";
 }
