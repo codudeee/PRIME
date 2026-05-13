@@ -2644,33 +2644,6 @@ body:has(#pklColdEntryModal.is-open) #pklFireBlockToast{
   color:#fff !important;
   font-weight:1000 !important;
 }
-/* PKL score input header tier badge visible fix: only map-right nickname cells */
-.record-table th .user-role-line .pkl-tier-badge,
-.record-table th .user-role-line .tier-mark[data-pkl-tier-badge],
-.record-table th .user-role-line .tier-mark{
-  flex:0 0 auto !important;
-  min-width:38px !important;
-  width:auto !important;
-  height:18px !important;
-  min-height:18px !important;
-  padding:0 5px !important;
-  border-radius:999px !important;
-  font-size:10px !important;
-  line-height:18px !important;
-  margin-left:2px !important;
-  white-space:nowrap !important;
-  display:inline-flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  overflow:hidden !important;
-}
-.record-table th .user-role-line{
-  gap:4px !important;
-}
-.record-table th .user-role-line .user-name{
-  max-width:64px !important;
-}
-
 /* PKL clean map circle dropdown */
 .pkl-map-field{
   position:relative;
@@ -6306,6 +6279,13 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 }
 </style>
 
+<style id="pkl-sheet-mapright-tier-badge-visibility">
+/* PKL sheet map-right nickname + Supabase tier badge visibility only */
+.record-table th .user-role-line{display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:5px !important;max-width:100% !important;min-width:0 !important;white-space:nowrap !important;overflow:visible !important;}
+.record-table th .user-role-line .user-name{min-width:0 !important;max-width:72px !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important;}
+.record-table th .user-role-line .pkl-tier-badge,
+.record-table th .user-role-line .tier-mark[data-pkl-tier-badge]{min-width:42px !important;height:20px !important;min-height:20px !important;line-height:20px !important;padding:0 6px !important;font-size:10px !important;z-index:80 !important;display:inline-flex !important;}
+</style>
 </head>
 <body>
 <div class="app">
@@ -6585,12 +6565,13 @@ function pklTierScoreRoleFromText(text){
     "beast":"beast"
   };
   if(map[compact]) return map[compact];
-  if(/^tier[0-4]_(high|mid|low)$/.test(raw) || raw==="beast") return raw;
-  // team.js 기본 티어값(tier0~tier4)은 세부 상/중/하가 없는 값이라
-  // 점수시트 헤더에서는 각 티어의 중간값 배지로 표시한다.
-  if(/^tier[0-4]$/.test(raw)) return raw + "_mid";
-  if(/^티어?[0-4]$/.test(compact)) return "tier" + compact.replace(/[^0-4]/g,"") + "_mid";
-  if(/^[0-4]티어$/.test(compact)) return "tier" + compact.charAt(0) + "_mid";
+  if(/^tier[0-4]$/i.test(raw)) return raw.toLowerCase() + "_mid";
+  if(/^tier[0-4]_(high|mid|low)$/i.test(raw)) return raw.toLowerCase();
+  if(raw==="beast") return raw;
+  if(window.PKLTierBadge && typeof window.PKLTierBadge.normalize === "function"){
+    const key = window.PKLTierBadge.normalize(raw);
+    if(key && key !== "none") return key;
+  }
   return "";
 }
 function pklTierScoreLaneFromRole(role){
@@ -6638,13 +6619,37 @@ function pklReadTierScoreConfig(){
   });
   return base;
 }
+let pklSheetSupabaseUsersCache = [];
+let pklSheetSupabaseUsersPromise = null;
+function pklNormalizeSheetUsersPayload(data){
+  if(Array.isArray(data)) return data;
+  if(data && Array.isArray(data.users)) return data.users;
+  if(data && Array.isArray(data.rows)) return data.rows;
+  if(data && Array.isArray(data.items)) return data.items;
+  return [];
+}
+function pklLoadSheetSupabaseUsersOnce(){
+  if(pklSheetSupabaseUsersPromise) return pklSheetSupabaseUsersPromise;
+  pklSheetSupabaseUsersPromise = fetch('/api/pkl-users?limit=1000&offset=0&tierOnly=1', {
+    cache:'no-store',
+    headers:{Accept:'application/json','Cache-Control':'no-store'}
+  }).then(res=>res.ok ? res.json() : null).then(data=>{
+    const users = pklNormalizeSheetUsersPayload(data).filter(u=>u && typeof u === 'object');
+    if(users.length) pklSheetSupabaseUsersCache = users;
+    return pklSheetSupabaseUsersCache;
+  }).catch(()=>pklSheetSupabaseUsersCache);
+  return pklSheetSupabaseUsersPromise;
+}
 function pklReadTierUsers(){
   const users=[];
   const pushState=(state)=>{
     if(!state) return;
     if(Array.isArray(state)) state.forEach(u=>u&&typeof u==="object"&&users.push(u));
     else if(state && Array.isArray(state.users)) state.users.forEach(u=>u&&typeof u==="object"&&users.push(u));
+    else if(state && Array.isArray(state.rows)) state.rows.forEach(u=>u&&typeof u==="object"&&users.push(u));
   };
+  pushState(pklSheetSupabaseUsersCache);
+  /* Supabase 단일 원본 보조: 디스크 차단 키는 읽히지 않지만, 구버전/테스트 환경에 남은 값은 마지막 fallback으로만 사용한다. */
   ["pklUsers","PKL_USERS","pklAdminUsers","PKL_ADMIN_USERS","pklUserList","pklAdminState_v3","pklAdminState","pkl_admin_state"].forEach(key=>{
     try{ pushState(JSON.parse(localStorage.getItem(key)||"null")); }catch(e){}
   });
@@ -6706,15 +6711,15 @@ function pklNormUserKey(v){
 }
 function pklTierUserNames(user){
   return [
-    user?.uid,user?.id,user?.userId,user?.memberId,user?.loginId,
-    user?.nickname,user?.nick,user?.name,user?.displayName,
-    user?.pubgId,user?.pubgID,user?.pubgName,user?.gameId,user?.username
+    user?.uid,user?.id,user?.userId,user?.memberId,user?.loginId,user?.discordId,user?.discord_id,
+    user?.nickname,user?.nick,user?.name,user?.displayName,user?.discordUsername,user?.discord_username,
+    user?.pubgId,user?.pubg_id,user?.pubgID,user?.pubgName,user?.gameId,user?.username
   ].map(pklNormUserKey).filter(Boolean);
 }
 function pklFindTierUserByMember(member){
   const keys=[
-    member?.uid,member?.id,member?.userId,member?.memberId,member?.loginId,
-    member?.name,member?.nickname,member?.nick,member?.pubgId,member?.gameId
+    member?.uid,member?.id,member?.userId,member?.memberId,member?.loginId,member?.discordId,member?.discord_id,
+    member?.name,member?.nickname,member?.nick,member?.displayName,member?.pubgId,member?.pubg_id,member?.gameId
   ].map(pklNormUserKey).filter(Boolean);
   if(!keys.length) return null;
   return pklReadTierUsers().find(user=>{
@@ -7364,7 +7369,7 @@ function pklSheetHeaderNameHtml(member){
   ).trim();
   if(!name) return '';
 
-  const tierCandidates = [
+  const tierSource = [
     member && member.__tierRole,
     member && member.memberTier,
     member && member.tier,
@@ -7375,10 +7380,8 @@ function pklSheetHeaderNameHtml(member){
     member && member.level,
     member && member.role,
     member && member.title,
-    member && member.tierRole,
-    member && member.gradeRole,
-    member && member.roleName,
-    member && member.tierName,
+    member && member.tier0,
+    member && member.tier1,
     user && user.memberTier,
     user && user.tier,
     user && user.grade,
@@ -7387,16 +7390,8 @@ function pklSheetHeaderNameHtml(member){
     user && user.rank,
     user && user.level,
     user && user.role,
-    user && user.title,
-    user && user.tierRole,
-    user && user.gradeRole,
-    user && user.roleName,
-    user && user.tierName
-  ].filter(value => value !== undefined && value !== null && String(value).trim() !== '');
-  const tierSource = tierCandidates.map(pklTierScoreRoleFromText).find(Boolean)
-    || (window.PKLTierBadge && typeof window.PKLTierBadge.normalize === 'function'
-      ? tierCandidates.map(value => window.PKLTierBadge.normalize(value)).find(value => value && value !== 'none')
-      : '');
+    user && user.title
+  ].map(pklTierScoreRoleFromText).find(Boolean);
 
   let badge = '';
   if(window.PKLTierBadge){
@@ -8549,7 +8544,27 @@ window.PKLSheetLiveBridge={
   markLocalEdit:function(){pklMarkLocalSheetEdit();},
   getLastLocalEditAt:function(){return pklLastLocalSheetEditAt||0;}
 };
+function pklApplySupabaseSheetStateOnce(){
+  const applyNext = (next)=>{
+    if(!next || !Array.isArray(next.teams) || !Array.isArray(next.rounds)) return false;
+    state = next;
+    selectedTeamId = state.selectedTeamId || selectedTeamId || (state.teams[0] && state.teams[0].id) || 'team1';
+    if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId = (visibleTeams()[0] && visibleTeams()[0].viewId) || 'team1';
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+    render();
+    return true;
+  };
+  if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
+    return window.PKLSupabaseDataSync.getShared(STORAGE_KEY).then(applyNext).catch(()=>false);
+  }
+  return fetch('/api/pkl-data-store?type=shared&key='+encodeURIComponent(STORAGE_KEY), {cache:'no-store'})
+    .then(res=>res.ok ? res.json() : null)
+    .then(data=>applyNext(data && data.item ? data.item.value : null))
+    .catch(()=>false);
+}
 render();
+pklLoadSheetSupabaseUsersOnce().then(()=>{ try{ renderSheet(); renderBoard(); }catch(e){} });
+pklApplySupabaseSheetStateOnce().then(()=>pklLoadSheetSupabaseUsersOnce()).then(()=>{ try{ renderSheet(); renderBoard(); }catch(e){} });
 pklStartPreciseTopTimeTicker();
 /* 2차 청소: visibility/storage 기반 상단 잭팟 자동 갱신 제거. */
 })();

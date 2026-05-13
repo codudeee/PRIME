@@ -1904,7 +1904,6 @@ function rerollAll() {
     if (matchEndTimeGroup) matchEndTimeGroup.querySelectorAll('[data-time-part]').forEach(cell => cell.dataset.value = '');
     setStatus('팀구성 보드를 깨끗이 초기화했습니다.');
     render();
-    return persistTeamBuilderStateNow({ keepalive: true });
   }
 
   function hasMatchTimeSettings() {
@@ -1922,13 +1921,9 @@ function completeTeams() {
         const importedCount = result && typeof result.count === 'number' ? result.count : Number(result || 0);
         const goSheet = () => { window.location.assign('sheet.html'); };
         const finish = () => {
-          const resetResult = resetBuilder();
+          resetBuilder();
           setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 시트지로 이동합니다.`);
-          if (resetResult && typeof resetResult.then === 'function') {
-            resetResult.finally(goSheet);
-          } else {
-            goSheet();
-          }
+          goSheet();
         };
         if (result && result.remoteSave && typeof result.remoteSave.then === 'function') {
           result.remoteSave.then(finish).catch(() => finish());
@@ -2060,14 +2055,22 @@ function completeTeams() {
     hydratePlayerIdentity(player);
     const displayName = resolvePlayerDisplayName(player);
     const accountUser = resolvePlayerAccountUser(player, displayName);
-    const memberTier = accountUser && accountUser.memberTier ? String(accountUser.memberTier).trim() : '';
+    const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || findSupabaseUserByLooseName(displayName);
+    const sourceUser = supabaseUser || accountUser || null;
+    const memberTier = String(
+      (sourceUser && (sourceUser.memberTier || sourceUser.member_tier || sourceUser.tier || sourceUser.gradeRole || sourceUser.tierRole)) ||
+      player.memberTier || player.tier || ''
+    ).trim();
     return {
       name: displayName,
+      nickname: displayName,
       tier: memberTier || player.tier || '',
       memberTier,
-      userUid: player.userUid || (accountUser && (accountUser.uid || accountUser.id)) || '',
-      accountId: player.accountId || (accountUser && (accountUser.id || accountUser.uid)) || '',
-      pubgId: player.pubgId || (accountUser && (accountUser.pubgId || accountUser.gameId)) || ''
+      discordId: player.discordId || (sourceUser && (sourceUser.discord_id || sourceUser.discordId)) || '',
+      discord_id: player.discordId || (sourceUser && (sourceUser.discord_id || sourceUser.discordId)) || '',
+      userUid: player.userUid || (sourceUser && (sourceUser.discord_id || sourceUser.uid || sourceUser.id)) || '',
+      accountId: player.accountId || (sourceUser && (sourceUser.id || sourceUser.uid || sourceUser.discord_id)) || '',
+      pubgId: player.pubgId || (sourceUser && (sourceUser.pubgId || sourceUser.pubg_id || sourceUser.gameId)) || ''
     };
   }
 
@@ -3435,47 +3438,12 @@ function startClock() {
   }
 
   function saveState() {
-    persistTeamBuilderStateNow();
-  }
-
-  function persistTeamBuilderStateNow(options = {}) {
-    let stateJson = '';
-    try { stateJson = JSON.stringify(state); } catch (error) { stateJson = ''; }
-    if (!stateJson) return Promise.resolve(null);
-
-    try { localStorage.setItem(STORAGE_KEY, stateJson); } catch (error) {}
-
-    const payload = { type: 'shared', key: STORAGE_KEY, value: state };
-    const saves = [];
-
+    const stateJson = JSON.stringify(state);
+    localStorage.setItem(STORAGE_KEY, stateJson);
     if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
-      try { saves.push(window.PKLSupabaseDataSync.setShared(STORAGE_KEY, state).catch(() => null)); } catch (error) {}
+      window.PKLSupabaseDataSync.setShared(STORAGE_KEY, state).catch(() => {});
     }
-
-    if (window.fetch) {
-      try {
-        saves.push(fetch('/api/pkl-data-store', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          keepalive: !!options.keepalive
-        }).then(res => res.ok ? res.json().catch(() => ({ ok: true })) : null).catch(() => null));
-      } catch (error) {}
-    }
-
-    if (options.beacon && navigator.sendBeacon) {
-      try {
-        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-        navigator.sendBeacon('/api/pkl-data-store', blob);
-      } catch (error) {}
-    }
-
-    return saves.length ? Promise.allSettled(saves) : Promise.resolve(null);
   }
-
-  window.addEventListener('pagehide', () => {
-    persistTeamBuilderStateNow({ keepalive: true, beacon: true });
-  });
 
   function parseTeamBuilderState(rawValue) {
     if (!rawValue) return null;
