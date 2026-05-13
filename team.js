@@ -1929,6 +1929,23 @@ function rerollAll() {
   function hasMatchTimeSettings() {
     return Boolean(matchTimeSettingsConfirmed && String(state.matchStartTime || '').trim() && String(state.matchEndTime || '').trim());
   }
+
+  function clearTeamBoardStateAfterComplete() {
+    if (teamBoardRemoteSaveTimer) {
+      clearTimeout(teamBoardRemoteSaveTimer);
+      teamBoardRemoteSaveTimer = null;
+    }
+
+    const previousMode = state && state.teamMode ? state.teamMode : 'squad20';
+    state = defaultState();
+    state.teamMode = previousMode;
+    state.updatedAt = new Date().toISOString();
+    ensureTeamModeState(state.teamMode);
+    matchTimeSettingsConfirmed = false;
+
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (error) {}
+    return saveTeamBoardStateToSharedNow();
+  }
 function completeTeams() {
     showPklConfirmModal({
       title: '팀구성 완료',
@@ -1941,13 +1958,13 @@ function completeTeams() {
         const importedCount = result && typeof result.count === 'number' ? result.count : Number(result || 0);
         let joinResetSave = null;
         try { joinResetSave = resetJoinRecruitmentAfterTeamComplete(); } catch (error) { console.warn('[PKL] join reset after team complete skipped', error); }
-        saveState();
-        setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 모집 상태를 초기화했습니다. 현재 팀보드는 유지한 채 시트지로 이동합니다.`);
+        const boardClearSave = clearTeamBoardStateAfterComplete();
+        setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 모집 상태를 초기화했습니다. 다음 팀구성을 위해 팀보드를 비운 뒤 시트지로 이동합니다.`);
         const goSheet = () => {
           const target = new URL('sheet.html', window.location.href).href;
           try { window.location.assign(target); } catch (error) { window.location.href = target; }
         };
-        const pendingSaves = [result && result.remoteSave, joinResetSave].filter(item => item && typeof item.finally === 'function');
+        const pendingSaves = [result && result.remoteSave, joinResetSave, boardClearSave].filter(item => item && typeof item.finally === 'function');
         if (pendingSaves.length) {
           Promise.allSettled(pendingSaves).finally(() => setTimeout(goSheet, 80));
         } else {
