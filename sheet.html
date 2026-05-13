@@ -6286,6 +6286,30 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 .record-table th .user-role-line .pkl-tier-badge,
 .record-table th .user-role-line .tier-mark[data-pkl-tier-badge]{min-width:42px !important;height:20px !important;min-height:20px !important;line-height:20px !important;padding:0 6px !important;font-size:10px !important;z-index:80 !important;display:inline-flex !important;}
 </style>
+
+<style id="pkl-scoreboard-5col-scroll-20260513">
+/* PKL 누적수정: 스코어보드 5칸씩 아래로 증가 + 점수시트와 같은 스크롤 */
+.board{min-height:0 !important;overflow:hidden !important;}
+#teamGrid.team-grid{
+  min-height:0 !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  align-content:start !important;
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  grid-template-rows:none !important;
+  grid-auto-rows:minmax(158px,1fr) !important;
+  padding-right:12px !important;
+}
+#teamGrid.team-grid.duo{
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  grid-template-rows:none !important;
+  grid-auto-rows:minmax(132px,1fr) !important;
+}
+#teamGrid::-webkit-scrollbar{width:9px;height:9px;}
+#teamGrid::-webkit-scrollbar-track{background:rgba(0,0,0,.25);border-radius:999px;}
+#teamGrid::-webkit-scrollbar-thumb{border-radius:999px;background:linear-gradient(180deg,#b77eff,#6744ff) !important;}
+#teamGrid .team-card{min-height:0 !important;}
+</style>
 </head>
 <body>
 <div class="app">
@@ -6597,6 +6621,7 @@ function load(){
         fires:saved.fires && typeof saved.fires==='object' ? saved.fires : {},
         fireCancels:saved.fireCancels && typeof saved.fireCancels==='object' ? saved.fireCancels : {},
         colds:saved.colds && typeof saved.colds==='object' ? saved.colds : {},
+        itemHistory:Array.isArray(saved.itemHistory) ? saved.itemHistory : [],
         startTime:saved.startTime || '',
         endTime:saved.endTime || '',
         resetNonce:Number(saved.resetNonce||0),
@@ -6611,7 +6636,7 @@ function load(){
       return next;
     }
   }catch(e){}
-  return {mode:'squad',selectedTeamId:'team1',teams:baseTeams,rounds:Array.from({length:30},(_,i)=>makeRound(i+1)),feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:'',resetNonce:0};
+  return {mode:'squad',selectedTeamId:'team1',teams:baseTeams,rounds:Array.from({length:30},(_,i)=>makeRound(i+1)),feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},itemHistory:[],startTime:'',endTime:'',resetNonce:0};
 }
 function save(){
   if(pklApplyingRemoteSheetState) return;
@@ -7018,6 +7043,17 @@ function addFeed(type,text,key){
   if(key) state.eventKeys[key]=true;
   state.feeds.unshift({type,text,time:now,key:key||''});
   state.feeds=pklNormalizeFeedList(state.feeds);
+}
+
+function pklAddItemHistory(type, view, time, extra){
+  if(type!=='불판' && type!=='서렌') return;
+  if(!state.itemHistory || !Array.isArray(state.itemHistory)) state.itemHistory=[];
+  const team=teamFeedName((view && (view.viewName || view.name)) || '해당 팀');
+  const t=Number(time || Date.now());
+  const key=[type, (view && (view.viewId || view.id || view.realId)) || team, t, extra && extra.roundIndex != null ? extra.roundIndex : ''].join(':');
+  if(state.itemHistory.some(item=>String(item && item.key)===key)) return;
+  state.itemHistory.unshift({type, team, time:t, key, roundIndex:extra && extra.roundIndex != null ? Number(extra.roundIndex) : -1});
+  state.itemHistory=state.itemHistory.slice(0,80);
 }
 
 
@@ -8093,16 +8129,18 @@ function completeSurrender(viewId){
   const consent=pklGetSurrenderConsentRecord(info.view.viewId, members);
   if(consent.item.done) return;
 
+  const doneAt=Date.now();
   consent.item.done=true;
-  consent.item.time=Date.now();
+  consent.item.time=doneAt;
   pklSaveSurrenderConsentRecord(consent);
 
   if(info.item){
     info.item.done=true;
-    info.item.time=Date.now();
+    info.item.time=doneAt;
   }
 
-  addFeed('서렌',`${teamFeedName(info.view.viewName)} 전원이 항복하여 서렌 처리되었습니다.`, `surrender:${info.view.viewId}:${Date.now()}`);
+  addFeed('서렌',`${teamFeedName(info.view.viewName)} 전원이 항복하여 서렌 처리되었습니다.`, `surrender:${info.view.viewId}:${doneAt}`);
+  pklAddItemHistory('서렌', info.view, doneAt);
 }
 function isViewSurrendered(viewId){
   const info=getSurrenderInfo(viewId);
@@ -8221,11 +8259,13 @@ function completeFire(viewId){
   const info=getActiveFireInfo(viewId);
   if(info.item.done) return;
   const roundIndex=latestPlayedRoundIndex(info.view);
+  const doneAt=Date.now();
   info.item.done=true;
-  info.item.time=Date.now();
+  info.item.time=doneAt;
   info.item.roundIndex=roundIndex;
   clearColdView(info.view.viewId);
-  addFeed('불판',`${teamFeedName(info.view.viewName)} 갑자기 불타올라 ${roundIndex>=0 ? (roundIndex+1)+'라운드' : '현재'}까지 불판 사용 했습니다.`, `fire:${info.key}:${Date.now()}`);
+  addFeed('불판',`${teamFeedName(info.view.viewName)} 갑자기 불타올라 ${roundIndex>=0 ? (roundIndex+1)+'라운드' : '현재'}까지 불판 사용 했습니다.`, `fire:${info.key}:${doneAt}`);
+  pklAddItemHistory('불판', info.view, doneAt, {roundIndex});
 
   try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(20);}catch(e){}
 }
@@ -11245,6 +11285,12 @@ document.addEventListener("DOMContentLoaded", function(){
   function collectHistoryLogs(views, st){
     const rows=[];
     const seen={};
+    const savedHistory=Array.isArray(st && st.itemHistory) ? st.itemHistory : [];
+    savedHistory.forEach(function(h){
+      if(!h || (h.type!=="불판" && h.type!=="서렌")) return;
+      pushHistory(rows, seen, {type:h.type, team:h.team || "해당 팀", time:h.time, key:h.key || (h.type+":item:"+String(h.team||"")+":"+String(h.time||""))});
+    });
+
     const feeds=Array.isArray(st && st.feeds) ? st.feeds : [];
     feeds.forEach(function(f){
       if(!f || (f.type!=="불판" && f.type!=="서렌")) return;
