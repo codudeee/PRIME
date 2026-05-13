@@ -7265,10 +7265,19 @@ function pklLoadSheetStateFromSupabaseOnce(){
   }).catch(function(){ return false; });
 }
 function pklBootSheetRender(){
-  pklLoadSheetStateFromSupabaseOnce().finally(function(){
+  /* 첫 진입 체감속도 보정:
+     Supabase 공유값을 기다린 뒤 처음 렌더하면 시트지가 빈 화면으로 보인다.
+     우선 현재 보유한 시트 상태를 즉시 1회 렌더하고, 원격값 도착 후 달라진 경우만 다시 갱신한다. */
+  pklSheetInitialBooting=true;
+  bindTopTimeInputs();
+  render();
+  pklLoadSheetStateFromSupabaseOnce().then(function(applied){
     pklSheetInitialBooting=false;
     bindTopTimeInputs();
-    render();
+    if(applied) render();
+  }).catch(function(){
+    pklSheetInitialBooting=false;
+    bindTopTimeInputs();
   });
 }
 function pklApplyRemoteSheetState(){
@@ -7427,9 +7436,16 @@ function pklSheetHeaderNameHtml(member){
     ''
   ).trim();
   if(!name) return '';
-  const badge = (user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function')
-    ? (window.PKLTierBadge.renderForUser(user) || '')
-    : '';
+  let badge = '';
+  if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function'){
+    badge = window.PKLTierBadge.renderForUser(user) || '';
+  }
+  if(!badge){
+    const directTier = pklTierRoleOfMember(member) || pklTierScoreRoleFromText(member && (member.memberTier || member.tier || member.grade || member.memberGrade || member.pklTier || member.rank || member.level));
+    if(directTier && window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function'){
+      badge = window.PKLTierBadge.render(directTier) || '';
+    }
+  }
   return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
 }
 
