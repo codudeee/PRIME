@@ -4693,18 +4693,13 @@ body.pkl-join-initializing #joinCurrentCount,
 body.pkl-join-initializing #joinCancelCount{
   opacity:.55;
 }
-</style>
 
-<style id="pkl-join-quiet-participate-render">
-body.pkl-join-quiet-update #joinWaitList .join-wait-row,
-body.pkl-join-quiet-update #joinCancelList .join-cancel-row{
+/* JOIN 22차: 참가/취소 직후 리스트 부분 갱신 시 row 재등장 애니메이션 방지 */
+body.pkl-join-quiet-render #joinWaitList .join-wait-row,
+body.pkl-join-quiet-render #joinCancelList .join-cancel-row{
   animation:none !important;
   opacity:1 !important;
   transform:none !important;
-}
-body.pkl-join-quiet-update #joinWaitList,
-body.pkl-join-quiet-update #joinCancelList{
-  transition:none !important;
 }
 </style>
 </head>
@@ -5276,26 +5271,6 @@ function safeJson(key, fallback){
   function saveList(key,list){
     localStorage.setItem(key, JSON.stringify(list));
   }
-  function saveJoinListsSilently(fn){
-    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.suppressLocalEmit === "function"){
-      return window.PKLJoinRealtime.suppressLocalEmit(fn);
-    }
-    const prev = window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT;
-    window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT = true;
-    try{ return typeof fn === "function" ? fn() : undefined; }
-    finally{ window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT = prev; }
-  }
-
-  function renderJoinAfterLocalAction(){
-    document.body.classList.add("pkl-join-quiet-update");
-    renderAllIfChanged(true);
-    requestAnimationFrame(function(){
-      requestAnimationFrame(function(){
-        document.body.classList.remove("pkl-join-quiet-update");
-      });
-    });
-  }
-
 
   function formatKoreanWon(value){
     const num = String(value).replace(/[^0-9]/g,"");
@@ -5525,6 +5500,24 @@ function safeJson(key, fallback){
     renderWaitList();
     renderCancelList();
     syncJoinActionButtons();
+  }
+
+  function quietRenderAll(){
+    document.body.classList.add("pkl-join-quiet-render");
+    try{ renderAll(); }
+    finally{
+      requestAnimationFrame(function(){
+        document.body.classList.remove("pkl-join-quiet-render");
+      });
+    }
+  }
+
+  function saveJoinListsSilently(callback){
+    window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT = true;
+    try{ callback(); }
+    finally{
+      setTimeout(function(){ window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT = false; }, 0);
+    }
   }
 
   window.PKLJoinRenderAll = renderAll;
@@ -5876,7 +5869,7 @@ function safeJson(key, fallback){
         saveList(CANCEL_KEY,cancelList);
         saveList(STORAGE_KEY,list);
       });
-      renderJoinAfterLocalAction();
+      quietRenderAll();
       if(isPaidRecruit()) openDepositModal();
       return;
     }
@@ -5885,7 +5878,7 @@ function safeJson(key, fallback){
     saveJoinListsSilently(function(){
       saveList(STORAGE_KEY,list);
     });
-    renderJoinAfterLocalAction();
+    quietRenderAll();
 
     if(isPaidRecruit()) openDepositModal();
   }
@@ -5949,7 +5942,7 @@ function safeJson(key, fallback){
       saveList(CANCEL_KEY,cancelList);
     });
     closeReasonModal();
-    renderJoinAfterLocalAction();
+    quietRenderAll();
   }
 
   if(joinBtn) joinBtn.addEventListener("click", addCurrentUser);
