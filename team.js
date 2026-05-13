@@ -172,7 +172,6 @@
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
-    ensureTeamModeState(state.teamMode || 'squad20');
     fillTierSelect();
     bindControls();
     bindNewPlayerTierDropdown();
@@ -187,11 +186,15 @@
       : Promise.resolve(window.PKL_SUPABASE_CONFIG || null);
 
     supabaseReady.finally(() => {
-      loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
-        syncJoinWaitListIntoTeamBoard(true);
-        syncPlayersWithUserSources();
-        render();
-        refreshJoinWaitListFromSupabaseOnce();
+      loadTeamBuilderStateFromSupabaseOnce().finally(() => {
+        ensureTeamModeState(state.teamMode || 'squad20');
+        matchTimeSettingsConfirmed = Boolean(String(state.matchStartTime || '').trim() && String(state.matchEndTime || '').trim());
+        loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
+          syncJoinWaitListIntoTeamBoard(true);
+          syncPlayersWithUserSources();
+          render();
+          refreshJoinWaitListFromSupabaseOnce();
+        });
       });
     });
   }
@@ -281,7 +284,6 @@ if (rerollListModal) {
   function render() {
     hydratePlayersForDisplayOnly();
     syncPlayersWithUserSources();
-    removePlacedPlayersFromWaitingPools();
     renderTierPools();
     renderTeams();
     renderSummary();
@@ -887,51 +889,10 @@ const teamIndex = Number(slot.dataset.teamIndex);
     return Object.values(state.waiting || {}).some(ids => Array.isArray(ids) && ids.includes(playerId));
   }
 
-  function getStableTeamIdentityKey(seed) {
-    if (!seed) return '';
-    return String(
-      seed.discord_id || seed.discordId || seed.userUid || seed.uid || seed.accountId || seed.userId || seed.key || seed.id || seed.pubgId || seed.gameId || normalizeName(seed.nickname || seed.nick || seed.name || seed.discord_username || seed.discordUsername || '') || ''
-    ).trim();
-  }
-
-  function findEquivalentPlayerForJoinItem(item, adminUser, accountUser, supabaseUser) {
-    const seeds = [supabaseUser, accountUser, adminUser, item].filter(Boolean);
-    const keys = new Set(seeds.map(getStableTeamIdentityKey).filter(Boolean));
-    const names = new Set();
-    seeds.forEach(seed => {
-      [seed.nickname, seed.nick, seed.name, seed.discord_username, seed.discordUsername, seed.displayName].forEach(value => {
-        const normalized = normalizeName(value);
-        if (normalized) names.add(normalized);
-      });
-    });
-
-    return state.players.find(player => {
-      if (!player) return false;
-      const playerKeys = [player.joinWaitKey, getStableTeamIdentityKey(player), player.discordId, player.userUid, player.accountId, player.pubgId]
-        .map(value => String(value || '').trim())
-        .filter(Boolean);
-      if (playerKeys.some(key => keys.has(key))) return true;
-      const playerName = normalizeName(player.name || player.nickname);
-      return playerName && names.has(playerName);
-    }) || null;
-  }
-
-  function removePlayerFromWaitingOnly(playerId) {
-    if (!playerId || !state.waiting) return;
-    Object.keys(state.waiting).forEach(tierId => {
-      state.waiting[tierId] = Array.isArray(state.waiting[tierId])
-        ? state.waiting[tierId].filter(id => id !== playerId)
-        : [];
-    });
-  }
-
-  function removePlacedPlayersFromWaitingPools() {
-    const placedIds = new Set((state.teams || []).flatMap(team => Array.isArray(team.slots) ? team.slots : []).filter(Boolean));
-    placedIds.forEach(removePlayerFromWaitingOnly);
-  }
-
-  function findPlayerForJoinItem(item, adminUser, accountUser, supabaseUser) {
-    return findEquivalentPlayerForJoinItem(item, adminUser, accountUser, supabaseUser);
+  function findPlayerForJoinItem(item, adminUser, accountUser) {
+    const identitySeed = accountUser || adminUser || item;
+    return state.players.find(player => isSameUserIdentity(player, identitySeed)) ||
+      state.players.find(player => sameName(player, (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname));
   }
 
   function loadCurrentJoinWaitingList() {
@@ -1067,7 +1028,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
       const displayName = (sourceUser && (sourceUser.nickname || sourceUser.nick || sourceUser.name || sourceUser.discord_username || sourceUser.discordUsername)) || item.name || item.nickname || '참가자';
       const resolvedTier = resolveUserTierKey(sourceUser);
       const tier = TIERS.some(t => t.id === resolvedTier) ? resolvedTier : 'tier0';
-      const player = findPlayerForJoinItem(item, adminUser, accountUser, supabaseUser);
+      const player = findPlayerForJoinItem(item, supabaseUser || adminUser, accountUser);
 
       if (player) {
         player.source = player.source || 'joinWaitList';
@@ -1078,9 +1039,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
         player.pubgId = player.pubgId || (adminUser && (adminUser.pubgId || adminUser.gameId)) || item.pubgId || (accountUser && (accountUser.pubgId || accountUser.gameId)) || '';
         player.name = displayName;
         player.tier = TIERS.some(t => t.id === tier) ? tier : player.tier;
-        if (isPlayerPlacedInTeam(player.id)) {
-          removePlayerFromWaitingOnly(player.id);
-        } else {
+        if (!isPlayerPlacedInTeam(player.id)) {
           insertPlayerIntoWaitingTier(player.id, player.tier);
         }
         return;
@@ -1104,7 +1063,6 @@ const teamIndex = Number(slot.dataset.teamIndex);
     });
 
     cleanupDuplicateJoinWaitPlayers();
-    removePlacedPlayersFromWaitingPools();
 
     const removableIds = new Set();
     state.players.forEach(player => {
@@ -1120,8 +1078,6 @@ const teamIndex = Number(slot.dataset.teamIndex);
         state.waiting[tierId] = state.waiting[tierId].filter(playerId => !removableIds.has(playerId));
       });
     }
-
-    removePlacedPlayersFromWaitingPools();
   }
 
   function hydratePlayersForDisplayOnly() {
@@ -3440,22 +3396,25 @@ function startClock() {
   }
 
   function saveState() {
-    removePlacedPlayersFromWaitingPools();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const stateJson = JSON.stringify(state);
+    localStorage.setItem(STORAGE_KEY, stateJson);
+    if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
+      window.PKLSupabaseDataSync.setShared(STORAGE_KEY, state).catch(() => {});
+    }
   }
 
-  function loadState() {
+  function parseTeamBuilderState(rawValue) {
+    if (!rawValue) return null;
+    if (typeof rawValue === 'string') {
+      try { return JSON.parse(rawValue); } catch (error) { return null; }
+    }
+    return rawValue && typeof rawValue === 'object' ? rawValue : null;
+  }
+
+  function normalizeTeamBuilderState(saved) {
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
       const base = defaultState();
       if (!saved || !Array.isArray(saved.players) || !Array.isArray(saved.teams)) return base;
-      const savedCfg = getTeamModeConfig(saved.teamMode || 'squad20');
-      base.teamMode = savedCfg.key;
-      base.teams = Array.from({ length: savedCfg.teams }, (_, teamIndex) => ({
-        id: `team-${teamIndex + 1}`,
-        name: `${teamIndex + 1}팀`,
-        slots: Array.from({ length: savedCfg.slots }, () => null)
-      }));
 
       const validTierIds = new Set(TIERS.map(tier => tier.id));
       const legacyTierMap = {
@@ -3478,14 +3437,20 @@ function startClock() {
           return nextPlayer;
         });
 
+      const cfg = getTeamModeConfig(saved.teamMode || base.teamMode || 'squad20');
       const playerById = new Map(players.map(player => [player.id, player]));
-      const teams = base.teams.map((team, teamIndex) => {
+      const teams = Array.from({ length: cfg.teams }, (_, teamIndex) => {
         const savedTeam = saved.teams[teamIndex] || {};
-        const slots = Array.from({ length: savedCfg.slots }, (_, slotIndex) => {
+        const slots = Array.from({ length: cfg.slots }, (_, slotIndex) => {
           const playerId = Array.isArray(savedTeam.slots) ? savedTeam.slots[slotIndex] : null;
           return playerById.has(playerId) ? playerId : null;
         });
-        return { ...team, ...savedTeam, id: team.id, name: team.name, slots };
+        return {
+          id: `team-${teamIndex + 1}`,
+          name: `${teamIndex + 1}팀`,
+          ...savedTeam,
+          slots
+        };
       });
 
       const placedIds = new Set(teams.flatMap(team => team.slots).filter(Boolean));
@@ -3510,6 +3475,7 @@ function startClock() {
       return {
         ...base,
         ...saved,
+        teamMode: cfg.key,
         players,
         waiting: sortAllWaitingPools(waiting),
         teams,
@@ -3521,6 +3487,24 @@ function startClock() {
     } catch (error) {
       return defaultState();
     }
+  }
+
+  function loadState() {
+    return normalizeTeamBuilderState(parseTeamBuilderState(localStorage.getItem(STORAGE_KEY)));
+  }
+
+  function loadTeamBuilderStateFromSupabaseOnce() {
+    if (!window.PKLSupabaseDataSync || typeof window.PKLSupabaseDataSync.getShared !== 'function') {
+      return Promise.resolve(state);
+    }
+
+    return window.PKLSupabaseDataSync.getShared(STORAGE_KEY).then(remoteState => {
+      const parsed = parseTeamBuilderState(remoteState);
+      if (parsed && Array.isArray(parsed.players) && Array.isArray(parsed.teams)) {
+        state = normalizeTeamBuilderState(parsed);
+      }
+      return state;
+    }).catch(() => state);
   }
 
   function escapeHtml(value) {
