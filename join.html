@@ -5264,13 +5264,17 @@ function safeJson(key, fallback){
     localStorage.setItem(key, JSON.stringify(list));
   }
 
-  function withJoinLocalEmitSuppressed(fn){
-    const prev = window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT === true;
-    window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT = true;
+  function saveJoinListsSilently(updates){
+    window.__PKL_JOIN_SUPPRESS_LOCAL_RENDER = true;
     try{
-      return fn();
+      Object.keys(updates || {}).forEach(function(key){
+        saveList(key, updates[key]);
+      });
     }finally{
-      window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT = prev;
+      window.__PKL_JOIN_SUPPRESS_LOCAL_RENDER = false;
+    }
+    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.queueSave === "function"){
+      window.PKLJoinRealtime.queueSave(250);
     }
   }
 
@@ -5497,31 +5501,41 @@ function safeJson(key, fallback){
     }
   }
 
+  function buildJoinRenderSignature(){
+    try{
+      return JSON.stringify({
+        wait: readActiveWaitList().map(function(v){return v.discordId||v.id||v.key||v.name||v.nickname||v.pubgId||"";}),
+        cancel: readList(CANCEL_KEY).map(function(v){return v.discordId||v.id||v.key||v.name||v.nickname||v.pubgId||"";}),
+        state: getRecruitStateForAction()
+      });
+    }catch(e){
+      return "";
+    }
+  }
+
+  let __pklJoinRenderSignature = "";
+  function markJoinRendered(){
+    const sig = buildJoinRenderSignature();
+    if(sig) __pklJoinRenderSignature = sig;
+  }
+
   function renderAll(){
     removePrisonersFromWaitList();
     renderWaitList();
     renderCancelList();
     syncJoinActionButtons();
+    markJoinRendered();
   }
 
   window.PKLJoinRenderAll = renderAll;
   window.PKLJoinSyncActionButtons = syncJoinActionButtons;
   window.__PKL_JOIN_INITIAL_READY = false;
-  let __pklJoinRenderSignature = "";
   function renderAllIfChanged(force){
-    let sig = "";
-    try{
-      sig = JSON.stringify({
-        wait: readActiveWaitList().map(function(v){return v.discordId||v.id||v.key||v.name||v.nickname||v.pubgId||"";}),
-        cancel: readList(CANCEL_KEY).map(function(v){return v.discordId||v.id||v.key||v.name||v.nickname||v.pubgId||"";}),
-        state: getRecruitStateForAction()
-      });
-    }catch(e){}
+    const sig = buildJoinRenderSignature();
     if(!force && sig && sig === __pklJoinRenderSignature){
       syncJoinActionButtons();
       return;
     }
-    __pklJoinRenderSignature = sig;
     renderAll();
   }
   window.addEventListener("pkl-join-state-updated", function(event){
@@ -5849,19 +5863,14 @@ function safeJson(key, fallback){
         canceledAt:undefined,
         rejoinedAt:new Date().toISOString()
       });
-      withJoinLocalEmitSuppressed(function(){
-        saveList(CANCEL_KEY,cancelList);
-        saveList(STORAGE_KEY,list);
-      });
+      saveJoinListsSilently({[CANCEL_KEY]:cancelList, [STORAGE_KEY]:list});
       renderAll();
       if(isPaidRecruit()) openDepositModal();
       return;
     }
 
     list.push(userData);
-    withJoinLocalEmitSuppressed(function(){
-      saveList(STORAGE_KEY,list);
-    });
+    saveJoinListsSilently({[STORAGE_KEY]:list});
     renderAll();
 
     if(isPaidRecruit()) openDepositModal();
@@ -5921,10 +5930,7 @@ function safeJson(key, fallback){
       canceledAt:new Date().toISOString()
     });
 
-    withJoinLocalEmitSuppressed(function(){
-      saveList(STORAGE_KEY,list);
-      saveList(CANCEL_KEY,cancelList);
-    });
+    saveJoinListsSilently({[STORAGE_KEY]:list, [CANCEL_KEY]:cancelList});
     closeReasonModal();
     renderAll();
   }
