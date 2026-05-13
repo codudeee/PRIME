@@ -2644,6 +2644,24 @@ body:has(#pklColdEntryModal.is-open) #pklFireBlockToast{
   color:#fff !important;
   font-weight:1000 !important;
 }
+
+/* PKL sheet score-input header nickname + tier badge visibility only */
+.record-table th .user-role-line .pkl-tier-badge,
+.record-table th .user-role-line .tier-mark{
+  flex:0 0 auto !important;
+  min-width:48px !important;
+  height:20px !important;
+  min-height:20px !important;
+  line-height:20px !important;
+  padding:0 7px !important;
+  font-size:10px !important;
+  margin-left:2px !important;
+  white-space:nowrap !important;
+}
+.record-table th .user-role-line .user-name{
+  max-width:72px !important;
+}
+
 /* PKL clean map circle dropdown */
 .pkl-map-field{
   position:relative;
@@ -6537,18 +6555,8 @@ function teamData(round,teamId){if(!round.teams[teamId])round.teams[teamId]={kil
 
 function pklTierScoreRoleFromText(text){
   const raw=String(text||"").trim();
-  const compact=raw.replace(/\s+/g,"").replace(/[-_]/g,"").toLowerCase();
+  const compact=raw.replace(/\s+/g,"");
   const map={
-    "tier0":"tier0_mid","grade roletier0":"tier0_mid","graderoletier0":"tier0_mid","0티어":"tier0_mid",
-    "tier1":"tier1_mid","graderoletier1":"tier1_mid","1티어":"tier1_mid",
-    "tier2":"tier2_mid","graderoletier2":"tier2_mid","2티어":"tier2_mid",
-    "tier3":"tier3_mid","graderoletier3":"tier3_mid","3티어":"tier3_mid",
-    "tier4":"tier4_mid","graderoletier4":"tier4_mid","4티어":"tier4_mid",
-    "tier0high":"tier0_high","tier0mid":"tier0_mid","tier0low":"tier0_low",
-    "tier1high":"tier1_high","tier1mid":"tier1_mid","tier1low":"tier1_low",
-    "tier2high":"tier2_high","tier2mid":"tier2_mid","tier2low":"tier2_low",
-    "tier3high":"tier3_high","tier3mid":"tier3_mid","tier3low":"tier3_low",
-    "tier4high":"tier4_high","tier4mid":"tier4_mid","tier4low":"tier4_low",
     "0티어상":"tier0_high","0상":"tier0_high",
     "0티어중":"tier0_mid","0중":"tier0_mid",
     "0티어하":"tier0_low","0하":"tier0_low",
@@ -6568,6 +6576,8 @@ function pklTierScoreRoleFromText(text){
     "beast":"beast"
   };
   if(map[compact]) return map[compact];
+  if(/^tier[0-4]$/.test(raw)) return raw + "_mid";
+  if(/^tier[0-4]$/.test(compact)) return compact + "_mid";
   if(/^tier[0-4]_(high|mid|low)$/.test(raw) || raw==="beast") return raw;
   return "";
 }
