@@ -1,0 +1,38 @@
+/* PKL horizontal scroll only
+   - 창이 줄어도 페이지를 모바일/좁은 화면 배치로 접지 않고
+   - 기존 위치/칸/비율은 건드리지 않으며
+   - 브라우저 하단 가로 스크롤만 사용한다.
+*/
+:root{--pkl-fixed-desktop-width:1440px;--pkl-fixed-content-width:1320px;}
+html{overflow-x:auto !important;}
+body{min-width:var(--pkl-fixed-desktop-width) !important;overflow-x:visible !important;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+@media (max-width:1440px){
+  .site,.page,.page-wrap,.wrap,.container,.team-page,.result-page,.sheet-page,.app{min-width:var(--pkl-fixed-desktop-width) !important;}
+  .topbar,.pkl-common-header,#pklCommonHeader{min-width:var(--pkl-fixed-desktop-width) !important;}
+  .topbar-inner,#pklCommonHeader .topbar-inner{
+    width:var(--pkl-fixed-content-width) !important;
+    min-width:var(--pkl-fixed-content-width) !important;
+    max-width:var(--pkl-fixed-content-width) !important;
+    margin-left:auto !important;
+    margin-right:auto !important;
+    display:grid !important;
+    grid-template-columns:240px minmax(620px,1fr) 240px !important;
+    align-items:center !important;
+  }
+  .main-nav,#pklCommonHeader .main-nav{
+    display:flex !important;
+    flex-direction:row !important;
+    flex-wrap:nowrap !important;
+    justify-content:center !important;
+    align-items:center !important;
+    gap:40px !important;
+  }
+  .user-box,#pklCommonHeader .user-box{
+    display:flex !important;
+    flex-direction:row !important;
+    flex-wrap:nowrap !important;
+    justify-content:flex-end !important;
+    align-items:center !important;
+  }
+  .main-nav a,#pklCommonHeader .main-nav a,.top-btn,.account-trigger,.nav-btn,.btn,button{white-space:nowrap;}
+}
