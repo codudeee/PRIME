@@ -629,7 +629,7 @@ button{cursor:pointer}
   border-color:rgba(255,255,255,.72);
   box-shadow:0 0 16px rgba(255,255,255,.14), inset 0 0 0 1px rgba(255,255,255,.04);
 }
-.admin-add-btn,.admin-save-btn,.admin-delete-btn,.admin-toggle-kind-btn{
+.admin-add-btn,.admin-save-btn,.admin-delete-btn,.admin-delete-all-btn,.admin-toggle-kind-btn{
   height:46px;
   border-radius:14px;
   font-size:14px;
@@ -702,6 +702,11 @@ button{cursor:pointer}
 .admin-delete-btn{
   border:1px solid rgba(255,100,120,.38);
   background:linear-gradient(180deg,rgba(255,77,100,.34),rgba(110,22,42,.62));
+}
+.admin-delete-all-btn{
+  border:1px solid rgba(255,77,100,.62);
+  background:linear-gradient(180deg,rgba(255,77,100,.50),rgba(86,14,30,.78));
+  box-shadow:0 0 18px rgba(255,77,100,.12);
 }
 @media (max-width:760px){
   .admin-grid{grid-template-columns:1fr}
@@ -1293,9 +1298,6 @@ body{overflow-x:visible !important;min-width:1320px !important;width:auto !impor
 .result-layout,.result-board,.sheet-panel,.side-panel{flex-shrink:0 !important;}
 </style>
 
-
-<link rel="stylesheet" href="./pkl-desktop-scroll-lock.css?v=20260513c">
-<script src="./pkl-desktop-scroll-lock.js?v=20260513c"></script>
 </head>
 <body>
 
@@ -1417,6 +1419,7 @@ body{overflow-x:visible !important;min-width:1320px !important;width:auto !impor
 <button class="admin-toggle-kind-btn" id="adminToggleMatchKindBtn" type="button">무료/유료 전환</button>
 <button class="admin-add-btn" id="adminAddMatchBtn" type="button">+ 회차 추가</button>
 <button class="admin-delete-btn" id="adminDeleteMatchBtn" type="button">회차 삭제</button>
+<button class="admin-delete-all-btn" id="adminDeleteAllMatchesBtn" type="button">모든 회차 삭제</button>
 </div>
 <div class="admin-kind-state" id="adminMatchKindState"></div>
 </section>
@@ -2386,14 +2389,71 @@ function pklDeleteMatchLinkedData(matchId){
     }
   }catch(e){}
 }
+
+function pklDeleteAllMatchLinkedData(matchIds){
+  const ids=(Array.isArray(matchIds)?matchIds:[]).map(x=>String(x)).filter(Boolean);
+  if(!ids.length) return;
+  const idSet=new Set(ids);
+  try{
+    const raw=JSON.parse(localStorage.getItem(USER_MATCH_STATS_KEY)||'[]');
+    if(Array.isArray(raw)){
+      pklResultSharedSet(USER_MATCH_STATS_KEY, JSON.stringify(raw.filter(x=>!idSet.has(String(x&&x.matchId)))));
+    }else if(raw && typeof raw==='object'){
+      Object.keys(raw).forEach(key=>{
+        if(idSet.has(String(key))) delete raw[key];
+        else if(Array.isArray(raw[key])) raw[key]=raw[key].filter(x=>!idSet.has(String(x&&x.matchId)));
+      });
+      pklResultSharedSet(USER_MATCH_STATS_KEY, JSON.stringify(raw));
+    }
+  }catch(e){}
+}
+function openResultDeleteAllConfirm(){
+  if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
+  if(!Array.isArray(MATCHES) || !MATCHES.length){ pklResultPermissionToast('삭제할 회차가 없습니다.'); return; }
+  pendingDeleteAllMatches=true;
+  pendingDeleteMatchId=null;
+  const modal=document.getElementById('resultDeleteConfirmModal');
+  if(!modal) return;
+  const title=document.getElementById('resultDeleteConfirmTitle');
+  const desc=modal.querySelector('.pkl-delete-confirm-desc');
+  if(title) title.textContent='모든 회차를 삭제하시겠습니까?';
+  if(desc) desc.textContent='현재 결과표의 모든 회차와 연결된 전적 데이터를 한 번에 삭제합니다.';
+  try{ document.body.appendChild(modal); }catch(e){}
+  modal.style.zIndex='2147483646';
+  modal.style.pointerEvents='auto';
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+}
+function deleteAllResultAdminMatches(){
+  if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
+  const ids=(Array.isArray(MATCHES)?MATCHES:[]).map(m=>m&&m.id).filter(Boolean);
+  MATCHES=[];
+  pklDeleteAllMatchLinkedData(ids);
+  adminEditingMatchId=null;
+  selectedMatchId='';
+  pendingDeleteMatchId=null;
+  pendingDeleteAllMatches=false;
+  pklResultSaveMatches();
+  closeResultDeleteConfirm();
+  renderAll();
+  renderResultAdminModal();
+  pklResultPermissionToast('모든 회차가 삭제되었습니다.');
+}
+
 let pendingDeleteMatchId=null;
+let pendingDeleteAllMatches=false;
 
 function openResultDeleteConfirm(){
   if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
   if(!adminEditingMatchId) return;
+  pendingDeleteAllMatches=false;
   pendingDeleteMatchId=adminEditingMatchId;
   const modal=document.getElementById('resultDeleteConfirmModal');
   if(!modal) return;
+  const title=document.getElementById('resultDeleteConfirmTitle');
+  const desc=modal.querySelector('.pkl-delete-confirm-desc');
+  if(title) title.textContent='해당 회차를 삭제하시겠습니까?';
+  if(desc) desc.textContent='삭제 시 해당판의 유저 데이터 및 결과 데이터를 잃습니다.';
   try{ document.body.appendChild(modal); }catch(e){}
   modal.style.zIndex='2147483646';
   modal.style.pointerEvents='auto';
@@ -2402,6 +2462,7 @@ function openResultDeleteConfirm(){
 }
 function closeResultDeleteConfirm(){
   pendingDeleteMatchId=null;
+  pendingDeleteAllMatches=false;
   const modal=document.getElementById('resultDeleteConfirmModal');
   if(!modal) return;
   modal.classList.remove('open');
@@ -2409,6 +2470,7 @@ function closeResultDeleteConfirm(){
 }
 function deleteResultAdminMatch(){
   if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
+  if(pendingDeleteAllMatches){ deleteAllResultAdminMatches(); return; }
   const deletedId=pendingDeleteMatchId;
   if(!deletedId) return;
   MATCHES=MATCHES.filter(x=>String(x.id)!==String(deletedId));
@@ -2458,6 +2520,7 @@ function bindResultAdminModal(){
   document.getElementById('adminSaveMatchBtn')?.addEventListener('click',resultEnableSheetEdit);
   document.getElementById('adminToggleMatchKindBtn')?.addEventListener('click',toggleResultAdminMatchKind);
   document.getElementById('adminDeleteMatchBtn')?.addEventListener('click',openResultDeleteConfirm);
+  document.getElementById('adminDeleteAllMatchesBtn')?.addEventListener('click',openResultDeleteAllConfirm);
   document.getElementById('resultDeleteNoBtn')?.addEventListener('click',closeResultDeleteConfirm);
   document.getElementById('resultDeleteYesBtn')?.addEventListener('click',deleteResultAdminMatch);
   document.getElementById('resultDeleteConfirmModal')?.addEventListener('click',e=>{if(e.target && e.target.id==='resultDeleteConfirmModal') closeResultDeleteConfirm();});
