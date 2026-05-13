@@ -6619,14 +6619,15 @@ function pklIsTypingSheetScore(){
 
 function load(){
   try{
-    const pendingRaw=localStorage.getItem(TEAM_IMPORT_KEY);
+    const pendingRaw=(sessionStorage.getItem(TEAM_IMPORT_KEY)||sessionStorage.getItem(STORAGE_KEY)||localStorage.getItem(TEAM_IMPORT_KEY));
     if(pendingRaw){
       localStorage.setItem(STORAGE_KEY,pendingRaw);
-      localStorage.removeItem(TEAM_IMPORT_KEY);
+      try{ sessionStorage.removeItem(TEAM_IMPORT_KEY); }catch(_e){}
+      try{ localStorage.removeItem(TEAM_IMPORT_KEY); }catch(_e){}
     }
   }catch(e){}
   try{
-    const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+    const saved=JSON.parse((sessionStorage.getItem(STORAGE_KEY)||localStorage.getItem(STORAGE_KEY))||'null');
     if(saved && Array.isArray(saved.teams) && Array.isArray(saved.rounds)){
       const next={
         mode:saved.mode || 'squad',
@@ -6689,8 +6690,11 @@ function pklTierScoreRoleFromText(text){
   const raw=String(text||"").trim();
   const compact=raw.replace(/\s+/g,"");
   const map={
-    "tier0":"tier0_mid","tier1":"tier1_mid","tier2":"tier2_mid","tier3":"tier3_mid","tier4":"tier4_mid",
-    "grade-role-tier0":"tier0_mid","grade-role-tier1":"tier1_mid","grade-role-tier2":"tier2_mid","grade-role-tier3":"tier3_mid","grade-role-tier4":"tier4_mid",
+    "tier0":"tier0_mid","tier0mid":"tier0_mid","tier0high":"tier0_high","tier0low":"tier0_low",
+    "tier1":"tier1_mid","tier1mid":"tier1_mid","tier1high":"tier1_high","tier1low":"tier1_low",
+    "tier2":"tier2_mid","tier2mid":"tier2_mid","tier2high":"tier2_high","tier2low":"tier2_low",
+    "tier3":"tier3_mid","tier3mid":"tier3_mid","tier3high":"tier3_high","tier3low":"tier3_low",
+    "tier4":"tier4_mid","tier4mid":"tier4_mid","tier4high":"tier4_high","tier4low":"tier4_low",
     "0티어":"tier0_mid","1티어":"tier1_mid","2티어":"tier2_mid","3티어":"tier3_mid","4티어":"tier4_mid",
     "0티어상":"tier0_high","0상":"tier0_high",
     "0티어중":"tier0_mid","0중":"tier0_mid",
@@ -7528,12 +7532,10 @@ pklBindTierDragOnce();
 function pklSheetManualTierBadgeHtml(tier){
   const key=pklTierScoreRoleFromText(tier);
   if(!key || key==='none') return '';
-  try{
-    if(window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function'){
-      const html=window.PKLTierBadge.render(key, { extraClass:'member-role-badge' });
-      if(html) return html;
-    }
-  }catch(e){}
+  if(window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function'){
+    const html=window.PKLTierBadge.render(key);
+    if(html) return html;
+  }
   const label={
     tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',
     tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',
@@ -7544,9 +7546,8 @@ function pklSheetManualTierBadgeHtml(tier){
   }[key] || '';
   if(!label) return '';
   const cls=key.indexOf('tier0')===0?'role-tier0':key.indexOf('tier1')===0?'role-tier1':key.indexOf('tier2')===0?'role-tier2':key.indexOf('tier3')===0?'role-tier3':key.indexOf('tier4')===0?'role-tier4':key==='beast'?'role-beast':'role-none';
-  return `<span class="pkl-tier-badge tier-mark member-role-badge ${cls}" data-pkl-tier-badge="1" data-tier="${escape(key)}">${escape(label)}</span>`;
+  return `<span class="pkl-tier-badge tier-mark ${cls}" data-pkl-tier-badge="1" data-tier="${escape(key)}">${escape(label)}</span>`;
 }
-
 function pklSheetMemberTierCandidates(member, user){
   return [
     user?.memberTier,user?.gradeRole,user?.tierRole,user?.baseRole,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.memberTierName,user?.tierName,
@@ -7557,14 +7558,14 @@ function pklSheetHeaderNameHtml(member){
   if(!member) return '';
   const user = pklFindTierUserByMember(member);
   const name = String(
-    (member && (member.name || member.nickname || member.nick || member.displayName || member.pubgId || member.pubgID || member.pubgName || member.gameId || member.username)) ||
     (user && (user.nickname || user.nick || user.name || user.displayName || user.pubgId || user.pubgID || user.pubgName || user.gameId || user.username)) ||
+    (member && (member.name || member.nickname || member.nick || member.displayName || member.pubgId || member.pubgID || member.pubgName || member.gameId || member.username)) ||
     ''
   ).trim();
   if(!name) return '';
   let badge = '';
   if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function'){
-    try{ badge = window.PKLTierBadge.renderForUser(user, { extraClass:'member-role-badge' }) || ''; }catch(e){}
+    badge = window.PKLTierBadge.renderForUser(user) || '';
   }
   if(!badge){
     const candidates=pklSheetMemberTierCandidates(member, user);
@@ -7575,7 +7576,6 @@ function pklSheetHeaderNameHtml(member){
   }
   return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
 }
-
 
 function renderSheet(){
   const view=currentView(), realId=realTeamId(view.viewId), offset=view.memberOffset||0;
@@ -7920,21 +7920,30 @@ function getSurrenderInfo(viewId){
 
 function pklSurrenderBadgeHtml(member){
   if(member && member.__badgeHtml) return ' ' + member.__badgeHtml;
-  const user = pklSheetBadgeFindUser(member && member.name) || pklFindTierUserByMember(member);
+  const user = pklSheetBadgeFindUser(member && member.name);
+
   if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === "function"){
-    try{
-      const html = window.PKLTierBadge.renderForUser(user, { extraClass:'member-role-badge' });
+    const html = window.PKLTierBadge.renderForUser(user);
+    return html ? " " + html : "";
+  }
+
+  const candidates = (typeof pklSheetMemberTierCandidates === 'function')
+    ? pklSheetMemberTierCandidates(member, user)
+    : [(user && user.memberTier), (user && user.tier), (member && member.memberTier), (member && member.tier)];
+  for(const tier of candidates){
+    if(!tier) continue;
+    if(window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
+      const html = window.PKLTierBadge.render(pklTierScoreRoleFromText(tier) || tier);
       if(html) return " " + html;
-    }catch(e){}
+    }
+    if(typeof pklSheetManualTierBadgeHtml === 'function'){
+      const html = pklSheetManualTierBadgeHtml(tier);
+      if(html) return " " + html;
+    }
   }
-  const candidates=pklSheetMemberTierCandidates(member, user);
-  for(const candidate of candidates){
-    const html=pklSheetManualTierBadgeHtml(candidate);
-    if(html) return ' ' + html;
-  }
+
   return "";
 }
-
 
 
 function pklConsentMemberName(member){
@@ -7998,12 +8007,12 @@ function pklConsentMembers(view){
     (Array.isArray(list)?list:[]).forEach(pushMember);
   };
 
-  // 1) 실제 점수 입력칸 헤더에 보이는 팀원을 최우선으로 사용
-  //    selectedTeamId/view가 꼬여도 화면에 보이는 해당 팀 인원을 그대로 모달에 띄운다.
-  pushList(pklReadDisplayedSheetMembers());
+  // 1) 모달을 연 현재 팀 원본 멤버를 최우선으로 사용한다.
+  //    점수시트 헤더가 늦게 칠해져도 불판/서렌 팀원 목록이 비지 않게 한다.
+  pushList(view && view.members);
 
-  // 2) 그래도 없으면 현재 view 원본 멤버 사용
-  if(!out.length) pushList(view && view.members);
+  // 2) 그래도 없으면 실제 점수 입력칸 헤더에 보이는 팀원 사용
+  if(!out.length) pushList(pklReadDisplayedSheetMembers());
 
   // 3) selectedTeamId/currentView가 꼬였을 때 상태값에서 다시 찾기
   if(!out.length){
@@ -12877,45 +12886,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   }
   window.addEventListener('pkl-team-mode-changed', function(e){ applyMode(e.detail); });
   applyMode({});
-})();
-</script>
-
-
-<script id="pkl-sheet-fire-surrender-modal-restore-20260513">
-(function(){
-  if(window.__PKL_SHEET_FIRE_SURRENDER_MODAL_RESTORE_20260513__) return;
-  window.__PKL_SHEET_FIRE_SURRENDER_MODAL_RESTORE_20260513__=true;
-  function showModal(id){
-    var modal=document.getElementById(id);
-    if(!modal) return;
-    try{ if(typeof pklSetConsentModalTarget==='function') pklSetConsentModalTarget((currentView()||{}).viewId); }catch(e){}
-    document.querySelectorAll('.modal').forEach(function(m){m.classList.remove('open','show');});
-    modal.classList.add('open');
-    modal.setAttribute('aria-hidden','false');
-    try{ if(id==='surrenderModal' && typeof renderSurrenderModal==='function') renderSurrenderModal(); }catch(e){}
-    try{ if(id==='fireModal' && typeof renderFireModal==='function') renderFireModal(); }catch(e){}
-  }
-  document.addEventListener('click',function(e){
-    var surrender=e.target && e.target.closest && e.target.closest('#openSurrenderModal');
-    var fire=e.target && e.target.closest && e.target.closest('#openFireModal');
-    if(!surrender && !fire) return;
-    if(e.preventDefault) e.preventDefault();
-    if(e.stopPropagation) e.stopPropagation();
-    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-    try{
-      if(typeof pklCanEditViewSheet==='function' && !pklCanEditViewSheet(currentView())){
-        if(typeof pklBlockSheetAction==='function') pklBlockSheetAction();
-        return;
-      }
-    }catch(err){}
-    if(fire){
-      try{ if(typeof isFireTimeBlocked==='function' && isFireTimeBlocked()){ if(typeof showFireBlockedToast==='function') showFireBlockedToast('종료 1시간 전으로 불판 사용불가 합니다.', fire); return; } }catch(err){}
-      try{ if(typeof isCurrentViewSurrendered==='function' && isCurrentViewSurrendered()){ if(typeof showFireBlockedToast==='function') showFireBlockedToast(null, fire); return; } }catch(err){}
-      showModal('fireModal');
-      return;
-    }
-    showModal('surrenderModal');
-  },true);
 })();
 </script>
 

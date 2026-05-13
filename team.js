@@ -18,6 +18,7 @@
   const JOIN_CANCEL_STORAGE_KEY = 'pklJoinCancelList';
   const JOIN_RECRUIT_STATE_STORAGE_KEY = 'pklJoinRecruitState';
   const SHEET_STORAGE_KEY = 'PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
+  const TEAM_IMPORT_KEY = 'PKL_TEAM_TO_SHEET_IMPORT_V1';
 
   const defaultState = () => ({
     players: [],
@@ -1918,16 +1919,16 @@ function completeTeams() {
       onConfirm: () => {
         const result = exportTeamBoardToSheet();
         const importedCount = result && typeof result.count === 'number' ? result.count : Number(result || 0);
-        resetBuilder();
-        setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 시트지로 이동합니다.`);
-        const goSheet = () => { window.location.href = 'sheet.html'; };
-        if (result && result.remoteSave && typeof result.remoteSave.finally === 'function') {
-          let moved = false;
-          const moveOnce = () => { if (moved) return; moved = true; goSheet(); };
-          result.remoteSave.finally(() => setTimeout(moveOnce, 80));
-          setTimeout(moveOnce, 1800);
+        const goSheet = () => { window.location.assign('sheet.html'); };
+        const finish = () => {
+          resetBuilder();
+          setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 시트지로 이동합니다.`);
+          goSheet();
+        };
+        if (result && result.remoteSave && typeof result.remoteSave.then === 'function') {
+          result.remoteSave.then(finish).catch(() => finish());
         } else {
-          setTimeout(goSheet, 250);
+          finish();
         }
       }
     });
@@ -1960,12 +1961,15 @@ function completeTeams() {
     sheetState.endTime = state.matchEndTime || sheetState.endTime || '';
     sheetState.updatedFromTeamBoardAt = new Date().toISOString();
     const sheetJson = JSON.stringify(sheetState);
-    localStorage.setItem(SHEET_STORAGE_KEY, sheetJson);
-    window.dispatchEvent(new StorageEvent('storage', { key: SHEET_STORAGE_KEY, newValue: sheetJson }));
+    try { localStorage.setItem(SHEET_STORAGE_KEY, sheetJson); } catch (error) {}
+    try { sessionStorage.setItem(SHEET_STORAGE_KEY, sheetJson); } catch (error) {}
+    try { sessionStorage.setItem(TEAM_IMPORT_KEY, sheetJson); } catch (error) {}
+    try { localStorage.setItem(TEAM_IMPORT_KEY, sheetJson); } catch (error) {}
+    try { window.dispatchEvent(new StorageEvent('storage', { key: SHEET_STORAGE_KEY, newValue: sheetJson })); } catch (error) {}
     try {
       window.dispatchEvent(new CustomEvent('pkl-sheet-teams-imported', { detail: { state: sheetState, teams } }));
     } catch (error) {}
-    const remoteSave = saveSheetStateToSupabaseNow(sheetJson);
+    const remoteSave = saveSheetStateToSupabaseNow(sheetState);
     return {
       count: teams.reduce((sum, team) => sum + team.members.filter(member => member.name).length, 0),
       remoteSave
@@ -1976,13 +1980,21 @@ function completeTeams() {
     let sheetState = null;
     try { sheetState = typeof sheetJson === 'string' ? JSON.parse(sheetJson) : sheetJson; } catch (error) { sheetState = null; }
     if (!sheetState || typeof sheetState !== 'object') return Promise.resolve(null);
+    const directSave = () => fetch('/api/pkl-data-store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'shared', key: SHEET_STORAGE_KEY, value: sheetState })
+    }).then(res => {
+      if (!res.ok) throw new Error(String(res.status));
+      return res.json().catch(() => ({ ok: true }));
+    });
     if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
-      return window.PKLSupabaseDataSync.setShared(SHEET_STORAGE_KEY, sheetState).catch(() => null);
+      return window.PKLSupabaseDataSync.setShared(SHEET_STORAGE_KEY, sheetState).catch(directSave);
     }
     if (typeof window.saveSharedData === 'function') {
-      try { return Promise.resolve(window.saveSharedData(SHEET_STORAGE_KEY, sheetState)).catch(() => null); } catch (error) {}
+      try { return Promise.resolve(window.saveSharedData(SHEET_STORAGE_KEY, sheetState)).catch(directSave); } catch (error) {}
     }
-    return Promise.resolve(null);
+    return directSave().catch(() => null);
   }
 
   function loadSheetStateForTeamExport() {
@@ -2044,14 +2056,10 @@ function completeTeams() {
     const displayName = resolvePlayerDisplayName(player);
     const accountUser = resolvePlayerAccountUser(player, displayName);
     const memberTier = accountUser && accountUser.memberTier ? String(accountUser.memberTier).trim() : '';
-    const tierKey = resolveUserTierKey(accountUser || player) || player.tier || '';
-    const tierLabel = memberTier || resolveUserTierLabel(accountUser || player) || getTierLabel(tierKey) || '';
     return {
       name: displayName,
-      tier: tierKey || tierLabel || '',
-      memberTier: tierLabel || tierKey || '',
-      __tierKey: tierKey || '',
-      tierName: tierLabel || '',
+      tier: memberTier || player.tier || '',
+      memberTier,
       userUid: player.userUid || (accountUser && (accountUser.uid || accountUser.id)) || '',
       accountId: player.accountId || (accountUser && (accountUser.id || accountUser.uid)) || '',
       pubgId: player.pubgId || (accountUser && (accountUser.pubgId || accountUser.gameId)) || ''
@@ -3024,7 +3032,7 @@ function addManualRerollUser() {
       return;
     }
 
-    const isReady = hasMatchTimeSettings() && areAllRerollRequestsConfirmed();
+    const isReady = true;
     confirmButton.disabled = !isReady;
     confirmButton.classList.toggle('is-ready', isReady);
     confirmButton.setAttribute('aria-disabled', String(!isReady));
