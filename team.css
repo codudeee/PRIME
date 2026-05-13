@@ -7198,32 +7198,24 @@ body{
   box-shadow:none !important;
 }
 
-/* === PKL PATCH: duo / duo-kanbu nickname readability only ===
-   - 티어배지 크기는 유지
-   - 스쿼드/스쿼드 깐부는 건드리지 않음
-   - 듀오/듀오 깐부 슬롯 안 닉네임만 조금 확대
-========================================================= */
-.team-page > .builder-layout.pkl-mode-40.pkl-mode-duo > .team-board .team-slot .player-name,
-.team-page > .builder-layout.pkl-mode-40.pkl-mode-duo.pkl-mode-partner > .team-board .team-slot .player-name,
-.team-page > .builder-layout.pkl-mode-40.pkl-mode-duo.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-name{
-  font-size:14px !important;
-  line-height:1.12 !important;
-  font-weight:1000 !important;
-  letter-spacing:-.35px !important;
-  max-width:100% !important;
-  overflow:hidden !important;
-  text-overflow:ellipsis !important;
-  white-space:nowrap !important;
-  color:#fff !important;
-  text-shadow:
-    0 1px 2px rgba(0,0,0,.78),
-    0 0 11px rgba(216,180,254,.22) !important;
-}
-
-.team-page > .builder-layout.pkl-mode-40.pkl-mode-duo > .team-board .team-slot .player-card,
-.team-page > .builder-layout.pkl-mode-40.pkl-mode-duo.pkl-mode-partner > .team-board .team-slot .player-card,
-.team-page > .builder-layout.pkl-mode-40.pkl-mode-duo.pkl-mode-partner > .team-board .pkl-kanbu-pair-card .team-slot .player-card{
+/* === PKL FINAL TUNE: duo/duo-kanbu slot readability only === */
+/* 스쿼드 계열은 건드리지 않고, 듀오/듀오깐부 슬롯 내부 글자와 티어배지만 살짝 키움. */
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-card{
   gap:3px !important;
-  justify-content:center !important;
-  align-items:center !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-name{
+  font-size:12px !important;
+  line-height:1.12 !important;
+  font-weight:800 !important;
+  letter-spacing:-0.02em !important;
+  max-width:100% !important;
+}
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-tier.member-role-badge,
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .player-tier,
+.team-page > .builder-layout.pkl-mode-40 > .team-board .team-slot .member-role-badge{
+  min-width:38px !important;
+  height:16px !important;
+  line-height:16px !important;
+  font-size:8.5px !important;
+  padding:0 7px !important;
 }
