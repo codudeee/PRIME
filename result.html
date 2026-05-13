@@ -1449,6 +1449,51 @@ function pklResultLoadMatches(){
   }
   return [];
 }
+async function pklResultFetchMatchesFromServer(){
+  var next=null;
+  try{
+    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function'){
+      var shared=await window.PKLSupabaseDataSync.getShared(RESULT_MATCHES_KEY);
+      if(Array.isArray(shared)) next=shared;
+      else if(typeof shared==='string'){
+        try{var parsed=JSON.parse(shared); if(Array.isArray(parsed)) next=parsed;}catch(_e){}
+      }
+    }
+  }catch(e){}
+  if(!next){
+    try{
+      var res=await fetch('/api/pkl-data-store?type=match_logs',{cache:'no-store'});
+      var data=await res.json();
+      var rows=Array.isArray(data&&data.rows)?data.rows:[];
+      if(rows.length){
+        next=rows.map(function(r){
+          var raw=(r&&r.raw&&typeof r.raw==='object')?r.raw:null;
+          if(raw) return raw;
+          return {
+            id:r.id,
+            title:r.title||r.id,
+            kind:r.kind||'league',
+            type:(r.kind==='normal')?'일반경기':'프라임 킬내기 리그',
+            snapshot:r.snapshot||{},
+            savedAt:r.saved_at||r.updated_at||''
+          };
+        }).filter(Boolean).sort(function(a,b){
+          return String(b.savedAt||b.saved_at||'').localeCompare(String(a.savedAt||a.saved_at||''));
+        });
+      }
+    }catch(e){}
+  }
+  if(Array.isArray(next)){
+    MATCHES=next.map(function(m){return Object.assign({},m);});
+    try{localStorage.setItem(RESULT_MATCHES_KEY,JSON.stringify(MATCHES));}catch(e){}
+    if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})){
+      selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
+    }
+    pklResultApplySelectedMatchState();
+    renderAll();
+    renderResultAdminModal();
+  }
+}
 function pklResultSharedSet(key,value){
   const text=typeof value==='string'?value:JSON.stringify(value);
   try{
@@ -2468,6 +2513,7 @@ function bind(){
 }
 function renderAll(){renderBoard();renderSheet();renderSide();}
 bind();renderAll();
+setTimeout(function(){pklResultFetchMatchesFromServer();},60);
 /* 3차 청소: storage/supabase/user 이벤트 기반 결과표 재렌더 금지.
    결과표는 최초 렌더와 저장/삭제/선택 클릭 흐름에서만 갱신한다.
    자동 user event renderSide가 로컬/메모리 유저와 서버 유저를 섞어 중복 표시를 만들 수 있어 제거. */

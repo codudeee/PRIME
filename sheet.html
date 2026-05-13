@@ -11782,29 +11782,57 @@ function pklSaveResultMatches(matches){
     localStorage.setItem(RESULT_KEY,JSON.stringify(Array.isArray(matches)?matches:[]));
   }
 }
+function pklDirectSharedSet(key,value){
+  try{
+    return fetch('/api/pkl-data-store',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'shared',key:key,value:value})
+    }).then(function(res){return res.json().catch(function(){return null;});}).catch(function(){return null;});
+  }catch(e){return Promise.resolve(null);}
+}
+function pklDirectMatchSave(match){
+  try{
+    if(!match || !match.id) return Promise.resolve(null);
+    return fetch('/api/pkl-data-store',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'match',id:match.id,payload:match})
+    }).then(function(res){return res.json().catch(function(){return null;});}).catch(function(){return null;});
+  }catch(e){return Promise.resolve(null);}
+}
 
-function pklResetJoinWaitingAfterMatchSave(){
+async function pklResetJoinWaitingAfterMatchSave(){
+  var recruitState={
+    state:'waiting',
+    hostHtml:'',
+    openTime:'',
+    deadlineText:'모집대기중',
+    feeText:'',
+    feeInput:'',
+    deadlineConfigured:false
+  };
   try{
     localStorage.setItem('pklJoinWaitList','[]');
     localStorage.setItem('pklJoinCancelList','[]');
-    localStorage.setItem('pklJoinRecruitState',JSON.stringify({
-      state:'waiting',
-      hostHtml:'',
-      openTime:'',
-      deadlineText:'모집대기중',
-      feeText:'',
-      feeInput:'',
-      deadlineConfigured:false
-    }));
+    localStorage.setItem('pklJoinRecruitState',JSON.stringify(recruitState));
     localStorage.removeItem('pklJoinFeeInfo');
     localStorage.removeItem('pklJoinDepositRequests');
     Object.keys(localStorage).forEach(function(key){
       if(key.indexOf('pklJoinDepositRequested_')===0) localStorage.removeItem(key);
     });
     window.dispatchEvent(new StorageEvent('storage',{key:'pklJoinRecruitState'}));
+    try{window.dispatchEvent(new CustomEvent('pkl-supabase-data-updated',{detail:{key:'pklJoinRecruitState'}}));}catch(_e){}
   }catch(e){}
+  await Promise.all([
+    pklDirectSharedSet('pklJoinWaitList',[]),
+    pklDirectSharedSet('pklJoinCancelList',[]),
+    pklDirectSharedSet('pklJoinRecruitState',recruitState),
+    pklDirectSharedSet('pklJoinFeeInfo',null),
+    pklDirectSharedSet('pklJoinDepositRequests',[])
+  ]);
 }
-function saveMatch(kind){
+async function saveMatch(kind){
   var st=readState();
   var matches=[];
   try{matches=JSON.parse(localStorage.getItem(RESULT_KEY)||'[]')||[];}catch(e){matches=[];}
@@ -11830,6 +11858,10 @@ function saveMatch(kind){
     savedAt:new Date().toISOString()
   });
   pklSaveResultMatches(matches);
+  await Promise.all([
+    pklDirectSharedSet(RESULT_KEY,matches),
+    pklDirectMatchSave(matches[0])
+  ]);
   if(kind!=='normal') pklUpsertMatchUserStats(id,matchTitle,snap);
   var emptyTeams=Array.from({length:10},function(_,i){return {id:'team'+(i+1),target:0,members:Array.from({length:4},function(){return {name:'',tier:''};})};});
   st.mode=st.mode||'squad';
@@ -11847,7 +11879,8 @@ function saveMatch(kind){
   st.endTime='';
   writeState(st);
   try{ pklSharedSet(SHEET_KEY,st); pklBroadcastDataUpdate(SHEET_KEY); }catch(e){}
-  pklResetJoinWaitingAfterMatchSave();
+  await pklDirectSharedSet(SHEET_KEY,st);
+  await pklResetJoinWaitingAfterMatchSave();
   try{
     localStorage.removeItem('pklItemHistoryCounts');
     localStorage.removeItem('pklSideListItems');
