@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<script src="pkl-boot-fix.js?v=20260513b"></script>
+
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-  <script src="./pkl-supabase-sync.js?v=20260513a"></script>
+  <script src="./pkl-supabase-sync.js?v=20260513b"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PKL 킬내기룰</title>
-<link rel="stylesheet" href="pkl-main-common.css?v=20260513a" />
+<link rel="stylesheet" href="pkl-main-common.css?v=20260513b" />
 <style>
 :root{
   --pkl-bg:#05040c;
@@ -193,10 +195,10 @@ padding-right:66px;
 
 @media (max-width:560px){.rule-nav{grid-template-columns:1fr}.rule-tab{min-height:50px}.rule-detail-title{font-size:23px}.rule-block{padding:17px 16px}.rule-block p,.rule-block ul{font-size:14px}}
 </style>
-<script src="pkl-role-system.js?v=20260513a"></script>
-<script src="pkl-page-permissions.js?v=20260513a"></script>
-<script src="pkl-common-role-badge.js?v=20260513a"></script>
-<script src="pkl-common-tier-badge.js?v=20260513a"></script>
+<script src="pkl-role-system.js?v=20260513b"></script>
+<script src="pkl-page-permissions.js?v=20260513b"></script>
+<script src="pkl-common-role-badge.js?v=20260513b"></script>
+<script src="pkl-common-tier-badge.js?v=20260513b"></script>
 
 <style id="pkl-rule-no-default-flash-fix">
 /* Supabase 룰을 불러오기 전 기본 예시 문구가 먼저 보이는 플래시 방지 */
@@ -219,6 +221,9 @@ body:not(.pkl-rule-ready) .rule-hero::after{
   letter-spacing:-.2px;
 }
 </style>
+
+<link rel="stylesheet" href="./pkl-desktop-scroll-lock.css?v=20260513c">
+<script src="./pkl-desktop-scroll-lock.js?v=20260513c"></script>
 </head>
 <body>
 <div class="site">
@@ -694,7 +699,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
   setTimeout(function(){ if(!document.body.classList.contains("pkl-rule-ready")) markRuleReady(); }, 2500);
 })();
 </script>
-<script src="pkl-common-header.js?v=20260513a"></script>
+<script src="pkl-common-header.js?v=20260513b"></script>
 
 <!-- PKL global stacked modal layer manager -->
 <style id="pkl-global-stacked-modal-layer-style">

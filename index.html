@@ -2,15 +2,17 @@
 
 <html lang="ko">
 <head>
+<script src="pkl-boot-fix.js?v=20260513b"></script>
+
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-  <script src="./pkl-supabase-sync.js?v=20260513a"></script>
+  <script src="./pkl-supabase-sync.js?v=20260513b"></script>
 <meta charset="utf-8"/>
 <title>PKL 프라임 킬내기 리그</title>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 
-<link rel="stylesheet" href="pkl-main-common.css?v=20260513a">
+<link rel="stylesheet" href="pkl-main-common.css?v=20260513b">
 <link rel="preload" as="image" href="pkl_index_bg.webp" fetchpriority="high">
 <style id="pkl-index-boot-fix">
 html,body{
@@ -260,11 +262,11 @@ font-weight:700;
 .pkl-policy-box-body::-webkit-scrollbar{width:6px}.pkl-policy-box-body::-webkit-scrollbar-thumb{border-radius:999px;background:rgba(168,85,247,.46)}.pkl-policy-box-body::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:999px}
 @media (max-width:760px){.pkl-policy-panel{padding:30px 18px 22px}.pkl-policy-grid{grid-template-columns:1fr}.pkl-policy-box{min-height:250px}.pkl-policy-box-body{height:150px}.pkl-policy-panel h2{font-size:21px}}
 </style>
-<script src="pkl-user-profile-core.js?v=20260513a"></script>
-<script src="pkl-role-system.js?v=20260513a"></script>
-<script src="pkl-page-permissions.js?v=20260513a"></script>
-<script src="pkl-common-role-badge.js?v=20260513a"></script>
-<script src="pkl-common-tier-badge.js?v=20260513a"></script>
+<script src="pkl-user-profile-core.js?v=20260513b"></script>
+<script src="pkl-role-system.js?v=20260513b"></script>
+<script src="pkl-page-permissions.js?v=20260513b"></script>
+<script src="pkl-common-role-badge.js?v=20260513b"></script>
+<script src="pkl-common-tier-badge.js?v=20260513b"></script>
 
 <style id="pkl-premium-support-ui">
 /* =========================================================
@@ -608,6 +610,9 @@ font-weight:700;
   bg.src="pkl_index_bg.webp";
 })();
 </script>
+
+<link rel="stylesheet" href="./pkl-desktop-scroll-lock.css?v=20260513c">
+<script src="./pkl-desktop-scroll-lock.js?v=20260513c"></script>
 </head>
 <body class="pkl-index-preboot">
 <!-- PKL_COMMON_HEADER_ENABLED -->
@@ -764,7 +769,7 @@ font-weight:700;
 (function(){
   "use strict";
   var STORAGE_KEY="pklNoticeBoardItems";
-  var noticeItemsCache=readJson("PKL_NOTICE_PREVIEW_CACHE")||[];
+  var noticeItemsCache=[];
   var noticeHydrated=false;
   var noticeHydrating=null;
   var preview=document.getElementById("pklNoticePreviewList");
@@ -844,7 +849,6 @@ font-weight:700;
           }
         }
         noticeItemsCache=next;
-        try{sessionStorage.setItem("PKL_NOTICE_PREVIEW_CACHE",JSON.stringify(next));}catch(e){}
         noticeHydrated=true;
       }catch(e){
         if(!noticeHydrated) noticeItemsCache=[];
@@ -870,7 +874,6 @@ font-weight:700;
       return;
     }
     noticeItemsCache=clean;
-    try{sessionStorage.setItem("PKL_NOTICE_PREVIEW_CACHE",JSON.stringify(clean));}catch(e){}
     noticeHydrated=true;
     renderPreview();
     try{window.dispatchEvent(new CustomEvent("pkl-supabase-data-updated",{detail:{key:STORAGE_KEY,local:true}}));}catch(e){}
@@ -1061,7 +1064,7 @@ font-weight:700;
 })();
 </script>
 
-<script src="pkl-common-header.js?v=20260513a"></script>
+<script src="pkl-common-header.js?v=20260513b"></script>
 
 <!-- PKL global stacked modal layer manager -->
 <style id="pkl-global-stacked-modal-layer-style">

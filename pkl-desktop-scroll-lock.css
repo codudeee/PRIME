@@ -1,0 +1,151 @@
+/* =========================================================
+   PKL desktop width lock
+   창을 줄여도 레이아웃/아이콘/카드/글자를 재배치하거나 축소하지 않고,
+   전체화면 기준 폭을 유지한 뒤 브라우저 가로 스크롤로 보게 한다.
+   ========================================================= */
+:root{--pkl-desktop-width:1440px;--pkl-content-width:1320px;}
+html{
+  min-width:var(--pkl-desktop-width) !important;
+  overflow-x:auto !important;
+  overflow-y:auto !important;
+  -webkit-text-size-adjust:100% !important;
+  text-size-adjust:100% !important;
+}
+body{
+  min-width:var(--pkl-desktop-width) !important;
+  overflow-x:visible !important;
+  transform:none !important;
+  zoom:1 !important;
+}
+body *{max-width:none;}
+.site,
+#pklCommonHeader,
+.topbar,
+.footer,
+.team-page,
+.app,
+.result-page,
+.result-layout,
+.sheet-page,
+.page,
+.page-wrap,
+.container,
+.wrap{
+  min-width:var(--pkl-desktop-width) !important;
+}
+#pklCommonHeader .topbar-inner,
+.topbar-inner{
+  width:var(--pkl-content-width) !important;
+  min-width:var(--pkl-content-width) !important;
+  max-width:none !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+  grid-template-columns:260px minmax(640px,1fr) 260px !important;
+  padding-left:40px !important;
+  padding-right:40px !important;
+}
+.main-nav,
+#pklCommonHeader .main-nav,
+.user-box,
+.quickbar,
+.nav,
+.tabs,
+.feature-actions{
+  flex-wrap:nowrap !important;
+}
+.main-nav a,
+#pklCommonHeader .main-nav a,
+.top-btn,
+.account-trigger,
+.card-btn,
+.quickbar a,
+button,
+.btn,
+.nav-btn{
+  white-space:nowrap !important;
+  flex-shrink:0 !important;
+}
+.hero{
+  width:var(--pkl-content-width) !important;
+  min-width:var(--pkl-content-width) !important;
+  max-width:none !important;
+}
+.primary-grid{
+  width:var(--pkl-content-width) !important;
+  min-width:var(--pkl-content-width) !important;
+  grid-template-columns:repeat(4,1fr) !important;
+}
+.quickbar{
+  width:var(--pkl-content-width) !important;
+  min-width:var(--pkl-content-width) !important;
+  display:grid !important;
+  grid-template-columns:repeat(5,1fr) !important;
+}
+.info-grid{
+  width:var(--pkl-content-width) !important;
+  min-width:var(--pkl-content-width) !important;
+  grid-template-columns:repeat(3,1fr) !important;
+}
+.feature-card,
+.info-card{min-width:0 !important;}
+
+/* Admin: responsive media query가 사이드바/액션패널을 접지 못하게 고정 */
+body:has(.app .sidebar) .app,
+body.admin-page .app,
+.app{
+  min-width:calc(var(--pkl-desktop-width) - 32px) !important;
+}
+.app:has(.sidebar){
+  width:calc(var(--pkl-desktop-width) - 32px) !important;
+  height:calc(100vh - 32px) !important;
+  margin:16px auto !important;
+  display:grid !important;
+  grid-template-columns:250px minmax(0,1fr) !important;
+  gap:16px !important;
+}
+.app:has(.sidebar) .sidebar{display:flex !important;height:calc(100vh - 32px) !important;}
+.app:has(.sidebar) .main{grid-template-rows:72px minmax(0,1fr) !important;}
+.app:has(.sidebar) .grid{grid-template-columns:360px minmax(0,1fr) 360px !important;height:100% !important;overflow:hidden !important;}
+.app:has(.sidebar) .action-panel{display:grid !important;}
+.app:has(.sidebar) .bottom{display:grid !important;grid-template-columns:1fr 1fr !important;}
+
+/* Team: 창 폭이 줄어도 모바일/태블릿 구조로 재배치 금지 */
+.team-page{
+  width:var(--pkl-desktop-width) !important;
+  height:100vh !important;
+  min-height:720px !important;
+  overflow:hidden !important;
+  grid-template-rows:78px 1fr !important;
+}
+.team-header{
+  grid-template-columns:minmax(300px,1fr) minmax(430px,560px) !important;
+}
+.builder-layout{
+  grid-template-columns:minmax(360px,4fr) minmax(520px,5fr) minmax(168px,1fr) !important;
+}
+.team-grid{grid-template-columns:repeat(5,minmax(104px,1fr)) !important;}
+.control-panel{grid-column:auto !important;position:relative !important;display:block !important;}
+.time-block{grid-template-columns:1fr .8fr .8fr !important;}
+.player-tier{display:inline-flex;}
+
+/* Result / sheet: viewport에 맞춰 접히지 않고 데스크톱 폭 유지 */
+.result-page,
+.result-layout{width:var(--pkl-content-width) !important;max-width:none !important;margin-left:auto !important;margin-right:auto !important;}
+.result-layout{grid-template-columns:minmax(0,1fr) 320px !important;}
+.sheet-panel .table-wrap,
+.table-wrap{overflow:auto !important;}
+.record-table,
+table{min-width:780px;}
+
+@media (max-width:2000px){
+  html,body{min-width:var(--pkl-desktop-width) !important;}
+  .site,#pklCommonHeader,.topbar,.team-page,.app,.result-page,.result-layout{min-width:var(--pkl-desktop-width) !important;}
+  .topbar-inner{width:var(--pkl-content-width) !important;min-width:var(--pkl-content-width) !important;}
+  .hero,.primary-grid,.quickbar,.info-grid{width:var(--pkl-content-width) !important;min-width:var(--pkl-content-width) !important;}
+  .primary-grid{grid-template-columns:repeat(4,1fr) !important;}
+  .quickbar{grid-template-columns:repeat(5,1fr) !important;}
+  .info-grid{grid-template-columns:repeat(3,1fr) !important;}
+  .team-header{grid-template-columns:minmax(300px,1fr) minmax(430px,560px) !important;}
+  .builder-layout{grid-template-columns:minmax(360px,4fr) minmax(520px,5fr) minmax(168px,1fr) !important;}
+  .control-panel{grid-column:auto !important;}
+}

@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<script src="pkl-boot-fix.js?v=20260513b"></script>
+
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -8,12 +10,12 @@
   <style id="pklNoWhiteFlash">
     html,body{margin:0;min-height:100%;background:#020208 url('pkl_join_bg.webp') center/cover fixed no-repeat;color:#f8fafc;}
   </style>
-  <script src="./pkl-supabase-sync.js?v=20260513a"></script>
-  <script src="./pkl-join-realtime.js?v=20260513a"></script>
+  <script src="./pkl-supabase-sync.js?v=20260513b"></script>
+  <script src="./pkl-join-realtime.js?v=20260513b"></script>
 <meta charset="utf-8"/>
 <title>PKL 회원가입</title>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<link rel="stylesheet" href="pkl-main-common.css?v=20260513a">
+<link rel="stylesheet" href="pkl-main-common.css?v=20260513b">
 <style id="pklStatusGlowFix">
 #joinStatus{
   box-shadow:none !important;
@@ -4502,10 +4504,10 @@ body.pkl-recruit-closed #joinCancelBtn:hover{
 }
 
 </style>
-<script src="pkl-role-system.js?v=20260513a"></script>
-<script src="pkl-page-permissions.js?v=20260513a"></script>
-<script src="pkl-common-role-badge.js?v=20260513a"></script>
-<script src="pkl-common-tier-badge.js?v=20260513a"></script>
+<script src="pkl-role-system.js?v=20260513b"></script>
+<script src="pkl-page-permissions.js?v=20260513b"></script>
+<script src="pkl-common-role-badge.js?v=20260513b"></script>
+<script src="pkl-common-tier-badge.js?v=20260513b"></script>
 <script id="pklJoinAuthBackGuard">
 (function(){
   "use strict";
@@ -4697,6 +4699,9 @@ body.pkl-join-initializing #joinCancelCount{
   opacity:.55;
 }
 </style>
+
+<link rel="stylesheet" href="./pkl-desktop-scroll-lock.css?v=20260513c">
+<script src="./pkl-desktop-scroll-lock.js?v=20260513c"></script>
 </head>
 <body class="pkl-recruit-loading pkl-join-initializing">
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -4705,7 +4710,7 @@ body.pkl-join-initializing #joinCancelCount{
   <div id="pklCommonHeader"></div>
   <main class="join-main"></main>
 </div>
-<script src="pkl-common-header.js?v=20260513a"></script>
+<script src="pkl-common-header.js?v=20260513b"></script>
 <div class="join-modal" id="joinModal" aria-hidden="true">
   <div class="join-modal-panel" role="dialog" aria-modal="true" aria-label="PKL 킬내기">
     <div class="join-modal-head">

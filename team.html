@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<script src="pkl-boot-fix.js?v=20260513b"></script>
+
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-  <script src="./pkl-supabase-sync.js?v=20260513a"></script>
-  <script src="./pkl-supabase-config.js?v=20260513a"></script>
-  <script src="./pkl-join-realtime.js?v=20260513a"></script>
+  <script src="./pkl-supabase-sync.js?v=20260513b"></script>
+  <script src="./pkl-supabase-config.js?v=20260513b"></script>
+  <script src="./pkl-join-realtime.js?v=20260513b"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PKL 팀편성</title>
-  <link rel="stylesheet" href="./team.css?v=20260513a" />
-<script src="pkl-user-profile-core.js?v=20260513a"></script>
-<script src="pkl-role-system.js?v=20260513a"></script>
-<script src="pkl-page-permissions.js?v=20260513a"></script>
-<script src="pkl-common-role-badge.js?v=20260513a"></script>
-<script src="pkl-common-tier-badge.js?v=20260513a"></script>
+  <link rel="stylesheet" href="./team.css?v=20260513b" />
+<script src="pkl-user-profile-core.js?v=20260513b"></script>
+<script src="pkl-role-system.js?v=20260513b"></script>
+<script src="pkl-page-permissions.js?v=20260513b"></script>
+<script src="pkl-common-role-badge.js?v=20260513b"></script>
+<script src="pkl-common-tier-badge.js?v=20260513b"></script>
 
 <style id="pkl-reroll-memo-notepad-style">
 /* PKL 리스트 모달 메모장 - 독립 플로팅 메모장 */
@@ -103,6 +105,9 @@
 #memoModal.modal-layer.is-open{z-index:100900 !important;display:block !important;}
 #memoModal.modal-layer.is-open .pkl-memo-modal-card{z-index:100901 !important;}
 </style>
+
+<link rel="stylesheet" href="./pkl-desktop-scroll-lock.css?v=20260513c">
+<script src="./pkl-desktop-scroll-lock.js?v=20260513c"></script>
 </head>
 <body>
 
@@ -390,7 +395,7 @@
 
   <div id="pklToast" class="pkl-toast" role="status" aria-live="polite" aria-hidden="true">준비중</div>
 
-  <script src="./team.js?v=20260513a"></script>
+  <script src="./team.js?v=20260513b"></script>
 <script id="pkl-reroll-memo-notepad-script">
 (function(){
   "use strict";
