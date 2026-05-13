@@ -322,7 +322,7 @@ if (rerollListModal) {
     return `is-partner-team is-partner-${teamIndex % 2 === 0 ? 'left' : 'right'} is-partner-tone-${tone}`;
   }
 
-  function renderTeamCard(team, teamIndex) {
+  function renderTeamCard(team, teamIndex, extraClass = '') {
     const slots = team.slots.map((playerId, slotIndex) => `
       <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
         ${playerId ? renderPlayerCard(playerId) : '<div class="empty-slot"></div>'}
@@ -330,7 +330,7 @@ if (rerollListModal) {
     `).join('');
 
     return `
-      <section class="team-card ${getPartnerTeamClass(teamIndex)}">
+      <section class="team-card ${extraClass}" data-team-index="${teamIndex}">
         <div class="team-head">
           <span class="team-name">${team.name}</span>
         </div>
@@ -339,35 +339,21 @@ if (rerollListModal) {
     `;
   }
 
-  function isPartnerTeamMode() {
-    const cfg = getTeamModeConfig(state.teamMode || 'squad20');
-    return Boolean(cfg.modeClass && cfg.modeClass.includes('pkl-mode-partner'));
-  }
-
-  function renderPartnerTeamPairs() {
-    const pairs = [];
-    for (let teamIndex = 0; teamIndex < state.teams.length; teamIndex += 2) {
-      const first = state.teams[teamIndex];
-      const second = state.teams[teamIndex + 1];
-      if (!first) continue;
-      const pairNumber = Math.floor(teamIndex / 2) + 1;
-      const pairLabel = second ? `${first.name} · ${second.name}` : first.name;
-      const cfg = getTeamModeConfig(state.teamMode || 'squad20');
-      const pairSlotCount = (cfg.slots || 4) * (second ? 2 : 1);
-      pairs.push(`
-        <section class="team-pair-card" data-pair-index="${pairNumber}">
-          <div class="team-pair-head">
-            <span class="team-pair-title">${pairLabel}</span>
-            <span class="team-pair-count">${pairSlotCount} SLOT</span>
-          </div>
-          <div class="team-pair-body">
-            ${renderTeamCard(first, teamIndex)}
-            ${second ? renderTeamCard(second, teamIndex + 1) : ''}
-          </div>
-        </section>
-      `);
-    }
-    return pairs.join('');
+  function renderPartnerTeamPair(pairIndex, leftTeam, leftIndex, rightTeam, rightIndex) {
+    const tone = pairIndex % 6;
+    const title = `${leftTeam ? leftTeam.name : `${leftIndex + 1}팀`} · ${rightTeam ? rightTeam.name : `${rightIndex + 1}팀`}`;
+    return `
+      <section class="pkl-kanbu-pair-card is-partner-tone-${tone}" data-pair-index="${pairIndex}">
+        <div class="pkl-kanbu-pair-head">
+          <span>${escapeHtml(title)}</span>
+          <em>${getTeamModeConfig(state.teamMode || 'squad20').slots * 2} SLOT</em>
+        </div>
+        <div class="pkl-kanbu-pair-body">
+          ${leftTeam ? renderTeamCard(leftTeam, leftIndex, 'is-partner-team is-partner-left') : ''}
+          ${rightTeam ? renderTeamCard(rightTeam, rightIndex, 'is-partner-team is-partner-right') : ''}
+        </div>
+      </section>
+    `;
   }
 
   function renderTeams() {
@@ -378,10 +364,20 @@ if (rerollListModal) {
       return;
     }
 
+    const cfg = getTeamModeConfig(state.teamMode || 'squad20');
+    const isPartnerMode = !!(cfg.modeClass && cfg.modeClass.includes('pkl-mode-partner'));
+
     teamGrid.classList.remove('team-board-locked');
-    teamGrid.innerHTML = isPartnerTeamMode()
-      ? renderPartnerTeamPairs()
-      : state.teams.map((team, teamIndex) => renderTeamCard(team, teamIndex)).join('');
+
+    if (isPartnerMode) {
+      const pairs = [];
+      for (let i = 0; i < state.teams.length; i += 2) {
+        pairs.push(renderPartnerTeamPair(Math.floor(i / 2), state.teams[i], i, state.teams[i + 1], i + 1));
+      }
+      teamGrid.innerHTML = pairs.join('');
+    } else {
+      teamGrid.innerHTML = state.teams.map((team, teamIndex) => renderTeamCard(team, teamIndex, getPartnerTeamClass(teamIndex))).join('');
+    }
 
     bindDropZones();
     bindPlayerCards();

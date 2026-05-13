@@ -6913,184 +6913,145 @@ body{
   font-weight:1000 !important;
 }
 
-/* === PKL team partner pair layout: 1·2 / 3·4 grouped cards === */
+/* === PKL DUO/PARTNER FINAL: pair-card layout, no fake image/mockup === */
 .team-page > .builder-layout.pkl-mode-partner > .team-board .team-grid{
-  display:grid !important;
+  gap:8px !important;
+  align-items:stretch !important;
+  align-content:stretch !important;
+}
+.team-page > .builder-layout.pkl-mode-20.pkl-mode-partner > .team-board .team-grid{
   grid-template-columns:repeat(5,minmax(0,1fr)) !important;
   grid-template-rows:repeat(2,minmax(0,1fr)) !important;
-  gap:10px !important;
-  align-items:stretch !important;
 }
-.team-page > .builder-layout.pkl-mode-partner.pkl-mode-40 > .team-board .team-grid{
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .team-grid{
   grid-template-columns:repeat(5,minmax(0,1fr)) !important;
   grid-template-rows:repeat(4,minmax(0,1fr)) !important;
-  gap:8px !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card{
+.pkl-kanbu-pair-card{
   min-width:0 !important;
   min-height:0 !important;
+  height:100% !important;
   display:flex !important;
   flex-direction:column !important;
   overflow:hidden !important;
-  border-radius:15px !important;
-  border:1px solid rgba(167,139,250,.34) !important;
+  border:1px solid rgba(167,139,250,.32) !important;
+  border-radius:12px !important;
   background:
-    radial-gradient(circle at 50% 0%,rgba(139,92,246,.18),transparent 48%),
-    linear-gradient(180deg,rgba(16,12,32,.90),rgba(5,7,18,.86)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.075),
-    0 0 0 1px rgba(139,92,246,.08),
-    0 10px 22px rgba(0,0,0,.22),
-    0 0 18px rgba(139,92,246,.09) !important;
+    radial-gradient(circle at 50% 0%,rgba(139,92,246,.18),transparent 52%),
+    linear-gradient(180deg,rgba(255,255,255,.052),rgba(0,0,0,.21)) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(139,92,246,.10),0 0 14px rgba(139,92,246,.08) !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-head{
-  height:25px !important;
-  min-height:25px !important;
-  padding:0 8px !important;
+.pkl-kanbu-pair-head{
+  flex:0 0 22px !important;
+  min-height:22px !important;
+  height:22px !important;
   display:flex !important;
   align-items:center !important;
   justify-content:space-between !important;
-  gap:8px !important;
-  border-bottom:1px solid rgba(167,139,250,.22) !important;
-  background:linear-gradient(90deg,rgba(83,58,148,.72),rgba(29,31,69,.68)) !important;
-}
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-title{
-  min-width:0 !important;
-  overflow:hidden !important;
-  text-overflow:ellipsis !important;
-  white-space:nowrap !important;
-  color:#f4edff !important;
+  gap:6px !important;
+  padding:3px 7px !important;
+  color:#f4ecff !important;
   font-size:12px !important;
-  font-weight:900 !important;
-  letter-spacing:.02em !important;
-  text-shadow:0 0 9px rgba(167,139,250,.22) !important;
+  font-weight:1000 !important;
+  line-height:1 !important;
+  background:linear-gradient(90deg,rgba(91,62,154,.76),rgba(52,45,100,.66)) !important;
+  border-bottom:1px solid rgba(167,139,250,.24) !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-count{
+.pkl-kanbu-pair-head span{overflow:hidden !important;text-overflow:ellipsis !important;}
+.pkl-kanbu-pair-head em{
   flex:0 0 auto !important;
-  height:15px !important;
-  padding:0 6px !important;
+  min-width:42px !important;
+  height:14px !important;
   display:inline-flex !important;
   align-items:center !important;
   justify-content:center !important;
   border-radius:999px !important;
-  border:1px solid rgba(216,180,254,.24) !important;
-  background:rgba(255,255,255,.045) !important;
-  color:rgba(231,221,255,.70) !important;
+  border:1px solid rgba(216,180,254,.22) !important;
+  background:rgba(255,255,255,.07) !important;
+  color:rgba(255,255,255,.64) !important;
   font-size:8px !important;
-  font-weight:900 !important;
-  letter-spacing:.04em !important;
+  font-style:normal !important;
+  font-weight:1000 !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-body{
+.pkl-kanbu-pair-body{
   flex:1 1 auto !important;
   min-height:0 !important;
   display:grid !important;
   grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   gap:6px !important;
   padding:6px !important;
+  overflow:hidden !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .team-card,
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .team-card.is-partner-left,
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .team-card.is-partner-right{
-  margin:0 !important;
+.pkl-kanbu-pair-card .team-card{
   min-width:0 !important;
   min-height:0 !important;
   height:100% !important;
-  border-radius:10px !important;
-  border:1px solid rgba(167,139,250,.20) !important;
+  margin:0 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  border-radius:9px !important;
+  border-color:rgba(167,139,250,.24) !important;
   background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(0,0,0,.18)) !important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.055) !important;
+  box-shadow:none !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .team-card::before,
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .team-card::after,
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .team-card .team-head::after{
+.pkl-kanbu-pair-card .team-card::before,
+.pkl-kanbu-pair-card .team-card::after,
+.pkl-kanbu-pair-card .team-card .team-head::after{
   content:none !important;
   display:none !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .team-head{
-  height:22px !important;
-  min-height:22px !important;
+.pkl-kanbu-pair-card .team-head{
+  flex:0 0 20px !important;
+  min-height:20px !important;
+  height:20px !important;
   padding:3px 6px !important;
-  background:linear-gradient(90deg,rgba(61,42,112,.74),rgba(33,31,71,.66)) !important;
-  border-bottom:1px solid rgba(167,139,250,.16) !important;
+  background:rgba(78,55,134,.54) !important;
+  border-bottom:1px solid rgba(167,139,250,.18) !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .team-name{
+.pkl-kanbu-pair-card .team-name{
   font-size:11px !important;
-  font-weight:900 !important;
-  color:#e9ddff !important;
+  line-height:1 !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .slot-list{
+.pkl-kanbu-pair-card .slot-list{
+  flex:1 1 auto !important;
+  min-height:0 !important;
   display:grid !important;
   grid-template-columns:1fr !important;
-  grid-template-rows:repeat(4,minmax(0,1fr)) !important;
+  grid-auto-flow:row !important;
   gap:4px !important;
   padding:4px !important;
-  min-height:0 !important;
   overflow:hidden !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .team-slot{
+.team-page > .builder-layout.pkl-mode-40.pkl-mode-partner .pkl-kanbu-pair-card .slot-list{
+  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+}
+.team-page > .builder-layout.pkl-mode-20.pkl-mode-partner .pkl-kanbu-pair-card .slot-list{
+  grid-template-rows:repeat(4,minmax(0,1fr)) !important;
+}
+.pkl-kanbu-pair-card .team-slot{
+  width:100% !important;
+  height:100% !important;
   min-width:0 !important;
   min-height:0 !important;
   padding:3px !important;
   border-radius:7px !important;
+  display:flex !important;
+  align-items:stretch !important;
+  justify-content:stretch !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .player-card{
+.pkl-kanbu-pair-card .team-slot .empty-slot,
+.pkl-kanbu-pair-card .team-slot .player-card{
+  width:100% !important;
+  height:100% !important;
   min-width:0 !important;
   min-height:0 !important;
-  padding:3px 4px !important;
 }
-.team-page > .builder-layout.pkl-mode-partner > .team-board .team-pair-card .player-name{
-  font-size:10px !important;
-}
-.team-page > .builder-layout.pkl-mode-partner.pkl-mode-40 > .team-board .team-pair-body{
-  gap:5px !important;
-  padding:5px !important;
-}
-.team-page > .builder-layout.pkl-mode-partner.pkl-mode-40 > .team-board .team-pair-card .slot-list{
-  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-  grid-template-rows:1fr !important;
-  gap:3px !important;
-  padding:3px !important;
-}
-.team-page > .builder-layout.pkl-mode-partner.pkl-mode-40 > .team-board .team-pair-card .team-head{
-  height:20px !important;
-  min-height:20px !important;
-}
-
-/* === PKL duo layout cleanup: horizontal 2-slot rows + duo partner grouped pairs === */
-.builder-layout.pkl-mode-duo:not(.pkl-mode-partner) .slot-list{
-  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-  grid-template-rows:1fr !important;
-  gap:5px !important;
-}
-.builder-layout.pkl-mode-duo:not(.pkl-mode-partner) .team-slot{
-  min-height:56px !important;
-  height:100% !important;
-}
-.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-grid{
-  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
-  grid-template-rows:repeat(4,minmax(0,1fr)) !important;
-  gap:8px !important;
-}
-.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-pair-card{
-  min-height:0 !important;
-}
-.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-pair-body{
-  display:grid !important;
-  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-  gap:5px !important;
-  padding:5px !important;
-}
-.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-pair-card .slot-list{
+/* 일반 듀오: 한 팀 안 슬롯 1/2는 좌우 가로칸 유지 */
+.team-page > .builder-layout.pkl-mode-40:not(.pkl-mode-partner) > .team-board .slot-list{
   display:grid !important;
   grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   grid-template-rows:1fr !important;
-  gap:3px !important;
-  padding:3px !important;
-}
-.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-pair-card .team-slot{
-  min-height:48px !important;
-  padding:3px !important;
-}
-.team-page > .builder-layout.pkl-mode-duo.pkl-mode-partner > .team-board .team-pair-count::before{
-  content:'' !important;
+  grid-auto-flow:column !important;
 }
