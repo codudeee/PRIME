@@ -6455,6 +6455,23 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
   </div>
 </div>
 
+
+<div class="pkl-cold-entry-modal" id="pklColdEntryModal" aria-hidden="true">
+  <div class="pkl-cold-entry-card" role="dialog" aria-modal="true" aria-labelledby="pklColdEntryTitle">
+    <button type="button" class="pkl-cold-entry-close" id="pklColdEntryClose" aria-label="닫기">×</button>
+    <div class="pkl-cold-entry-icon">COLD</div>
+    <h2 id="pklColdEntryTitle">콜드 상태 진입</h2>
+    <div class="pkl-cold-entry-message">
+      <strong id="pklColdEntryTeamName">선택 팀</strong>
+      <span>점수 차이가 벌어졌습니다. 불판으로 재개하거나 서렌을 선택해주세요.</span>
+    </div>
+    <div class="pkl-cold-entry-actions">
+      <button type="button" class="action-btn" id="pklColdEntryFireButton">불판</button>
+      <button type="button" class="action-btn red" id="pklColdEntrySurrenderButton">서렌</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
 'use strict';
