@@ -6279,6 +6279,62 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 }
 </style>
 
+
+
+<style id="pkl-scoreboard-5x2-scroll-final">
+/* SCOREBOARD: 기존 5칸 + 5칸 구조 유지, 10칸 초과분은 아래 점수시트지와 같은 스크롤로 확인 */
+.scoreboard-team-grid,
+.team-grid,
+#teamGrid{
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  grid-template-rows:none !important;
+  grid-auto-rows:minmax(150px,150px) !important;
+  align-content:start !important;
+  max-height:322px !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  padding-right:16px !important;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(190,140,255,.72) rgba(20,12,38,.72);
+}
+.team-grid.duo,
+#teamGrid.duo{
+  grid-template-rows:none !important;
+}
+.scoreboard-team-grid::-webkit-scrollbar,
+.team-grid::-webkit-scrollbar,
+#teamGrid::-webkit-scrollbar{
+  width:10px;
+}
+.scoreboard-team-grid::-webkit-scrollbar-track,
+.team-grid::-webkit-scrollbar-track,
+#teamGrid::-webkit-scrollbar-track{
+  background:rgba(20,12,38,.72);
+  border-radius:999px;
+  box-shadow:inset 0 0 0 1px rgba(155,92,255,.16);
+}
+.scoreboard-team-grid::-webkit-scrollbar-thumb,
+.team-grid::-webkit-scrollbar-thumb,
+#teamGrid::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg,rgba(216,180,254,.92),rgba(155,92,255,.72));
+  border-radius:999px;
+  border:2px solid rgba(20,12,38,.82);
+  box-shadow:0 0 12px rgba(168,85,247,.32);
+}
+.scoreboard-team-grid::-webkit-scrollbar-thumb:hover,
+.team-grid::-webkit-scrollbar-thumb:hover,
+#teamGrid::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(180deg,rgba(233,213,255,.96),rgba(168,85,247,.84));
+}
+/* 스코어보드는 닉네임만: 점수시트지 헤더의 티어배지는 유지 */
+#teamGrid .tier-mark,
+#teamGrid .member-role-badge,
+#teamGrid .user-role-badge,
+#teamGrid .admin-role-badge{
+  display:none !important;
+}
+</style>
+
 </head>
 <body>
 <div class="app">
