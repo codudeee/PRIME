@@ -322,6 +322,52 @@ if (rerollListModal) {
     return `is-partner-team is-partner-${teamIndex % 2 === 0 ? 'left' : 'right'} is-partner-tone-${tone}`;
   }
 
+  function renderTeamCard(team, teamIndex) {
+    const slots = team.slots.map((playerId, slotIndex) => `
+      <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
+        ${playerId ? renderPlayerCard(playerId) : '<div class="empty-slot"></div>'}
+      </div>
+    `).join('');
+
+    return `
+      <section class="team-card ${getPartnerTeamClass(teamIndex)}">
+        <div class="team-head">
+          <span class="team-name">${team.name}</span>
+        </div>
+        <div class="slot-list">${slots}</div>
+      </section>
+    `;
+  }
+
+  function isPartnerTeamMode() {
+    const cfg = getTeamModeConfig(state.teamMode || 'squad20');
+    return Boolean(cfg.modeClass && cfg.modeClass.includes('pkl-mode-partner'));
+  }
+
+  function renderPartnerTeamPairs() {
+    const pairs = [];
+    for (let teamIndex = 0; teamIndex < state.teams.length; teamIndex += 2) {
+      const first = state.teams[teamIndex];
+      const second = state.teams[teamIndex + 1];
+      if (!first) continue;
+      const pairNumber = Math.floor(teamIndex / 2) + 1;
+      const pairLabel = second ? `${first.name} · ${second.name}` : first.name;
+      pairs.push(`
+        <section class="team-pair-card" data-pair-index="${pairNumber}">
+          <div class="team-pair-head">
+            <span class="team-pair-title">${pairLabel}</span>
+            <span class="team-pair-count">${second ? 8 : 4} SLOT</span>
+          </div>
+          <div class="team-pair-body">
+            ${renderTeamCard(first, teamIndex)}
+            ${second ? renderTeamCard(second, teamIndex + 1) : ''}
+          </div>
+        </section>
+      `);
+    }
+    return pairs.join('');
+  }
+
   function renderTeams() {
     ensureTeamModeState(state.teamMode || 'squad20');
     if (!canViewTeamParticipants()) {
@@ -331,22 +377,9 @@ if (rerollListModal) {
     }
 
     teamGrid.classList.remove('team-board-locked');
-    teamGrid.innerHTML = state.teams.map((team, teamIndex) => {
-      const slots = team.slots.map((playerId, slotIndex) => `
-        <div class="team-slot ${isSlotSelected(teamIndex, slotIndex) ? 'is-selected' : ''}" data-drop-type="slot" data-team-index="${teamIndex}" data-slot-index="${slotIndex}" aria-label="${team.name} ${slotIndex + 1}번자리">
-          ${playerId ? renderPlayerCard(playerId) : '<div class="empty-slot"></div>'}
-        </div>
-      `).join('');
-
-      return `
-        <section class="team-card ${getPartnerTeamClass(teamIndex)}">
-          <div class="team-head">
-            <span class="team-name">${team.name}</span>
-          </div>
-          <div class="slot-list">${slots}</div>
-        </section>
-      `;
-    }).join('');
+    teamGrid.innerHTML = isPartnerTeamMode()
+      ? renderPartnerTeamPairs()
+      : state.teams.map((team, teamIndex) => renderTeamCard(team, teamIndex)).join('');
 
     bindDropZones();
     bindPlayerCards();
