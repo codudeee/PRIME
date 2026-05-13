@@ -7348,3 +7348,33 @@ body.pkl-team-viewer-only #rerollListButton{
   pointer-events:auto !important;
   filter:none !important;
 }
+
+/* === PKL HOTFIX: restore team control panel surface ===
+   원인: viewer-only CSS가 컨트롤 섹션 자체를 display:none 처리해 관리자 권한 로딩 전/권한 꼬임 시 컨트롤이 사라짐.
+   처리: 컨트롤 UI는 항상 표시하고, 조작 권한은 team.js의 disabled/권한 검사로만 막는다. */
+.team-page > .builder-layout > .control-panel{
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
+}
+body.pkl-team-viewer-only .team-page > .builder-layout > .control-panel .control-section-box,
+body.pkl-team-viewer-only .team-page > .builder-layout > .control-panel .control-bottom-actions{
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+body.pkl-team-viewer-only .team-page > .builder-layout > .control-panel .control-title-row{
+  display:flex !important;
+  visibility:visible !important;
+}
+body.pkl-team-viewer-only .team-page > .builder-layout > .control-panel .pkl-viewer-disabled-control{
+  opacity:.42 !important;
+  pointer-events:none !important;
+  filter:grayscale(.25) brightness(.82) !important;
+}
+body.pkl-team-viewer-only .team-page > .builder-layout > .control-panel #rerollListButton{
+  opacity:1 !important;
+  pointer-events:auto !important;
+  filter:none !important;
+}
