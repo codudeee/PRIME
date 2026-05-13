@@ -6361,6 +6361,22 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
       </div>
     </header>
 
+    <script id="pkl-sheet-instant-clock-20260513">
+    (function(){
+      function paint(){
+        var el=document.getElementById('currentTimeView');
+        if(!el) return;
+        var now=new Date();
+        var ap=now.getHours()>=12?'PM':'AM';
+        var hh=String((now.getHours()%12)||12).padStart(2,'0');
+        var mm=String(now.getMinutes()).padStart(2,'0');
+        var ss=String(now.getSeconds()).padStart(2,'0');
+        el.textContent=ap+' '+hh+':'+mm+':'+ss;
+      }
+      paint();
+    })();
+    </script>
+
     <section class="board">
       <div class="panel-head">
         <div class="panel-title"><span>PKL TEAM</span> SCOREBOARD</div>
@@ -6503,6 +6519,74 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
     </div>
   </div>
 </div>
+
+<script id="pkl-sheet-fast-preload-render-20260513">
+(function(){
+  if(window.__PKL_SHEET_FAST_PRELOAD_20260513__) return;
+  window.__PKL_SHEET_FAST_PRELOAD_20260513__=true;
+  var KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
+  function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m];});}
+  function compact(v){return String(v||'').trim().replace(/[\s_-]+/g,'').toLowerCase();}
+  function tierKey(v){
+    var raw=String(v||'').trim(); if(!raw||raw==='없음'||raw.toLowerCase()==='none') return '';
+    if(/^tier[0-4]_(high|mid|low)$/.test(raw)||raw==='beast') return raw;
+    var c=compact(raw);
+    var map={
+      tier0:'tier0_mid',tier0high:'tier0_high',tier0mid:'tier0_mid',tier0low:'tier0_low',
+      tier1:'tier1_mid',tier1high:'tier1_high',tier1mid:'tier1_mid',tier1low:'tier1_low',
+      tier2:'tier2_mid',tier2high:'tier2_high',tier2mid:'tier2_mid',tier2low:'tier2_low',
+      tier3:'tier3_mid',tier3high:'tier3_high',tier3mid:'tier3_mid',tier3low:'tier3_low',
+      tier4:'tier4_mid',tier4high:'tier4_high',tier4mid:'tier4_mid',tier4low:'tier4_low',
+      '0티어':'tier0_mid','0티어상':'tier0_high','0티어중':'tier0_mid','0티어하':'tier0_low','0상':'tier0_high','0중':'tier0_mid','0하':'tier0_low',
+      '1티어':'tier1_mid','1티어상':'tier1_high','1티어중':'tier1_mid','1티어하':'tier1_low','1상':'tier1_high','1중':'tier1_mid','1하':'tier1_low',
+      '2티어':'tier2_mid','2티어상':'tier2_high','2티어중':'tier2_mid','2티어하':'tier2_low','2상':'tier2_high','2중':'tier2_mid','2하':'tier2_low',
+      '3티어':'tier3_mid','3티어상':'tier3_high','3티어중':'tier3_mid','3티어하':'tier3_low','3상':'tier3_high','3중':'tier3_mid','3하':'tier3_low',
+      '4티어':'tier4_mid','4티어상':'tier4_high','4티어중':'tier4_mid','4티어하':'tier4_low','4상':'tier4_high','4중':'tier4_mid','4하':'tier4_low',
+      beast:'beast','짐승':'beast'
+    };
+    return map[c]||'';
+  }
+  function tierLabel(k){return ({tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',tier2_high:'2티어 상',tier2_mid:'2티어 중',tier2_low:'2티어 하',tier3_high:'3티어 상',tier3_mid:'3티어 중',tier3_low:'3티어 하',tier4_high:'4티어 상',tier4_mid:'4티어 중',tier4_low:'4티어 하',beast:'짐승'})[k]||'';}
+  function roleClass(k){if(k.indexOf('tier0')===0)return'role-tier0';if(k.indexOf('tier1')===0)return'role-tier1';if(k.indexOf('tier2')===0)return'role-tier2';if(k.indexOf('tier3')===0)return'role-tier3';if(k.indexOf('tier4')===0)return'role-tier4';if(k==='beast')return'role-beast';return'role-none';}
+  function memberName(m){return String((m&&(m.name||m.nickname||m.nick||m.displayName||m.pubgId||m.pubgID||m.pubgName||m.gameId||m.username))||'').trim();}
+  function memberTier(m){return tierKey(m&&(m.__tierKey||m.memberTier||m.tier||m.grade||m.memberGrade||m.pklTier||m.rank||m.level||m.tierName||m.memberTierName));}
+  function badge(m){
+    var key=memberTier(m); if(!key) return '';
+    try{if(window.PKLTierBadge&&typeof window.PKLTierBadge.render==='function'){var html=window.PKLTierBadge.render(key); if(html) return html;}}catch(e){}
+    var label=tierLabel(key); if(!label) return '';
+    return '<span class="pkl-tier-badge tier-mark '+roleClass(key)+'" data-pkl-tier-badge="1" data-tier="'+esc(key)+'">'+esc(label)+'</span>';
+  }
+  function visible(st){
+    var teams=Array.isArray(st&&st.teams)?st.teams:[];
+    if((st&&st.mode)==='duo'){var out=[];teams.forEach(function(t,i){var mm=Array.isArray(t.members)?t.members:[];out.push(Object.assign({},t,{viewId:(t.id||('team'+(i+1)))+'a',members:mm.slice(0,2),memberOffset:0}));out.push(Object.assign({},t,{viewId:(t.id||('team'+(i+1)))+'b',members:mm.slice(2,4),memberOffset:2}));});return out;}
+    return teams.map(function(t,i){return Object.assign({},t,{viewId:t.id||('team'+(i+1)),members:(Array.isArray(t.members)?t.members:[]).slice(0,4),memberOffset:0});});
+  }
+  function paint(st){
+    if(!st||!Array.isArray(st.teams)) return;
+    var views=visible(st).filter(function(v){return (v.members||[]).some(memberName);});
+    var grid=document.getElementById('teamGrid');
+    if(grid && !grid.dataset.pklFastPainted){
+      grid.dataset.pklFastPainted='1';
+      grid.classList.toggle('duo', st.mode==='duo');
+      grid.innerHTML=views.map(function(v){return '<article class="team-card" data-team="'+esc(v.viewId)+'"><div class="card-score-main" style="--gauge:0%"><span class="score-gauge-text">0 / 0 (0%)</span></div><div class="member-list">'+(v.members||[]).map(function(m){var n=memberName(m);return '<div class="member-row"><span class="member-name">'+(n?esc(n):'&nbsp;')+'</span><span class="member-kd">0 (0/0)</span></div>';}).join('')+'</div></article>';}).join('');
+    }
+    var view=views[0];
+    if(view){for(var i=0;i<4;i++){var h=document.getElementById('h'+i),m=view.members&&view.members[i],n=memberName(m);if(h&&n&&!h.dataset.pklFastPainted){h.dataset.pklFastPainted='1';h.innerHTML='<span class="user-role-line"><span class="user-name">'+esc(n)+'</span> '+badge(m)+'</span>';}}}
+  }
+  function valid(v){return !!(v&&typeof v==='object'&&Array.isArray(v.teams)&&Array.isArray(v.rounds));}
+  function parse(v){if(typeof v==='string'){try{return JSON.parse(v);}catch(e){return null;}}return v&&typeof v==='object'?v:null;}
+  async function load(){
+    var v=null;
+    try{if(window.PKLSupabaseDataSync&&typeof window.PKLSupabaseDataSync.getShared==='function') v=await window.PKLSupabaseDataSync.getShared(KEY);}
+    catch(e){}
+    if(!v){try{var res=await fetch('/api/pkl-data-store?type=shared&key='+encodeURIComponent(KEY),{cache:'no-store'});var data=await res.json();v=data&&data.item&&data.item.value;}catch(e){}}
+    v=parse(v);
+    if(valid(v)){window.__PKL_FAST_SHEET_STATE=v;paint(v);return v;}
+    return null;
+  }
+  window.__PKL_FAST_SHEET_STATE_PROMISE=load();
+})();
+</script>
 
 <script>
 (function(){
@@ -7251,10 +7335,7 @@ function pklNormalizeRemoteSheetState(value){
   return value && typeof value==='object' ? value : null;
 }
 function pklLoadSheetStateFromSupabaseOnce(){
-  if(!(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function')){
-    return Promise.resolve(false);
-  }
-  return window.PKLSupabaseDataSync.getShared(STORAGE_KEY).then(function(remote){
+  function apply(remote){
     const next=pklNormalizeRemoteSheetState(remote);
     if(!pklIsValidSheetState(next)) return false;
     state=next;
@@ -7262,7 +7343,21 @@ function pklLoadSheetStateFromSupabaseOnce(){
     if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId=visibleTeams()[0]?.viewId || 'team1';
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
     return true;
-  }).catch(function(){ return false; });
+  }
+  if(pklIsValidSheetState(window.__PKL_FAST_SHEET_STATE)){
+    return Promise.resolve(apply(window.__PKL_FAST_SHEET_STATE));
+  }
+  if(window.__PKL_FAST_SHEET_STATE_PROMISE && typeof window.__PKL_FAST_SHEET_STATE_PROMISE.then==='function'){
+    return window.__PKL_FAST_SHEET_STATE_PROMISE.then(function(remote){
+      if(pklIsValidSheetState(remote)) return apply(remote);
+      if(!(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function')) return false;
+      return window.PKLSupabaseDataSync.getShared(STORAGE_KEY).then(apply).catch(function(){return false;});
+    }).catch(function(){ return false; });
+  }
+  if(!(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function')){
+    return Promise.resolve(false);
+  }
+  return window.PKLSupabaseDataSync.getShared(STORAGE_KEY).then(apply).catch(function(){ return false; });
 }
 function pklBootSheetRender(){
   /* 첫 진입 체감속도 보정:
@@ -7427,6 +7522,31 @@ function pklBindTierDragOnce(){
   },true);
 }
 pklBindTierDragOnce();
+function pklSheetManualTierBadgeHtml(tier){
+  const key=pklTierScoreRoleFromText(tier);
+  if(!key || key==='none') return '';
+  if(window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function'){
+    const html=window.PKLTierBadge.render(key);
+    if(html) return html;
+  }
+  const label={
+    tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',
+    tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',
+    tier2_high:'2티어 상',tier2_mid:'2티어 중',tier2_low:'2티어 하',
+    tier3_high:'3티어 상',tier3_mid:'3티어 중',tier3_low:'3티어 하',
+    tier4_high:'4티어 상',tier4_mid:'4티어 중',tier4_low:'4티어 하',
+    beast:'짐승'
+  }[key] || '';
+  if(!label) return '';
+  const cls=key.indexOf('tier0')===0?'role-tier0':key.indexOf('tier1')===0?'role-tier1':key.indexOf('tier2')===0?'role-tier2':key.indexOf('tier3')===0?'role-tier3':key.indexOf('tier4')===0?'role-tier4':key==='beast'?'role-beast':'role-none';
+  return `<span class="pkl-tier-badge tier-mark ${cls}" data-pkl-tier-badge="1" data-tier="${escape(key)}">${escape(label)}</span>`;
+}
+function pklSheetMemberTierCandidates(member, user){
+  return [
+    user?.memberTier,user?.gradeRole,user?.tierRole,user?.baseRole,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.memberTierName,user?.tierName,
+    member?.__tierKey,member?.memberTier,member?.gradeRole,member?.tierRole,member?.baseRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,member?.memberTierName,member?.tierName
+  ].filter(v=>String(v||'').trim());
+}
 function pklSheetHeaderNameHtml(member){
   if(!member) return '';
   const user = pklFindTierUserByMember(member);
@@ -7441,9 +7561,10 @@ function pklSheetHeaderNameHtml(member){
     badge = window.PKLTierBadge.renderForUser(user) || '';
   }
   if(!badge){
-    const directTier = pklTierRoleOfMember(member) || pklTierScoreRoleFromText(member && (member.memberTier || member.tier || member.grade || member.memberGrade || member.pklTier || member.rank || member.level));
-    if(directTier && window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function'){
-      badge = window.PKLTierBadge.render(directTier) || '';
+    const candidates=pklSheetMemberTierCandidates(member, user);
+    for(const candidate of candidates){
+      badge=pklSheetManualTierBadgeHtml(candidate);
+      if(badge) break;
     }
   }
   return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
