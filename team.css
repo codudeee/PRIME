@@ -7229,3 +7229,60 @@ body{
 .team-page > .builder-layout.pkl-mode-40.pkl-mode-partner > .team-board .team-card.is-partner-team .team-slot .player-tier.member-role-badge{
   flex:0 0 auto !important;
 }
+
+
+/* 일반 유저 팀구성 권한: 리스트 버튼만 열람 가능 */
+body.pkl-team-viewer-only .control-panel .control-section-box:not(:first-of-type),
+body.pkl-team-viewer-only .control-panel .control-bottom-actions{
+  opacity:.42;
+  pointer-events:none;
+  filter:saturate(.72);
+}
+body.pkl-team-viewer-only #rerollListButton{
+  opacity:1 !important;
+  pointer-events:auto !important;
+  filter:none !important;
+}
+body.pkl-team-viewer-only #rerollListModal #openRerollMemoButton,
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-manual-row,
+body.pkl-team-viewer-only #rerollListModal #rerollUserSuggestBox,
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-calculator-panel,
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-remove,
+body.pkl-team-viewer-only #memoModal{
+  display:none !important;
+}
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-layout{
+  grid-template-columns:1fr !important;
+}
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-list-modal{
+  width:min(780px,calc(100vw - 34px)) !important;
+}
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-list-header{
+  grid-template-columns:minmax(0,1fr) 70px 96px !important;
+}
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-list-header span:last-child{
+  display:none !important;
+}
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-entry{
+  grid-template-columns:minmax(0,1fr) 70px 96px !important;
+}
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-count-view{
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:12px;
+  border:1px solid rgba(216,180,254,.18);
+  background:rgba(255,255,255,.045);
+  color:#fff;
+  font-size:16px;
+  font-weight:1000;
+}
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-check.is-disabled{
+  cursor:not-allowed;
+  opacity:.58;
+  pointer-events:none;
+}
+body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-check.is-disabled input{
+  pointer-events:none;
+}

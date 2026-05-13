@@ -180,6 +180,7 @@
     bindTeamModeDropdown();
     fillMatchTimeSelects();
     bindUserSyncEvents();
+    applyTeamControlAccess();
     startClock();
 
     const supabaseReady = (window.PKLGetSupabaseConfig && typeof window.PKLGetSupabaseConfig === 'function')
@@ -193,6 +194,7 @@
         loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
           syncJoinWaitListIntoTeamBoard(true);
           syncPlayersWithUserSources();
+          applyTeamControlAccess();
           render();
           refreshJoinWaitListFromSupabaseOnce();
         });
@@ -206,6 +208,7 @@
     realtime.fetchNow().then(() => loadSupabaseUsersForJoinWaitListOnce(true)).then(() => {
       syncJoinWaitListIntoTeamBoard(true);
       syncPlayersWithUserSources();
+      applyTeamControlAccess();
       renderTierPools();
       renderTeams();
       renderSummary();
@@ -232,12 +235,12 @@ const saveMemoButton = document.getElementById('saveMemoButton');
     if (startButton) startButton.addEventListener('click', openMatchTimeModal);
     if (saveMatchTimeButton) saveMatchTimeButton.addEventListener('click', saveMatchTimeSettings);
     if (rerollListButton) rerollListButton.addEventListener('click', openRerollListModal);
-    if (addRerollUserButton) addRerollUserButton.addEventListener('click', addManualRerollUser);
+    if (addRerollUserButton) addRerollUserButton.addEventListener('click', () => { if (!isTeamControlManager()) return; addManualRerollUser(); });
     if (rerollUserInput) {
       rerollUserInput.addEventListener('focus', refreshRerollUserAutocomplete);
       rerollUserInput.addEventListener('input', refreshRerollUserAutocomplete);
       rerollUserInput.addEventListener('keydown', event => {
-        if (event.key === 'Enter') addManualRerollUser();
+        if (event.key === 'Enter') { if (!isTeamControlManager()) return; addManualRerollUser(); }
       });
     }
     
@@ -258,13 +261,13 @@ if (rerollListModal) {
       bindRerollModalFocusGuard(rerollListModal);
     }
     const addTestPlayersButton = document.getElementById('addTestPlayersButton');
-    if (addTestPlayersButton) addTestPlayersButton.addEventListener('click', openPlayerModal);
-    document.getElementById('resetButton').addEventListener('click', openResetBoardConfirmModal);
-    document.getElementById('rerollAllButton').addEventListener('click', runRerollByMode);
-    document.getElementById('completeButton').addEventListener('click', completeTeams);
+    if (addTestPlayersButton) addTestPlayersButton.addEventListener('click', () => { if (!isTeamControlManager()) return; openPlayerModal(); });
+    document.getElementById('resetButton').addEventListener('click', () => { if (!isTeamControlManager()) return; openResetBoardConfirmModal(); });
+    document.getElementById('rerollAllButton').addEventListener('click', () => { if (!isTeamControlManager()) return; runRerollByMode(); });
+    document.getElementById('completeButton').addEventListener('click', () => { if (!isTeamControlManager()) return; completeTeams(); });
     const loadWaitingButton = document.getElementById('loadWaitingButton');
     if (loadWaitingButton) {
-      loadWaitingButton.addEventListener('click', loadCurrentJoinWaitingList);
+      loadWaitingButton.addEventListener('click', () => { if (!isTeamControlManager()) return; loadCurrentJoinWaitingList(); });
     }
 
 
@@ -481,6 +484,36 @@ if (rerollListModal) {
     if (!loginUser) return null;
     const users = readSupabaseUsers().concat(readAccountUsers(), readAdminUsers());
     return users.find(user => isSameUserIdentity(loginUser, user)) || users.find(user => sameName(user, loginUser.nickname || loginUser.nick || loginUser.name || loginUser.discord_username || loginUser.discordUsername)) || null;
+  }
+
+  function isTeamControlManager() {
+    return isTeamManagerViewer();
+  }
+
+  function applyTeamControlAccess() {
+    const canManage = isTeamControlManager();
+    document.body.classList.toggle('pkl-team-viewer-only', !canManage);
+
+    const allowOnlyListIds = new Set(['rerollListButton']);
+    document.querySelectorAll('.control-panel button, .control-panel select, .control-panel input, .control-panel textarea, .control-panel .pkl-custom-select-trigger').forEach(control => {
+      const isListButton = allowOnlyListIds.has(control.id);
+      if (canManage || isListButton) {
+        control.disabled = false;
+        control.removeAttribute('aria-disabled');
+        control.classList.remove('pkl-viewer-disabled-control');
+        return;
+      }
+      control.disabled = true;
+      control.setAttribute('aria-disabled', 'true');
+      control.classList.add('pkl-viewer-disabled-control');
+    });
+
+    const listButton = document.getElementById('rerollListButton');
+    if (listButton) {
+      listButton.disabled = false;
+      listButton.removeAttribute('aria-disabled');
+      listButton.classList.remove('pkl-viewer-disabled-control');
+    }
   }
 
   function isCurrentUserInJoinWaitingList() {
@@ -811,6 +844,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
     });
     window.addEventListener('pkl-role-data-updated', () => {
       hydratePlayersForDisplayOnly();
+      applyTeamControlAccess();
       renderTierPools();
       renderTeams();
       renderSummary();
@@ -2484,8 +2518,9 @@ function saveMatchTimeSettings() {
 
   function openRerollListModal() {
     if (!rerollListModal) return;
+    applyTeamControlAccess();
     ensureRerollRequestState();
-    refreshRerollUserAutocomplete();
+    if (isTeamControlManager()) refreshRerollUserAutocomplete();
     renderRerollListModal();
     openModal(rerollListModal);
   }
@@ -2614,12 +2649,14 @@ function saveMatchTimeSettings() {
       return;
     }
 
+    const canManageList = isTeamControlManager();
     rerollListEntries.innerHTML = rows.map(item => {
       const request = state.rerollRequests[item.key] || { count: 0, paid: false };
       const position = [item.teamName, item.slotName].filter(Boolean).join(' · ');
       const tierBadge = item.tierBadge || request.tierBadge || '';
+      const count = normalizeRerollCount(request.count);
       return `
-        <div class="pkl-reroll-entry ${request.paid ? 'is-paid' : ''}" data-reroll-key="${escapeHtml(item.key)}">
+        <div class="pkl-reroll-entry ${request.paid ? 'is-paid' : ''} ${canManageList ? '' : 'is-view-only'}" data-reroll-key="${escapeHtml(item.key)}">
           <div class="pkl-reroll-user">
             <div class="pkl-reroll-user-main">
               <strong>${escapeHtml(item.name)}</strong>
@@ -2627,16 +2664,24 @@ function saveMatchTimeSettings() {
             </div>
             <span class="pkl-reroll-position">${escapeHtml(position)}</span>
           </div>
-          <div class="pkl-reroll-count-control" aria-label="${escapeHtml(item.name)} 리롤 횟수">
-            <button type="button" data-reroll-action="decrease" aria-label="리롤 횟수 감소">−</button>
-            <input type="number" min="0" step="1" inputmode="numeric" value="${normalizeRerollCount(request.count)}" data-reroll-count aria-label="리롤 횟수" />
-            <button type="button" data-reroll-action="increase" aria-label="리롤 횟수 증가">＋</button>
-          </div>
-          <label class="pkl-reroll-paid-check">
-            <input type="checkbox" data-reroll-paid ${request.paid ? 'checked' : ''} />
-            <span>확인완료</span>
-          </label>
-          <button class="pkl-reroll-remove" type="button" data-reroll-action="remove" aria-label="리롤 목록에서 제거">×</button>
+          ${canManageList ? `
+            <div class="pkl-reroll-count-control" aria-label="${escapeHtml(item.name)} 리롤 횟수">
+              <button type="button" data-reroll-action="decrease" aria-label="리롤 횟수 감소">−</button>
+              <input type="number" min="0" step="1" inputmode="numeric" value="${count}" data-reroll-count aria-label="리롤 횟수" />
+              <button type="button" data-reroll-action="increase" aria-label="리롤 횟수 증가">＋</button>
+            </div>
+            <label class="pkl-reroll-paid-check">
+              <input type="checkbox" data-reroll-paid ${request.paid ? 'checked' : ''} />
+              <span>확인완료</span>
+            </label>
+            <button class="pkl-reroll-remove" type="button" data-reroll-action="remove" aria-label="리롤 목록에서 제거">×</button>
+          ` : `
+            <div class="pkl-reroll-count-view" aria-label="리롤 횟수">${count}</div>
+            <label class="pkl-reroll-paid-check is-disabled" aria-disabled="true">
+              <input type="checkbox" disabled ${request.paid ? 'checked' : ''} />
+              <span>확인완료</span>
+            </label>
+          `}
         </div>
       `;
     }).join('');
@@ -2647,6 +2692,7 @@ function saveMatchTimeSettings() {
 
   function bindRerollListEntryEvents() {
     if (!rerollListEntries) return;
+    if (!isTeamControlManager()) return;
     rerollListEntries.querySelectorAll('.pkl-reroll-entry').forEach(entry => {
       const key = entry.dataset.rerollKey;
       const countInput = entry.querySelector('[data-reroll-count]');
@@ -2829,6 +2875,7 @@ function renderRerollUserSuggestions() {
   }
 
 function addManualRerollUser() {
+    if (!isTeamControlManager()) return;
     if (!rerollUserInput) return;
     const name = rerollUserInput.value.trim();
     if (!name) {
