@@ -185,10 +185,12 @@ async function readUserDocs(options={}){
   return { users, count: users.length, limit, offset, q };
 }
 async function writeUserDoc(user, forceAdmin=false){
-  const u = normalizeUser(forceAdmin ? user : forceGeneralMember(user));
+  // PKL 권한 보호: 로그인/회원 티어 저장 과정에서 기존 관리자/운영자 role을 user로 강제 변환하지 않는다.
+  // 신규 가입은 discord-callback / register API에서만 user로 지정하고, 기존 회원 저장은 Supabase role을 그대로 보존한다.
+  const u = normalizeUser(forceAdmin ? {...(user || {}), role:'admin', memberRole:'admin'} : (user || {}));
   const discordId = explicitDiscordId(u);
   if(!discordId) throw new Error('discord_id가 없어 저장할 수 없습니다.');
-  const role = forceAdmin ? 'admin' : normalizeRole(u.memberRole || u.role || 'user');
+  const role = forceAdmin ? 'admin' : normalizeRole(u.memberRole || u.role || (u.is_admin ? 'admin' : 'user'));
   const body = {
     discord_id: discordId,
     discord_username: clean(u.discordUsername || u.username || u.displayName || u.nickname),
@@ -213,6 +215,10 @@ async function writeUserDoc(user, forceAdmin=false){
 }
 
 
+function hasExplicitAccessRoleInput(src={}){
+  if(!src || typeof src !== 'object') return false;
+  return ['memberRole','role','userRole','authRole','adminRole','member_role'].some(k => Object.prototype.hasOwnProperty.call(src,k) && clean(src[k]) !== '');
+}
 function clientRowFromUser(src={}){
   const did = explicitDiscordId(src || {});
   if(!did) return null;
@@ -224,7 +230,7 @@ function clientRowFromUser(src={}){
     nickname: clean(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name),
     pubg_id: clean(src.pubgId || src.pubg_id || src.gameId || src.ref || raw.pubgId || raw.pubg_id || raw.gameId || raw.ref),
     tier: normalizeTier(src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : raw.tier)))),
-    role: normalizeRole(src.memberRole || src.role || src.userRole || raw.memberRole || raw.role || 'user'),
+    role: normalizeRole(src.memberRole || src.role || src.userRole || raw.memberRole || raw.role || (src.is_admin ? 'admin' : 'user')),
     prime: Number(src.prime ?? src.points ?? src.dia ?? src.chicken ?? raw.prime ?? raw.points ?? raw.dia ?? raw.chicken ?? 0) || 0,
     points: Number(src.points ?? src.prime ?? src.dia ?? src.chicken ?? raw.points ?? raw.prime ?? 0) || 0,
     warnings: Number(src.warnings ?? raw.warnings ?? 0) || 0,
@@ -325,7 +331,17 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
   const sourceBefore = hasClientSnapshot(beforeSnapshot) ? beforeSnapshot : (hasClientSnapshot(originalIdentity) ? originalIdentity : null);
   const row = sourceBefore ? clientRowFromUser(sourceBefore) : await readUserRowByIdentity(originalIdentity && explicitDiscordId(originalIdentity) ? originalIdentity : identity);
   const beforeUser = rowToUser(row);
+  const explicitAccessRoleChange = hasExplicitAccessRoleInput(identity || {}) && !/^tier_change$/i.test(clean(log.type || log.action));
   const nextInput = normalizeUser({...beforeUser, ...(identity || {})});
+  if(!explicitAccessRoleChange){
+    const keepRole = normalizeRole(row.role || beforeUser.role || beforeUser.memberRole || (row.is_admin ? 'admin' : 'user'));
+    nextInput.role = keepRole;
+    nextInput.memberRole = keepRole;
+    nextInput.userRole = keepRole;
+    nextInput.authRole = keepRole;
+    nextInput.adminRole = keepRole === 'admin' ? '관리자' : (keepRole === 'operator' ? '운영자' : (keepRole === 'prisoner' ? '수감자' : '일반'));
+    nextInput.memberRoleName = nextInput.adminRole;
+  }
   const now = new Date().toISOString();
   const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
   const before = normalizeUser({...raw, discordId: row.discord_id, nickname: row.nickname, pubgId: row.pubg_id, tier: row.tier, role: row.role, prime: row.prime, warnings: row.warnings});
@@ -347,6 +363,15 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
     memoList:Array.isArray(nextInput.memoList)?nextInput.memoList:(Array.isArray(raw.memoList)?raw.memoList:[]),
     mailbox:Array.isArray(nextInput.mailbox)?nextInput.mailbox:(Array.isArray(raw.mailbox)?raw.mailbox:[])
   };
+  if(!explicitAccessRoleChange){
+    const keepRole = normalizeRole(row.role || beforeUser.role || beforeUser.memberRole || (row.is_admin ? 'admin' : 'user'));
+    mergedRaw.role = keepRole;
+    mergedRaw.memberRole = keepRole;
+    mergedRaw.userRole = keepRole;
+    mergedRaw.authRole = keepRole;
+    mergedRaw.adminRole = keepRole === 'admin' ? '관리자' : (keepRole === 'operator' ? '운영자' : (keepRole === 'prisoner' ? '수감자' : '일반'));
+    mergedRaw.memberRoleName = mergedRaw.adminRole;
+  }
   mergedRaw.history.unshift({type:action, reason, date:now, admin:actor, changes});
   const body = {
     discord_id: row.discord_id,
@@ -354,7 +379,7 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
     nickname: clean(nextInput.nickname || row.nickname),
     pubg_id: clean(nextInput.pubgId || row.pubg_id),
     tier: normalizeTier(nextInput.memberTier != null ? nextInput.memberTier : (nextInput.gradeRole != null ? nextInput.gradeRole : (nextInput.tierRole != null ? nextInput.tierRole : (nextInput.tier != null ? nextInput.tier : (row.tier || 'none'))))),
-    role: normalizeRole(nextInput.memberRole || nextInput.role || row.role || 'user'),
+    role: explicitAccessRoleChange ? normalizeRole(nextInput.memberRole || nextInput.role || row.role || 'user') : normalizeRole(row.role || beforeUser.role || beforeUser.memberRole || (row.is_admin ? 'admin' : 'user')),
     prime: Number(nextInput.prime ?? nextInput.points ?? row.prime ?? 0) || 0,
     warnings: Number(nextInput.warnings ?? row.warnings ?? 0) || 0,
     raw: mergedRaw,
