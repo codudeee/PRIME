@@ -1438,6 +1438,9 @@ const STORAGE_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
 const DEMO_NAMES=[['허리','재환','몽몽','오오'],['민혁','석이','아루','가람'],['영원','한수','시온','루키'],['도현','태민','지훈','건우'],['서준','민재','현우','준서'],['유진','하람','지우','은우'],['로한','주원','이준','하준'],['시후','지안','서아','나은'],['태오','현준','규민','재윤'],['민준','수호','도윤','이안']];
 const RESULT_MATCHES_KEY='PKL_RESULT_MATCHES_V1';
 const USER_MATCH_STATS_KEY='PKL_USER_MATCH_STATS_V1';
+const RESULT_DELETED_IDS_KEY='PKL_RESULT_DELETED_IDS_V1';
+const RESULT_CLEAR_ALL_KEY='PKL_RESULT_CLEAR_ALL_V1';
+const RESULT_CLEAR_ONCE_KEY='PKL_RESULT_CLEAR_EXISTING_ONCE_20260513_V1';
 const DEFAULT_MATCHES=[];
 function pklResultLoadMatches(){
   const raw=localStorage.getItem(RESULT_MATCHES_KEY);
@@ -1452,47 +1455,28 @@ function pklResultLoadMatches(){
 async function pklResultFetchMatchesFromServer(){
   var next=null;
   try{
+    var sharedClear=null;
     if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function'){
+      sharedClear=await window.PKLSupabaseDataSync.getShared(RESULT_CLEAR_ALL_KEY);
       var shared=await window.PKLSupabaseDataSync.getShared(RESULT_MATCHES_KEY);
       if(Array.isArray(shared)) next=shared;
       else if(typeof shared==='string'){
         try{var parsed=JSON.parse(shared); if(Array.isArray(parsed)) next=parsed;}catch(_e){}
       }
     }
+    if(String(sharedClear)==='1' && (!Array.isArray(next) || !next.length)) next=[];
   }catch(e){}
-  if(!next){
-    try{
-      var res=await fetch('/api/pkl-data-store?type=match_logs',{cache:'no-store'});
-      var data=await res.json();
-      var rows=Array.isArray(data&&data.rows)?data.rows:[];
-      if(rows.length){
-        next=rows.map(function(r){
-          var raw=(r&&r.raw&&typeof r.raw==='object')?r.raw:null;
-          if(raw) return raw;
-          return {
-            id:r.id,
-            title:r.title||r.id,
-            kind:r.kind||'league',
-            type:(r.kind==='normal')?'일반경기':'프라임 킬내기 리그',
-            snapshot:r.snapshot||{},
-            savedAt:r.saved_at||r.updated_at||''
-          };
-        }).filter(Boolean).sort(function(a,b){
-          return String(b.savedAt||b.saved_at||'').localeCompare(String(a.savedAt||a.saved_at||''));
-        });
-      }
-    }catch(e){}
-  }
-  if(Array.isArray(next)){
-    MATCHES=next.map(function(m){return Object.assign({},m);});
-    try{localStorage.setItem(RESULT_MATCHES_KEY,JSON.stringify(MATCHES));}catch(e){}
-    if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})){
-      selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
-    }
-    pklResultApplySelectedMatchState();
-    renderAll();
-    renderResultAdminModal();
-  }
+  /* 결과표는 PKL_RESULT_MATCHES_V1 공유 저장값만 단일 원본으로 사용한다.
+     예전 match_logs API fallback은 삭제한 회차를 계속 복원시켜서 제거한다. */
+  if(!Array.isArray(next)) next=[];
+  var deleted=pklResultGetDeletedIds();
+  next=next.filter(function(m){return deleted.indexOf(String(m&&m.id))<0;});
+  MATCHES=next.map(function(m){return Object.assign({},m);});
+  try{localStorage.setItem(RESULT_MATCHES_KEY,JSON.stringify(MATCHES));}catch(e){}
+  if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})){ selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||''; }
+  pklResultApplySelectedMatchState();
+  renderAll();
+  renderResultAdminModal();
 }
 function pklResultSharedSet(key,value){
   const text=typeof value==='string'?value:JSON.stringify(value);
@@ -1507,10 +1491,71 @@ function pklResultSharedSet(key,value){
     try{localStorage.setItem(key,text);}catch(_e){}
   }
 }
+function pklResultGetDeletedIds(){
+  try{
+    var raw=localStorage.getItem(RESULT_DELETED_IDS_KEY);
+    var arr=raw?JSON.parse(raw):[];
+    return Array.isArray(arr)?arr.map(String):[];
+  }catch(e){return [];}
+}
+function pklResultPersistDeletedIds(arr){
+  var clean=Array.from(new Set((Array.isArray(arr)?arr:[]).map(String).filter(Boolean))).slice(-500);
+  try{localStorage.setItem(RESULT_DELETED_IDS_KEY,JSON.stringify(clean));}catch(e){}
+  try{
+    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function') window.PKLSupabaseDataSync.setShared(RESULT_DELETED_IDS_KEY,JSON.stringify(clean));
+    else if(typeof window.saveSharedData==='function') window.saveSharedData(RESULT_DELETED_IDS_KEY,JSON.stringify(clean));
+  }catch(e){}
+  return clean;
+}
+function pklResultMarkDeleted(id){
+  if(!id) return;
+  var arr=pklResultGetDeletedIds();
+  if(arr.indexOf(String(id))<0) arr.push(String(id));
+  pklResultPersistDeletedIds(arr);
+}
+async function pklResultClearExistingMatchesOnce(){
+  try{
+    if(localStorage.getItem(RESULT_CLEAR_ONCE_KEY)==='done') return;
+    var done=null;
+    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function'){
+      done=await window.PKLSupabaseDataSync.getShared(RESULT_CLEAR_ONCE_KEY);
+    }
+    if(String(done)==='done'){
+      try{localStorage.setItem(RESULT_CLEAR_ONCE_KEY,'done');}catch(e){}
+      return;
+    }
+    MATCHES=[];
+    selectedMatchId='';
+    state=makeEmptyState();
+    try{localStorage.setItem(RESULT_MATCHES_KEY,'[]');localStorage.setItem(RESULT_CLEAR_ALL_KEY,'1');localStorage.setItem(RESULT_CLEAR_ONCE_KEY,'done');}catch(e){}
+    try{
+      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function'){
+        await window.PKLSupabaseDataSync.setShared(RESULT_MATCHES_KEY,'[]');
+        await window.PKLSupabaseDataSync.setShared(RESULT_CLEAR_ALL_KEY,'1');
+        await window.PKLSupabaseDataSync.setShared(RESULT_CLEAR_ONCE_KEY,'done');
+      }else if(typeof window.saveSharedData==='function'){
+        window.saveSharedData(RESULT_MATCHES_KEY,'[]');
+        window.saveSharedData(RESULT_CLEAR_ALL_KEY,'1');
+        window.saveSharedData(RESULT_CLEAR_ONCE_KEY,'done');
+      }
+    }catch(e){}
+    pklResultApplySelectedMatchState();
+    renderAll();
+    renderResultAdminModal();
+  }catch(e){}
+}
 function pklResultSaveMatches(){
   pklResultSortMatches();
+  var deleted=pklResultGetDeletedIds();
+  if(deleted.length){ MATCHES=MATCHES.filter(function(m){return deleted.indexOf(String(m&&m.id))<0;}); }
   const text=JSON.stringify(Array.isArray(MATCHES)?MATCHES:[]);
   pklResultSharedSet(RESULT_MATCHES_KEY,text);
+  try{
+    var clearValue=(Array.isArray(MATCHES)&&MATCHES.length)?'0':'1';
+    localStorage.setItem(RESULT_CLEAR_ALL_KEY,clearValue);
+    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function') window.PKLSupabaseDataSync.setShared(RESULT_CLEAR_ALL_KEY,clearValue);
+    else if(typeof window.saveSharedData==='function') window.saveSharedData(RESULT_CLEAR_ALL_KEY,clearValue);
+  }catch(e){}
 }
 function pklResultRefreshMatchesFromStorage(){
   const before=selectedMatchId;
@@ -2405,6 +2450,7 @@ function deleteResultAdminMatch(){
   if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
   const deletedId=pendingDeleteMatchId;
   if(!deletedId) return;
+  pklResultMarkDeleted(deletedId);
   MATCHES=MATCHES.filter(x=>String(x.id)!==String(deletedId));
   pklDeleteMatchLinkedData(deletedId);
   adminEditingMatchId=(MATCHES[0]&&MATCHES[0].id)||null;
@@ -2513,7 +2559,7 @@ function bind(){
 }
 function renderAll(){renderBoard();renderSheet();renderSide();}
 bind();renderAll();
-setTimeout(function(){pklResultFetchMatchesFromServer();},60);
+setTimeout(async function(){await pklResultClearExistingMatchesOnce(); await pklResultFetchMatchesFromServer();},60);
 /* 3차 청소: storage/supabase/user 이벤트 기반 결과표 재렌더 금지.
    결과표는 최초 렌더와 저장/삭제/선택 클릭 흐름에서만 갱신한다.
    자동 user event renderSide가 로컬/메모리 유저와 서버 유저를 섞어 중복 표시를 만들 수 있어 제거. */
