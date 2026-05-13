@@ -7322,44 +7322,55 @@ function pklBindTierDragOnce(){
   },true);
 }
 pklBindTierDragOnce();
-function pklSheetTierBadgeHtml(member, user){
-  const source = user || member || {};
-  let badge = '';
-  try{
-    if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function'){
-      badge = window.PKLTierBadge.renderForUser(user) || '';
-    }
-  }catch(e){}
-  if(badge) return badge;
-  const rawTier = [
-    source.memberTier, source.tier, source.grade, source.memberGrade, source.pklTier, source.rank, source.level,
-    member && member.memberTier, member && member.tier, member && member.grade, member && member.memberGrade, member && member.pklTier, member && member.rank, member && member.level,
-    member && member.tier0, member && member.tier1
-  ].map(v=>String(v||'').trim()).find(Boolean);
-  const role = pklTierScoreRoleFromText(rawTier);
-  if(!role && !rawTier) return '';
-  const labelMap = {
-    tier0_high:'0티어 상', tier0_mid:'0티어 중', tier0_low:'0티어 하',
-    tier1_high:'1티어 상', tier1_mid:'1티어 중', tier1_low:'1티어 하',
-    tier2_high:'2티어 상', tier2_mid:'2티어 중', tier2_low:'2티어 하',
-    tier3_high:'3티어 상', tier3_mid:'3티어 중', tier3_low:'3티어 하',
-    tier4_high:'4티어 상', tier4_mid:'4티어 중', tier4_low:'4티어 하',
-    beast:'짐승'
-  };
-  const label = labelMap[role] || rawTier;
-  const tierClass = role ? (' role-' + role.replace(/_(high|mid|low)$/,'')) : '';
-  return `<span class="tier-head-badge${tierClass}">${escape(label)}</span>`;
-}
 function pklSheetHeaderNameHtml(member){
   if(!member) return '';
   const user = pklFindTierUserByMember(member);
   const name = String(
-    (user && (user.nickname || user.nick || user.name || user.displayName || user.pubgId || user.pubgID || user.pubgName || user.gameId || user.username)) ||
     (member && (member.name || member.nickname || member.nick || member.displayName || member.pubgId || member.pubgID || member.pubgName || member.gameId || member.username)) ||
+    (user && (user.nickname || user.nick || user.name || user.displayName || user.pubgId || user.pubgID || user.pubgName || user.gameId || user.username)) ||
     ''
   ).trim();
   if(!name) return '';
-  const badge = pklSheetTierBadgeHtml(member, user);
+
+  const tierSource = [
+    member && member.__tierRole,
+    member && member.memberTier,
+    member && member.tier,
+    member && member.grade,
+    member && member.memberGrade,
+    member && member.pklTier,
+    member && member.rank,
+    member && member.level,
+    member && member.role,
+    member && member.title,
+    member && member.tier0,
+    member && member.tier1,
+    user && user.memberTier,
+    user && user.tier,
+    user && user.grade,
+    user && user.memberGrade,
+    user && user.pklTier,
+    user && user.rank,
+    user && user.level,
+    user && user.role,
+    user && user.title
+  ].map(pklTierScoreRoleFromText).find(Boolean);
+
+  let badge = '';
+  if(window.PKLTierBadge){
+    if(tierSource && typeof window.PKLTierBadge.render === 'function'){
+      badge = window.PKLTierBadge.render(tierSource) || '';
+    }
+    if(!badge && user && typeof window.PKLTierBadge.renderForUser === 'function'){
+      badge = window.PKLTierBadge.renderForUser(user) || '';
+    }
+  }
+  if(!badge && tierSource){
+    const label = pklTierScoreLaneFromRole(tierSource) || String(tierSource).replace(/^tier/, '').replace('_high','상').replace('_mid','중').replace('_low','하');
+    const tierNo = (String(tierSource).match(/tier([0-4])/) || [,''])[1];
+    const cls = tierNo ? (' role-tier' + tierNo) : (tierSource === 'beast' ? ' role-beast' : '');
+    badge = `<span class="tier-mark${cls}">${escape(label)}</span>`;
+  }
   return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
 }
 
@@ -7382,7 +7393,7 @@ function renderSheet(){
   for(let i=0;i<4;i++){
     const h=document.getElementById('h'+i);
     const m=view.members[i];
-    h.innerHTML = pklSheetHeaderNameHtml(m);
+    h.innerHTML = m && m.name ? pklSheetHeaderNameHtml(m) : '';
     h.style.opacity='1';
   }
   const body=document.getElementById('recordBody');
