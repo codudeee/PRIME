@@ -5264,19 +5264,6 @@ function safeJson(key, fallback){
     localStorage.setItem(key, JSON.stringify(list));
   }
 
-  function saveJoinListsSilently(waitListData, cancelListData){
-    window.__PKL_JOIN_SUPPRESS_STORAGE_EMIT = true;
-    try{
-      if(Array.isArray(waitListData)) saveList(STORAGE_KEY, waitListData);
-      if(Array.isArray(cancelListData)) saveList(CANCEL_KEY, cancelListData);
-    }finally{
-      window.__PKL_JOIN_SUPPRESS_STORAGE_EMIT = false;
-    }
-    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.queueSave === 'function'){
-      window.PKLJoinRealtime.queueSave(120);
-    }
-  }
-
   function formatKoreanWon(value){
     const num = String(value).replace(/[^0-9]/g,"");
     if(!num) return value;
@@ -5395,6 +5382,26 @@ function safeJson(key, fallback){
     return '<div class="join-preview-lock-box"><b>' + escapeHtml(title) + '</b><span>' + escapeHtml(desc) + '</span><small>현재 대기 인원 수는 공개됩니다.</small></div>';
   }
 
+  function joinStableRowKey(rawItem){
+    const item = rawItem || {};
+    return String(
+      item.discord_id || item.discordId || item.uid || item.userId || item.id || item.key ||
+      item.pubgId || item.pubg_id || item.nickname || item.name || ''
+    ).trim() || ('join-row-' + Math.random().toString(36).slice(2));
+  }
+
+  function buildWaitRowInner(item, index){
+    return '<span class="join-wait-number">' + String(index + 1).padStart(2, "0") + '</span>' +
+      renderAdminBadge(item) +
+      '<div class="join-wait-user">' +
+        '<span class="join-wait-name">' + escapeHtml(item.name) + '</span>' +
+      '</div>' +
+      '<div class="join-wait-stats">' +
+        '<span class="join-stat-inline"><span class="join-win-label">우승</span> <b>' + escapeHtml(item.wins ?? 0) + '</b></span>' +
+        '<span class="join-stat-inline">평균킬 <b>' + escapeHtml(item.avgKills ?? 0) + '</b></span>' +
+      '</div>';
+  }
+
   function renderWaitList(){
     if(!waitList) return;
     const list = readActiveWaitList();
@@ -5407,29 +5414,72 @@ function safeJson(key, fallback){
 
     waitList.classList.toggle("join-preview-locked-area", !unlocked);
     if(!unlocked){
-      waitList.innerHTML = joinPreviewLockedHtml('wait');
+      const lockedHtml = joinPreviewLockedHtml('wait');
+      if(waitList.dataset.renderMode !== 'locked' || waitList.innerHTML !== lockedHtml){
+        waitList.dataset.renderMode = 'locked';
+        waitList.innerHTML = lockedHtml;
+      }
       return;
     }
 
-    const nextWaitHtml = list.length
-      ? list.map(function(rawItem, index){
-          const item = enrichItemTier(hydrateItem(rawItem));
-          return '<div class="join-wait-row">' +
-            '<span class="join-wait-number">' + String(index + 1).padStart(2, "0") + '</span>' +
-            renderAdminBadge(item) +
-            '<div class="join-wait-user">' +
-              '<span class="join-wait-name">' + escapeHtml(item.name) + '</span>' +
-            '</div>' +
-            '<div class="join-wait-stats">' +
-              '<span class="join-stat-inline"><span class="join-win-label">우승</span> <b>' + escapeHtml(item.wins ?? 0) + '</b></span>' +
-              '<span class="join-stat-inline">평균킬 <b>' + escapeHtml(item.avgKills ?? 0) + '</b></span>' +
-            '</div>' +
-          '</div>';
-        }).join("")
-      : '<div class="join-empty-text">아직 대기자가 없습니다.</div>';
-    if(waitList.innerHTML !== nextWaitHtml){
-      waitList.innerHTML = nextWaitHtml;
+    if(!list.length){
+      const emptyHtml = '<div class="join-empty-text">아직 대기자가 없습니다.</div>';
+      if(waitList.dataset.renderMode !== 'empty' || waitList.innerHTML !== emptyHtml){
+        waitList.dataset.renderMode = 'empty';
+        waitList.innerHTML = emptyHtml;
+      }
+      return;
     }
+
+    if(waitList.dataset.renderMode !== 'rows'){
+      waitList.dataset.renderMode = 'rows';
+      waitList.innerHTML = '';
+    }else{
+      waitList.querySelectorAll('.join-empty-text,.join-preview-lock-box').forEach(function(node){ node.remove(); });
+    }
+
+    const seen = new Set();
+    const existing = new Map();
+    waitList.querySelectorAll('.join-wait-row[data-join-key]').forEach(function(row){
+      existing.set(row.dataset.joinKey, row);
+    });
+
+    list.forEach(function(rawItem, index){
+      const item = enrichItemTier(hydrateItem(rawItem));
+      const key = joinStableRowKey(item);
+      seen.add(key);
+      const rowSig = JSON.stringify({
+        n:index + 1,
+        name:item.name || '',
+        tier:item.gradeRole || item.tier || item.memberTier || item.tierRole || item.grade || '',
+        role:item.memberRole || item.role || '',
+        wins:item.wins ?? 0,
+        avg:item.avgKills ?? 0
+      });
+      let row = existing.get(key);
+      if(!row){
+        row = document.createElement('div');
+        row.className = 'join-wait-row';
+        row.dataset.joinKey = key;
+        row.dataset.rowSig = '';
+      }
+      if(row.dataset.rowSig !== rowSig){
+        row.innerHTML = buildWaitRowInner(item, index);
+        row.dataset.rowSig = rowSig;
+      }else{
+        const num = row.querySelector('.join-wait-number');
+        const nextNum = String(index + 1).padStart(2, "0");
+        if(num && num.textContent !== nextNum) num.textContent = nextNum;
+      }
+      const currentAtIndex = waitList.children[index];
+      if(currentAtIndex !== row){
+        waitList.insertBefore(row, currentAtIndex || null);
+      }
+    });
+
+    existing.forEach(function(row, key){
+      if(!seen.has(key)) row.remove();
+    });
   }
 
   function renderCancelList(){
@@ -5852,14 +5902,15 @@ function safeJson(key, fallback){
         canceledAt:undefined,
         rejoinedAt:new Date().toISOString()
       });
-      saveJoinListsSilently(list, cancelList);
+      saveList(CANCEL_KEY,cancelList);
+      saveList(STORAGE_KEY,list);
       renderAll();
       if(isPaidRecruit()) openDepositModal();
       return;
     }
 
     list.push(userData);
-    saveJoinListsSilently(list, null);
+    saveList(STORAGE_KEY,list);
     renderAll();
 
     if(isPaidRecruit()) openDepositModal();
@@ -5919,7 +5970,8 @@ function safeJson(key, fallback){
       canceledAt:new Date().toISOString()
     });
 
-    saveJoinListsSilently(list, cancelList);
+    saveList(STORAGE_KEY,list);
+    saveList(CANCEL_KEY,cancelList);
     closeReasonModal();
     renderAll();
   }
