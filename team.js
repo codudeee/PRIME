@@ -1909,15 +1909,15 @@ function rerollAll() {
 function completeTeams() {
     showPklConfirmModal({
       title: '팀구성 완료',
-      message: '현재 팀 박스에 배치된 유저를 시트지에 자동 등록합니다.<br>등록 후 현재 팀구성 보드는 자동으로 초기화됩니다.<br>게임진행 전 시작/종료 타이머를 꼭 확인 해 주시고<br>참가,리롤 입완체크를 끝낸 후 완료 버튼을 눌러주세요.',
+      message: '현재 팀 박스에 배치된 유저를 시트지에 자동 등록합니다.<br>등록 후에도 현재 팀구성 보드는 유지됩니다.<br>게임진행 전 시작/종료 타이머를 꼭 확인 해 주시고<br>참가,리롤 입완체크를 끝낸 후 완료 버튼을 눌러주세요.',
       danger: false,
       confirmText: '완료',
       cancelText: '취소',
       onConfirm: () => {
         const result = exportTeamBoardToSheet();
         const importedCount = result && typeof result.count === 'number' ? result.count : Number(result || 0);
-        resetBuilder();
-        setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 시트지로 이동합니다.`);
+        saveState();
+        setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 현재 팀보드는 유지한 채 시트지로 이동합니다.`);
         const goSheet = () => { window.location.href = 'sheet.html'; };
         if (result && result.remoteSave && typeof result.remoteSave.finally === 'function') {
           let moved = false;
