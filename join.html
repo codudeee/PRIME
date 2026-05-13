@@ -4693,14 +4693,6 @@ body.pkl-join-initializing #joinCurrentCount,
 body.pkl-join-initializing #joinCancelCount{
   opacity:.55;
 }
-
-/* JOIN 22차: 참가/취소 직후 리스트 부분 갱신 시 row 재등장 애니메이션 방지 */
-body.pkl-join-quiet-render #joinWaitList .join-wait-row,
-body.pkl-join-quiet-render #joinCancelList .join-cancel-row{
-  animation:none !important;
-  opacity:1 !important;
-  transform:none !important;
-}
 </style>
 </head>
 <body class="pkl-recruit-loading pkl-join-initializing">
@@ -5272,6 +5264,19 @@ function safeJson(key, fallback){
     localStorage.setItem(key, JSON.stringify(list));
   }
 
+  function saveJoinListsSilently(waitListData, cancelListData){
+    window.__PKL_JOIN_SUPPRESS_STORAGE_EMIT = true;
+    try{
+      if(Array.isArray(waitListData)) saveList(STORAGE_KEY, waitListData);
+      if(Array.isArray(cancelListData)) saveList(CANCEL_KEY, cancelListData);
+    }finally{
+      window.__PKL_JOIN_SUPPRESS_STORAGE_EMIT = false;
+    }
+    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.queueSave === 'function'){
+      window.PKLJoinRealtime.queueSave(120);
+    }
+  }
+
   function formatKoreanWon(value){
     const num = String(value).replace(/[^0-9]/g,"");
     if(!num) return value;
@@ -5500,24 +5505,6 @@ function safeJson(key, fallback){
     renderWaitList();
     renderCancelList();
     syncJoinActionButtons();
-  }
-
-  function quietRenderAll(){
-    document.body.classList.add("pkl-join-quiet-render");
-    try{ renderAll(); }
-    finally{
-      requestAnimationFrame(function(){
-        document.body.classList.remove("pkl-join-quiet-render");
-      });
-    }
-  }
-
-  function saveJoinListsSilently(callback){
-    window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT = true;
-    try{ callback(); }
-    finally{
-      setTimeout(function(){ window.__PKL_JOIN_SUPPRESS_LOCAL_EMIT = false; }, 0);
-    }
   }
 
   window.PKLJoinRenderAll = renderAll;
@@ -5865,20 +5852,15 @@ function safeJson(key, fallback){
         canceledAt:undefined,
         rejoinedAt:new Date().toISOString()
       });
-      saveJoinListsSilently(function(){
-        saveList(CANCEL_KEY,cancelList);
-        saveList(STORAGE_KEY,list);
-      });
-      quietRenderAll();
+      saveJoinListsSilently(list, cancelList);
+      renderAll();
       if(isPaidRecruit()) openDepositModal();
       return;
     }
 
     list.push(userData);
-    saveJoinListsSilently(function(){
-      saveList(STORAGE_KEY,list);
-    });
-    quietRenderAll();
+    saveJoinListsSilently(list, null);
+    renderAll();
 
     if(isPaidRecruit()) openDepositModal();
   }
@@ -5937,12 +5919,9 @@ function safeJson(key, fallback){
       canceledAt:new Date().toISOString()
     });
 
-    saveJoinListsSilently(function(){
-      saveList(STORAGE_KEY,list);
-      saveList(CANCEL_KEY,cancelList);
-    });
+    saveJoinListsSilently(list, cancelList);
     closeReasonModal();
-    quietRenderAll();
+    renderAll();
   }
 
   if(joinBtn) joinBtn.addEventListener("click", addCurrentUser);
