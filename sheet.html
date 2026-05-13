@@ -6267,16 +6267,66 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 
 
 <style id="pkl-scoreboard-mode-layout-style">
-:root[data-pkl-team-count="20"] .scoreboard-team-grid,
-:root[data-pkl-team-count="20"] .team-grid,
-:root[data-pkl-team-count="20"] #teamGrid{
+/* PKL FIX: 스코어보드는 10칸 단위로 가로 배치하고, 20팀 이상은 아래 줄로 이어지게 한다. */
+#teamGrid.team-grid{
   grid-template-columns:repeat(10,minmax(0,1fr)) !important;
+  grid-auto-rows:minmax(118px,1fr) !important;
+  grid-template-rows:none !important;
+  gap:7px !important;
+  padding:9px !important;
+  align-content:start !important;
 }
-:root[data-pkl-team-count="10"] .scoreboard-team-grid,
-:root[data-pkl-team-count="10"] .team-grid,
-:root[data-pkl-team-count="10"] #teamGrid{
-  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+#teamGrid .team-card{
+  min-width:0 !important;
+  min-height:118px !important;
 }
+#teamGrid .card-score-main{
+  min-height:24px !important;
+  height:24px !important;
+  font-size:12px !important;
+}
+#teamGrid .score-gauge-text{font-size:12px !important;line-height:1 !important;}
+#teamGrid .member-list{padding:5px 6px !important;gap:2px !important;}
+#teamGrid .member-row{
+  min-height:19px !important;
+  height:auto !important;
+  grid-template-columns:minmax(0,1fr) auto !important;
+  gap:4px !important;
+  font-size:11px !important;
+  line-height:1.05 !important;
+}
+#teamGrid .member-name{
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}
+#teamGrid .pkl-score-member-name-wrap{
+  min-width:0 !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:3px !important;
+  max-width:100% !important;
+  overflow:hidden !important;
+}
+#teamGrid .pkl-score-member-name-wrap .user-name{
+  min-width:0 !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}
+#teamGrid .pkl-score-member-name-wrap .pkl-tier-badge,
+#teamGrid .pkl-score-member-name-wrap .tier-head-badge{
+  flex:0 0 auto !important;
+  transform:scale(.72) !important;
+  transform-origin:center !important;
+  margin-left:1px !important;
+}
+#teamGrid .member-kd{font-size:10px !important;white-space:nowrap !important;}
+#teamGrid .member-row.team-extra-row{min-height:20px !important;height:20px !important;gap:8px !important;}
+#teamGrid .member-row.team-extra-row .member-name,
+#teamGrid .member-row.team-extra-row .member-kd{font-size:12px !important;}
 </style>
 
 </head>
@@ -6522,24 +6572,11 @@ function save(){
 }
 function makeRound(no){return {no,map:'',teams:{}}}
 function visibleTeams(){
-  const teams=Array.isArray(state.teams)?state.teams:[];
-  const slots=Number(state.pklTeamSlots || (state.mode==='duo'?2:4)) || 4;
-  const teamMode=String(state.pklTeamMode||'');
-  const directDuoExport=slots===2 && /duo/i.test(teamMode) && teams.some(t=>Array.isArray(t.members) && t.members.length<=2);
-  if(state.mode==='squad' || directDuoExport){
-    return teams.map((t,i)=>({
-      ...t,
-      viewId:t.id || ('team'+(i+1)),
-      viewName:(t.members&&t.members[0]&&t.members[0].name)||`${i+1}팀`,
-      memberOffset:0,
-      members:(Array.isArray(t.members)?t.members:[]).slice(0, slots===2?2:4)
-    }));
-  }
+  if(state.mode==='squad') return state.teams.map((t,i)=>({...t,viewId:t.id,viewName:t.members[0]?.name||`${i+1}팀`,memberOffset:0,members:t.members.slice(0,4)}));
   const out=[];
-  teams.forEach((t,i)=>{
-    const members=Array.isArray(t.members)?t.members:[];
-    out.push({...t,viewId:t.id+'a',viewName:(members[0]?.name||`${i+1}팀`)+' A',memberOffset:0,members:members.slice(0,2)});
-    out.push({...t,viewId:t.id+'b',viewName:(members[2]?.name||`${i+1}팀`)+' B',memberOffset:2,members:members.slice(2,4)});
+  state.teams.forEach((t,i)=>{
+    out.push({...t,viewId:t.id+'a',viewName:(t.members[0]?.name||`${i+1}팀`)+' A',memberOffset:0,members:t.members.slice(0,2)});
+    out.push({...t,viewId:t.id+'b',viewName:(t.members[2]?.name||`${i+1}팀`)+' B',memberOffset:2,members:t.members.slice(2,4)});
   });
   return out;
 }
@@ -7226,6 +7263,11 @@ function renderMode(){
   if(modeToggle) modeToggle.classList.toggle('duo',state.mode==='duo');
   const grid=document.getElementById('teamGrid');
   grid.classList.toggle('duo',state.mode==='duo');
+  const teamCount = Number(state.pklTeamCount || (Array.isArray(state.teams) ? state.teams.length : 10)) || 10;
+  const teamSlots = Number(state.pklTeamSlots || (state.mode==='duo' ? 2 : 4)) || 4;
+  document.documentElement.dataset.pklTeamCount = String(teamCount);
+  document.documentElement.dataset.pklTeamSlots = String(teamSlots);
+  document.documentElement.dataset.pklTeamMode = state.pklTeamMode || (state.mode==='duo' ? 'duo' : 'squad');
   const boardNoteEl=document.getElementById('boardNote'); if(boardNoteEl) boardNoteEl.setAttribute('data-mode', state.mode==='duo'?'duo':'squad');
 }
 function renderSelect(){
@@ -7259,6 +7301,27 @@ function scoreboardViews(){
   );
 }
 
+function pklSheetScoreTierBadgeHtml(member){
+  const role = pklTierRoleOfMember(member);
+  if(!role || role === 'none') return '';
+  try{
+    if(window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function'){
+      const html = window.PKLTierBadge.renderForUser({tier:role, memberTier:role, grade:role, pklTier:role});
+      if(html) return html;
+    }
+    if(window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function'){
+      const html = window.PKLTierBadge.render(role);
+      if(html) return html;
+    }
+  }catch(e){}
+  return '';
+}
+function pklSheetScoreMemberNameHtml(member){
+  const name = member && member.name ? escape(member.name) : '&nbsp;';
+  const badge = member && member.name ? pklSheetScoreTierBadgeHtml(member) : '';
+  return `<span class="pkl-score-member-name-wrap"><span class="user-name">${name}</span>${badge}</span>`;
+}
+
 function renderBoard(){
   const grid=document.getElementById('teamGrid');
   grid.innerHTML=scoreboardViews().map(({view,st,target,percent,gaugeSize,isNegativeGauge},idx)=>{
@@ -7272,8 +7335,7 @@ function renderBoard(){
           const memberScore=killScore-deathScore;
           const canDrag=pklIsSheetStaff();
           const dragAttrs=canDrag ? ` draggable="true" data-pkl-member-drag="1" data-real-team="${realTeamId(view.viewId)}" data-member-index="${(view.memberOffset||0)+i}" title="관리자/운영자 드래그 이동"` : '';
-          const memberNameHtml = m && m.name ? pklSheetHeaderNameHtml(m) : '<span class="member-name">&nbsp;</span>';
-          return `<div class="member-row ${canDrag?'pkl-member-draggable':''}"${dragAttrs}>${memberNameHtml}<span class="member-kd">${memberScore} (${killScore}/${deathScore})</span></div>`;
+          return `<div class="member-row ${canDrag?'pkl-member-draggable':''}"${dragAttrs}><span class="member-name">${pklSheetScoreMemberNameHtml(m)}</span><span class="member-kd">${memberScore} (${killScore}/${deathScore})</span></div>`;
         }).join('')}
         <div class="member-row team-extra-row"><span class="member-name">🍗 ${st.chicken}</span><span class="member-kd">⛔ ${st.stop}</span></div>
       </div>

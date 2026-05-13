@@ -1916,19 +1916,17 @@ function completeTeams() {
       onConfirm: () => {
         const result = exportTeamBoardToSheet();
         const importedCount = result && typeof result.count === 'number' ? result.count : Number(result || 0);
-        const joinResetSave = resetJoinRecruitmentAfterTeamComplete();
+        let joinResetSave = null;
+        try { joinResetSave = resetJoinRecruitmentAfterTeamComplete(); } catch (error) { console.warn('[PKL] join reset after team complete skipped', error); }
         saveState();
         setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 모집 상태를 초기화했습니다. 현재 팀보드는 유지한 채 시트지로 이동합니다.`);
-        const goSheet = () => { window.location.href = 'sheet.html'; };
+        const goSheet = () => {
+          const target = new URL('sheet.html', window.location.href).href;
+          try { window.location.assign(target); } catch (error) { window.location.href = target; }
+        };
         const pendingSaves = [result && result.remoteSave, joinResetSave].filter(item => item && typeof item.finally === 'function');
-        if (pendingSaves.length) {
-          let moved = false;
-          const moveOnce = () => { if (moved) return; moved = true; goSheet(); };
-          Promise.allSettled(pendingSaves).finally(() => setTimeout(moveOnce, 80));
-          setTimeout(moveOnce, 1800);
-        } else {
-          setTimeout(goSheet, 250);
-        }
+        setTimeout(goSheet, 180);
+        if (pendingSaves.length) Promise.allSettled(pendingSaves).catch(() => null);
       }
     });
   }
@@ -1957,7 +1955,7 @@ function completeTeams() {
     sheetState.updatedFromTeamBoardAt = new Date().toISOString();
     const sheetJson = JSON.stringify(sheetState);
     localStorage.setItem(SHEET_STORAGE_KEY, sheetJson);
-    window.dispatchEvent(new StorageEvent('storage', { key: SHEET_STORAGE_KEY, newValue: sheetJson }));
+    try { window.dispatchEvent(new StorageEvent('storage', { key: SHEET_STORAGE_KEY, newValue: sheetJson })); } catch (error) {}
     try {
       window.dispatchEvent(new CustomEvent('pkl-sheet-teams-imported', { detail: { state: sheetState, teams } }));
     } catch (error) {}
