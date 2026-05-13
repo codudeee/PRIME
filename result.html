@@ -1440,17 +1440,13 @@ const RESULT_MATCHES_KEY='PKL_RESULT_MATCHES_V1';
 const USER_MATCH_STATS_KEY='PKL_USER_MATCH_STATS_V1';
 const DEFAULT_MATCHES=[];
 function pklResultLoadMatches(){
-  const raw=localStorage.getItem(RESULT_MATCHES_KEY);
-  if(raw!==null){
-    try{
-      const saved=JSON.parse(raw);
-      if(Array.isArray(saved)) return saved.map(m=>({...m}));
-    }catch(e){}
-  }
+  /* Supabase shared data is the only source for result rounds.
+     Do not bootstrap from localStorage here: admin browsers can keep old
+     result caches and show deleted/restored rounds only for staff accounts. */
   return [];
 }
 async function pklResultFetchMatchesFromServer(){
-  var next=null;
+  var next=[];
   try{
     if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function'){
       var shared=await window.PKLSupabaseDataSync.getShared(RESULT_MATCHES_KEY);
@@ -1460,52 +1456,41 @@ async function pklResultFetchMatchesFromServer(){
       }
     }
   }catch(e){}
-  if(!next){
-    try{
-      var res=await fetch('/api/pkl-data-store?type=match_logs',{cache:'no-store'});
-      var data=await res.json();
-      var rows=Array.isArray(data&&data.rows)?data.rows:[];
-      if(rows.length){
-        next=rows.map(function(r){
-          var raw=(r&&r.raw&&typeof r.raw==='object')?r.raw:null;
-          if(raw) return raw;
-          return {
-            id:r.id,
-            title:r.title||r.id,
-            kind:r.kind||'league',
-            type:(r.kind==='normal')?'일반경기':'프라임 킬내기 리그',
-            snapshot:r.snapshot||{},
-            savedAt:r.saved_at||r.updated_at||''
-          };
-        }).filter(Boolean).sort(function(a,b){
-          return String(b.savedAt||b.saved_at||'').localeCompare(String(a.savedAt||a.saved_at||''));
-        });
-      }
-    }catch(e){}
+
+  /* 관리자 전용 과거 회차가 다시 보이던 원인: match_logs fallback.
+     결과표는 이제 PKL_RESULT_MATCHES_V1 shared 값만 읽는다.
+     match_logs에 남아 있는 예전 데이터는 더 이상 관리자 화면에 병합하지 않는다. */
+  MATCHES=Array.isArray(next)?next.map(function(m){return Object.assign({},m);}):[];
+  try{localStorage.setItem(RESULT_MATCHES_KEY,JSON.stringify(MATCHES));}catch(e){}
+  if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})) {
+    selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
   }
-  if(Array.isArray(next)){
-    MATCHES=next.map(function(m){return Object.assign({},m);});
-    try{localStorage.setItem(RESULT_MATCHES_KEY,JSON.stringify(MATCHES));}catch(e){}
-    if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})){
-      selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
-    }
-    pklResultApplySelectedMatchState();
-    renderAll();
-    renderResultAdminModal();
-  }
+  pklResultApplySelectedMatchState();
+  renderAll();
+  renderResultAdminModal();
 }
 function pklResultSharedSet(key,value){
   const text=typeof value==='string'?value:JSON.stringify(value);
+  try{localStorage.setItem(key,text);}catch(_e){}
   try{
-    localStorage.setItem(key,text);
+    if(String(key)===RESULT_MATCHES_KEY){
+      /* 결과표 회차 목록은 shared key 하나로만 관리한다.
+         PKLSupabaseDataSync.setShared(RESULT_MATCHES_KEY)는 match_logs로 저장하는
+         구버전 호환 분기가 있어 관리자 화면에서 과거 회차가 섞일 수 있으므로
+         여기서는 shared API로 직접 저장한다. */
+      fetch('/api/pkl-data-store',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({type:'shared',key:key,value:(typeof value==='string'?JSON.parse(value):value)})
+      }).catch(function(){});
+      return;
+    }
     if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function'){
       window.PKLSupabaseDataSync.setShared(key,text);
     }else if(typeof window.saveSharedData==='function'){
       window.saveSharedData(key,text);
     }
-  }catch(e){
-    try{localStorage.setItem(key,text);}catch(_e){}
-  }
+  }catch(e){}
 }
 function pklResultSaveMatches(){
   pklResultSortMatches();
