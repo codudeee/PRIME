@@ -1,6 +1,6 @@
 (function(){
   "use strict";
-  if(window.PKLScoreboardRealtime && window.PKLScoreboardRealtime.__pklCellLiveFinal20260510_opt3) return;
+  if(window.PKLScoreboardRealtime && window.PKLScoreboardRealtime.__pklCellLiveFinal20260510) return;
 
   var STORAGE_KEY="PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1";
   var SNAPSHOT_KEY="PKL_SCOREBOARD_LIVE_SNAPSHOT_V1";
@@ -142,7 +142,7 @@
         if(Number(current && current.resetNonce || 0) < Number(lock.nonce||0)){ return; }
       }
     }catch(e){}
-    if(Date.now()<publishBackoffUntil){ schedulePublish(Math.max(500,publishBackoffUntil-Date.now())); return; }
+    if(Date.now()<publishBackoffUntil){ schedulePublish(Math.max(1000,publishBackoffUntil-Date.now())); return; }
     var snap=buildSnapshot();
     var payload=JSON.stringify(snap);
     var sheet=cellLivePayload();
@@ -157,15 +157,15 @@
     try{
       postLiveScoreboardPayload({payload:snap,live:liveObj}, snap.updatedAt)
         .then(function(){publishBackoffMs=0;publishBackoffUntil=0;})
-        .catch(function(){publishBackoffMs=publishBackoffMs?Math.min(publishBackoffMs*2,60000):10000;publishBackoffUntil=Date.now()+publishBackoffMs;})
-        .finally(function(){publishInFlight=false;if(pendingPublish){pendingPublish=false;setTimeout(doPublish,90);}});
+        .catch(function(){publishBackoffMs=publishBackoffMs?Math.min(publishBackoffMs*2,5000):700;publishBackoffUntil=Date.now()+publishBackoffMs;})
+        .finally(function(){publishInFlight=false;if(pendingPublish){pendingPublish=false;setTimeout(doPublish,60);}});
     }catch(e){publishInFlight=false;}
   }
   function publishNow(){
     if(publishInFlight){pendingPublish=true;return;}
     doPublish();
   }
-  function schedulePublish(delay){clearTimeout(publishTimer);publishTimer=setTimeout(publishNow,delay==null?160:Math.max(40,delay));}
+  function schedulePublish(delay){clearTimeout(publishTimer);publishTimer=setTimeout(publishNow,delay==null?120:Math.max(20, Number(delay)||120));}
 
   function syncLiveScoreboardSize(){
     var grid=document.getElementById('grid');
@@ -243,6 +243,8 @@
     if(!live || !Array.isArray(live.rounds)) return null;
     if(resetLockedAgainst(live && live.resetNonce)) return null;
     var st=readSheetState();
+    var isNewerLive=false;
+    try{isNewerLive=!!(live.seq && Number(live.seq)>Number(lastLiveSeq||0));}catch(e){isNewerLive=false;}
     try{
       var localMs=Date.parse((st&&st.savedAt)||(st&&st.teamExportedAt)||(st&&st.updatedAt)||(st&&st.updatedFromTeamBoardAt)||'');
       var liveMs=Date.parse((live&&live.updatedAt)||'');
@@ -252,9 +254,9 @@
       var localFilled=filledMemberCount(st), remoteFilled=liveFilledMemberCount(live);
       var localResetForMembers=Number((st&&st.resetNonce)||0), remoteResetForMembers=Number((live&&live.resetNonce)||0);
       var localActivity=stateScoreActivityCount(st), remoteActivity=liveScoreActivityCount(live);
-      if(localActivity>0 && remoteActivity<localActivity && remoteResetForMembers<=localResetForMembers) return null;
-      if(localFilled>0 && remoteFilled>0 && remoteFilled<localFilled && remoteResetForMembers<=localResetForMembers) return null;
-      if(localFilled>0 && remoteFilled===0 && remoteResetForMembers<=localResetForMembers) return null;
+      if(!isNewerLive && localActivity>0 && remoteActivity<localActivity && remoteResetForMembers<=localResetForMembers) return null;
+      if(!isNewerLive && localFilled>0 && remoteFilled>0 && remoteFilled<localFilled && remoteResetForMembers<=localResetForMembers) return null;
+      if(!isNewerLive && localFilled>0 && remoteFilled===0 && remoteResetForMembers<=localResetForMembers) return null;
     }catch(e){}
     if(live.seq && Number(live.seq)<lastLiveSeq) return null;
     try{
@@ -334,9 +336,9 @@
     fallbackPollTimer=setInterval(function(){
       if(document.hidden) return;
       tick();
-    }, 450);
+    }, 550);
     document.addEventListener('visibilitychange', function(){
-      if(!document.hidden) setTimeout(tick, 60);
+      if(!document.hidden) setTimeout(tick, 40);
     });
   }
   function applySheetFromDoc(doc){
@@ -344,7 +346,7 @@
     if(!bridge || typeof bridge.applyState!=='function') return;
     try{
       if(bridge.isTyping && bridge.isTyping()) return;
-      if(bridge.getLastLocalEditAt && Date.now()-Number(bridge.getLastLocalEditAt()||0)<900) return;
+      if(bridge.getLastLocalEditAt && Date.now()-Number(bridge.getLastLocalEditAt()||0)<450) return;
     }catch(e){}
     var st=mergeLiveIntoState(readRemoteLive(doc));
     if(st) bridge.applyState(normalizeLiveState(st));
@@ -370,13 +372,13 @@
   }
   function bindSheetPublisher(){
     /* 첫 로드 직후 빈 기본 시트를 live_scores에 게시하지 않는다. 입력/변경 때만 게시한다. */
-    document.addEventListener('input',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field&&e.target.dataset.field!=='map'){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?60:140);}},true);
-    document.addEventListener('change',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?60:140);}},true);
-    document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-map-pick],[data-stop-pick]')) schedulePublish(80);},true);
+    document.addEventListener('input',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field&&e.target.dataset.field!=='map'){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?30:70);}},true);
+    document.addEventListener('change',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?30:70);}},true);
+    document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-map-pick],[data-stop-pick]')) schedulePublish(40);},true);
     /* 2차 청소: storage 이벤트 기반 재게시 금지. 입력/변경/클릭 저장 흐름만 사용한다. */
   }
   window.addEventListener('pkl-sheet-hard-reset',function(e){try{resetToEmpty((e&&e.detail&&e.detail.state)||window.__PKL_SHEET_RESET_STATE, e&&e.detail&&e.detail.nonce);}catch(x){lastPayloadText='';lastLiveSeq=Date.now();}});
-  window.PKLScoreboardRealtime={__pklCellLiveFinal20260510_opt3:true,publish:publishNow,schedulePublish:schedulePublish,resetToEmpty:resetToEmpty,startViewer:startViewer,renderSnapshot:renderSnapshot,buildSnapshot:buildSnapshot,startSheetMirror:startSheetMirror};
+  window.PKLScoreboardRealtime={__pklCellLiveFinal20260510:true,publish:publishNow,schedulePublish:schedulePublish,resetToEmpty:resetToEmpty,startViewer:startViewer,renderSnapshot:renderSnapshot,buildSnapshot:buildSnapshot,startSheetMirror:startSheetMirror};
   if(document.getElementById('recordBody')){ bindSheetPublisher(); startSheetMirror(); }
   if(document.getElementById('grid') && /pkl-scoreboard-live/i.test(location.pathname)) startViewer();
 })();
