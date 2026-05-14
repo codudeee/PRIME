@@ -11130,11 +11130,22 @@ document.addEventListener("DOMContentLoaded", function(){
       localStorage.setItem('PKL_SHEET_RESET_LOCK_V2', JSON.stringify(window.__PKL_RESET_LOCK));
     }catch(e){}
     clearSheetStorage();
+    try{
+      clearTimeout(window.pklSheetPersistTimer);
+      clearTimeout(window.pklSheetRemoteSaveTimer);
+      clearTimeout(window.pklDeferredRemoteSheetTimer);
+    }catch(e){}
     var emptySheetState={
       mode:'squad',selectedTeamId:'team1',teams:[],rounds:[],feeds:[],sideBets:[],
       eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},itemHistory:[],
       startTime:'',endTime:'',resetNonce:nonce,savedAt:new Date().toISOString()
     };
+    try{
+      window.__PKL_SHEET_RESET_STATE=emptySheetState;
+      if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.resetToEmpty==='function'){
+        window.PKLScoreboardRealtime.resetToEmpty(emptySheetState, nonce);
+      }
+    }catch(e){}
     try{ sessionStorage.removeItem(SHEET_STORAGE_KEY + '_SESSION_BACKUP'); sessionStorage.setItem(SHEET_STORAGE_KEY, JSON.stringify(emptySheetState)); localStorage.setItem(SHEET_STORAGE_KEY, JSON.stringify(emptySheetState)); }catch(e){}
     async function setShared(key,value){
       var res=await fetch('/api/pkl-data-store',{
@@ -11161,8 +11172,12 @@ document.addEventListener("DOMContentLoaded", function(){
       try{ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast('초기화 실패: '+(err&&err.message?err.message:String(err))); }catch(e){}
       return;
     }
-    try{window.dispatchEvent(new CustomEvent('pkl-sheet-hard-reset',{detail:{nonce:nonce}}));}catch(e){}
-    try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.publish==='function') window.PKLScoreboardRealtime.publish(); }catch(e){}
+    try{window.dispatchEvent(new CustomEvent('pkl-sheet-hard-reset',{detail:{nonce:nonce,state:emptySheetState}}));}catch(e){}
+    try{
+      if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.resetToEmpty==='function'){
+        window.PKLScoreboardRealtime.resetToEmpty(emptySheetState, nonce);
+      }
+    }catch(e){}
     closeResetModal();
     showResetToast();
     window.setTimeout(function(){ window.location.reload(); }, 240);

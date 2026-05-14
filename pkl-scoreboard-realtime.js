@@ -120,6 +120,13 @@
   }
   function writeLocalSnapshot(snap){try{localStorage.setItem(SNAPSHOT_KEY,JSON.stringify(snap));}catch(e){} try{window.dispatchEvent(new CustomEvent('pkl-live-scoreboard-updated',{detail:snap}));}catch(e){}}
   function doPublish(){
+    try{
+      var lock=readResetLock();
+      if(lock && Date.now()<=Number(lock.until||0)){
+        var current=readSheetState();
+        if(Number(current && current.resetNonce || 0) < Number(lock.nonce||0)){ return; }
+      }
+    }catch(e){}
     if(Date.now()<publishBackoffUntil){ schedulePublish(Math.max(1000,publishBackoffUntil-Date.now())); return; }
     var snap=buildSnapshot();
     var payload=JSON.stringify(snap);
@@ -315,6 +322,22 @@
   function startSheetMirror(){
     startFallbackPoll();
   }
+
+  function resetToEmpty(emptyState, nonce){
+    try{clearTimeout(publishTimer); pendingPublish=false;}catch(e){}
+    nonce=Number(nonce || (emptyState && emptyState.resetNonce) || Date.now());
+    var now=new Date().toISOString();
+    var st=emptyState && typeof emptyState==='object' ? emptyState : {mode:'squad',selectedTeamId:'team1',teams:[],rounds:[],feeds:[],sideBets:[],eventKeys:{},colds:{},fires:{},surrenders:{},resetNonce:nonce,savedAt:now};
+    st.resetNonce=nonce;
+    st.savedAt=st.savedAt||now;
+    try{localStorage.setItem(STORAGE_KEY, JSON.stringify(st)); sessionStorage.setItem(STORAGE_KEY, JSON.stringify(st)); sessionStorage.setItem(STORAGE_KEY+'_SESSION_BACKUP', JSON.stringify(st));}catch(e){}
+    var snap={version:1,updatedAt:now,teams:[]};
+    var live={version:4,seq:Date.now(),updatedAt:now,resetNonce:nonce,mode:st.mode||'squad',selectedTeamId:st.selectedTeamId||'team1',teams:[],rounds:[],feeds:[],eventKeys:{},colds:{},fires:{},surrenders:{}};
+    lastPayloadText='';
+    lastLiveSeq=Date.now();
+    writeLocalSnapshot(snap);
+    try{ sb('live_scores',{method:'POST',body:JSON.stringify({id:'live_scoreboard',payload:{payload:snap,live:live},updated_at:now})}); }catch(e){}
+  }
   function bindSheetPublisher(){
     /* 첫 로드 직후 빈 기본 시트를 live_scores에 게시하지 않는다. 입력/변경 때만 게시한다. */
     document.addEventListener('input',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field&&e.target.dataset.field!=='map'){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?180:550);}},true);
@@ -322,8 +345,8 @@
     document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-map-pick],[data-stop-pick]')) schedulePublish(180);},true);
     /* 2차 청소: storage 이벤트 기반 재게시 금지. 입력/변경/클릭 저장 흐름만 사용한다. */
   }
-  window.addEventListener('pkl-sheet-hard-reset',function(e){lastPayloadText='';lastLiveSeq=Date.now();setTimeout(function(){try{publishNow();}catch(x){}},180);});
-  window.PKLScoreboardRealtime={__pklCellLiveFinal20260510:true,publish:publishNow,schedulePublish:schedulePublish,startViewer:startViewer,renderSnapshot:renderSnapshot,buildSnapshot:buildSnapshot,startSheetMirror:startSheetMirror};
+  window.addEventListener('pkl-sheet-hard-reset',function(e){try{resetToEmpty((e&&e.detail&&e.detail.state)||window.__PKL_SHEET_RESET_STATE, e&&e.detail&&e.detail.nonce);}catch(x){lastPayloadText='';lastLiveSeq=Date.now();}});
+  window.PKLScoreboardRealtime={__pklCellLiveFinal20260510:true,publish:publishNow,schedulePublish:schedulePublish,resetToEmpty:resetToEmpty,startViewer:startViewer,renderSnapshot:renderSnapshot,buildSnapshot:buildSnapshot,startSheetMirror:startSheetMirror};
   if(document.getElementById('recordBody')){ bindSheetPublisher(); startSheetMirror(); }
   if(document.getElementById('grid') && /pkl-scoreboard-live/i.test(location.pathname)) startViewer();
 })();
