@@ -12076,16 +12076,17 @@ async function saveMatch(kind){
      결과표 저장/JOIN 초기화가 끝나기 전에 지우지 않고, 성공 이후에만
      스코어보드/점수시트/LIVE/SIDE/이용내역을 같은 상태로 비운다. */
   writeState(st);
+
+  /* 저장 후 시트/모집 상태를 실제로 비우고 서버에도 동일하게 반영한다. */
   try{
-    localStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
-    sessionStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
     localStorage.setItem(SHEET_KEY, JSON.stringify(st));
     sessionStorage.setItem(SHEET_KEY, JSON.stringify(st));
-    pklBroadcastDataUpdate(SHEET_KEY);
+    localStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
+    sessionStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
   }catch(e){}
 
-  await pklDirectSharedSet(SHEET_KEY,st,true);
-  await Promise.allSettled([
+  await Promise.all([
+    pklDirectSharedSet(SHEET_KEY,st,true),
     pklDirectSharedSet('pklSideListItems',[],true),
     pklDirectSharedSet('pklSideList',[],true),
     pklDirectSharedSet('pklSideBets',[],true),
@@ -12095,7 +12096,6 @@ async function saveMatch(kind){
   await pklResetJoinWaitingAfterMatchSave();
 
   try{
-    window.__PKL_DISABLE_TEAM_IMPORT__=true;
     localStorage.removeItem('pklItemHistoryCounts');
     localStorage.removeItem('pklSideListItems');
     localStorage.removeItem('pklSideList');
@@ -12106,6 +12106,7 @@ async function saveMatch(kind){
     localStorage.removeItem('pklColdTeamModalShown.v1');
     sessionStorage.removeItem('PKL_SURRENDER_CONSENT_STORE_V1');
     sessionStorage.removeItem('PKL_FIRE_CONSENT_STORE_V1');
+    window.dispatchEvent(new StorageEvent('storage',{key:SHEET_KEY,newValue:JSON.stringify(st)}));
   }catch(e){}
   try{ if(typeof window.pklRenderItemHistoryTable==='function') window.pklRenderItemHistoryTable(); }catch(e){}
   toast('경기가 결과표에 저장되었습니다.');
