@@ -19,28 +19,20 @@
     opt.headers=Object.assign({apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},opt.headers||{});
     return fetch(SUPABASE_URL+'/rest/v1/'+path,opt).then(function(r){return r.ok?r.json().catch(function(){return null;}):null;}).catch(function(){return null;});
   }
-  function apiLiveRead(){
-    return fetch('/api/pkl-data-store?type=live_scores&id=live_scoreboard&t='+Date.now(),{cache:'no-store'})
-      .then(function(r){return r.ok?r.json().catch(function(){return null;}):null;})
-      .then(function(data){return data&&Array.isArray(data.rows)?data.rows[0]:null;})
-      .catch(function(){return null;});
-  }
-  function apiLiveWrite(payload){
-    return fetch('/api/pkl-data-store',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      cache:'no-store',
-      body:JSON.stringify({type:'live_scores',id:'live_scoreboard',payload:payload})
-    }).then(function(r){return r.ok?r.json().catch(function(){return null;}):null;}).catch(function(){return null;});
-  }
-  function liveWrite(payload){
-    var body={id:'live_scoreboard',payload:payload,updated_at:(payload&&payload.payload&&payload.payload.updatedAt)||new Date().toISOString()};
-    if(configured()) return sb('live_scores',{method:'POST',body:JSON.stringify(body)});
-    return apiLiveWrite(payload);
-  }
-  function liveRead(){
-    if(configured()) return sb('live_scores?id=eq.live_scoreboard&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){return rows&&rows[0];});
-    return apiLiveRead();
+  function postLiveScoreboardPayload(payload, updatedAt){
+    var body={id:'live_scoreboard',payload:payload,updated_at:updatedAt||new Date().toISOString()};
+    var apiPost=function(){
+      return fetch('/api/pkl-data-store',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        cache:'no-store',
+        body:JSON.stringify({type:'live_scores',id:'live_scoreboard',payload:payload})
+      }).then(function(res){return res.ok?res.json().catch(function(){return null;}):null;}).catch(function(){return null;});
+    };
+    if(configured()){
+      return sb('live_scores',{method:'POST',body:JSON.stringify(body)}).then(function(res){return res||apiPost();}).catch(apiPost);
+    }
+    return apiPost();
   }
   function rowToDoc(row){return row&&row.payload?{fields:{payload:{stringValue:JSON.stringify(row.payload.payload||row.payload)},live:{stringValue:JSON.stringify(row.payload.live||null)}}}:null;}
 
@@ -161,10 +153,9 @@
     if(compare===lastPayloadText) return;
     lastPayloadText=compare;
     writeLocalSnapshot(snap);
-    var payloadObj={payload:snap,live:liveObj};
     publishInFlight=true;
     try{
-      liveWrite(payloadObj)
+      postLiveScoreboardPayload({payload:snap,live:liveObj}, snap.updatedAt)
         .then(function(){publishBackoffMs=0;publishBackoffUntil=0;})
         .catch(function(){publishBackoffMs=publishBackoffMs?Math.min(publishBackoffMs*2,60000):10000;publishBackoffUntil=Date.now()+publishBackoffMs;})
         .finally(function(){publishInFlight=false;if(pendingPublish){pendingPublish=false;setTimeout(doPublish,220);}});
@@ -305,6 +296,22 @@
     var local=readJson(SNAPSHOT_KEY,null); if(local) renderSnapshot(local);
     startFallbackPoll();
   }
+  function readLiveScoreboardRows(){
+    if(configured()){
+      return sb('live_scores?id=eq.live_scoreboard&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){
+        if(rows && rows.length) return rows;
+        return fetch('/api/pkl-data-store?type=live_scores&id=live_scoreboard', {cache:'no-store'})
+          .then(function(res){return res.ok?res.json():null;})
+          .then(function(data){return data && data.rows ? data.rows : rows;})
+          .catch(function(){return rows;});
+      });
+    }
+    return fetch('/api/pkl-data-store?type=live_scores&id=live_scoreboard', {cache:'no-store'})
+      .then(function(res){return res.ok?res.json():null;})
+      .then(function(data){return data && data.rows ? data.rows : [];})
+      .catch(function(){return [];});
+  }
+
   function startFallbackPoll(){
     if(fallbackPollTimer) return;
     var busy=false;
@@ -312,8 +319,9 @@
       if(busy) return;
       busy=true;
       try{
-        liveRead()
-          .then(function(doc){
+        readLiveScoreboardRows()
+          .then(function(rows){
+            var doc=rows&&rows[0];
             var snap=readRemotePayload(doc);
             if(snap){writeLocalSnapshot(snap);renderSnapshot(snap);}
             applySheetFromDoc(doc);
@@ -326,7 +334,7 @@
     fallbackPollTimer=setInterval(function(){
       if(document.hidden) return;
       tick();
-    }, 700);
+    }, 900);
     document.addEventListener('visibilitychange', function(){
       if(!document.hidden) setTimeout(tick, 120);
     });
@@ -358,12 +366,12 @@
     lastPayloadText='';
     lastLiveSeq=Date.now();
     writeLocalSnapshot(snap);
-    try{ sb('live_scores',{method:'POST',body:JSON.stringify({id:'live_scoreboard',payload:{payload:snap,live:live},updated_at:now})}); }catch(e){}
+    try{ postLiveScoreboardPayload({payload:snap,live:live}, now); }catch(e){}
   }
   function bindSheetPublisher(){
     /* 첫 로드 직후 빈 기본 시트를 live_scores에 게시하지 않는다. 입력/변경 때만 게시한다. */
-    document.addEventListener('input',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field&&e.target.dataset.field!=='map'){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?120:320);}},true);
-    document.addEventListener('change',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?120:260);}},true);
+    document.addEventListener('input',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field&&e.target.dataset.field!=='map'){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?180:550);}},true);
+    document.addEventListener('change',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?180:550);}},true);
     document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-map-pick],[data-stop-pick]')) schedulePublish(180);},true);
     /* 2차 청소: storage 이벤트 기반 재게시 금지. 입력/변경/클릭 저장 흐름만 사용한다. */
   }
