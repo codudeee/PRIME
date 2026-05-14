@@ -1099,3 +1099,22 @@ html,body{
 .patch-form-grid input,.patch-form-grid textarea{pointer-events:auto;user-select:text;}
 
 .patch-modal.open{z-index:999999!important;pointer-events:auto!important;}
+
+
+/* PKL patch newline preserve fix */
+.patch-preserve-text{
+  white-space:pre-wrap !important;
+  word-break:break-word !important;
+  color:#c8c1dc !important;
+  font-size:14px !important;
+  line-height:1.72 !important;
+  font-weight:800 !important;
+  letter-spacing:-.1px !important;
+  margin:0 !important;
+}
+.patch-info .patch-preserve-text:empty::before{
+  content:' ';
+}
+#patchInputItems{
+  white-space:pre-wrap !important;
+}

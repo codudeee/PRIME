@@ -132,8 +132,8 @@
     els.patchSaveBtn?.addEventListener("click", saveEditor);
     els.patchConfirmCancel?.addEventListener("click", closeConfirm);
     els.patchConfirmDelete?.addEventListener("click", deleteSelected);
-    els.patchEditorModal?.addEventListener("click", e => { if(e.target === els.patchEditorModal) closeEditor(); });
-    els.patchConfirmModal?.addEventListener("click", e => { if(e.target === els.patchConfirmModal) closeConfirm(); });
+    // 모달 바깥 클릭으로 자동 닫히지 않게 유지한다.
+    // 작성 중 줄바꿈/공백이 있는 내용이 실수로 사라지는 것을 방지한다.
     document.addEventListener("keydown", e => {
       if(e.key === "Escape"){
         closeEditor();
@@ -204,10 +204,7 @@
       <article class="patch-item">
         <div class="patch-tag ${escapeHtml(item.tag || "NEW")}">${escapeHtml(item.tag || "NEW")}</div>
         <div class="patch-info">
-          <ul>${itemLines(item).map(line => {
-            const safe = escapeHtml(line || " ").replace(/\n/g,'<br>');
-            return `<li>${safe}</li>`;
-          }).join("")}</ul>
+          <div class="patch-preserve-text">${escapeHtml(itemBodyText(item))}</div>
         </div>
       </article>
     `).join("");
@@ -311,13 +308,26 @@
   }
 
   function itemLines(item){
+    if(item && typeof item.text === "string"){
+      return item.text.split(/\r?\n/);
+    }
     const lines = [];
-    if(item?.title) lines.push(item.title);
-    (item?.lines || []).forEach(line => {
-      const value = String(line ?? "").replace(/\r/g, "");
-      lines.push(value);
-    });
-    return lines.length ? lines : [""];
+    if(item?.title) lines.push(String(item.title));
+    (item?.lines || []).forEach(line => lines.push(String(line ?? "")));
+    return lines;
+  }
+
+  function itemBodyText(item){
+    if(item && typeof item.text === "string") return normalizeStoredText(item.text);
+    const lines = itemLines(item);
+    return normalizeStoredText(lines.join("\n"));
+  }
+
+  function normalizeStoredText(value){
+    return String(value ?? "")
+      .replace(/\r\n/g,"\n")
+      .replace(/\r/g,"\n")
+      .replace(/[ \t]+$/gm,"");
   }
 
   function itemsToText(items){
@@ -325,8 +335,8 @@
     const source = Array.isArray(items) ? items : [];
     const byTag = tag => source.find(item => String(item?.tag || "").toUpperCase() === tag);
     return ordered.map(tag => {
-      const lines = itemLines(byTag(tag) || {tag, lines:["",""]});
-      const body = lines.length ? lines.map(line => `- ${line}`).join("\n") : "- \n- ";
+      const found = byTag(tag);
+      const body = found ? itemBodyText(found) : "";
       return `[${tag}]\n${body}`;
     }).join("\n\n");
   }
@@ -334,21 +344,30 @@
   function textToItems(text){
     const result = [];
     let current = null;
-    String(text || "").split(/\r?\n/).forEach(raw => {
-      const line = raw.trim();
-      if(!line) return;
-      const head = line.match(/^\[(NEW|IMPROVE|FIX)\]$/i);
+    const ensureCurrent = () => {
+      if(!current){
+        current = {tag:"NEW", title:"", lines:[], text:""};
+        result.push(current);
+      }
+      return current;
+    };
+    String(text || "").replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n").forEach(raw => {
+      const head = String(raw).trim().match(/^\[(NEW|IMPROVE|FIX)\]$/i);
       if(head){
-        current = {tag:head[1].toUpperCase(), title:"", lines:[]};
+        current = {tag:head[1].toUpperCase(), title:"", lines:[], text:""};
         result.push(current);
         return;
       }
-      if(!current) return;
-      const body = line.replace(/^[-•]\s*/, "").trim();
-      if(body) current.lines.push(body);
+      const target = ensureCurrent();
+      const line = String(raw).replace(/^\s*[-•]\s?/, "");
+      target.lines.push(line);
+    });
+    result.forEach(item => {
+      item.text = normalizeStoredText((item.lines || []).join("\n")).replace(/^\n+|\n+$/g, "");
+      item.lines = item.text.split("\n");
     });
     ["NEW","IMPROVE","FIX"].forEach(tag => {
-      if(!result.some(item => item.tag === tag)) result.push({tag, title:"", lines:[]});
+      if(!result.some(item => item.tag === tag)) result.push({tag, title:"", lines:[], text:""});
     });
     return result;
   }
