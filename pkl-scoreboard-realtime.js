@@ -239,10 +239,37 @@
     }catch(e){return false;}
   }
 
+  function liveFreshTime(x){
+    try{
+      var arr=[
+        Date.parse((x&&x.savedAt)||''),
+        Date.parse((x&&x.updatedAt)||''),
+        Date.parse((x&&x.teamExportedAt)||''),
+        Date.parse((x&&x.updatedFromTeamBoardAt)||''),
+        Number((x&&x.teamImportNonce)||0),
+        Number((x&&x.resetNonce)||0),
+        Number((x&&x.seq)||0)
+      ].filter(function(v){return isFinite(v)&&v>0;});
+      return arr.length ? Math.max.apply(null,arr) : 0;
+    }catch(e){return 0;}
+  }
+  function shouldIgnoreStaleResetLive(live, st){
+    try{
+      var remoteReset=Number((live&&live.resetNonce)||0);
+      if(!remoteReset) return false;
+      if(liveFilledMemberCount(live)>0 || liveScoreActivityCount(live)>0) return false;
+      if(filledMemberCount(st)<=0 && stateScoreActivityCount(st)<=0) return false;
+      var localFresh=liveFreshTime(st);
+      var remoteFresh=liveFreshTime(live);
+      return !!(localFresh && remoteFresh && remoteFresh < localFresh - 500);
+    }catch(e){return false;}
+  }
+
   function mergeLiveIntoState(live){
     if(!live || !Array.isArray(live.rounds)) return null;
     if(resetLockedAgainst(live && live.resetNonce)) return null;
     var st=readSheetState();
+    if(shouldIgnoreStaleResetLive(live, st)) return null;
     try{
       var localMs=Date.parse((st&&st.savedAt)||(st&&st.teamExportedAt)||(st&&st.updatedAt)||(st&&st.updatedFromTeamBoardAt)||'');
       var liveMs=Date.parse((live&&live.updatedAt)||'');
