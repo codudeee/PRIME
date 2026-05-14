@@ -69,7 +69,7 @@
   }
   function legacyUserKeys(u){
     u=u||{};
-    return [u.loginId,u.username,u.pubgId,u.gameId,u.ref,u.nickname,u.nick,u.name,u.displayName]
+    return [u.loginId,u.username,u.pubgId,u.gameId,u.ref]
       .map(cleanKey)
       .filter(Boolean);
   }

@@ -14,6 +14,7 @@
   function parse(raw, fb){try{var v=JSON.parse(raw);return v==null?fb:v;}catch(e){return fb;}}
   function read(k, fb){try{return parse(localStorage.getItem(k), fb);}catch(e){return fb;}}
   function clean(v){return String(v == null ? "" : v).trim();}
+  function stripLeadingNicknameDecorations(v){return clean(v).normalize("NFKC").replace(/^[\s\u00a0\u200b\u200c\u200d\ufeff]+/g,"").replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u,"").trim();}
   function low(v){return clean(v).toLowerCase();}
   function compact(v){return clean(v).replace(/[\s_-]+/g,"").toLowerCase();}
   function useful(v){var s=clean(v);return !!s && s!=="undefined" && s!=="null" && s!=="없음" && s!=="none";}
@@ -43,9 +44,9 @@
   }
   function roleLabel(r){r=normRole(r);return r==="admin"?"관리자":r==="operator"?"운영자":r==="guest"?"임시":"일반";}
   function id(u){u=u||{};return low(u.discordId||u.uid||u.id||u.userId||u.memberId||u.key);}
-  function nick(u){u=u||{};return clean(u.nickname||u.nick||u.name||u.displayName||u.discordGlobalName||u.discordUsername||u.username);}
+  function nick(u){u=u||{};return stripLeadingNicknameDecorations(u.nickname||u.nick||u.name||u.displayName||u.discordGlobalName||u.discordUsername||u.username);}
   function pubg(u){u=u||{};return clean(u.pubgId||u.pubgID||u.gameId||u.pubgName||u.pubg||u.ref);}
-  function same(a,b){var ai=id(a),bi=id(b); if(ai&&bi)return ai===bi; var ap=low(pubg(a)),bp=low(pubg(b)); if(ap&&bp)return ap===bp; var an=low(nick(a)),bn=low(nick(b)); return !!(an&&bn&&an===bn);}
+  function same(a,b){var ai=id(a),bi=id(b); if(ai&&bi)return ai===bi; if(ai||bi)return false; var ap=low(pubg(a)),bp=low(pubg(b)); return !!(ap&&bp&&ap===bp);}
   function stamp(u){u=u||{};var s=clean(u.pklProfileUpdatedAt||u.profileUpdatedAt||u.updatedAt||u.modifiedAt||u.savedAt);var t=Date.parse(s);return isNaN(t)?0:t;}
 
   function normalize(u){

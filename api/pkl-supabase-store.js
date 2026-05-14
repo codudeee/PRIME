@@ -3,15 +3,14 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABA
 
 function configured(){ return !!(SUPABASE_URL && SUPABASE_KEY); }
 function clean(v){ return String(v == null ? '' : v).trim(); }
-function stripLeadingNicknameDecorations(value){
-  return String(value == null ? '' : value)
+function stripLeadingNicknameDecorations(v){
+  return clean(v)
     .normalize('NFKC')
-    .replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g, '')
-    .trim()
-    .replace(/^[^\p{L}\p{N}가-힣]+/u, '')
+    .replace(/^[\s\u00a0\u200b\u200c\u200d\ufeff]+/g, '')
+    .replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u, '')
     .trim();
 }
-
+function cleanNickname(v){ return stripLeadingNicknameDecorations(v); }
 function cleanId(v){ return clean(v).toLowerCase().replace(/^discord-/, ''); }
 function explicitDiscordId(src={}){
   const direct = cleanId(src.discordId || src.discord_id);
@@ -40,7 +39,7 @@ function normalizeTier(v){
 function normalizeUser(raw){
   const src = raw && raw.raw && typeof raw.raw === 'object' ? {...raw.raw, ...raw} : {...(raw || {})};
   const did = explicitDiscordId(src);
-  const nick = stripLeadingNicknameDecorations(src.nickname || src.nick || src.name || src.displayName || src.discord_username || src.discordUsername || src.username || src.discordGlobalName);
+  const nick = cleanNickname(src.nickname || src.nick || src.name || src.displayName || src.discord_username || src.discordUsername || src.username || src.discordGlobalName);
   const pubg = clean(src.pubgId || src.pubg_id || src.pubgID || src.gameId || src.pubgName || src.ref || src.pubg);
   const role = normalizeRole(src.memberRole || src.role || src.userRole || src.authRole || src.adminRole || (src.is_admin ? 'admin' : 'user'));
   const tierInput = (src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : (src.baseRole != null ? src.baseRole : (src.memberTierName || src.tierName))))));
@@ -178,16 +177,12 @@ async function readUserDocs(options={}){
   // Supabase users is the only source, but the API also normalizes the page result once here.
   // This prevents the client pages from each doing their own cache/nickname merge and creating duplicate visible users.
   const seenDiscord = new Set();
-  const seenNickname = new Set();
   const users = [];
   for (const u of rawUsers) {
     const did = cleanId(u.discordId || u.discord_id);
     if (!did || seenDiscord.has(did)) continue;
-    const nickKey = clean(u.nickname || u.name || u.nick).replace(/\s+/g, '').toLowerCase();
-    // PKL policy: nickname duplicates are not allowed. If an old/legacy duplicate row is returned, do not expose it to UI.
-    if (nickKey && seenNickname.has(nickKey)) continue;
+    // 화면 노출/병합은 오직 discord_id 기준. 닉네임 이모지 정리 후에도 다른 유저와 섞이지 않게 nickname 기준 dedupe 금지.
     seenDiscord.add(did);
-    if (nickKey) seenNickname.add(nickKey);
     users.push(u);
   }
   return { users, count: Number.isFinite(count) ? count : users.length, limit, offset, q };
@@ -241,8 +236,8 @@ async function writeUserDoc(user, forceAdmin=false){
   };
   const body = {
     discord_id: discordId,
-    discord_username: stripLeadingNicknameDecorations(u.discordUsername || u.username || ''),
-    nickname: clean(u.nickname || u.displayName || u.nick || u.name),
+    discord_username: clean(u.discordUsername || u.username || u.displayName || u.nickname),
+    nickname: cleanNickname(u.nickname || u.displayName || u.nick || u.name),
     pubg_id: clean(u.pubgId || u.gameId || u.ref),
     tier,
     prime,

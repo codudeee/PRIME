@@ -8617,6 +8617,9 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 (function(){
   'use strict';
   function clean(v){return String(v==null?'':v).trim();}
+  function stripLeadingNicknameDecorations(v){
+    return clean(v).normalize('NFKC').replace(/^[\s\u00a0\u200b\u200c\u200d\ufeff]+/g,'').replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u,'').trim();
+  }
   function didOf(u){
     u=u||{};
     var did=clean(u.discordId||u.discord_id).toLowerCase().replace(/^discord-/, '');
@@ -8641,7 +8644,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   window.PKLAdminInvalidateUsersRenderCache=bumpUsersCacheVersion;
   function normalize(u){
     u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var did=didOf(u)||didOf(raw); if(!did) return null;
-    var nick=clean(u.nickname||u.name||u.nick||raw.nickname||raw.name||raw.nick||u.discord_username||u.discordUsername||raw.discord_username)||('회원-'+did.slice(-4));
+    var nick=stripLeadingNicknameDecorations(u.nickname||u.name||u.nick||raw.nickname||raw.name||raw.nick||u.discord_username||u.discordUsername||raw.discord_username)||('회원-'+did.slice(-4));
     var pubg=clean(u.pubgId||u.pubg_id||u.gameId||u.pubgName||raw.pubgId||raw.pubg_id||raw.gameId);
     var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||raw.memberTier||raw.gradeRole||raw.tierRole||raw.tier||'none');
     var role=clean(u.memberRole||u.role||u.userRole||u.authRole||raw.memberRole||raw.role||(u.is_admin?'admin':'user'))||'user';
@@ -8649,14 +8652,13 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return Object.assign({}, raw, u, {discordId:did,discord_id:did,uid:'discord-'+did,id:'discord-'+did,userId:'discord-'+did,nickname:nick,name:nick,nick:nick,displayName:nick,pubgId:pubg,gameId:pubg,pubgName:pubg,ref:pubg,memberTier:tier,gradeRole:tier,tierRole:tier,baseRole:tier,memberRole:role,userRole:role,authRole:role,role:role,prime:prime,points:prime,dia:prime,warnings:Number(u.warnings??raw.warnings??0)||0,history:Array.isArray(u.history)?u.history:[],memoList:Array.isArray(u.memoList)?u.memoList:[]});
   }
   function unique(list){
-    var seenDid=new Set(), seenNick=new Set(), out=[];
+    var seenDid=new Set(), out=[];
     (Array.isArray(list)?list:[]).forEach(function(row){
       var u=normalize(row); if(!u) return;
-      var did=didOf(u), nk=nickKey(u);
+      var did=didOf(u);
       if(!did || seenDid.has(did)) return;
-      // 서버 정책상 nickname 중복 생성 금지. UI는 Supabase 정규화 결과를 한 번만 표시한다.
-      if(nk && seenNick.has(nk)) return;
-      seenDid.add(did); if(nk) seenNick.add(nk); out.push(u);
+      // admin 목록/선택은 오직 discord_id 기준. 닉네임 기준 중복 제거 금지.
+      seenDid.add(did); out.push(u);
     });
     return out.sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
   }
