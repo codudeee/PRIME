@@ -6782,8 +6782,8 @@ function save(){
   /* localStorage 운영 시트 저장 제거: Supabase/shared + session 현재 탭 백업만 사용 */
   /* 결과저장/초기화 전까지 현재 경기 시트는 Supabase 공유값에도 유지한다.
      단, 빈 기본 시트는 메인 이동/재진입 렌더 때 원격 시트를 덮어쓰지 않는다. */
-  pklScheduleSheetPersist(90);
-  try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(45); }catch(e){}
+  pklScheduleSheetPersist(180);
+  try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(120); }catch(e){}
 }
 function makeRound(no){return {no,map:'',teams:{}}}
 function visibleTeams(){
@@ -8861,7 +8861,7 @@ function pklCommitScoreInput(target, options){
     renderBoard();
     if(target.type==='checkbox' || field==='chicken' || field==='stop') renderSheet();
     renderFeeds();
-    try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(target.type==='checkbox'?20:35);}catch(e){}
+    try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(target.type==='checkbox'?20:180);}catch(e){}
     save();
   }else{
     if(pklScoreInputSaveTimer) clearTimeout(pklScoreInputSaveTimer);
@@ -8870,9 +8870,9 @@ function pklCommitScoreInput(target, options){
       checkColdStates();
       renderBoard();
       renderFeeds();
-      try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(45);}catch(e){}
+      try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(180);}catch(e){}
       save();
-    },50);
+    },120);
   }
   return true;
 }
@@ -8894,7 +8894,7 @@ document.addEventListener('input',e=>{
   if(e.target.id==='endTimeInput'){state.endTime=e.target.value;updateTopTimes();save();return}
 
   if(e.target.dataset && e.target.dataset.field && e.target.dataset.field!=='map'){
-    pklCommitScoreInput(e.target,{immediate:true});
+    pklCommitScoreInput(e.target,{immediate:e.target.type==='checkbox'});
     return;
   }
 });
