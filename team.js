@@ -583,7 +583,7 @@ if (rerollListModal) {
     const accountUser = resolvePlayerAccountUser(player, displayName);
     const tierBadge = renderPlayerTierBadge(player, accountUser);
     return `
-      <div class="player-card" draggable="true" data-player-id="${player.id}">
+      <div class="player-card" draggable="true" data-player-id="${player.id}" data-player-name="${escapeHtml(displayName)}" data-discord-id="${escapeHtml(player.discordId || player.discord_id || player.userUid || '')}">
         <span class="player-name">${escapeHtml(displayName)}</span>
         ${tierBadge}
       </div>
@@ -1220,6 +1220,35 @@ const teamIndex = Number(slot.dataset.teamIndex);
     });
     syncWaitingPoolsWithPlayerTiers();
   }
+
+
+  window.PKLTeamApplySingleTierSync = function(sync){
+    if(!sync) return;
+    const tierKey = resolveUserTierKey(sync);
+    if(!TIERS.some(tier => tier.id === tierKey)) return;
+    const nick = sync.nickname || sync.nick || sync.name || sync.discord_username || sync.discordUsername || '';
+    const did = sync.discord_id || sync.discordId || '';
+    let changed = false;
+    const cached = readSupabaseUsers();
+    const idx = cached.findIndex(user => (did && (user.discord_id === did || user.discordId === did)) || (nick && sameName(user, nick)));
+    const nextUser = Object.assign({}, idx >= 0 ? cached[idx] : {}, sync, { memberTier:tierKey, gradeRole:tierKey, tierRole:tierKey, baseRole:tierKey, tier:getTierLabel(tierKey), nickname:nick || (idx >= 0 ? cached[idx].nickname : '') });
+    if(idx >= 0) cached[idx] = nextUser; else cached.push(nextUser);
+    state.players.forEach(player => {
+      const matchDiscord = did && (player.discordId === did || player.discord_id === did || player.userUid === did || player.accountId === did);
+      const matchName = nick && sameName(player, nick);
+      if(matchDiscord || matchName){
+        player.tier = tierKey;
+        player.memberTier = sync.memberTier || tierKey;
+        player.discordId = player.discordId || did;
+        player.name = nick || player.name;
+        changed = true;
+      }
+    });
+    if(changed){
+      syncWaitingPoolsWithPlayerTiers();
+      render();
+    }
+  };
 
   function resolvePlayerPklTier(player, accountUser) {
     const user = accountUser || resolvePlayerAccountUser(player, resolvePlayerDisplayName(player));
@@ -2076,10 +2105,7 @@ function completeTeams() {
     sheetState.fires = sheetState.fires && typeof sheetState.fires === 'object' ? sheetState.fires : {};
     sheetState.startTime = state.matchStartTime || sheetState.startTime || '';
     sheetState.endTime = state.matchEndTime || sheetState.endTime || '';
-    const exportedAt = new Date().toISOString();
-    sheetState.updatedFromTeamBoardAt = exportedAt;
-    sheetState.savedAt = exportedAt;
-    sheetState.teamImportNonce = Date.now();
+    sheetState.updatedFromTeamBoardAt = new Date().toISOString();
     const sheetJson = JSON.stringify(sheetState);
     try { localStorage.setItem(SHEET_STORAGE_KEY, sheetJson); } catch (error) {}
     try { sessionStorage.setItem(SHEET_STORAGE_KEY, sheetJson); } catch (error) {}

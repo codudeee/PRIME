@@ -4508,6 +4508,7 @@ body.pkl-recruit-closed #joinCancelBtn:hover{
 <script src="pkl-page-permissions.js?v=20260513b"></script>
 <script src="pkl-common-role-badge.js?v=20260513b"></script>
 <script src="pkl-common-tier-badge.js?v=20260513b"></script>
+<script src="pkl-single-user-tier-sync.js?v=20260514a"></script>
 <script id="pklJoinAuthBackGuard">
 (function(){
   "use strict";
@@ -5250,6 +5251,32 @@ function safeJson(key, fallback){
     }
     return item;
   }
+
+
+  window.PKLJoinApplySingleTierSync = function(sync){
+    if(!sync) return;
+    const tier = sync.memberTier || sync.gradeRole || sync.tierRole || sync.tier || '';
+    rememberTierUser(sync);
+    [STORAGE_KEY].forEach(function(key){
+      const list = readList(key);
+      let changed = false;
+      list.forEach(function(item){
+        const sameDiscord = getUserDiscordId(sync) && getUserDiscordId(item) && getUserDiscordId(sync) === getUserDiscordId(item);
+        const sameNick = getUserNickname(sync) && getUserNickname(item) && getUserNickname(sync) === getUserNickname(item);
+        if(sameDiscord || sameNick){
+          item.gradeRole = tier;
+          item.memberTier = tier;
+          item.tierRole = tier;
+          item.tier = tier;
+          item.discord_id = item.discord_id || sync.discord_id || sync.discordId || '';
+          item.discordId = item.discordId || sync.discord_id || sync.discordId || '';
+          changed = true;
+        }
+      });
+      if(changed) saveList(key, list);
+    });
+    if(window.__PKL_JOIN_INITIAL_READY) renderAll();
+  };
 
   async function fetchJoinTierMapOnce(){
     if(joinTierFetchStarted) return;

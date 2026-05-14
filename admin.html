@@ -8547,6 +8547,24 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     try{ window.dispatchEvent(new CustomEvent('pkl-user-updated',{detail:{user:list[idx],index:idx}})); }catch(e){}
   }
   window.PKLAdminUpdateUserDomOnly=updateUserDomOnly;
+
+  function notifySingleTierSync(user){
+    try{
+      const payload={
+        version:Date.now()+'-'+Math.random().toString(36).slice(2),
+        discord_id:user.discord_id||user.discordId||'',
+        nickname:user.nickname||user.nick||user.name||user.discord_username||'',
+        pubgId:user.pubgId||user.gameId||'',
+        tier:user.memberTier||user.gradeRole||user.tierRole||user.baseRole||user.tier||'',
+        memberTier:user.memberTier||user.gradeRole||user.tierRole||user.baseRole||user.tier||'',
+        tierLabel:tierLabel(user.memberTier||user.gradeRole||user.tierRole||user.baseRole||user.tier||''),
+        role:user.memberRole||user.role||'user',
+        updatedAt:new Date().toISOString()
+      };
+      fetch('/api/pkl-shared',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({key:'PKL_USER_TIER_SYNC_V1',value:payload})}).catch(function(){});
+    }catch(e){}
+  }
+
   async function saveMemberEditSupabaseOnly(){
     var list=(window.state&&Array.isArray(window.state.users))?window.state.users:[];
     var idx=typeof current==='number'?current:0;
@@ -8581,6 +8599,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
           var saved=pair.data.user||after;
           list[idx]=Object.assign({},list[idx],saved,{memberRole:selectedMemberRole,userRole:selectedMemberRole,authRole:selectedMemberRole,role:selectedMemberRole||'user',is_admin:selectedMemberRole==='admin',isAdmin:selectedMemberRole==='admin',admin:selectedMemberRole==='admin',memberTier:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),gradeRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tierRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),baseRole:normalizeTierValue(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),tier:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier),memberTierName:tierLabel(saved.memberTier||saved.gradeRole||saved.tierRole||selectedTier)});
           updateUserDomOnly(list[idx]);
+          notifySingleTierSync(list[idx]);
         })
         .catch(function(err){ console.error(err); list[idx]=before; updateUserDomOnly(list[idx]); if(typeof pklAlert==='function') pklAlert(err.message||'회원 정보를 Supabase에 저장하지 못했습니다.','저장 실패'); });
     }catch(err){

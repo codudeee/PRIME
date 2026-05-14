@@ -5386,6 +5386,7 @@ input[type="number"]{
 }
 </style>
 <script src="pkl-user-profile-core.js?v=20260513b"></script>
+<script src="pkl-single-user-tier-sync.js?v=20260514a"></script>
 <script src="pkl-role-system.js?v=20260513b"></script>
 <script src="pkl-page-permissions.js?v=20260513b"></script>
 <script src="pkl-common-role-badge.js?v=20260513b"></script>
@@ -7638,8 +7639,42 @@ function pklSheetHeaderNameHtml(member){
     const cls = tierNo ? (' role-tier' + tierNo) : (tierSource === 'beast' ? ' role-beast' : '');
     badge = `<span class="tier-mark${cls}">${escape(label)}</span>`;
   }
-  return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
+  const did = (member && (member.discord_id || member.discordId || member.userUid || member.accountId)) || (user && (user.discord_id || user.discordId || user.uid || user.id)) || '';
+  return `<span class="user-role-line" data-nickname="${escape(name)}" data-discord-id="${escape(did)}"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
 }
+
+
+window.PKLSheetApplySingleTierSync = function(sync){
+  try{
+    if(!sync) return;
+    const did = String(sync.discord_id || sync.discordId || '').trim();
+    const nick = String(sync.nickname || sync.nick || sync.name || sync.discord_username || '').trim();
+    const tier = sync.memberTier || sync.gradeRole || sync.tierRole || sync.tier || '';
+    function sameMember(m){
+      if(!m) return false;
+      const md = String(m.discord_id || m.discordId || m.userUid || m.accountId || '').trim();
+      const mn = String(m.nickname || m.nick || m.name || m.displayName || '').trim();
+      return !!((did && md && did === md) || (nick && mn && nick.replace(/\s+/g,'') === mn.replace(/\s+/g,'')));
+    }
+    let changed = false;
+    const view = currentView && currentView();
+    if(view && Array.isArray(view.teams)){
+      view.teams.forEach(team => {
+        (team.members || team.players || []).forEach(member => {
+          if(sameMember(member)){
+            member.memberTier = tier;
+            member.gradeRole = tier;
+            member.tierRole = tier;
+            member.__tierRole = tier;
+            member.tier = tier;
+            changed = true;
+          }
+        });
+      });
+    }
+    if(changed && typeof renderSheet === 'function') renderSheet();
+  }catch(e){ console.warn('PKL sheet single tier sync failed', e); }
+};
 
 function renderSheet(){
   const view=currentView(), realId=realTeamId(view.viewId), offset=view.memberOffset||0;
