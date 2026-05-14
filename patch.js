@@ -204,7 +204,10 @@
       <article class="patch-item">
         <div class="patch-tag ${escapeHtml(item.tag || "NEW")}">${escapeHtml(item.tag || "NEW")}</div>
         <div class="patch-info">
-          <ul>${itemLines(item).map(line => `<li>${escapeHtml(line)}</li>`).join("")}</ul>
+          <ul>${itemLines(item).map(line => {
+            const safe = escapeHtml(line || " ").replace(/\n/g,'<br>');
+            return `<li>${safe}</li>`;
+          }).join("")}</ul>
         </div>
       </article>
     `).join("");
@@ -311,7 +314,8 @@
     const lines = [];
     if(item?.title) lines.push(item.title);
     (item?.lines || []).forEach(line => {
-      if(String(line || "").trim()) lines.push(String(line).trim());
+      const value = String(line ?? "").replace(/\r/g, "");
+      lines.push(value);
     });
     return lines.length ? lines : [""];
   }
