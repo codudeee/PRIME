@@ -6940,8 +6940,8 @@ function pklFindTierUserByMember(member){
 function pklTierRoleOfMember(member){
   const user=pklFindTierUserByMember(member);
   const direct=[
-    user?.memberTier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,
-    member?.memberTier,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level
+    member?.memberTier,member?.__tierRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,
+    user?.memberTier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level
   ].map(pklTierScoreRoleFromText).find(Boolean);
   return direct || "";
 }
@@ -7978,14 +7978,14 @@ function pklSurrenderBadgeHtml(member){
   if(member && member.__badgeHtml) return ' ' + member.__badgeHtml;
   const user = pklSheetBadgeFindUser(member && member.name);
 
-  if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === "function"){
-    const html = window.PKLTierBadge.renderForUser(user);
-    return html ? " " + html : "";
-  }
-
-  const tier = (user && user.memberTier) || (member && member.memberTier) || (member && member.tier) || "";
+  const tier = (member && (member.memberTier || member.__tierRole || member.tier)) || (user && (user.memberTier || user.tier)) || "";
   if(tier && window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
     const html = window.PKLTierBadge.render(tier);
+    if(html) return " " + html;
+  }
+
+  if(user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === "function"){
+    const html = window.PKLTierBadge.renderForUser(user);
     return html ? " " + html : "";
   }
 

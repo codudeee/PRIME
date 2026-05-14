@@ -1115,6 +1115,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
       const sourceUser = supabaseUser || accountUser || adminUser || item;
       const displayName = (sourceUser && (sourceUser.nickname || sourceUser.nick || sourceUser.name || sourceUser.discord_username || sourceUser.discordUsername)) || item.name || item.nickname || '참가자';
       const resolvedTier = resolveUserTierKey(sourceUser);
+      const resolvedTierBadge = resolveUserTierBadgeValue(sourceUser);
       const tier = TIERS.some(t => t.id === resolvedTier) ? resolvedTier : 'tier0';
       const player = findPlayerForJoinItem(item, supabaseUser || adminUser, accountUser);
 
@@ -1127,6 +1128,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
         player.pubgId = player.pubgId || (adminUser && (adminUser.pubgId || adminUser.gameId)) || item.pubgId || (accountUser && (accountUser.pubgId || accountUser.gameId)) || '';
         player.name = displayName;
         player.tier = TIERS.some(t => t.id === tier) ? tier : player.tier;
+        if (resolvedTierBadge) player.memberTier = resolvedTierBadge;
         if (!isPlayerPlacedInTeam(player.id)) {
           insertPlayerIntoWaitingTier(player.id, player.tier);
         }
@@ -1138,6 +1140,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
         id,
         name: displayName,
         tier: TIERS.some(t => t.id === tier) ? tier : 'tier0',
+        memberTier: resolvedTierBadge || '',
         status: 'waiting',
         source: 'joinWaitList',
         joinWaitKey: identity || '',
@@ -1343,7 +1346,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
 
   function createLinkedPlayerRecord({ id, name, tier, linkedUser }) {
-    const player = { id, name, tier, status: 'waiting' };
+    const player = { id, name, tier, memberTier: linkedUser ? resolveUserTierBadgeValue(linkedUser) : '', status: 'waiting' };
     if (linkedUser) {
       player.userUid = linkedUser.uid || linkedUser.id || '';
       player.accountId = linkedUser.id || linkedUser.uid || '';
@@ -1368,7 +1371,9 @@ const teamIndex = Number(slot.dataset.teamIndex);
     player.pubgId = player.pubgId || linkedUser.pubgId || linkedUser.gameId || '';
     player.name = linkedUser.nickname || linkedUser.nick || linkedUser.name || linkedUser.discord_username || player.name;
     const tierKey = resolveUserTierKey(linkedUser);
+    const tierBadgeValue = resolveUserTierBadgeValue(linkedUser);
     if (TIERS.some(tier => tier.id === tierKey)) player.tier = tierKey;
+    if (tierBadgeValue) player.memberTier = tierBadgeValue;
     return player;
   }
 
@@ -1381,7 +1386,9 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function renderPlayerTierBadge(player, accountUser) {
-    const user = accountUser || resolvePlayerAccountUser(player, resolvePlayerDisplayName(player));
+    const displayName = resolvePlayerDisplayName(player);
+    const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || findSupabaseUserByLooseName(displayName || (player && player.name));
+    const user = supabaseUser || accountUser || resolvePlayerAccountUser(player, displayName);
 
     if (user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function') {
       const html = window.PKLTierBadge.renderForUser(user, { extraClass: 'player-tier member-role-badge' });
@@ -1389,7 +1396,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
     }
 
     if (window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function') {
-      const html = window.PKLTierBadge.render(player.tier, { extraClass: 'player-tier member-role-badge' });
+      const html = window.PKLTierBadge.render(player.memberTier || player.tier, { extraClass: 'player-tier member-role-badge' });
       if (html) return html;
     }
 
@@ -1467,6 +1474,24 @@ const teamIndex = Number(slot.dataset.teamIndex);
     for (const field of getUserTierFields(user)) {
       const value = extractTierCandidateValue(field);
       if (normalizeTierKey(value) !== 'none') return value;
+    }
+    return '';
+  }
+
+  function resolveUserTierBadgeValue(user) {
+    if (!user) return '';
+    for (const field of getUserTierFields(user)) {
+      const value = extractTierCandidateValue(field);
+      if (!value) continue;
+      if (window.PKLTierBadge && typeof window.PKLTierBadge.normalize === 'function') {
+        const key = window.PKLTierBadge.normalize(value);
+        if (key && key !== 'none') return key;
+      }
+      const text = String(value || '').trim();
+      if (!text) continue;
+      if (/^tier[0-4]_(high|mid|low)$/i.test(text) || /^tier[0-4](high|mid|low)$/i.test(text.replace(/[\s_-]+/g, ''))) return text;
+      if (/[0-4]\s*티어\s*[상중하]/.test(text) || /[0-4]\s*[상중하]/.test(text) || text === '짐승' || /^beast$/i.test(text)) return text;
+      if (normalizeTierKey(text) !== 'none') return text;
     }
     return '';
   }
@@ -2150,7 +2175,7 @@ function completeTeams() {
     const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || findSupabaseUserByLooseName(displayName);
     const sourceUser = supabaseUser || accountUser || null;
     const memberTier = String(
-      (sourceUser && (sourceUser.memberTier || sourceUser.member_tier || sourceUser.tier || sourceUser.gradeRole || sourceUser.tierRole)) ||
+      resolveUserTierBadgeValue(sourceUser) ||
       player.memberTier || player.tier || ''
     ).trim();
     return {
