@@ -8921,6 +8921,9 @@ window.PKLSheetLiveBridge={
       const remoteFilled=pklSheetFilledMemberCount(next);
       const localActivity=pklSheetScoreActivityCount(state);
       const remoteActivity=pklSheetScoreActivityCount(next);
+      const remoteTeamImportNonce=Number(next && next.teamImportNonce || 0);
+      const localTeamImportNonce=Number(state && state.teamImportNonce || 0);
+      const isNewServerTeamImport=!!(remoteTeamImportNonce && remoteTeamImportNonce>localTeamImportNonce);
       if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset) return false;
       if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset) return false;
       next.rounds.forEach(function(r){
