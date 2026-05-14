@@ -5,6 +5,7 @@
   var KEYS={pklJoinWaitList:true,pklJoinCancelList:true,pklJoinRecruitState:true};
   var originalSet=Storage.prototype.setItem, originalRemove=Storage.prototype.removeItem;
   var applying=false, saveTimer=null, pollTimer=null, lastText='', lastRemoteMs=0, lastLocalEditAt=0, lastSaveAt=0, remoteReady=false, localChanged=false, currentState=null;
+  var pendingWait=[], pendingCancel=[], PENDING_MS=12000;
   var cfg=window.PKL_SUPABASE_CONFIG||{}; var URL=String(cfg.url||localStorage.getItem('PKL_SUPABASE_URL')||'').replace(/\/+$/,''); var KEY=String(cfg.anonKey||localStorage.getItem('PKL_SUPABASE_ANON_KEY')||'');
   function configured(){var c=window.PKL_SUPABASE_CONFIG||{};URL=String(c.url||localStorage.getItem('SUPABASE_URL')||localStorage.getItem('PKL_SUPABASE_URL')||URL||'').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');KEY=String(c.anonKey||localStorage.getItem('SUPABASE_ANON_KEY')||localStorage.getItem('PKL_SUPABASE_ANON_KEY')||KEY||'');return !!(URL&&KEY);} function parse(v,fb){try{var x=JSON.parse(v);return x==null?fb:x;}catch(e){return fb;}}
   function read(k,fb){try{return parse(localStorage.getItem(k),fb);}catch(e){return fb;}}
@@ -12,6 +13,10 @@
   function tokens(i){i=i&&typeof i==='object'?i:{};return [i.discordId,i.uid,i.id,i.userId,i.memberId,i.loginId,i.key,i.pubgId,i.gameId,i.ref,i.nickname,i.nick,i.name,i.displayName].map(norm).filter(Boolean);}
   function same(a,b){var aa=tokens(a),bb=tokens(b);return aa.length&&bb.length&&aa.some(function(x){return bb.indexOf(x)>=0;});}
   function arr(v){var out=[];(Array.isArray(v)?v:[]).forEach(function(i){if(i&&typeof i==='object'&&!out.some(function(p){return same(p,i);})){out.push(i);}});return out;}
+  function addUnique(list,item){list=arr(list);if(item&&typeof item==='object'&&!list.some(function(p){return same(p,item);})){list.push(item);}return list;}
+  function removeMatching(list,item){return arr(list).filter(function(p){return !(item&&same(p,item));});}
+  function rememberPending(type,item){if(!item||typeof item!=='object')return;var rec={item:item,at:Date.now()};if(type==='cancel'){pendingCancel=removeMatching(pendingCancel.map(function(x){return x.item;}),item).map(function(x){return {item:x,at:Date.now()};});pendingCancel.push(rec);pendingWait=removeMatching(pendingWait.map(function(x){return x.item;}),item).map(function(x){return {item:x,at:Date.now()};});}else{pendingWait=removeMatching(pendingWait.map(function(x){return x.item;}),item).map(function(x){return {item:x,at:Date.now()};});pendingWait.push(rec);pendingCancel=removeMatching(pendingCancel.map(function(x){return x.item;}),item).map(function(x){return {item:x,at:Date.now()};});}lastLocalEditAt=Date.now();localChanged=true;}
+  function applyPending(normalized){var t=Date.now();pendingWait=pendingWait.filter(function(r){return t-r.at<PENDING_MS;});pendingCancel=pendingCancel.filter(function(r){return t-r.at<PENDING_MS;});pendingCancel.forEach(function(r){normalized.waitList=removeMatching(normalized.waitList,r.item);normalized.cancelList=addUnique(normalized.cancelList,r.item);});pendingWait.forEach(function(r){normalized.cancelList=removeMatching(normalized.cancelList,r.item);normalized.waitList=addUnique(normalized.waitList,r.item);});return normalized;}
   function stateFromLocal(){var recruit=read(RECRUIT_KEY,{state:'loading'}); if(!remoteReady&&!localChanged&&(!recruit||!recruit.state)){recruit={state:'loading'};} var st={version:2,waitList:arr(read(WAIT_KEY,[])),cancelList:arr(read(CANCEL_KEY,[])),recruitState:recruit||{state:'loading'},updatedAt:now()}; if(localChanged){currentState=st;} return st;}
   function textOf(st){return JSON.stringify({waitList:arr(st.waitList),cancelList:arr(st.cancelList),recruitState:st.recruitState||{state:'loading'}});}
   function setLocal(k,v){applying=true;try{originalSet.call(localStorage,k,typeof v==='string'?v:JSON.stringify(v));}catch(e){}finally{applying=false;}}
@@ -35,6 +40,7 @@
     if(ms&&ms<lastRemoteMs)return;
     var nowMs=Date.now();
     var normalized={version:2,waitList:arr(st.waitList),cancelList:arr(st.cancelList),recruitState:st.recruitState||{state:'loading'},updatedAt:st.updatedAt||now()};
+    normalized=applyPending(normalized);
 
     /* JOIN 안정화: 방금 참가/취소한 로컬 상태를 오래된 원격 스냅샷이 덮지 못하게 보호한다.
        참가 직후 다른 페이지로 이동하거나 old poll 이 먼저 도착해도 새 참가자가 빠지지 않도록 recent local을 merge한다. */
@@ -48,7 +54,8 @@
       }
     }
 
-    if(lastSaveAt&&ms&&ms<lastSaveAt-50 && nowMs-lastLocalEditAt>=8000)return;
+    normalized=applyPending(normalized);
+    if(lastSaveAt&&ms&&ms<lastSaveAt-50 && nowMs-lastLocalEditAt>=8000 && !pendingWait.length && !pendingCancel.length)return;
     lastRemoteMs=ms||nowMs;
     currentState=normalized;
     setLocal(WAIT_KEY,normalized.waitList);
@@ -95,5 +102,5 @@
   if(!Storage.prototype.__pklJoinRealtimePatched){Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(String(k)===RECRUIT_KEY?80:80);emit(stateFromLocal());}}catch(e){}return ret;};Storage.prototype.__pklJoinRealtimePatched=true;}
   try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(80);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
   /* 2차 청소: storage 이벤트 기반 자동 join 재렌더 금지. 클릭/저장 흐름에서만 emit한다. */
-  window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){return currentState||stateFromLocal();},apply:applyState,fetchNow:poll}; start();
+  window.PKLJoinRealtime={__pklJoinSupabase20260511:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=currentState||stateFromLocal();return applyPending(st);},apply:applyState,fetchNow:poll,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}}; start();
 })();

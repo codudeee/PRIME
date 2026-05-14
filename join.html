@@ -5950,6 +5950,7 @@ function safeJson(key, fallback){
         canceledAt:undefined,
         rejoinedAt:new Date().toISOString()
       });
+      try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markJoin === 'function') window.PKLJoinRealtime.markJoin(userData); }catch(e){}
       saveList(CANCEL_KEY,cancelList);
       saveList(STORAGE_KEY,list);
       try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.flush === 'function') await window.PKLJoinRealtime.flush(); }catch(e){}
@@ -5959,6 +5960,7 @@ function safeJson(key, fallback){
     }
 
     list.push(userData);
+    try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markJoin === 'function') window.PKLJoinRealtime.markJoin(userData); }catch(e){}
     saveList(STORAGE_KEY,list);
     try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.flush === 'function') await window.PKLJoinRealtime.flush(); }catch(e){}
     renderAll();
@@ -6020,6 +6022,7 @@ function safeJson(key, fallback){
       canceledAt:new Date().toISOString()
     });
 
+    try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markCancel === 'function') window.PKLJoinRealtime.markCancel(removed); }catch(e){}
     saveList(STORAGE_KEY,list);
     saveList(CANCEL_KEY,cancelList);
     try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.flush === 'function') await window.PKLJoinRealtime.flush(); }catch(e){}
