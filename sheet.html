@@ -6293,29 +6293,15 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 </style>
 
 <style id="pkl-buddy-score-style">
-/* PKL 깐부모드 스코어보드: 2팀 공동 목표 게이지 + 각 팀 총점 */
-.team-card.pkl-buddy-score-card .card-score-main{
-  padding-right:76px !important;
-}
-.team-card.pkl-buddy-score-card .score-gauge-text{
-  color:var(--pkl-buddy-color,#fff) !important;
-  text-shadow:0 0 10px color-mix(in srgb, var(--pkl-buddy-color,#fff) 45%, transparent) !important;
-}
-.score-gauge-team-total{
-  position:absolute;
-  right:12px;
-  top:50%;
-  transform:translateY(-50%);
-  min-width:54px;
-  text-align:right;
-  font-size:13px;
-  font-weight:900;
-  color:#fff;
-  opacity:.96;
-  letter-spacing:-.3px;
-  text-shadow:0 0 10px rgba(255,255,255,.20);
-  z-index:3;
-}
+.card-score-main.pkl-buddy-shared-gauge{position:relative !important;padding:0 58px 0 58px !important;box-sizing:border-box !important;}
+.card-score-main.pkl-buddy-shared-gauge .score-gauge-text{position:absolute !important;left:50% !important;top:50% !important;transform:translate(-50%,-50%) !important;width:max-content !important;max-width:calc(100% - 116px) !important;text-align:center !important;white-space:nowrap !important;pointer-events:none !important;}
+.score-gauge-team-total{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:900;color:#fff;opacity:.94;z-index:3;white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,.9)}
+.score-gauge-text.pkl-buddy-color-1{color:#ffe66d !important;text-shadow:0 2px 8px rgba(0,0,0,.95),0 0 10px rgba(255,230,109,.28) !important;}
+.score-gauge-text.pkl-buddy-color-2{color:#6dffea !important;text-shadow:0 2px 8px rgba(0,0,0,.95),0 0 10px rgba(109,255,234,.24) !important;}
+.score-gauge-text.pkl-buddy-color-3{color:#ff9adf !important;text-shadow:0 2px 8px rgba(0,0,0,.95),0 0 10px rgba(255,154,223,.24) !important;}
+.score-gauge-text.pkl-buddy-color-4{color:#a8ff8a !important;text-shadow:0 2px 8px rgba(0,0,0,.95),0 0 10px rgba(168,255,138,.22) !important;}
+.score-gauge-text.pkl-buddy-color-5{color:#b8a4ff !important;text-shadow:0 2px 8px rgba(0,0,0,.95),0 0 10px rgba(184,164,255,.24) !important;}
+
 </style>
 <style id="pkl-scoreboard-5col-scroll-20260513">
 /* PKL 누적수정: 스코어보드 5칸씩 아래로 증가 + 점수시트와 같은 스크롤 */
@@ -6699,26 +6685,15 @@ function pklReadStoredSheetState(key, storage){
     return pklNormalizeLoadedSheetState(saved);
   }catch(e){return null;}
 }
-function pklActiveSheetResetNonce(){
-  try{
-    const lock = window.__PKL_RESET_LOCK || JSON.parse(localStorage.getItem('PKL_SHEET_RESET_LOCK_V2') || 'null');
-    if(!lock || Date.now() > Number(lock.until || 0)) return 0;
-    return Number(lock.nonce || 0) || 0;
-  }catch(e){ return 0; }
-}
-function pklEmptySheetStateAfterReset(nonce){
-  return {mode:'squad',selectedTeamId:'team1',teams:baseTeams,rounds:Array.from({length:30},(_,i)=>makeRound(i+1)),feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},itemHistory:[],startTime:'',endTime:'',resetNonce:Number(nonce||Date.now()),savedAt:new Date().toISOString()};
-}
 function pklRecentTeamImportState(){
   const imports=[];
   try{ imports.push(pklReadStoredSheetState(TEAM_IMPORT_KEY, sessionStorage)); }catch(e){}
   try{ imports.push(pklReadStoredSheetState(TEAM_IMPORT_KEY, localStorage)); }catch(e){}
   const now=Date.now();
-  const resetNonce=pklActiveSheetResetNonce();
   return imports.filter(Boolean).filter(st=>{
     const nonce=Number(st.teamImportNonce||0);
     const t=nonce || pklSheetTime(st);
-    return pklSheetFilledMemberCount(st)>0 && t && now - t < 10*60*1000 && (!resetNonce || t > resetNonce);
+    return pklSheetFilledMemberCount(st)>0 && t && now - t < 10*60*1000;
   }).sort((a,b)=>(Number(b.teamImportNonce||0)||pklSheetTime(b))-(Number(a.teamImportNonce||0)||pklSheetTime(a)))[0] || null;
 }
 function pklActivateTeamImportLock(importState){
@@ -6746,11 +6721,6 @@ function load(){
   if(importState){
     pklActivateTeamImportLock(importState);
     return importState;
-  }
-  const resetNonce=pklActiveSheetResetNonce();
-  if(resetNonce){
-    try{ sessionStorage.removeItem(TEAM_IMPORT_KEY); localStorage.removeItem(TEAM_IMPORT_KEY); }catch(e){}
-    return pklEmptySheetStateAfterReset(resetNonce);
   }
   const candidates=[];
   try{ candidates.push(pklReadStoredSheetState(SHEET_SESSION_BACKUP_KEY, sessionStorage)); }catch(e){}
@@ -7582,61 +7552,60 @@ function isGeneratedScoreboardView(view){
   return Boolean(view && Array.isArray(view.members) && view.members.some(member=>String(member && member.name || '').trim()));
 }
 
-function pklIsBuddyScoreMode(){
-  return !!(state && (state.pklBuddyMode || String(state.pklTeamMode||'').toLowerCase().includes('partner')));
+function pklScoreboardIsBuddyMode(){
+  try{
+    return !!(state && (state.pklBuddyMode || String(state.pklTeamMode||'').toLowerCase().indexOf('partner')>-1));
+  }catch(e){return false;}
 }
-function pklViewTeamNumber(view, fallbackIndex){
-  const m=String(view && (view.id || view.realId || view.viewId) || '').match(/(\d+)/);
-  return m ? Number(m[1]) : Number(fallbackIndex||0)+1;
+function pklScoreboardTeamNumber(view){
+  const raw=String((view && (view.id || view.viewId)) || '');
+  const m=raw.match(/team(\d+)/i);
+  return m ? Math.max(1, Number(m[1])||1) : 1;
 }
-function pklBuddyPairIndex(view, fallbackIndex){
-  const direct=Number(view && view.pklBuddyIndex);
-  if(Number.isFinite(direct) && direct>0) return direct;
-  return Math.floor((pklViewTeamNumber(view, fallbackIndex)-1)/2)+1;
+function pklScoreboardBuddyIndex(view){
+  const fromTeam=Number(view && view.pklBuddyIndex || 0);
+  if(fromTeam>0) return fromTeam;
+  return Math.floor((pklScoreboardTeamNumber(view)-1)/2)+1;
 }
-function pklBuddyPairColor(pairIndex){
-  const colors=['#7dd3fc','#f0abfc','#86efac','#fde68a','#c4b5fd','#fca5a5','#93c5fd','#fdba74','#67e8f9','#d9f99d'];
-  return colors[Math.max(0,(Number(pairIndex)||1)-1)%colors.length];
+function pklScoreboardBuddyColorClass(view){
+  return 'pkl-buddy-color-' + (((pklScoreboardBuddyIndex(view)-1)%5)+1);
 }
+function pklBuildBuddyPairSummary(baseRows){
+  const pairMap={};
+  baseRows.forEach(row=>{
+    const key=pklScoreboardBuddyIndex(row.view);
+    if(!pairMap[key]) pairMap[key]={score:0,target:0};
+    pairMap[key].score+=Number(row.st && row.st.score || 0);
+    pairMap[key].target+=Number(row.target || 0);
+  });
+  return pairMap;
+}
+
 function scoreboardViews(){
-  const buddyMode=pklIsBuddyScoreMode();
   const rows=visibleTeams().filter(isGeneratedScoreboardView).map((view,idx)=>{
     const st=calcView(view);
     const target=Number(st.target||0);
-    const ownRawPercent=target>0 ? Math.round(st.score / target * 100) : (st.score<0 ? -100 : (st.score>0 ? 100 : 0));
-    const ownPercent=Number.isFinite(ownRawPercent) ? ownRawPercent : 0;
-    const ownGauge=Math.max(0, Math.min(100, ownPercent));
-    const pairIndex=buddyMode ? pklBuddyPairIndex(view, idx) : 0;
-    return {view, st, target, percent:ownPercent, gauge:ownGauge, gaugeSize:(st.score<0 || ownPercent<0)?0:ownGauge, isNegativeGauge:(st.score<0 || ownPercent<0), originalIndex:idx, teamNumber:pklViewTeamNumber(view, idx), pairIndex};
+    const rawPercent=target>0 ? Math.round(st.score / target * 100) : (st.score<0 ? -100 : (st.score>0 ? 100 : 0));
+    const percent=Number.isFinite(rawPercent) ? rawPercent : 0;
+    const gauge=Math.max(0, Math.min(100, percent));
+    const isNegativeGauge=(st.score<0 || percent<0);
+    const gaugeSize=isNegativeGauge ? 0 : gauge;
+    return {view, st, target, percent, gauge, gaugeSize, isNegativeGauge, originalIndex:idx};
   });
-  if(buddyMode){
-    const pairMap={};
+  if(pklScoreboardIsBuddyMode()){
+    const pairs=pklBuildBuddyPairSummary(rows);
     rows.forEach(row=>{
-      const key=String(row.pairIndex||0);
-      if(!pairMap[key]) pairMap[key]={score:0,target:0,pureKills:0};
-      pairMap[key].score+=Number(row.st.score||0);
-      pairMap[key].target+=Number(row.target||0);
-      pairMap[key].pureKills+=Number(row.st.pureKills||0);
+      const pair=pairs[pklScoreboardBuddyIndex(row.view)] || {score:row.st.score,target:row.target};
+      const pairScore=Number(pair.score||0);
+      const pairTarget=Number(pair.target||0);
+      const rawPairPercent=pairTarget>0 ? Math.round(pairScore / pairTarget * 100) : (pairScore<0 ? -100 : (pairScore>0 ? 100 : 0));
+      const pairPercent=Number.isFinite(rawPairPercent) ? rawPairPercent : 0;
+      row.buddyPairScore=pairScore;
+      row.buddyPairTarget=pairTarget;
+      row.buddyPairPercent=pairPercent;
+      row.buddyPairGaugeSize=(pairScore<0 || pairPercent<0) ? 0 : Math.max(0, Math.min(100, pairPercent));
+      row.buddyColorClass=pklScoreboardBuddyColorClass(row.view);
     });
-    rows.forEach(row=>{
-      const pair=pairMap[String(row.pairIndex||0)] || {score:row.st.score,target:row.target,pureKills:row.st.pureKills};
-      const rawPercent=pair.target>0 ? Math.round(pair.score / pair.target * 100) : (pair.score<0 ? -100 : (pair.score>0 ? 100 : 0));
-      const percent=Number.isFinite(rawPercent) ? rawPercent : 0;
-      const gauge=Math.max(0, Math.min(100, percent));
-      row.pairScore=pair.score;
-      row.pairTarget=pair.target;
-      row.pairPercent=percent;
-      row.pairGaugeSize=(pair.score<0 || percent<0)?0:gauge;
-      row.pairNegative=(pair.score<0 || percent<0);
-      row.pairColor=pklBuddyPairColor(row.pairIndex);
-    });
-    return rows.sort((a,b)=>
-      b.pairPercent-a.pairPercent ||
-      b.pairScore-a.pairScore ||
-      a.pairIndex-b.pairIndex ||
-      a.teamNumber-b.teamNumber ||
-      a.originalIndex-b.originalIndex
-    );
   }
   return rows.sort((a,b)=>
     b.percent-a.percent ||
@@ -7648,19 +7617,18 @@ function scoreboardViews(){
 
 function renderBoard(){
   const grid=document.getElementById('teamGrid');
-  const buddyMode=pklIsBuddyScoreMode();
-  grid.innerHTML=scoreboardViews().map((row,idx)=>{
-    const {view,st,target,percent,gaugeSize,isNegativeGauge}=row;
-    const displayTarget=buddyMode ? Number(row.pairTarget||0) : target;
-    const displayScore=buddyMode ? Number(row.pairScore||0) : Number(st.score||0);
-    const displayPercent=buddyMode ? Number(row.pairPercent||0) : percent;
-    const displayGauge=buddyMode ? Number(row.pairGaugeSize||0) : gaugeSize;
-    const negativeScoreClass=(buddyMode ? row.pairNegative : isNegativeGauge)?' is-negative-score':'';
-    const buddyClass=buddyMode?' pkl-buddy-score-card':'';
-    const buddyStyle=buddyMode?`;--pkl-buddy-color:${row.pairColor}`:'';
-    const teamTotalHtml=buddyMode?`<span class="score-gauge-team-total">${Number(st.score||0)}점</span>`:'';
-    return `<article class="team-card${buddyClass} ${view.viewId===selectedTeamId?'active':''} ${isViewSurrendered(view.viewId)?'is-surrendered-team':''} ${isColdView(view.viewId)?'is-cold-team':''}" data-team="${view.viewId}" data-pkl-buddy-pair="${buddyMode?row.pairIndex:''}">
-      <div class="card-score-main${negativeScoreClass}" style="--gauge:${displayGauge}%${buddyStyle}"><span class="score-gauge-text">${displayScore} / ${displayTarget} (${displayPercent}%)</span>${teamTotalHtml}</div>
+  grid.innerHTML=scoreboardViews().map(({view,st,target,percent,gaugeSize,isNegativeGauge,buddyPairScore,buddyPairTarget,buddyPairPercent,buddyPairGaugeSize,buddyColorClass},idx)=>{
+    const buddyMode=pklScoreboardIsBuddyMode();
+    const displayScore=buddyMode ? Number(buddyPairScore||0) : Number(st.score||0);
+    const displayTarget=buddyMode ? Number(buddyPairTarget||0) : Number(target||0);
+    const displayPercent=buddyMode ? Number(buddyPairPercent||0) : Number(percent||0);
+    const displayGaugeSize=buddyMode ? Number(buddyPairGaugeSize||0) : Number(gaugeSize||0);
+    const negativeScoreClass=(buddyMode ? (displayScore<0 || displayPercent<0) : isNegativeGauge) ? ' is-negative-score' : '';
+    const buddyGaugeClass=buddyMode ? ' pkl-buddy-shared-gauge' : '';
+    const textColorClass=buddyMode ? (' '+buddyColorClass) : '';
+    const teamTotalHtml=buddyMode ? `<span class="score-gauge-team-total">${st.score}</span>` : '';
+    return `<article class="team-card ${view.viewId===selectedTeamId?'active':''} ${isViewSurrendered(view.viewId)?'is-surrendered-team':''} ${isColdView(view.viewId)?'is-cold-team':''}" data-team="${view.viewId}">
+      <div class="card-score-main${negativeScoreClass}${buddyGaugeClass}" style="--gauge:${displayGaugeSize}%"><span class="score-gauge-text${textColorClass}">${displayScore} / ${displayTarget} (${displayPercent}%)</span>${teamTotalHtml}</div>
       <div class="member-list">
         ${view.members.map((m,i)=>{
           const killScore=Number(st.kills[i]||0);
@@ -11229,12 +11197,8 @@ document.addEventListener("DOMContentLoaded", function(){
   'use strict';
 
   var SHEET_STORAGE_KEY = 'PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
-  var TEAM_IMPORT_KEY = 'PKL_TEAM_TO_SHEET_IMPORT_V1';
-  var RESET_LOCK_KEY = 'PKL_SHEET_RESET_LOCK_V2';
   var SHEET_EXTRA_KEYS = [
     SHEET_STORAGE_KEY,
-    SHEET_STORAGE_KEY + '_SESSION_BACKUP',
-    TEAM_IMPORT_KEY,
     'pklSideListItems',
     'pklSideList',
     'pklSideBets',
@@ -11271,10 +11235,9 @@ document.addEventListener("DOMContentLoaded", function(){
       var remove=[];
       for(var i=0;i<localStorage.length;i++){
         var key=localStorage.key(i);
-        if(key && /match[_-]?sheet|sheet[_-]?live|side[_-]?list|side[_-]?bet|team_to_sheet_import/i.test(key)) remove.push(key);
+        if(key && /match[_-]?sheet|sheet[_-]?live|side[_-]?list|side[_-]?bet/i.test(key)) remove.push(key);
       }
       remove.forEach(function(key){ localStorage.removeItem(key); });
-      sessionStorage.removeItem(TEAM_IMPORT_KEY);
     }catch(e){}
   }
   async function performReset(){
@@ -11285,7 +11248,7 @@ document.addEventListener("DOMContentLoaded", function(){
     var nonce=Date.now();
     try{
       window.__PKL_RESET_LOCK={nonce:nonce,until:Date.now()+600000};
-      localStorage.setItem(RESET_LOCK_KEY, JSON.stringify(window.__PKL_RESET_LOCK));
+      localStorage.setItem('PKL_SHEET_RESET_LOCK_V2', JSON.stringify(window.__PKL_RESET_LOCK));
     }catch(e){}
     clearSheetStorage();
     try{
@@ -12168,13 +12131,6 @@ async function saveMatch(kind){
   st.endTime='';
   st.resetNonce=Date.now();
   st.savedAt=new Date().toISOString();
-  try{
-    window.__PKL_RESET_LOCK={nonce:st.resetNonce,until:Date.now()+600000};
-    localStorage.setItem('PKL_SHEET_RESET_LOCK_V2', JSON.stringify(window.__PKL_RESET_LOCK));
-    sessionStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
-    localStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
-    sessionStorage.removeItem(SHEET_KEY + '_SESSION_BACKUP');
-  }catch(e){}
 
   /* 경기저장 성공 후에는 새 경기용 빈 시트만 남긴다.
      결과표 저장/JOIN 초기화가 끝나기 전에 지우지 않고, 성공 이후에만
@@ -12198,8 +12154,6 @@ async function saveMatch(kind){
     localStorage.removeItem('PKL_SURRENDER_CONSENT_STORE_V1');
     localStorage.removeItem('PKL_FIRE_CONSENT_STORE_V1');
     localStorage.removeItem('pklColdTeamModalShown.v1');
-    localStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
-    sessionStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
     sessionStorage.removeItem('PKL_SURRENDER_CONSENT_STORE_V1');
     sessionStorage.removeItem('PKL_FIRE_CONSENT_STORE_V1');
   }catch(e){}
