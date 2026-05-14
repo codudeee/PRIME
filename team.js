@@ -2106,6 +2106,8 @@ function completeTeams() {
     sheetState.startTime = state.matchStartTime || sheetState.startTime || '';
     sheetState.endTime = state.matchEndTime || sheetState.endTime || '';
     sheetState.updatedFromTeamBoardAt = new Date().toISOString();
+    sheetState.teamImportNonce = Date.now();
+    sheetState.savedAt = new Date(sheetState.teamImportNonce).toISOString();
     const sheetJson = JSON.stringify(sheetState);
     try { localStorage.setItem(SHEET_STORAGE_KEY, sheetJson); } catch (error) {}
     try { sessionStorage.setItem(SHEET_STORAGE_KEY, sheetJson); } catch (error) {}
