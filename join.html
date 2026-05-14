@@ -5301,6 +5301,7 @@ function safeJson(key, fallback){
 
   function saveList(key,list){
     localStorage.setItem(key, JSON.stringify(list));
+    try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.queueSave === 'function') window.PKLJoinRealtime.queueSave(60); }catch(e){}
   }
 
   function formatKoreanWon(value){
@@ -5555,6 +5556,10 @@ function safeJson(key, fallback){
 
   function getRecruitStateForAction(){
     try{
+      const live = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function" ? window.PKLJoinRealtime.getState() : null;
+      if(live && live.recruitState && live.recruitState.state) return String(live.recruitState.state);
+    }catch(e){}
+    try{
       const st = JSON.parse(localStorage.getItem("pklJoinRecruitState") || "null");
       return st && st.state ? String(st.state) : "loading";
     }catch(e){
@@ -5667,7 +5672,7 @@ function safeJson(key, fallback){
     const userData = getCurrentUserData();
     const list = readList(STORAGE_KEY);
     return list.findIndex(function(item){
-      return item.key === userData.key || item.name === userData.name;
+      return identityMatches(userData, item) || item.key === userData.key || item.name === userData.name;
     });
   }
 
@@ -5947,6 +5952,7 @@ function safeJson(key, fallback){
       });
       saveList(CANCEL_KEY,cancelList);
       saveList(STORAGE_KEY,list);
+      try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.flush === 'function') await window.PKLJoinRealtime.flush(); }catch(e){}
       renderAll();
       if(isPaidRecruit()) openDepositModal();
       return;
@@ -5954,6 +5960,7 @@ function safeJson(key, fallback){
 
     list.push(userData);
     saveList(STORAGE_KEY,list);
+    try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.flush === 'function') await window.PKLJoinRealtime.flush(); }catch(e){}
     renderAll();
 
     if(isPaidRecruit()) openDepositModal();
@@ -5990,7 +5997,7 @@ function safeJson(key, fallback){
     reasonViewModal.setAttribute("aria-hidden","true");
   }
 
-  function confirmCancel(){
+  async function confirmCancel(){
     const index = findCurrentWaitIndex();
     if(index < 0){
       closeReasonModal();
@@ -6015,6 +6022,7 @@ function safeJson(key, fallback){
 
     saveList(STORAGE_KEY,list);
     saveList(CANCEL_KEY,cancelList);
+    try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.flush === 'function') await window.PKLJoinRealtime.flush(); }catch(e){}
     closeReasonModal();
     renderAll();
   }
@@ -6287,6 +6295,7 @@ function safeJson(key, fallback){
 
   function saveRecruitState(data){
     localStorage.setItem(STATE_KEY, JSON.stringify(data || {}));
+    try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.flush === 'function') window.PKLJoinRealtime.flush(); }catch(e){}
   }
 
   function applyRecruitLoadingState(){
