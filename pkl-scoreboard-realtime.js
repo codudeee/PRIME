@@ -165,7 +165,7 @@
     if(publishInFlight){pendingPublish=true;return;}
     doPublish();
   }
-  function schedulePublish(delay){clearTimeout(publishTimer);publishTimer=setTimeout(publishNow,delay==null?160:Math.max(40,delay));}
+  function schedulePublish(delay){clearTimeout(publishTimer);publishTimer=setTimeout(publishNow,delay==null?70:Math.max(25,delay));}
 
   function syncLiveScoreboardSize(){
     var grid=document.getElementById('grid');
@@ -370,8 +370,8 @@
   }
   function bindSheetPublisher(){
     /* 첫 로드 직후 빈 기본 시트를 live_scores에 게시하지 않는다. 입력/변경 때만 게시한다. */
-    document.addEventListener('input',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field&&e.target.dataset.field!=='map'){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?60:140);}},true);
-    document.addEventListener('change',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?60:140);}},true);
+    document.addEventListener('input',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field&&e.target.dataset.field!=='map'){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?35:45);}},true);
+    document.addEventListener('change',function(e){if(e.target&&e.target.dataset&&e.target.dataset.field){try{window.PKLSheetLiveBridge&&window.PKLSheetLiveBridge.markLocalEdit&&window.PKLSheetLiveBridge.markLocalEdit();}catch(x){} schedulePublish(e&&e.target&&e.target.type==='checkbox'?35:45);}},true);
     document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-map-pick],[data-stop-pick]')) schedulePublish(80);},true);
     /* 2차 청소: storage 이벤트 기반 재게시 금지. 입력/변경/클릭 저장 흐름만 사용한다. */
   }
