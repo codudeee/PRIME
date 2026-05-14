@@ -1467,6 +1467,7 @@ async function pklResultFetchMatchesFromServer(){
      결과표는 pkl_shared_data.PKL_RESULT_MATCHES_V1 하나만 읽는다. */
 
   MATCHES=pklResultSanitizeIncomingMatches(next);
+  window.MATCHES=MATCHES;
   try{
     if(Array.isArray(next) && JSON.stringify(MATCHES)!==JSON.stringify(next)){
       await pklResultSharedSet(RESULT_MATCHES_KEY,MATCHES);
@@ -1476,7 +1477,9 @@ async function pklResultFetchMatchesFromServer(){
   if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})) {
     selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
   }
+  window.selectedMatchId=selectedMatchId;
   pklResultApplySelectedMatchState();
+  window.MATCHES=MATCHES;
   renderAll();
   renderResultAdminModal();
 }
@@ -1504,12 +1507,15 @@ function pklResultSharedSet(key,value){
 }
 function pklResultSaveMatches(){
   pklResultSortMatches();
+  window.MATCHES=MATCHES;
+  window.selectedMatchId=selectedMatchId;
   const text=JSON.stringify(Array.isArray(MATCHES)?MATCHES:[]);
   return pklResultSharedSet(RESULT_MATCHES_KEY,text);
 }
 function pklResultRefreshMatchesFromStorage(){
   const before=selectedMatchId;
   MATCHES=pklResultLoadMatches();
+  window.MATCHES=MATCHES;
   if(!MATCHES.find(m=>String(m.id)===String(before))){
     selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
   }else{
@@ -1520,7 +1526,9 @@ function pklResultRefreshMatchesFromStorage(){
   renderResultAdminModal();
 }
 let MATCHES=pklResultLoadMatches();
+window.MATCHES=MATCHES;
 let selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
+window.selectedMatchId=selectedMatchId;
 let state=loadState();
 let resultSheetEditMode=false;
 let selectedTeamId=state.selectedTeamId || (state.teams[0] && state.teams[0].id) || '';
@@ -1562,6 +1570,7 @@ function pklResultStateForMatch(match){
 }
 function pklResultApplySelectedMatchState(){
   pklResultSortMatches();
+  window.MATCHES=MATCHES;
   const match=MATCHES.find(x=>String(x.id)===String(selectedMatchId))||MATCHES[0];
   state=pklResultStateForMatch(match);
   const teams=(state.teams||[]).filter(t=>{
@@ -1572,6 +1581,8 @@ function pklResultApplySelectedMatchState(){
     state.selectedTeamId=(teams[0]&&teams[0].id)||'';
     selectedTeamId=state.selectedTeamId;
   }
+  window.selectedMatchId=selectedMatchId;
+  window.MATCHES=MATCHES;
 }
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
@@ -1658,6 +1669,32 @@ function pklResultNextRoundNumber(){
   const nums=MATCHES.map(pklResultRoundNo).filter(function(n){return Number.isFinite(n)&&n>0&&n<999999;});
   return (nums.length?Math.max.apply(null,nums):0)+1;
 }
+
+window.PKLResultGetMatches=function(){ return Array.isArray(MATCHES)?MATCHES:[]; };
+window.PKLResultSetMatches=function(list, selectId){
+  MATCHES=pklResultSanitizeIncomingMatches(Array.isArray(list)?list:[]);
+  if(selectId && MATCHES.some(function(m){return String(m.id)===String(selectId);})){ selectedMatchId=selectId; }
+  else if(!MATCHES.some(function(m){return String(m.id)===String(selectedMatchId);})){ selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||''; }
+  window.MATCHES=MATCHES;
+  window.selectedMatchId=selectedMatchId;
+  pklResultApplySelectedMatchState();
+  pklResultSaveMatches();
+  renderAll();
+  renderResultAdminModal();
+  return MATCHES;
+};
+window.PKLResultSelectMatch=function(id){
+  if(id && MATCHES.some(function(m){return String(m.id)===String(id);})){ selectedMatchId=id; }
+  window.selectedMatchId=selectedMatchId;
+  pklResultApplySelectedMatchState();
+  renderAll();
+  return selectedMatchId;
+};
+window.pklResultSaveMatches=pklResultSaveMatches;
+window.pklResultSharedSet=pklResultSharedSet;
+window.renderResultAdminModal=renderResultAdminModal;
+window.renderAll=renderAll;
+window.pklResultApplySelectedMatchState=pklResultApplySelectedMatchState;
 function pklResultReadJSON(key,fb){try{const raw=localStorage.getItem(key)||sessionStorage.getItem(key);return raw?JSON.parse(raw):fb;}catch(e){return fb;}}
 function pklResultCurrentUserRaw(){
   const keys=['pklCurrentUser','PKL_CURRENT_USER','pklLoginUser','PKL_로그인_USER','pklUser','pklLoggedInUser','discordUser','authUser','currentUser','user'];
@@ -2218,13 +2255,13 @@ async function captureScoreboardImage(){
   }
 }
 
-let adminEditingMatchId=null;
+let adminEditingMatchId=null; window.adminEditingMatchId=adminEditingMatchId;
 
 function openResultAdminModal(){
   if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
   const modal=document.getElementById('resultAdminModal');
   if(!modal) return;
-  adminEditingMatchId=selectedMatchId || (MATCHES[0]&&MATCHES[0].id);
+  adminEditingMatchId=selectedMatchId || (MATCHES[0]&&MATCHES[0].id); window.adminEditingMatchId=adminEditingMatchId;
   renderResultAdminModal();
   modal.classList.add('open');
   modal.setAttribute('aria-hidden','false');
@@ -2240,12 +2277,12 @@ function renderResultAdminModal(){
   const list=document.getElementById('adminMatchList');
   if(!list) return;
   if(!MATCHES.length){
-    adminEditingMatchId=null;
+    adminEditingMatchId=null; window.adminEditingMatchId=adminEditingMatchId;
     list.innerHTML='<div class="admin-empty-match">저장된 회차가 없습니다.</div>';
     fillResultAdminForm();
     return;
   }
-  if(!MATCHES.find(m=>m.id===adminEditingMatchId)) adminEditingMatchId=MATCHES[0].id;
+  if(!MATCHES.find(m=>m.id===adminEditingMatchId)) adminEditingMatchId=MATCHES[0].id; window.adminEditingMatchId=adminEditingMatchId;
   list.innerHTML=MATCHES.map(m=>`
     <button type="button" class="admin-match-item ${m.id===adminEditingMatchId?'active':''}" data-admin-match="${esc(m.id)}">
       <span>${esc(m.title||'PKL 회차')}</span>
@@ -2269,7 +2306,7 @@ function fillResultAdminForm(){
   const toggleBtn=document.getElementById('adminToggleMatchKindBtn');
   const isNormal=String(m.kind||'')==='normal'||/무료|일반/.test(String(m.title||''))||/무료|일반/.test(String(m.type||''));
   if(stateEl) stateEl.textContent=isNormal?'현재 무료 회차: 결과표에는 표시, 전적검색 점수 제외':'현재 유료 회차: 결과표 표시 + 전적검색 점수 반영';
-  if(toggleBtn){ toggleBtn.textContent=isNormal?'유료 회차로 전환':'무료 회차로 전환'; toggleBtn.classList.toggle('is-free', isNormal); toggleBtn.classList.toggle('is-paid', !isNormal); }
+  if(toggleBtn){ toggleBtn.textContent=isNormal?'유료회차로변경':'무료회차로변경'; toggleBtn.classList.toggle('is-free', isNormal); toggleBtn.classList.toggle('is-paid', !isNormal); }
 }
 function saveResultAdminForm(){
   if(!pklResultIsStaff()) return;
@@ -2309,8 +2346,8 @@ function addResultAdminMatch(){
   };
   MATCHES.push(newMatch);
   pklResultSortMatches();
-  adminEditingMatchId=id;
-  selectedMatchId=id;
+  adminEditingMatchId=id; window.adminEditingMatchId=adminEditingMatchId;
+  selectedMatchId=id; window.selectedMatchId=selectedMatchId;
   pklResultSaveMatches();
   renderAll();
   renderResultAdminModal();
@@ -2386,7 +2423,7 @@ function pklResultSetMatchKind(match,kind){
   if(!match) return;
   const normal=kind==='normal';
   match.kind=normal?'normal':'league';
-  match.type=normal?'무료경기':'프라임 킬내기 리그';
+  match.type=normal?'일반경기':'프라임 킬내기 리그';
   let title=String(match.title||'PKL 회차 경기').replace(/\s*-\s*(일반|무료|유료)\s*$/g,'');
   match.title=normal?(title+' - 일반'):title.replace(/\s*-\s*(일반|무료)\s*$/,'');
   if(normal) pklResultRemoveMatchStats(match.id); else pklResultUpsertMatchStats(match);
@@ -2400,7 +2437,7 @@ function toggleResultAdminMatchKind(){
   selectedMatchId=m.id;
   renderAll();
   renderResultAdminModal();
-  pklResultPermissionToast(isNormal?'유료 회차로 전환되어 전적검색에 반영됩니다.':'무료 회차로 전환되어 전적검색에서 제외됩니다.');
+  pklResultPermissionToast(isNormal?'유료회차로 변경되었습니다.':'무료회차로 변경되었습니다.');
 }
 
 function pklDeleteMatchLinkedData(matchId){
@@ -2895,8 +2932,8 @@ window.addEventListener('load', restoreDiscordSession);
 (function(){
   'use strict';
   function isNormal(m){return !!m && (String(m.kind||'')==='normal'||/무료|일반/.test(String(m.title||''))||/무료|일반/.test(String(m.type||'')));}
-  function paidText(){return '유료게임: 결과표 표시 + 전적검색 점수 반영';}
-  function freeText(){return '무료게임: 결과표 표시 / 전적검색 점수 제외';}
+  function paidText(){return '프라임 킬내기 리그';}
+  function freeText(){return '일반경기';}
   function normalizeTitleAndType(m){
     if(!m) return false;
     var normal=isNormal(m), changed=false;
@@ -2924,7 +2961,7 @@ window.addEventListener('load', restoreDiscordSession);
     var state=document.getElementById('adminMatchKindState');
     if(state) state.textContent='';
     var btn=document.getElementById('adminToggleMatchKindBtn');
-    if(btn) btn.textContent=isNormal(m)?'유료 회차로 전환':'무료 회차로 전환';
+    if(btn) btn.textContent=isNormal(m)?'유료회차로변경':'무료회차로변경';
   }
   function normalizeAll(){
     var changed=false;
@@ -3360,14 +3397,16 @@ window.addEventListener('load', restoreDiscordSession);
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
   function readLocal(){try{var v=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
   function getMatches(){
+    try{if(typeof window.PKLResultGetMatches==='function') return window.PKLResultGetMatches();}catch(e){}
     try{if(Array.isArray(window.MATCHES)) return window.MATCHES;}catch(e){}
     return readLocal();
   }
-  function setMatches(list){
+  function setMatches(list, selectId){
     list=Array.isArray(list)?list:[];
-    try{window.MATCHES=list;}catch(e){}
     try{localStorage.setItem(KEY,JSON.stringify(list));}catch(e){}
     try{
+      if(typeof window.PKLResultSetMatches==='function'){ window.PKLResultSetMatches(list, selectId); return; }
+      window.MATCHES=list;
       if(typeof window.pklResultSharedSet==='function') window.pklResultSharedSet(KEY,list);
       else fetch('/api/pkl-data-store',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'shared',key:KEY,value:list})}).catch(function(){});
     }catch(e){}
@@ -3386,16 +3425,33 @@ window.addEventListener('load', restoreDiscordSession);
     var list=getMatches();
     return list[0]&&list[0].id;
   }
+  function isNormal(m){return !!m && (String(m.kind||'')==='normal'||/무료|일반/.test(String(m.title||''))||/무료|일반/.test(String(m.type||'')));}
+  function baseTitle(m){return String((m&&m.title)||'PKL 회차').replace(/\s*-\s*(일반|무료|유료)\s*$/g,'').trim()||'PKL 회차';}
+  function paidType(){return '프라임 킬내기 리그';}
+  function freeType(){return '일반경기';}
+  function applyKind(m, kind){
+    if(!m) return m;
+    var normal=kind==='normal';
+    m.kind=normal?'normal':'league';
+    m.title=normal?(baseTitle(m)+' - 일반'):baseTitle(m);
+    m.type=normal?freeType():paidType();
+    return m;
+  }
   function fillForm(m){
     function set(id,v){var el=document.getElementById(id);if(el)el.value=v||'';}
-    if(!m){['adminMatchTitle','adminMatchDate','adminMatchStart','adminMatchEnd','adminMatchMaps','adminMatchType','adminMatchTeamCount'].forEach(function(id){set(id,'');});return;}
-    set('adminMatchTitle',m.title);set('adminMatchDate',m.date);set('adminMatchStart',m.time);set('adminMatchEnd',m.endTime);set('adminMatchMaps',m.maps);set('adminMatchType',m.type);set('adminMatchTeamCount',m.teamCount||10);
+    var btn=document.getElementById('adminToggleMatchKindBtn');
+    var state=document.getElementById('adminMatchKindState');
+    if(!m){['adminMatchTitle','adminMatchDate','adminMatchStart','adminMatchEnd','adminMatchMaps','adminMatchType','adminMatchTeamCount'].forEach(function(id){set(id,'');}); if(btn)btn.textContent='무료회차로변경'; return;}
+    var normal=isNormal(m);
+    set('adminMatchTitle',m.title);set('adminMatchDate',m.date);set('adminMatchStart',m.time);set('adminMatchEnd',m.endTime);set('adminMatchMaps',m.maps);set('adminMatchType',normal?freeType():(m.type||paidType()));set('adminMatchTeamCount',m.teamCount||10);
+    if(btn){btn.textContent=normal?'유료회차로변경':'무료회차로변경';btn.classList.toggle('is-free',normal);btn.classList.toggle('is-paid',!normal);}
+    if(state) state.textContent=normal?'현재 무료 회차: 결과표 표시 / 전적검색 제외':'현재 유료 회차: 결과표 표시 + 전적검색 반영';
   }
   function renderAdminList(selected){
     var listEl=document.getElementById('adminMatchList'); if(!listEl) return;
     var list=sort(getMatches());
     if(!list.length){listEl.innerHTML='<div class="admin-empty-match">저장된 회차가 없습니다.</div>';fillForm(null);return;}
-    selected=selected||currentId()||(list[0]&&list[0].id);
+    selected=selected||currentId()||(list[0]&&list[0].id); try{window.adminEditingMatchId=selected;}catch(e){}
     if(!list.some(function(m){return String(m&&m.id)===String(selected);})){selected=list[0].id;}
     listEl.innerHTML=list.map(function(m){return '<button type="button" class="admin-match-item '+(String(m.id)===String(selected)?'active':'')+'" data-admin-match="'+esc(m.id)+'"><span>'+esc(m.title||'PKL 회차')+'</span><small>'+esc(m.maps||'맵 정보 없음')+'</small></button>';}).join('');
     fillForm(list.find(function(m){return String(m.id)===String(selected);})||list[0]);
@@ -3427,7 +3483,7 @@ window.addEventListener('load', restoreDiscordSession);
     var m=list.find(function(x){return String(x&&x.id)===String(id);}); if(!m) return;
     function val(id){var el=document.getElementById(id);return el?String(el.value||'').trim():'';}
     m.title=val('adminMatchTitle')||m.title;m.date=val('adminMatchDate');m.time=val('adminMatchStart');m.endTime=val('adminMatchEnd');m.maps=val('adminMatchMaps');m.type=val('adminMatchType');m.teamCount=Math.max(1,Math.min(20,Number(val('adminMatchTeamCount')||m.teamCount||10)));
-    setMatches(list);refreshPage();
+    setMatches(list,id);refreshPage();
   }
   document.addEventListener('click',function(e){
     var item=e.target&&e.target.closest&&e.target.closest('#adminMatchList [data-admin-match]');
@@ -3436,6 +3492,12 @@ window.addEventListener('load', restoreDiscordSession);
     if(e.target&&e.target.closest&&e.target.closest('#adminDeleteAllMatchesBtn')){e.preventDefault();e.stopPropagation();openConfirm('모든 회차를 삭제하시겠습니까?','현재 결과표의 모든 회차를 한 번에 삭제합니다.',true,null);return;}
     if(e.target&&e.target.closest&&e.target.closest('#resultDeleteNoBtn')){e.preventDefault();e.stopPropagation();closeConfirm();return;}
     if(e.target&&e.target.closest&&e.target.closest('#resultDeleteYesBtn')){e.preventDefault();e.stopPropagation();deleteSelected();return;}
+    if(e.target&&e.target.closest&&e.target.closest('#adminToggleMatchKindBtn')){
+      e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+      var id=currentId(); var list=getMatches().slice(); var m=list.find(function(x){return String(x&&x.id)===String(id);}); if(!m) return;
+      applyKind(m,isNormal(m)?'league':'normal');
+      setMatches(list,id); refreshPage(); renderAdminList(id); return;
+    }
     if(e.target&&e.target.closest&&e.target.closest('#adminAddMatchBtn')){
       /* 원본 addResultAdminMatch가 sanitize에서 빈 회차를 제거하던 문제를 보완한다. */
       e.preventDefault();e.stopPropagation();
@@ -3445,7 +3507,7 @@ window.addEventListener('load', restoreDiscordSession);
       list.forEach(function(m){var mm=String((m&&m.title)||'').match(/(\d+)\s*회차/); if(mm) max=Math.max(max,Number(mm[1]));});
       var no=max+1, now=Date.now();
       var m={id:'match_'+now+'_'+no,title:'PKL '+no+'회차',date:'',time:'',endTime:'',maps:'',type:'프라임 킬내기 리그',kind:'league',teamCount:10,adminCreated:true,source:'admin',snapshot:{mode:'squad',selectedTeamId:'',teams:[],rounds:[],feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''},savedAt:new Date(now).toISOString()};
-      list.push(m); setMatches(list); refreshPage(); renderAdminList(m.id); return;
+      list.push(m); setMatches(list,m.id); refreshPage(); renderAdminList(m.id); return;
     }
     if(e.target&&e.target.closest&&e.target.closest('#adminSaveMatchBtn')){e.preventDefault();e.stopPropagation();saveSelected();return;}
     if(e.target&&e.target.id==='resultDeleteConfirmModal'){closeConfirm();}
