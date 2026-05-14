@@ -11818,8 +11818,7 @@ var RESULT_KEY='PKL_RESULT_MATCHES_V1';
 var USER_MATCH_STATS_KEY='PKL_USER_MATCH_STATS_V1';
 function toast(msg){ if(typeof window.pklSheetPermissionToast==='function') window.pklSheetPermissionToast(msg); }
 function readState(){try{return JSON.parse(localStorage.getItem(SHEET_KEY)||'null')||{};}catch(e){return {};}}
-function writeState(st){st.savedAt=new Date().toISOString();
-  try{ localStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1'); }catch(e){};localStorage.setItem(SHEET_KEY,JSON.stringify(st));}
+function writeState(st){st.savedAt=new Date().toISOString();localStorage.setItem(SHEET_KEY,JSON.stringify(st));}
 function makeRound(no){return {no:no,map:'',teams:{}};}
 function closeAll(){document.querySelectorAll('.pkl-admin-action-modal').forEach(function(m){m.classList.remove('show');m.setAttribute('aria-hidden','true');});}
 function openModal(id){closeAll();var m=document.getElementById(id);if(m){m.classList.add('show');m.setAttribute('aria-hidden','false');}}
@@ -12077,23 +12076,26 @@ async function saveMatch(kind){
      결과표 저장/JOIN 초기화가 끝나기 전에 지우지 않고, 성공 이후에만
      스코어보드/점수시트/LIVE/SIDE/이용내역을 같은 상태로 비운다. */
   writeState(st);
-  try{ pklSharedSet(SHEET_KEY,st); pklBroadcastDataUpdate(SHEET_KEY); }catch(e){}
-  await Promise.race([
-    Promise.all([
-      pklDirectSharedSet(SHEET_KEY,st),
-      pklDirectSharedSet('pklSideListItems',[]),
-      pklDirectSharedSet('pklSideList',[]),
-      pklDirectSharedSet('pklSideBets',[]),
-      pklDirectSharedSet('pklSheetFeeds',[])
-    ]),
-    new Promise(function(resolve){setTimeout(resolve,1800);})
-  ]);
-  try{ localStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1'); }catch(e){}
-  await Promise.race([
-    pklResetJoinWaitingAfterMatchSave(),
-    new Promise(function(resolve){setTimeout(resolve,1800);})
-  ]);
   try{
+    localStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
+    sessionStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
+    localStorage.setItem(SHEET_KEY, JSON.stringify(st));
+    sessionStorage.setItem(SHEET_KEY, JSON.stringify(st));
+    pklBroadcastDataUpdate(SHEET_KEY);
+  }catch(e){}
+
+  await pklDirectSharedSet(SHEET_KEY,st,true);
+  await Promise.allSettled([
+    pklDirectSharedSet('pklSideListItems',[],true),
+    pklDirectSharedSet('pklSideList',[],true),
+    pklDirectSharedSet('pklSideBets',[],true),
+    pklDirectSharedSet('pklSheetFeeds',[],true)
+  ]);
+
+  await pklResetJoinWaitingAfterMatchSave();
+
+  try{
+    window.__PKL_DISABLE_TEAM_IMPORT__=true;
     localStorage.removeItem('pklItemHistoryCounts');
     localStorage.removeItem('pklSideListItems');
     localStorage.removeItem('pklSideList');
