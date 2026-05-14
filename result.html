@@ -196,6 +196,37 @@ button{cursor:pointer}
   color:#fff !important;
 }
 
+/* PKL result buddy scoreboard: shared pair gauge + same pair color */
+.team-card.pkl-buddy-score-card .card-score-main{
+  padding-right:76px !important;
+}
+.team-card.pkl-buddy-score-card .score-gauge-text{
+  width:auto !important;
+  position:absolute !important;
+  left:50% !important;
+  top:50% !important;
+  right:auto !important;
+  transform:translate(-50%,-50%) !important;
+  text-align:center !important;
+  color:var(--pkl-buddy-color,#fff) !important;
+  text-shadow:0 0 10px color-mix(in srgb, var(--pkl-buddy-color,#fff) 45%, transparent) !important;
+}
+.score-gauge-team-total{
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  min-width:54px;
+  text-align:right;
+  font-size:13px;
+  font-weight:900;
+  color:#fff;
+  opacity:.96;
+  letter-spacing:-.3px;
+  text-shadow:0 0 10px rgba(255,255,255,.20);
+  z-index:3;
+}
+
 /* 카드 안 닉네임/점수 줄: 이름 없으면 점수만 완전 중앙, 이름 있으면 2열 묶음 자체가 중앙 */
 .team-card .member-list{
   display:flex !important;
@@ -1788,8 +1819,12 @@ function visibleTeams(){
     .filter(resultTeamHasMembers)
     .map((t,i)=>({
       id:t.id||'team'+(i+1),
-      viewId:t.id||'team'+(i+1),
+      realId:t.realId||t.id||'team'+(i+1),
+      viewId:t.viewId||t.id||'team'+(i+1),
       target:Number(t.target||0),
+      pklBuddyIndex:t.pklBuddyIndex||t.buddyPair||t.pairIndex||0,
+      buddyPair:t.buddyPair||t.pklBuddyIndex||t.pairIndex||0,
+      pairIndex:t.pairIndex||t.pklBuddyIndex||t.buddyPair||0,
       members:resultNormalizeMembers(t.members)
     }));
 }
@@ -1990,17 +2025,72 @@ function calcTeam(team){
   const percent=Number.isFinite(rawPercent) ? rawPercent : 0;
   return {kills,deaths,memberScores,pureKills,totalDeaths,chicken,stop,score,target,percent};
 }
-function sortedTeams(){return visibleTeams().map((team,idx)=>({team,st:calcTeam(team),idx})).sort((a,b)=>b.st.percent-a.st.percent||b.st.score-a.st.score||a.idx-b.idx);}
+function pklResultIsBuddyScoreMode(){
+  const match=(Array.isArray(MATCHES)?MATCHES:[]).find(x=>String(x&&x.id)===String(selectedMatchId)) || (Array.isArray(MATCHES)?MATCHES[0]:null) || {};
+  const snap=(match&&match.snapshot)||state||{};
+  const raw=String((snap && (snap.pklTeamMode || snap.teamMode || snap.mode)) || '').toLowerCase();
+  const title=String((match&&match.title)||'').toLowerCase();
+  return !!(snap && (snap.pklBuddyMode || raw.includes('partner') || raw.includes('buddy') || raw.includes('깐부') || title.includes('깐부') || title.includes('buddy') || title.includes('partner')));
+}
+function pklResultViewTeamNumber(view, fallbackIndex){
+  const m=String(view && (view.id || view.realId || view.viewId) || '').match(/(\d+)/);
+  return m ? Number(m[1]) : Number(fallbackIndex||0)+1;
+}
+function pklResultBuddyPairIndex(view, fallbackIndex){
+  const direct=Number(view && (view.pklBuddyIndex || view.buddyPair || view.pairIndex));
+  if(Number.isFinite(direct) && direct>0) return direct;
+  return Math.floor((pklResultViewTeamNumber(view, fallbackIndex)-1)/2)+1;
+}
+function pklResultBuddyPairColor(pairIndex){
+  const colors=['#7dd3fc','#f0abfc','#86efac','#fde68a','#c4b5fd','#fca5a5','#93c5fd','#fdba74','#67e8f9','#d9f99d'];
+  return colors[Math.max(0,(Number(pairIndex)||1)-1)%colors.length];
+}
+function sortedTeams(){
+  const buddyMode=pklResultIsBuddyScoreMode();
+  const rows=visibleTeams().map((team,idx)=>{
+    const st=calcTeam(team);
+    const pairIndex=buddyMode ? pklResultBuddyPairIndex(team,idx) : 0;
+    return {team,st,idx,teamNumber:pklResultViewTeamNumber(team,idx),pairIndex};
+  });
+  if(buddyMode){
+    const pairMap={};
+    rows.forEach(row=>{
+      const key=String(row.pairIndex||0);
+      if(!pairMap[key]) pairMap[key]={score:0,target:0};
+      pairMap[key].score+=Number(row.st.score||0);
+      pairMap[key].target+=Number(row.st.target||0);
+    });
+    rows.forEach(row=>{
+      const pair=pairMap[String(row.pairIndex||0)] || {score:row.st.score,target:row.st.target};
+      const rawPercent=pair.target>0 ? Math.round(pair.score / pair.target * 100) : (pair.score<0 ? -100 : (pair.score>0 ? 100 : 0));
+      const percent=Number.isFinite(rawPercent) ? rawPercent : 0;
+      row.pairScore=Number(pair.score||0);
+      row.pairTarget=Number(pair.target||0);
+      row.pairPercent=percent;
+      row.pairGauge=(pair.score<0 || percent<0) ? 0 : Math.max(0,Math.min(100,percent));
+      row.pairColor=pklResultBuddyPairColor(row.pairIndex);
+    });
+    return rows.sort((a,b)=>b.pairPercent-a.pairPercent||b.pairScore-a.pairScore||a.pairIndex-b.pairIndex||a.teamNumber-b.teamNumber||a.idx-b.idx);
+  }
+  return rows.sort((a,b)=>b.st.percent-a.st.percent||b.st.score-a.st.score||a.idx-b.idx);
+}
 function renderBoard(){
   const grid=document.getElementById('teamGrid');
   if(!MATCHES.length){
     grid.innerHTML='<div class="pkl-result-empty-state">저장된 회차가 없습니다.</div>';
     return;
   }
-  grid.innerHTML=sortedTeams().map(({team,st})=>{
-    const gauge=st.percent < 0 ? 0 : Math.max(0,Math.min(100,st.percent));
-    return `<article class="team-card ${team.viewId===selectedTeamId?'active':''}" data-team="${esc(team.viewId)}">
-      <div class="card-score-main" style="--gauge:${gauge}%"><span class="score-gauge-text">${st.score} / ${st.target} (${st.percent}%)</span></div>
+  const buddyMode=pklResultIsBuddyScoreMode();
+  grid.innerHTML=sortedTeams().map(({team,st,pairIndex,pairScore,pairTarget,pairPercent,pairGauge,pairColor})=>{
+    const gauge=buddyMode ? Number(pairGauge||0) : (st.percent < 0 ? 0 : Math.max(0,Math.min(100,st.percent)));
+    const displayScore=buddyMode ? Number(pairScore||0) : Number(st.score||0);
+    const displayTarget=buddyMode ? Number(pairTarget||0) : Number(st.target||0);
+    const displayPercent=buddyMode ? Number(pairPercent||0) : Number(st.percent||0);
+    const buddyClass=buddyMode?' pkl-buddy-score-card':'';
+    const buddyStyle=buddyMode?`;--pkl-buddy-color:${pairColor}`:'';
+    const teamTotalHtml=buddyMode?`<span class="score-gauge-team-total">${Number(st.score||0)}점</span>`:'';
+    return `<article class="team-card${buddyClass} ${team.viewId===selectedTeamId?'active':''}" data-team="${esc(team.viewId)}" data-pkl-buddy-pair="${buddyMode?esc(pairIndex):''}">
+      <div class="card-score-main" style="--gauge:${gauge}%${buddyStyle}"><span class="score-gauge-text">${displayScore} / ${displayTarget} (${displayPercent}%)</span>${teamTotalHtml}</div>
       <div class="member-list">
         ${team.members.map((m,i)=>{
           const cleanName = String(m && (m.name || m.nickname || m.nick || m.displayName || m.pubgId) || '').trim();
