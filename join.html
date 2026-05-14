@@ -5200,6 +5200,11 @@ function safeJson(key, fallback){
   }
 
   function readList(key){
+    try{
+      const live = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function" ? window.PKLJoinRealtime.getState() : null;
+      if(live && key === STORAGE_KEY && Array.isArray(live.waitList)) return live.waitList;
+      if(live && key === CANCEL_KEY && Array.isArray(live.cancelList)) return live.cancelList;
+    }catch(e){}
     const data = safeJson(key, []);
     return Array.isArray(data) ? data : [];
   }
@@ -5667,6 +5672,10 @@ function safeJson(key, fallback){
   }
 
   function readRecruitState(){
+    try{
+      const live = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function" ? window.PKLJoinRealtime.getState() : null;
+      if(live && live.recruitState && live.recruitState.state) return live.recruitState;
+    }catch(e){}
     try{
       return JSON.parse(localStorage.getItem("pklJoinRecruitState") || "null");
     }catch(e){
@@ -6265,6 +6274,10 @@ function safeJson(key, fallback){
   }
 
   function readRecruitState(){
+    try{
+      const live = window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function" ? window.PKLJoinRealtime.getState() : null;
+      if(live && live.recruitState && live.recruitState.state) return live.recruitState;
+    }catch(e){}
     try{
       return JSON.parse(localStorage.getItem(STATE_KEY) || "null");
     }catch(e){
