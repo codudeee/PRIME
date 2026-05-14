@@ -12164,15 +12164,15 @@ async function saveMatch(kind){
   await pklDirectMatchSave(matches[0]);
   if(kind!=='normal') pklUpsertMatchUserStats(id,matchTitle,snap);
 
-  /* 저장 성공 이후에만 초기화한다.
-     이전 문제는 현재 시트 스냅샷 저장과 초기화가 섞이면서,
-     old sheet 자동저장/라이브 게시가 빈 시트를 다시 덮거나 join 초기화 전에 redirect되는 구조였다. */
-  await pklForceResetSheetAfterMatchSave();
-  await pklResetJoinWaitingAfterMatchSave();
+  /* 결과표 저장이 성공한 뒤에는 초기화 보조 저장이 일부 실패/지연돼도
+     결과표 이동을 막지 않는다. 이전 버전은 reset/join 초기화 요청 중 하나가
+     늦어지면 관리자 패널만 닫히고 result 이동이 끊겼다. */
+  try{ await pklForceResetSheetAfterMatchSave(); }catch(resetErr){ console.warn('[PKL] sheet reset after save failed', resetErr); }
+  try{ await pklResetJoinWaitingAfterMatchSave(); }catch(joinErr){ console.warn('[PKL] join reset after save failed', joinErr); }
 
   try{ if(typeof window.pklRenderItemHistoryTable==='function') window.pklRenderItemHistoryTable(); }catch(e){}
   toast('경기가 결과표에 저장되었습니다.');
-  setTimeout(function(){location.href='result.html?v='+Date.now();},450);
+  setTimeout(function(){window.location.href='result.html?v='+Date.now();},450);
 }
 document.addEventListener('click',function(e){
   var t=e.target;if(!t)return;
