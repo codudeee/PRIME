@@ -2128,59 +2128,27 @@ function completeTeams() {
     let sheetState = null;
     try { sheetState = typeof sheetJson === 'string' ? JSON.parse(sheetJson) : sheetJson; } catch (error) { sheetState = null; }
     if (!sheetState || typeof sheetState !== 'object') return Promise.resolve(null);
-
-    const postDataStore = (body) => fetch('/api/pkl-data-store', {
+    const postDataStore = (payload) => fetch('/api/pkl-data-store', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
-      body: JSON.stringify(body)
+      body: JSON.stringify(payload)
     }).then(res => {
       if (!res.ok) throw new Error(String(res.status));
       return res.json().catch(() => ({ ok: true }));
     });
-
-    const saveShared = () => {
-      if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
-        return window.PKLSupabaseDataSync.setShared(SHEET_STORAGE_KEY, sheetState)
-          .catch(() => postDataStore({ type: 'shared', key: SHEET_STORAGE_KEY, value: sheetState }));
-      }
-      if (typeof window.saveSharedData === 'function') {
-        try {
-          return Promise.resolve(window.saveSharedData(SHEET_STORAGE_KEY, sheetState))
-            .catch(() => postDataStore({ type: 'shared', key: SHEET_STORAGE_KEY, value: sheetState }));
-        } catch (error) {}
-      }
-      return postDataStore({ type: 'shared', key: SHEET_STORAGE_KEY, value: sheetState });
-    };
-
-    const saveLiveMirror = () => {
-      const now = new Date().toISOString();
-      const live = {
-        version: 4,
-        seq: Date.now(),
-        updatedAt: now,
-        resetNonce: Number(sheetState.resetNonce || 0),
-        mode: sheetState.mode || 'squad',
-        selectedTeamId: sheetState.selectedTeamId || 'team1',
-        teams: Array.isArray(sheetState.teams) ? sheetState.teams.map((team, index) => ({
-          id: team && team.id ? team.id : ('team' + (index + 1)),
-          members: Array.isArray(team && team.members) ? team.members : []
-        })) : [],
-        rounds: Array.isArray(sheetState.rounds) ? sheetState.rounds : [],
-        feeds: Array.isArray(sheetState.feeds) ? sheetState.feeds : [],
-        eventKeys: sheetState.eventKeys && typeof sheetState.eventKeys === 'object' ? sheetState.eventKeys : {},
-        colds: sheetState.colds && typeof sheetState.colds === 'object' ? sheetState.colds : {},
-        fires: sheetState.fires && typeof sheetState.fires === 'object' ? sheetState.fires : {},
-        surrenders: sheetState.surrenders && typeof sheetState.surrenders === 'object' ? sheetState.surrenders : {}
-      };
-      const payload = {
-        payload: { version: 1, updatedAt: now, teams: [] },
-        live
-      };
-      return postDataStore({ type: 'live_scores', id: 'live_scoreboard', payload }).catch(() => null);
-    };
-
-    return Promise.all([saveShared(), saveLiveMirror()]).then(results => results[0]).catch(() => null);
+    const directSave = () => Promise.all([
+      postDataStore({ type: 'shared', key: SHEET_STORAGE_KEY, value: sheetState }),
+      postDataStore({ type: 'live_scores', id: 'sheet_state', payload: sheetState })
+    ]).then(results => results[0]);
+    if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
+      return window.PKLSupabaseDataSync.setShared(SHEET_STORAGE_KEY, sheetState)
+        .then(() => postDataStore({ type: 'live_scores', id: 'sheet_state', payload: sheetState }).catch(() => null))
+        .catch(directSave);
+    }
+    if (typeof window.saveSharedData === 'function') {
+      try { return Promise.resolve(window.saveSharedData(SHEET_STORAGE_KEY, sheetState)).catch(directSave); } catch (error) {}
+    }
+    return directSave().catch(() => null);
   }
 
   function loadSheetStateForTeamExport() {

@@ -8827,8 +8827,8 @@ window.PKLSheetLiveBridge={
       const remoteFilled=pklSheetFilledMemberCount(next);
       const localActivity=pklSheetScoreActivityCount(state);
       const remoteActivity=pklSheetScoreActivityCount(next);
-      if(!(remoteReset && remoteReset>localReset) && localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset) return false;
-      if(!(remoteReset && remoteReset>localReset) && localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset) return false;
+      if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset) return false;
+      if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset) return false;
       next.rounds.forEach(function(r){
         Object.keys((r&&r.teams)||{}).forEach(function(k){
           var d=r.teams[k]||{};
@@ -8854,7 +8854,8 @@ window.PKLSheetLiveBridge={
   getLastLocalEditAt:function(){return pklLastLocalSheetEditAt||0;}
 };
 function pklApplySupabaseSheetStateOnce(){
-  const applyNext = (next)=>{
+  const applyNext = (incoming)=>{
+    const next = pklNormalizeLoadedSheetState(incoming);
     if(!next || !Array.isArray(next.teams) || !Array.isArray(next.rounds)) return false;
     if(pklTeamImportLockActiveFor(next)) return false;
     const localMeaningful=pklSheetHasMeaningfulState(state);
@@ -8865,21 +8866,24 @@ function pklApplySupabaseSheetStateOnce(){
     const localReset=Number(state && state.resetNonce || 0);
     const localFilled=pklSheetFilledMemberCount(state);
     const remoteFilled=pklSheetFilledMemberCount(next);
-    if(!(remoteReset && remoteReset>localReset) && (pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<15000) && remoteReset<=localReset){
+    const remoteTeamImportNonce=Number(next.teamImportNonce||0);
+    const localTeamImportNonce=Number(state && state.teamImportNonce || 0);
+    const isNewServerTeamImport=remoteTeamImportNonce && remoteTeamImportNonce>localTeamImportNonce;
+    if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && (pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<15000) && remoteReset<=localReset){
       return false;
     }
     const localActivity=pklSheetScoreActivityCount(state);
     const remoteActivity=pklSheetScoreActivityCount(next);
-    if(!(remoteReset && remoteReset>localReset) && localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset){
+    if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset){
       return false;
     }
-    if(!(remoteReset && remoteReset>localReset) && localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset){
+    if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset){
       return false;
     }
-    if(!(remoteReset && remoteReset>localReset) && localMeaningful && !remoteMeaningful && remoteReset<=localReset){
+    if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localMeaningful && !remoteMeaningful && remoteReset<=localReset){
       return false;
     }
-    if(!(remoteReset && remoteReset>localReset) && localMeaningful && remoteTime && localTime && remoteTime < localTime - 1000 && remoteReset<=localReset){
+    if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localMeaningful && remoteTime && localTime && remoteTime < localTime - 1000 && remoteReset<=localReset){
       return false;
     }
     state = next;
@@ -8894,7 +8898,17 @@ function pklApplySupabaseSheetStateOnce(){
   }
   return fetch('/api/pkl-data-store?type=shared&key='+encodeURIComponent(STORAGE_KEY), {cache:'no-store'})
     .then(res=>res.ok ? res.json() : null)
-    .then(data=>applyNext(data && data.item ? data.item.value : null))
+    .then(data=>{
+      const sharedValue = data && data.item ? data.item.value : null;
+      if(applyNext(sharedValue)) return true;
+      return fetch('/api/pkl-data-store?type=live_scores&id=sheet_state', {cache:'no-store'})
+        .then(res=>res.ok ? res.json() : null)
+        .then(liveData=>{
+          const row = liveData && Array.isArray(liveData.rows) ? liveData.rows[0] : null;
+          return applyNext(row && row.payload ? row.payload : null);
+        })
+        .catch(()=>false);
+    })
     .catch(()=>false);
 }
 (function pklBootSheetSafely(){
@@ -11951,6 +11965,21 @@ function pklNextSavedMatchNumber(matches,kind){
   });
   return max+1;
 }
+function pklSavedMatchModeLabel(st){
+  var raw=String((st&&st.pklTeamMode)||'').trim();
+  var buddy=!!(st&&st.pklBuddyMode);
+  var slots=Number(st&&st.pklTeamSlots)||0;
+  var teams=Number(st&&st.pklTeamCount)||0;
+  if(raw==='squadPartner20' || (/squad/i.test(raw) && /partner|buddy/i.test(raw)) || (buddy && slots>=4)) return '스쿼드 깐부';
+  if(raw==='duoPartner20' || (/duo/i.test(raw) && /partner|buddy/i.test(raw)) || (buddy && slots===2)) return '듀오 깐부';
+  if(raw==='duo20' || /duo/i.test(raw) || slots===2 || teams>=30) return '듀오';
+  return '스쿼드';
+}
+function pklSavedMatchTitle(roundNo,kind,st){
+  var title='PKL '+roundNo+'회차 '+pklSavedMatchModeLabel(st);
+  if(kind==='normal') title+=' - 일반';
+  return title;
+}
 async function pklSaveResultMatches(matches){
   matches=Array.isArray(matches)?matches:[];
   var result=await pklDirectSharedSet(RESULT_KEY,matches,true);
@@ -12146,7 +12175,7 @@ async function saveMatch(kind){
   maps=[...new Set(maps)];
   var teams=Array.isArray(st.teams)?st.teams.filter(function(t){return Array.isArray(t.members)&&t.members.some(function(m){return String(m&&m.name||'').trim();});}).length:0;
   var snap=JSON.parse(JSON.stringify(st));
-  var matchTitle=(kind==='normal')?('PKL '+idNumber+'회차 경기 - 일반'):('PKL '+idNumber+'회차 경기');
+  var matchTitle=pklSavedMatchTitle(idNumber,kind,snap);
   matches.unshift({
     id:id,
     title:matchTitle,
