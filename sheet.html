@@ -8990,23 +8990,26 @@ function pklApplySupabaseSheetStateOnce(){
     render();
     return true;
   };
-  if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
-    return window.PKLSupabaseDataSync.getShared(STORAGE_KEY).then(applyNext).catch(()=>false);
-  }
-  return fetch('/api/pkl-data-store?type=shared&key='+encodeURIComponent(STORAGE_KEY), {cache:'no-store'})
+  const fetchLiveSheetState = ()=>fetch('/api/pkl-data-store?type=live_scores&id=sheet_state', {cache:'no-store'})
+    .then(res=>res.ok ? res.json() : null)
+    .then(liveData=>{
+      const row = liveData && Array.isArray(liveData.rows) ? liveData.rows[0] : null;
+      return applyNext(row && row.payload ? row.payload : null);
+    })
+    .catch(()=>false);
+  const fetchSharedSheetState = ()=>fetch('/api/pkl-data-store?type=shared&key='+encodeURIComponent(STORAGE_KEY), {cache:'no-store'})
     .then(res=>res.ok ? res.json() : null)
     .then(data=>{
       const sharedValue = data && data.item ? data.item.value : null;
-      if(applyNext(sharedValue)) return true;
-      return fetch('/api/pkl-data-store?type=live_scores&id=sheet_state', {cache:'no-store'})
-        .then(res=>res.ok ? res.json() : null)
-        .then(liveData=>{
-          const row = liveData && Array.isArray(liveData.rows) ? liveData.rows[0] : null;
-          return applyNext(row && row.payload ? row.payload : null);
-        })
-        .catch(()=>false);
+      return applyNext(sharedValue) || fetchLiveSheetState();
     })
-    .catch(()=>false);
+    .catch(fetchLiveSheetState);
+  if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
+    return window.PKLSupabaseDataSync.getShared(STORAGE_KEY)
+      .then(sharedValue=>applyNext(sharedValue) || fetchLiveSheetState())
+      .catch(fetchSharedSheetState);
+  }
+  return fetchSharedSheetState();
 }
 (function pklBootSheetSafely(){
   /* 첫 진입 최적화: Supabase 원격 시트/티어 조회를 기다리면 tbody가 비어 있고
