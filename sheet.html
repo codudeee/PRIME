@@ -7584,6 +7584,15 @@ function pklAutoSelectOwnTeamOnce(){
   const mine=pklFindViewByMemberName(pklCurrentUserName());
   if(mine && mine.viewId && selectedTeamId!==mine.viewId){ selectedTeamId=mine.viewId; pklOwnTeamAutoSelected=true; }
 }
+function pklSetInnerHTMLIfChanged(el, html, key){
+  if(!el) return false;
+  const next=String(html ?? '');
+  const prop='__pklLastInnerHTML_' + (key || 'default');
+  if(el[prop]===next) return false;
+  el[prop]=next;
+  el.innerHTML=next;
+  return true;
+}
 function render(){
   if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId=visibleTeams()[0].viewId;
   pklAutoSelectOwnTeamOnce();
@@ -7599,10 +7608,11 @@ function renderMode(){
 function renderSelect(){
   const s=document.getElementById('teamSelect');
   if(!s) return;
-  s.innerHTML=visibleTeams().map((t,i)=>{
+  const nextHtml=visibleTeams().map((t,i)=>{
     const firstName=(t.members&&t.members[0]&&String(t.members[0].name||'').trim())||`${i+1}`;
     return `<option value="${t.viewId}" ${t.viewId===selectedTeamId?'selected':''}>${firstName}팀</option>`;
   }).join('');
+  pklSetInnerHTMLIfChanged(s,nextHtml,'teamSelect');
 }
 
 function isGeneratedScoreboardView(view){
@@ -7678,8 +7688,9 @@ function scoreboardViews(){
 
 function renderBoard(){
   const grid=document.getElementById('teamGrid');
+  if(!grid) return;
   const buddyMode=pklIsBuddyScoreMode();
-  grid.innerHTML=scoreboardViews().map((row,idx)=>{
+  const nextHtml=scoreboardViews().map((row,idx)=>{
     const {view,st,target,percent,gaugeSize,isNegativeGauge}=row;
     const displayTarget=buddyMode ? Number(row.pairTarget||0) : target;
     const displayScore=buddyMode ? Number(row.pairScore||0) : Number(st.score||0);
@@ -7704,6 +7715,7 @@ function renderBoard(){
       </div>
     </article>`;
   }).join('');
+  pklSetInnerHTMLIfChanged(grid,nextHtml,'scoreboard');
 }
 
 let pklTierDragSource=null;
@@ -7829,15 +7841,15 @@ function renderSheet(){
     sheetBox.classList.toggle('is-cold-sheet', cold);
     sheetBox.classList.toggle('is-readonly-sheet', !canEditSheet);
   }
-  if(sheetTitle) sheetTitle.innerHTML='<span>MATCH</span> RECORD';
+  if(sheetTitle) pklSetInnerHTMLIfChanged(sheetTitle,'<span>MATCH</span> RECORD','sheetTitle');
   for(let i=0;i<4;i++){
     const h=document.getElementById('h'+i);
     const m=view.members[i];
-    h.innerHTML = m && m.name ? pklSheetHeaderNameHtml(m) : '';
+    pklSetInnerHTMLIfChanged(h, m && m.name ? pklSheetHeaderNameHtml(m) : '', 'sheetHeader'+i);
     h.style.opacity='1';
   }
   const body=document.getElementById('recordBody');
-  body.innerHTML=state.rounds.map((r,ri)=>{
+  const recordBodyHtml=state.rounds.map((r,ri)=>{
     const d=teamData(r,realId);
     const localKills=[0,1,2,3].map(i=>d.kills[offset+i]||0);
     const localDeaths=[0,1,2,3].map(i=>d.deaths[offset+i]||0);
@@ -7861,19 +7873,21 @@ function renderSheet(){
       <td class="total-cell">${total}</td>
     </tr>`;
   }).join('');
+  pklSetInnerHTMLIfChanged(body,recordBodyHtml,'recordBody');
 }
 function renderFeeds(){
   const list=document.getElementById('feedList');
   state.feeds=pklNormalizeFeedList(state.feeds);
-  if(!state.feeds.length){list.innerHTML='';return}
+  if(!state.feeds.length){pklSetInnerHTMLIfChanged(list,'','feedList');return}
   const canDeleteFeed = (typeof pklCanViewAdminPanel === 'function') ? pklCanViewAdminPanel() : false;
-  list.innerHTML=state.feeds.map((f,i)=>{
+  const feedHtml=state.feeds.map((f,i)=>{
     const cls=f.type==='올다이'?'all-die':f.type==='치킨'?'chicken':f.type==='불판'?'fire':f.type==='서렌'?'surrender':f.type==='콜드'?'cold':'';
     const typeClass = f.type==='치킨' ? 'feed-chicken' : f.type==='올다이' ? 'feed-alldie' : f.type==='불판' ? 'feed-fire' : f.type==='서렌' ? 'feed-surrender' : f.type==='콜드' ? 'feed-cold' : f.type==='사이드' ? 'feed-side' : '';
     const icon = f.type==='치킨' ? '🐔' : f.type==='올다이' ? '💀' : f.type==='불판' ? '🔥' : f.type==='서렌' ? '⛔' : f.type==='콜드' ? '❄️' : f.type==='사이드' ? '💰' : '●';
     const deleteButton = canDeleteFeed ? `<button class="feed-delete" data-feed-index="${i}" title="삭제">×</button>` : '';
     return `<div class="feed-item ${typeClass}"><div class="feed-icon">${icon}</div><div class="feed-content"><span class="feed-type ${cls}">${escape(f.type)}</span><span class="feed-time">${new Date(f.time||Date.now()).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</span><br><b>${escape(f.text)}</b></div>${deleteButton}</div>`;
   }).join('');
+  pklSetInnerHTMLIfChanged(list,feedHtml,'feedList');
 }
 function renderSideBets(){
   const list=document.getElementById('sideList');
@@ -8016,7 +8030,7 @@ function renderSideBets(){
   }).join('');
 
   const legacyHtml=(state.sideBets||[]).map(b=>`<div class="side-item"><div class="side-match">${escape(b.a)} VS ${escape(b.b)}</div>${escape(b.text||'-')}</div>`).join('');
-  list.innerHTML=completeHtml || legacyHtml || '';
+  pklSetInnerHTMLIfChanged(list, completeHtml || legacyHtml || '', 'sideList');
   updateTopBetJackpot();
 }
 window.PKLSyncCompletedSidePanel = renderSideBets;
