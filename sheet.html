@@ -12095,6 +12095,19 @@ async function saveMatch(kind){
 
   await pklResetJoinWaitingAfterMatchSave();
 
+  /* join/sheet 초기화가 redirect 전에 실제 저장되도록 한번 더 강제 동기화 */
+  try{
+    localStorage.setItem('pklJoinWaitList','[]');
+    localStorage.setItem('pklJoinCancelList','[]');
+    localStorage.setItem('pklJoinRecruitState',JSON.stringify({state:'waiting',hostHtml:'',openTime:'',deadlineText:'모집대기중',feeText:'',feeInput:'',deadlineConfigured:false}));
+    localStorage.setItem(SHEET_KEY,JSON.stringify(st));
+    sessionStorage.setItem(SHEET_KEY,JSON.stringify(st));
+    await pklDirectSharedSet('pklJoinWaitList',[],true);
+    await pklDirectSharedSet('pklJoinCancelList',[],true);
+    await pklDirectSharedSet('pklJoinRecruitState',{state:'waiting',hostHtml:'',openTime:'',deadlineText:'모집대기중',feeText:'',feeInput:'',deadlineConfigured:false},true);
+    await pklDirectSharedSet(SHEET_KEY,st,true);
+  }catch(e){}
+
   try{
     localStorage.removeItem('pklItemHistoryCounts');
     localStorage.removeItem('pklSideListItems');
@@ -12110,7 +12123,7 @@ async function saveMatch(kind){
   }catch(e){}
   try{ if(typeof window.pklRenderItemHistoryTable==='function') window.pklRenderItemHistoryTable(); }catch(e){}
   toast('경기가 결과표에 저장되었습니다.');
-  setTimeout(function(){location.href='result.html?v='+Date.now();},650);
+  setTimeout(function(){location.href='result.html?v='+Date.now();},1800);
 }
 document.addEventListener('click',function(e){
   var t=e.target;if(!t)return;
