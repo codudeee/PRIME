@@ -1589,8 +1589,7 @@ function pklResultApplySelectedMatchState(){
   pklResultSortMatches();
   window.MATCHES=MATCHES;
   const match=MATCHES.find(x=>String(x.id)===String(selectedMatchId))||MATCHES[0];
-  if(match && match.id){ selectedMatchId=String(match.id); }
-  state=JSON.parse(JSON.stringify(pklResultStateForMatch(match)||{}));
+  state=pklResultStateForMatch(match);
   const teams=(state.teams||[]).filter(t=>{
     const members=Array.isArray(t.members)?t.members:[];
     return members.some(m=>String(m && (m.name || m.nickname || m.nick || m.displayName || m.pubgId) || '').trim() && String(m && (m.name || m.nickname || m.nick || m.displayName || m.pubgId) || '').trim() !== '-');
@@ -2635,11 +2634,10 @@ function bind(){
     matchMenu.addEventListener('click',(e)=>{
       const opt=e.target.closest('[data-match]');
       if(!opt) return;
-      selectedMatchId=String(opt.getAttribute('data-match')||'');
+      selectedMatchId=opt.getAttribute('data-match');
       const native=document.getElementById('matchSelect');
       if(native) native.value=selectedMatchId;
       pklResultApplySelectedMatchState();
-      renderMatchDropdown();
       closeMatchDropdown();
       renderAll();
     });
@@ -3367,9 +3365,13 @@ window.addEventListener('load', restoreDiscordSession);
     if(!id) return;
     try{ window.selectedMatchId=id; }catch(e){}
     var native=byId('matchSelect');
-    if(native) native.value=id;
-    try{ if(typeof window.pklResultApplySelectedMatchState==='function') window.pklResultApplySelectedMatchState(); }catch(e){}
+    if(native){
+      native.value=id;
+      try{native.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    }
+    try{ if(typeof window.pklResultApplySelectedMatchState==='function') window.pklResultApplySelectedMatchState(id); }catch(e){}
     try{ if(typeof window.renderAll==='function') window.renderAll(); }catch(e){}
+    try{ if(typeof window.renderResult==='function') window.renderResult(); }catch(e){}
     close();
   }
   document.addEventListener('click',function(e){
