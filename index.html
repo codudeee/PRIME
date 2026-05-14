@@ -722,6 +722,16 @@ font-weight:700;
   var MATCHES_KEY="PKL_RESULT_MATCHES_V1";
   function esc(v){return String(v||"").replace(/[&<>\"]/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch];});}
   function num(v){if(typeof v==="number"&&isFinite(v))return v;if(typeof v==="string"){var n=Number(v.replace(/[^0-9.-]/g,""));return isFinite(n)?n:0;}return 0;}
+
+  function cleanNick(v){
+    var s=String(v||'').trim();
+    for(var i=0;i<8;i++){
+      var n=s.replace(/^[\s\uFE0F\u200D]+/g,'').replace(/^[^\p{L}\p{N}가-힣]+/u,'').trimStart();
+      if(n===s) break;
+      s=n;
+    }
+    return s.trim();
+  }
   function readJson(key,fb){try{var raw=localStorage.getItem(key)||sessionStorage.getItem(key)||"";return raw?JSON.parse(raw):fb;}catch(e){return fb;}}
   async function pklGetSharedValue(key,fb){
     try{
@@ -755,7 +765,7 @@ font-weight:700;
         var team=teams.find(function(t){return String(t.id)===String(v.realId);})||{};
         var members=Array.isArray(team.members)?team.members:[];
         members.slice(v.offset,v.offset+v.len).forEach(function(mem,idx){
-          var name=String(mem&&(mem.name||mem.nickname||mem.nick||mem.displayName||mem.pubgId||mem.gameId)||"").trim();
+          var name=cleanNick(mem&&(mem.name||mem.nickname||mem.nick||mem.displayName||mem.pubgId||mem.gameId)||"");
           if(!name||name==="-") return;
           var mi=v.offset+idx,kills=0;
           rounds.forEach(function(r){var d=(r&&r.teams&&r.teams[v.realId])||{};var arr=Array.isArray(d.kills)?d.kills:[];kills+=num(arr[mi]||0);});
@@ -768,7 +778,7 @@ font-weight:700;
   async function render(){
     var rows=await topFromMatches();
     if(!rows.length){box.innerHTML='<div class="rank-row"><span class="rank-name">결과표 유료경기 데이터가 없습니다</span><strong>0 Kill</strong></div>';return;}
-    box.innerHTML=rows.map(function(row,i){return '<div class="rank-row"><span class="rank-name">'+medals[i]+' '+esc(row.name)+'</span><strong>'+Number(row.kills||0).toLocaleString('ko-KR')+' Kill</strong></div>';}).join('');
+    box.innerHTML=rows.map(function(row,i){return '<div class="rank-row"><span class="rank-name">'+medals[i]+' '+esc(cleanNick(row.name))+'</span><strong>'+Number(row.kills||0).toLocaleString('ko-KR')+' Kill</strong></div>';}).join('');
   }
   function rerenderSoon(){clearTimeout(rerenderSoon._t);rerenderSoon._t=setTimeout(render,80);}
   render();

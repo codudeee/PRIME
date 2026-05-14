@@ -384,13 +384,26 @@ async function loadMatches(){
   return Array.isArray(saved)?saved:[];
 }
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function norm(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}
+function norm(v){return (window.pklCleanNickDisplay?window.pklCleanNickDisplay(v):String(v||'').trim()).replace(/\s+/g,'').toLowerCase();}
 function teamData(round,teamId){return (round.teams&&round.teams[teamId])||{kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};}
 function visibleTeams(){return (state.teams||[]).slice(0,10).map((t,i)=>({id:t.id||'team'+(i+1),name:t.name||t.teamName||('TEAM '+(i+1)),members:(Array.isArray(t.members)?t.members:[]).slice(0,4)}));}
 function chickenScore(round,data){return Number(data.chicken||0)?(String(round.map||'')==='사'?5:8):0;}
 function pklIsNormalMatch(match){return String(match&&match.kind||'').toLowerCase()==='normal'||/일반/.test(String(match&&match.title||''))||/일반/.test(String(match&&match.type||''));}
 function pklSnapshotVisibleTeams(snapshot){const st=snapshot&&typeof snapshot==='object'?snapshot:{};const mode=st.mode||'squad';const teams=Array.isArray(st.teams)?st.teams:[];if(mode==='duo'){const out=[];teams.forEach((t,i)=>{const id=t.id||('team'+(i+1));const mem=Array.isArray(t.members)?t.members:[];out.push({id:id+'a',realId:id,name:(mem[0]&&mem[0].name?mem[0].name:(i+1)+'팀')+' A',offset:0,len:2,members:mem});out.push({id:id+'b',realId:id,name:(mem[2]&&mem[2].name?mem[2].name:(i+1)+'팀')+' B',offset:2,len:2,members:mem});});return out;}return teams.map((t,i)=>({id:t.id||('team'+(i+1)),realId:t.id||('team'+(i+1)),name:t.name||t.teamName||(((i+1)+'팀')),offset:0,len:4,members:Array.isArray(t.members)?t.members:[]}));}
-function pklRowsFromResultMatches(mode){const rows=[];const wantAll=mode==='all';const wantNormal=mode==='normal';(Array.isArray(matches)?matches:[]).forEach(match=>{if(!match)return;const isNormal=pklIsNormalMatch(match);if(!wantAll&&wantNormal!==isNormal)return;const snap=match.snapshot&&typeof match.snapshot==='object'?match.snapshot:null;if(!snap)return;const rounds=Array.isArray(snap.rounds)?snap.rounds:[];pklSnapshotVisibleTeams(snap).forEach(team=>{for(let idx=team.offset;idx<team.offset+team.len;idx++){const member=team.members[idx]||{};const name=String(member.name||member.nickname||member.nick||member.displayName||'').trim();if(!name||name==='-')continue;let kills=0,deaths=0,bestRoundKill=0,roundCount=0;rounds.forEach(round=>{const d=(round&&round.teams&&round.teams[team.realId])||{};const rk=Number((Array.isArray(d.kills)?d.kills:[])[idx]||0);const rd=Number((Array.isArray(d.deaths)?d.deaths:[])[idx]||0);kills+=rk;deaths+=rd;bestRoundKill=Math.max(bestRoundKill,rk);roundCount+=1;});const rowMode=isNormal?'normal':'paid';rows.push({matchId:match.id,matchTitle:match.title||'PKL 회차',savedAt:match.savedAt||match.date||'',name,teamName:team.name,kills,deaths,bestRoundKill,roundCount,mode:rowMode,map:isNormal?'일반':'유료'});}});});return rows;}
+
+window.pklCleanNickDisplay = window.pklCleanNickDisplay || function pklCleanNickDisplay(v){
+  let s=String(v??'').trim();
+  for(let i=0;i<8;i++){
+    const n=s
+      .replace(/^[\s\uFE0F\u200D]+/g,'')
+      .replace(/^[^\p{L}\p{N}가-힣]+/u,'')
+      .trimStart();
+    if(n===s) break;
+    s=n;
+  }
+  return s.trim();
+};
+function pklRowsFromResultMatches(mode){const rows=[];const wantAll=mode==='all';const wantNormal=mode==='normal';(Array.isArray(matches)?matches:[]).forEach(match=>{if(!match)return;const isNormal=pklIsNormalMatch(match);if(!wantAll&&wantNormal!==isNormal)return;const snap=match.snapshot&&typeof match.snapshot==='object'?match.snapshot:null;if(!snap)return;const rounds=Array.isArray(snap.rounds)?snap.rounds:[];pklSnapshotVisibleTeams(snap).forEach(team=>{for(let idx=team.offset;idx<team.offset+team.len;idx++){const member=team.members[idx]||{};const name=window.pklCleanNickDisplay(member.name||member.nickname||member.nick||member.displayName||'');if(!name||name==='-')continue;let kills=0,deaths=0,bestRoundKill=0,roundCount=0;rounds.forEach(round=>{const d=(round&&round.teams&&round.teams[team.realId])||{};const rk=Number((Array.isArray(d.kills)?d.kills:[])[idx]||0);const rd=Number((Array.isArray(d.deaths)?d.deaths:[])[idx]||0);kills+=rk;deaths+=rd;bestRoundKill=Math.max(bestRoundKill,rk);roundCount+=1;});const rowMode=isNormal?'normal':'paid';rows.push({matchId:match.id,matchTitle:match.title||'PKL 회차',savedAt:match.savedAt||match.date||'',name,teamName:team.name,kills,deaths,bestRoundKill,roundCount,mode:rowMode,map:isNormal?'일반':'유료'});}});});return rows;}
 let state=makeDemo();let matches=[];let players=[];let current=null;
 function buildPlayers(){
 const map=new Map();
@@ -444,12 +457,12 @@ try{
 }catch(e){console.error(e);}
 const match=matches[0]||DEFAULT_MATCHES[0];visibleTeams().forEach((team,teamIndex)=>{team.members.forEach((member,memberIndex)=>{const name=String(member&&member.name||'').trim();if(!name||name==='-')return;const p=ensurePlayer(name);if(!p)return;p.teams.add(team.name);(state.rounds||[]).forEach((round,ri)=>{const d=teamData(round,team.id);const kills=Number(d.kills&&d.kills[memberIndex]||0);const deaths=Number(d.deaths&&d.deaths[memberIndex]||0);const score=kills-deaths;const record={match:match.title||'PKL 회차',date:match.date||'-',team:team.name,round:round.no||ri+1,map:round.map||'-',kills,deaths,score};p.rows.push(record);p.allRows.push(record);p.totalKills+=kills;p.totalDeaths+=deaths;p.bestKill=Math.max(p.bestKill,kills);p.rounds+=1;p.score+=score;p.allTotalKills+=kills;p.allTotalDeaths+=deaths;p.allBestKill=Math.max(p.allBestKill,kills);p.allRounds+=1;p.allScore+=score;});});});return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),normalRows:Array.isArray(p.normalRows)?p.normalRows:[],allRows:Array.isArray(p.allRows)?p.allRows:[],avg:p.rounds?(p.totalKills/p.rounds):0,allAvg:p.allRounds?(p.allTotalKills/p.allRounds):0})).sort((a,b)=>b.totalKills-a.totalKills||a.name.localeCompare(b.name,'ko'));}
 function pklSearchReadUsers(){if(Array.isArray(window.PKLSupabaseUsers)&&window.PKLSupabaseUsers.length)return window.PKLSupabaseUsers;if(window.PKLUserProfile&&window.PKLUserProfile.users)return window.PKLUserProfile.users();return [];}
-function pklSearchNormName(v){return String(v??'').trim().toLowerCase();}
+function pklSearchNormName(v){return window.pklCleanNickDisplay(v).replace(/\s+/g,'').toLowerCase();}
 function pklSearchUserNames(u){return [u?.nickname,u?.nick,u?.name,u?.displayName,u?.pubgId,u?.gameId,u?.ref,u?.pubgName,u?.playerName,u?.ingameName].map(pklSearchNormName).filter(Boolean);}
 function pklSearchFindPklUser(name){const key=pklSearchNormName(name);if(!key)return null;return pklSearchReadUsers().find(u=>pklSearchUserNames(u).includes(key))||null;}
 function pklSearchTierValue(user){if(window.PKLUserProfile&&window.PKLUserProfile.tierFrom){const t=window.PKLUserProfile.tierFrom(user); if(t&&t!=='none') return t;} return user?.memberTier||user?.gradeRole||user?.tierRole||user?.baseRole||user?.memberTierName||user?.tierName||user?.tierText||user?.currentTier||user?.tier||user?.roleName||user?.grade||'';}
 function pklSearchTierBadgeHtml(player){const user=pklSearchFindPklUser(player&&player.name)||null;const source=user||{nickname:player?.name,name:player?.name};if(window.PKLUserProfile&&typeof window.PKLUserProfile.renderTierForUser==='function'){const html=window.PKLUserProfile.renderTierForUser(source);if(html)return html;}if(window.PKLTierBadge&&typeof window.PKLTierBadge.renderForUser==='function'){const html=window.PKLTierBadge.renderForUser(source);if(html)return html;}const tier=pklSearchTierValue(user);if(window.PKLTierBadge&&typeof window.PKLTierBadge.render==='function'&&tier&&tier!=='없음'){const html=window.PKLTierBadge.render(tier);if(html)return html;}return tier&&tier!=='없음'?`<span class="tier-mark">${esc(tier)}</span>`:'';}
-function renderTop(){const top=document.getElementById('topKillerList');top.innerHTML=players.slice(0,5).map((p,i)=>{const badgeHtml=pklSearchTierBadgeHtml(p);return `<div class="rank-item"><span class="rank-no">${i+1}</span><span class="rank-player-name"><span class="rank-player-nick">${esc(p.name)}</span>${badgeHtml}</span><span class="rank-score">${p.totalKills}</span></div>`}).join('')||'<div class="notice">등록된 선수가 없습니다.</div>';document.getElementById('playerCount').textContent=players.length+'명';}
+function renderTop(){const top=document.getElementById('topKillerList');top.innerHTML=players.slice(0,5).map((p,i)=>{const cleanName=window.pklCleanNickDisplay(p.name);const badgeHtml=pklSearchTierBadgeHtml({...p,name:cleanName});return `<div class="rank-item"><span class="rank-no">${i+1}</span><span class="rank-player-name"><span class="rank-player-nick">${esc(cleanName)}</span>${badgeHtml}</span><span class="rank-score">${p.totalKills}</span></div>`}).join('')||'<div class="notice">등록된 선수가 없습니다.</div>';document.getElementById('playerCount').textContent=players.length+'명';}
 function getRecent(){return [];}
 function saveRecent(name){return;}
 function renderRecent(){return;}
@@ -975,10 +988,11 @@ function render(query){
       user.gameId ||
       '-';
 
-    const nick =
+    const nick = window.pklCleanNickDisplay(
       user.nickname ||
       user.name ||
-      '-';
+      '-'
+    );
 
     let badgeHtml = '';
 
@@ -1174,8 +1188,8 @@ document.addEventListener('click',e=>{
 (function(){
   if(window.__PKL_SEARCH_SUPABASE_USERS_LOADER__) return;
   window.__PKL_SEARCH_SUPABASE_USERS_LOADER__=true;
-  function norm(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}
-  function mapUser(u){u=u||{};var nick=u.nickname||u.name||u.nick||u.discord_username||'';return Object.assign({},u,{nickname:nick,name:nick,pubgId:u.pubgId||u.pubg_id||u.gameId||''});}
+  function norm(v){return (window.pklCleanNickDisplay?window.pklCleanNickDisplay(v):String(v||'').trim()).replace(/\s+/g,'').toLowerCase();}
+  function mapUser(u){u=u||{};var rawNick=u.nickname||u.name||u.nick||u.discord_username||'';var nick=(window.pklCleanNickDisplay?window.pklCleanNickDisplay(rawNick):String(rawNick||'').trim());return Object.assign({},u,{nickname:nick,name:nick,pubgId:u.pubgId||u.pubg_id||u.gameId||''});}
   async function load(){
     try{
       var all=[]; var offset=0; var limit=100;
@@ -1187,13 +1201,11 @@ document.addEventListener('click',e=>{
         if(!users.length || users.length<limit) break;
         offset+=limit;
       }
-      var seenDid=new Set(), seenNick=new Set();
+      var seenDid=new Set();
       window.PKLSupabaseUsers=all.map(mapUser).filter(function(u){
         var did=String(u.discordId||u.discord_id||u.uid||u.id||'').trim().toLowerCase().replace(/^discord-/, '');
-        var nk=norm(u.nickname||u.name);
         if(!did || seenDid.has(did)) return false;
-        if(nk && seenNick.has(nk)) return false;
-        seenDid.add(did); if(nk) seenNick.add(nk);
+        seenDid.add(did);
         u.discordId=did; u.uid='discord-'+did; u.id='discord-'+did;
         return true;
       });
