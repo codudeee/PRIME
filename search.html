@@ -296,9 +296,9 @@ flex-shrink:0;
       <div class="main-stack">
         <article class="panel profile-panel">
           <div class="tabs" id="tabBar">
-            <button type="button" class="tab-btn active" data-tab="summary">요약정보</button>
-            <button type="button" class="tab-btn" data-tab="history">매치 기록</button>
-            <button type="button" class="tab-btn" data-tab="normal">일반 이력</button>
+            <button type="button" class="tab-btn active" data-tab="summary">유저정보</button>
+            <button type="button" class="tab-btn" data-tab="normal">일반정보</button>
+            <button type="button" class="tab-btn" data-tab="history">매치기록</button>
             <button type="button" class="tab-btn" data-tab="detail">상세통계</button>
           </div>
           <div id="emptyState" class="empty">
@@ -480,7 +480,7 @@ function showTab(tab){
     document.getElementById('historyBody').innerHTML=rowsTableHtml(allRows,'매치 기록이 없습니다.');
   }
   else if(tab==='normal'){
-    summary.innerHTML=`<div class="summary-row"><div><div class="mini-label">일반 이력</div><div class="mini-value">일반경기 저장분만 따로 표시합니다. 유료 TOP킬러/요약 카운팅에는 반영하지 않습니다.</div></div><div><div class="mini-label">일반 기록</div><div class="mini-value">${normalRows.length}개 기록</div></div></div>`;
+    summary.innerHTML=`<div class="summary-row"><div><div class="mini-label">일반정보</div><div class="mini-value">일반경기 저장분만 따로 표시합니다. 유료 TOP킬러/요약 카운팅에는 반영하지 않습니다.</div></div><div><div class="mini-label">일반 기록</div><div class="mini-value">${normalRows.length}개 기록</div></div></div>`;
     document.getElementById('historyNote').textContent=normalRows.length+'개 일반 기록';
     document.getElementById('historyBody').innerHTML=rowsTableHtml(normalRows,'일반 경기 이력이 없습니다.');
   }
