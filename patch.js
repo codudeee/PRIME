@@ -8,6 +8,7 @@
   let editingIndex = null;
   let loaded = false;
   let loading = false;
+  let saving = false;
 
   const $ = (id) => document.getElementById(id);
   const els = {};
@@ -220,7 +221,6 @@
     els.patchInputItems.value = itemsToText(note.items || []);
     els.patchEditorModal?.classList.add("open");
     els.patchEditorModal?.setAttribute("aria-hidden","false");
-    try{ if(window.PKLBringModalToFront) window.PKLBringModalToFront(els.patchEditorModal); }catch(e){}
     setTimeout(() => els.patchInputTitle?.focus({preventScroll:true}), 30);
   }
 
@@ -230,6 +230,7 @@
   }
 
   async function saveEditor(){
+    if(saving) return;
     if(!isPatchAdmin()){ denyPatchAdmin(); return; }
     const note = {
       version: els.patchInputVersion.value.trim() || nextPatchVersion(),
@@ -250,11 +251,16 @@
       selected = editingIndex;
     }
     try{
+      saving = true;
+      if(els.patchSaveBtn) els.patchSaveBtn.disabled = true;
       await saveNotes();
       closeEditor();
       render();
     }catch(e){
       if(window.PKLRoleSystem && typeof window.PKLRoleSystem.showAccessModal === "function") window.PKLRoleSystem.showAccessModal("Supabase 저장에 실패했습니다. 기존 값을 덮어쓰지 않았습니다.", "저장 실패");
+    }finally{
+      saving = false;
+      if(els.patchSaveBtn) els.patchSaveBtn.disabled = false;
     }
   }
 
@@ -262,7 +268,6 @@
     if(!isPatchAdmin()){ denyPatchAdmin(); return; }
     els.patchConfirmModal?.classList.add("open");
     els.patchConfirmModal?.setAttribute("aria-hidden","false");
-    try{ if(window.PKLBringModalToFront) window.PKLBringModalToFront(els.patchConfirmModal); }catch(e){}
   }
 
   function closeConfirm(){
@@ -271,6 +276,7 @@
   }
 
   async function deleteSelected(){
+    if(saving) return;
     if(!isPatchAdmin()){ denyPatchAdmin(); return; }
     if(!notes.length) return;
     const before = notes.slice();
@@ -278,6 +284,8 @@
     notes.splice(selected, 1);
     selected = notes.length ? Math.max(0, selected - 1) : 0;
     try{
+      saving = true;
+      if(els.patchConfirmDelete) els.patchConfirmDelete.disabled = true;
       await saveNotes();
       closeConfirm();
       render();
@@ -285,6 +293,9 @@
       notes = before;
       selected = beforeSelected;
       if(window.PKLRoleSystem && typeof window.PKLRoleSystem.showAccessModal === "function") window.PKLRoleSystem.showAccessModal("Supabase 삭제 저장에 실패했습니다. 기존 값을 유지합니다.", "삭제 실패");
+    }finally{
+      saving = false;
+      if(els.patchConfirmDelete) els.patchConfirmDelete.disabled = false;
     }
   }
 
