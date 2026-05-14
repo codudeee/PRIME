@@ -11982,6 +11982,7 @@ function pklDirectMatchSave(match){
 }
 
 async function pklResetJoinWaitingAfterMatchSave(){
+  var nowIso=new Date().toISOString();
   var recruitState={
     state:'waiting',
     hostHtml:'',
@@ -11989,7 +11990,17 @@ async function pklResetJoinWaitingAfterMatchSave(){
     deadlineText:'모집대기중',
     feeText:'',
     feeInput:'',
-    deadlineConfigured:false
+    deadlineConfigured:false,
+    resetByMatchSave:true,
+    updatedAt:nowIso
+  };
+  var joinState={
+    version:2,
+    waitList:[],
+    cancelList:[],
+    recruitState:recruitState,
+    updatedAt:nowIso,
+    resetBy:'sheet-match-save'
   };
   try{
     localStorage.setItem('pklJoinWaitList','[]');
@@ -12000,15 +12011,26 @@ async function pklResetJoinWaitingAfterMatchSave(){
     Object.keys(localStorage).forEach(function(key){
       if(key.indexOf('pklJoinDepositRequested_')===0) localStorage.removeItem(key);
     });
-    window.dispatchEvent(new StorageEvent('storage',{key:'pklJoinRecruitState'}));
-    try{window.dispatchEvent(new CustomEvent('pkl-supabase-data-updated',{detail:{key:'pklJoinRecruitState'}}));}catch(_e){}
+    try{window.dispatchEvent(new StorageEvent('storage',{key:'pklJoinWaitList',newValue:'[]'}));}catch(_e1){}
+    try{window.dispatchEvent(new StorageEvent('storage',{key:'pklJoinCancelList',newValue:'[]'}));}catch(_e2){}
+    try{window.dispatchEvent(new StorageEvent('storage',{key:'pklJoinRecruitState',newValue:JSON.stringify(recruitState)}));}catch(_e3){}
+    try{window.dispatchEvent(new CustomEvent('pkl-supabase-data-updated',{detail:{key:'join_state',value:joinState}}));}catch(_e4){}
   }catch(e){}
   await Promise.all([
     pklDirectSharedSet('pklJoinWaitList',[]),
     pklDirectSharedSet('pklJoinCancelList',[]),
     pklDirectSharedSet('pklJoinRecruitState',recruitState),
     pklDirectSharedSet('pklJoinFeeInfo',null),
-    pklDirectSharedSet('pklJoinDepositRequests',[])
+    pklDirectSharedSet('pklJoinDepositRequests',[]),
+    fetch('/api/pkl-data-store',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      cache:'no-store',
+      body:JSON.stringify({type:'live_scores',id:'join_state',payload:joinState})
+    }).then(function(res){
+      if(!res.ok) throw new Error('join_state reset failed');
+      return res.json().catch(function(){return null;});
+    })
   ]);
 }
 async function pklFetchResultMatches(){
