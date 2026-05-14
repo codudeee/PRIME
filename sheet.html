@@ -7565,10 +7565,29 @@ function scoreboardViews(){
 
 function renderBoard(){
   const grid=document.getElementById('teamGrid');
-  grid.innerHTML=scoreboardViews().map(({view,st,target,percent,gaugeSize,isNegativeGauge},idx)=>{
+  const buddyColors=['#ff6b6b','#4dabf7','#b197fc','#51cf66','#ffd43b','#f783ac','#74c0fc','#ffa94d'];
+  const views=scoreboardViews();
+  const buddyTotals={};
+  views.forEach(({view,st,target})=>{
+    const realId=Number(realTeamId(view.viewId)||0);
+    const buddyIndex=Math.floor((Math.max(realId,1)-1)/2);
+    if(state.pklBuddyMode){
+      if(!buddyTotals[buddyIndex]) buddyTotals[buddyIndex]={score:0,target:0};
+      buddyTotals[buddyIndex].score+=Number(st.score||0);
+      buddyTotals[buddyIndex].target+=Number(target||0);
+    }
+  });
+  grid.innerHTML=views.map(({view,st,target,percent,gaugeSize,isNegativeGauge},idx)=>{
     const negativeScoreClass=isNegativeGauge?' is-negative-score':'';
+    const realId=Number(realTeamId(view.viewId)||0);
+    const buddyIndex=Math.floor((Math.max(realId,1)-1)/2);
+    const buddyColor=buddyColors[buddyIndex % buddyColors.length];
+    const buddyTotal=buddyTotals[buddyIndex]||{score:st.score,target:target};
+    const gaugeLabel=state.pklBuddyMode
+      ? `${buddyTotal.score} / ${buddyTotal.target}`
+      : `${st.score} / ${target} (${percent}%)`;
     return `<article class="team-card ${view.viewId===selectedTeamId?'active':''} ${isViewSurrendered(view.viewId)?'is-surrendered-team':''} ${isColdView(view.viewId)?'is-cold-team':''}" data-team="${view.viewId}">
-      <div class="card-score-main${negativeScoreClass}" style="--gauge:${gaugeSize}%"><span class="score-gauge-text">${st.score} / ${target} (${percent}%)</span></div>
+      <div class="card-score-main${negativeScoreClass}" style="--gauge:${gaugeSize}%"><span class="score-gauge-text">${gaugeLabel}</span>${state.pklBuddyMode?`<span class="score-gauge-team-total">T${realId} ${st.score}</span>`:''}</div>
       <div class="member-list">
         ${view.members.map((m,i)=>{
           const killScore=Number(st.kills[i]||0);
@@ -7576,7 +7595,7 @@ function renderBoard(){
           const memberScore=killScore-deathScore;
           const canDrag=pklIsSheetStaff();
           const dragAttrs=canDrag ? ` draggable="true" data-pkl-member-drag="1" data-real-team="${realTeamId(view.viewId)}" data-member-index="${(view.memberOffset||0)+i}" title="관리자/운영자 드래그 이동"` : '';
-          return `<div class="member-row ${canDrag?'pkl-member-draggable':''}"${dragAttrs}><span class="member-name">${m.name ? escape(m.name) : '&nbsp;'}</span><span class="member-kd">${memberScore} (${killScore}/${deathScore})</span></div>`;
+          return `<div class="member-row ${canDrag?'pkl-member-draggable':''}"${dragAttrs}><span class="member-name">${m.name ? escape(m.name) : '&nbsp;'}</span><span class="member-kd" style="color:${state.pklBuddyMode?buddyColor:'#fff'}">${memberScore} (${killScore}/${deathScore})</span></div>`;
         }).join('')}
         <div class="member-row team-extra-row"><span class="member-name">🍗 ${st.chicken}</span><span class="member-kd">⛔ ${st.stop}</span></div>
       </div>
