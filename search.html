@@ -403,7 +403,24 @@ window.pklCleanNickDisplay = window.pklCleanNickDisplay || function pklCleanNick
   }
   return s.trim();
 };
-function pklRowsFromResultMatches(mode){const rows=[];const wantAll=mode==='all';const wantNormal=mode==='normal';(Array.isArray(matches)?matches:[]).forEach(match=>{if(!match)return;const isNormal=pklIsNormalMatch(match);if(!wantAll&&wantNormal!==isNormal)return;const snap=match.snapshot&&typeof match.snapshot==='object'?match.snapshot:null;if(!snap)return;const rounds=Array.isArray(snap.rounds)?snap.rounds:[];pklSnapshotVisibleTeams(snap).forEach(team=>{for(let idx=team.offset;idx<team.offset+team.len;idx++){const member=team.members[idx]||{};const name=window.pklCleanNickDisplay(member.name||member.nickname||member.nick||member.displayName||'');if(!name||name==='-')continue;let kills=0,deaths=0,bestRoundKill=0,roundCount=0;rounds.forEach(round=>{const d=(round&&round.teams&&round.teams[team.realId])||{};const rk=Number((Array.isArray(d.kills)?d.kills:[])[idx]||0);const rd=Number((Array.isArray(d.deaths)?d.deaths:[])[idx]||0);kills+=rk;deaths+=rd;bestRoundKill=Math.max(bestRoundKill,rk);roundCount+=1;});const rowMode=isNormal?'normal':'paid';rows.push({matchId:match.id,matchTitle:match.title||'PKL 회차',savedAt:match.savedAt||match.date||'',name,teamName:team.name,kills,deaths,bestRoundKill,roundCount,mode:rowMode,map:isNormal?'일반':'유료'});}});});return rows;}
+function pklStatCellHasInput(value){
+  if(value===null||value===undefined)return false;
+  if(typeof value==='string')return value.trim()!==''&&value.trim()!=='0';
+  if(typeof value==='number')return Number.isFinite(value)&&value!==0;
+  if(typeof value==='boolean')return value;
+  return false;
+}
+function pklRoundHasPlayerInput(data,idx){
+  if(!data||typeof data!=='object')return false;
+  const keys=['kills','deaths','scores','score','points','bonus','penalty','stop','stops','chicken','chickens'];
+  return keys.some(key=>{
+    const value=data[key];
+    if(Array.isArray(value))return pklStatCellHasInput(value[idx]);
+    if(key==='chicken'||key==='stop')return pklStatCellHasInput(value);
+    return false;
+  });
+}
+function pklRowsFromResultMatches(mode){const rows=[];const wantAll=mode==='all';const wantNormal=mode==='normal';(Array.isArray(matches)?matches:[]).forEach(match=>{if(!match)return;const isNormal=pklIsNormalMatch(match);if(!wantAll&&wantNormal!==isNormal)return;const snap=match.snapshot&&typeof match.snapshot==='object'?match.snapshot:null;if(!snap)return;const rounds=Array.isArray(snap.rounds)?snap.rounds:[];pklSnapshotVisibleTeams(snap).forEach(team=>{for(let idx=team.offset;idx<team.offset+team.len;idx++){const member=team.members[idx]||{};const name=window.pklCleanNickDisplay(member.name||member.nickname||member.nick||member.displayName||'');if(!name||name==='-')continue;let kills=0,deaths=0,bestRoundKill=0,roundCount=0;rounds.forEach(round=>{const d=(round&&round.teams&&round.teams[team.realId])||{};const rk=Number((Array.isArray(d.kills)?d.kills:[])[idx]||0);const rd=Number((Array.isArray(d.deaths)?d.deaths:[])[idx]||0);kills+=rk;deaths+=rd;bestRoundKill=Math.max(bestRoundKill,rk);if(pklRoundHasPlayerInput(d,idx))roundCount+=1;});const rowMode=isNormal?'normal':'paid';rows.push({matchId:match.id,matchTitle:match.title||'PKL 회차',savedAt:match.savedAt||match.date||'',name,teamName:team.name,kills,deaths,bestRoundKill,roundCount,mode:rowMode,map:isNormal?'일반':'유료'});}});});return rows;}
 let state=makeDemo();let matches=[];let players=[];let current=null;
 function buildPlayers(){
 const map=new Map();
@@ -417,7 +434,7 @@ function ensurePlayer(name){
 function makeRecord(row,label){
   const kills=Number(row.kills||0);
   const deaths=Number(row.deaths||0);
-  return {match:row.matchTitle||label,date:row.savedAt?String(row.savedAt).slice(0,10):'-',team:row.teamName||'-',round:'전체합산',map:row.mode==='normal'?'일반':'유료',kills:kills,deaths:deaths,score:kills-deaths,roundCount:Number(row.roundCount||1),bestRoundKill:Number(row.bestRoundKill||kills||0)};
+  return {match:row.matchTitle||label,date:row.savedAt?String(row.savedAt).slice(0,10):'-',team:row.teamName||'-',round:'전체합산',map:row.mode==='normal'?'일반':'유료',kills:kills,deaths:deaths,score:kills-deaths,roundCount:Number(row.roundCount??0),bestRoundKill:Number(row.bestRoundKill||kills||0)};
 }
 try{
   const paidRows=pklRowsFromResultMatches('paid');
@@ -431,12 +448,12 @@ try{
     p.totalKills+=record.kills;
     p.totalDeaths+=record.deaths;
     p.bestKill=Math.max(p.bestKill,Number(row.bestRoundKill||record.kills||0));
-    p.rounds+=Number(row.roundCount||1);
+    p.rounds+=Number(row.roundCount??0);
     p.score+=record.score;
     p.allTotalKills+=record.kills;
     p.allTotalDeaths+=record.deaths;
     p.allBestKill=Math.max(p.allBestKill,Number(row.bestRoundKill||record.kills||0));
-    p.allRounds+=Number(row.roundCount||1);
+    p.allRounds+=Number(row.roundCount??0);
     p.allScore+=record.score;
   });
   normalRows.forEach(row=>{
@@ -448,14 +465,14 @@ try{
     p.allTotalKills+=record.kills;
     p.allTotalDeaths+=record.deaths;
     p.allBestKill=Math.max(p.allBestKill,Number(row.bestRoundKill||record.kills||0));
-    p.allRounds+=Number(row.roundCount||1);
+    p.allRounds+=Number(row.roundCount??0);
     p.allScore+=record.score;
   });
   if(map.size){
     return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),normalRows:Array.isArray(p.normalRows)?p.normalRows:[],allRows:Array.isArray(p.allRows)?p.allRows:[],avg:p.rounds?(p.totalKills/p.rounds):0,allAvg:p.allRounds?(p.allTotalKills/p.allRounds):0})).sort((a,b)=>b.totalKills-a.totalKills||b.allTotalKills-a.allTotalKills||a.name.localeCompare(b.name,'ko'));
   }
 }catch(e){console.error(e);}
-const match=matches[0]||DEFAULT_MATCHES[0];visibleTeams().forEach((team,teamIndex)=>{team.members.forEach((member,memberIndex)=>{const name=String(member&&member.name||'').trim();if(!name||name==='-')return;const p=ensurePlayer(name);if(!p)return;p.teams.add(team.name);(state.rounds||[]).forEach((round,ri)=>{const d=teamData(round,team.id);const kills=Number(d.kills&&d.kills[memberIndex]||0);const deaths=Number(d.deaths&&d.deaths[memberIndex]||0);const score=kills-deaths;const record={match:match.title||'PKL 회차',date:match.date||'-',team:team.name,round:round.no||ri+1,map:round.map||'-',kills,deaths,score};p.rows.push(record);p.allRows.push(record);p.totalKills+=kills;p.totalDeaths+=deaths;p.bestKill=Math.max(p.bestKill,kills);p.rounds+=1;p.score+=score;p.allTotalKills+=kills;p.allTotalDeaths+=deaths;p.allBestKill=Math.max(p.allBestKill,kills);p.allRounds+=1;p.allScore+=score;});});});return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),normalRows:Array.isArray(p.normalRows)?p.normalRows:[],allRows:Array.isArray(p.allRows)?p.allRows:[],avg:p.rounds?(p.totalKills/p.rounds):0,allAvg:p.allRounds?(p.allTotalKills/p.allRounds):0})).sort((a,b)=>b.totalKills-a.totalKills||a.name.localeCompare(b.name,'ko'));}
+const match=matches[0]||DEFAULT_MATCHES[0];visibleTeams().forEach((team,teamIndex)=>{team.members.forEach((member,memberIndex)=>{const name=String(member&&member.name||'').trim();if(!name||name==='-')return;const p=ensurePlayer(name);if(!p)return;p.teams.add(team.name);(state.rounds||[]).forEach((round,ri)=>{const d=teamData(round,team.id);const kills=Number(d.kills&&d.kills[memberIndex]||0);const deaths=Number(d.deaths&&d.deaths[memberIndex]||0);const hasInput=pklRoundHasPlayerInput(d,memberIndex);const score=kills-deaths;const record={match:match.title||'PKL 회차',date:match.date||'-',team:team.name,round:round.no||ri+1,map:round.map||'-',kills,deaths,score,roundCount:hasInput?1:0};p.rows.push(record);p.allRows.push(record);p.totalKills+=kills;p.totalDeaths+=deaths;p.bestKill=Math.max(p.bestKill,kills);if(hasInput)p.rounds+=1;p.score+=score;p.allTotalKills+=kills;p.allTotalDeaths+=deaths;p.allBestKill=Math.max(p.allBestKill,kills);if(hasInput)p.allRounds+=1;p.allScore+=score;});});});return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),normalRows:Array.isArray(p.normalRows)?p.normalRows:[],allRows:Array.isArray(p.allRows)?p.allRows:[],avg:p.rounds?(p.totalKills/p.rounds):0,allAvg:p.allRounds?(p.allTotalKills/p.allRounds):0})).sort((a,b)=>b.totalKills-a.totalKills||a.name.localeCompare(b.name,'ko'));}
 function pklSearchReadUsers(){if(Array.isArray(window.PKLSupabaseUsers)&&window.PKLSupabaseUsers.length)return window.PKLSupabaseUsers;if(window.PKLUserProfile&&window.PKLUserProfile.users)return window.PKLUserProfile.users();return [];}
 function pklSearchNormName(v){return window.pklCleanNickDisplay(v).replace(/\s+/g,'').toLowerCase();}
 function pklSearchUserNames(u){return [u?.nickname,u?.nick,u?.name,u?.displayName,u?.pubgId,u?.gameId,u?.ref,u?.pubgName,u?.playerName,u?.ingameName].map(pklSearchNormName).filter(Boolean);}
@@ -494,10 +511,11 @@ function showTab(tab){
   }
   else if(tab==='normal'){
     const normalKills=normalRows.reduce((sum,r)=>sum+Number(r.kills||0),0);
-    const normalRounds=normalRows.reduce((sum,r)=>sum+Number(r.roundCount||1),0);
+    const normalRounds=normalRows.reduce((sum,r)=>sum+Number(r.roundCount??0),0);
     const normalBest=normalRows.reduce((best,r)=>Math.max(best,Number(r.bestRoundKill||r.kills||0)),0);
     const normalAvg=normalRounds?(normalKills/normalRounds):0;
-    summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">일반 총 킬</div><div class="stat-value">${normalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">일반 참여 라운드</div><div class="stat-value">${normalRounds}</div></div></div><div class="stat-card"><div><div class="stat-label">일반 평균 킬</div><div class="stat-value">${normalAvg.toFixed(1)}</div></div></div><div class="stat-card"><div><div class="stat-label">일반 최고 킬</div><div class="stat-value">${normalBest}</div></div></div></div><div class="summary-row"><div><div class="mini-label">일반정보</div><div class="mini-value">일반경기 저장분만 따로 표시합니다. 유료 TOP킬러/유저정보 카운팅에는 반영하지 않습니다.</div></div><div><div class="mini-label">일반 기록</div><div class="mini-value">${normalRows.length}개 기록</div></div></div>`;
+    const normalTeams=Array.from(new Set(normalRows.map(r=>r.team).filter(Boolean)));
+    summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">일반 총 킬</div><div class="stat-value">${normalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">일반 참여 라운드</div><div class="stat-value">${normalRounds}</div></div></div><div class="stat-card"><div><div class="stat-label">일반 평균 킬</div><div class="stat-value">${normalAvg.toFixed(1)}</div></div></div><div class="stat-card"><div><div class="stat-label">일반 최고 킬</div><div class="stat-value">${normalBest}</div></div></div></div><div class="summary-row"><div><div class="mini-label">최근 일반 참여</div><div class="mini-value">${esc((normalRows[0]&&normalRows[0].match)||'-')} ${esc((normalRows[0]&&normalRows[0].date)||'')}</div></div><div><div class="mini-label">일반 팀 이력</div><div class="mini-value">${esc(normalTeams.join(' · ')||'-')}</div></div></div>`;
     document.getElementById('historyNote').textContent=normalRows.length+'개 일반 기록';
     document.getElementById('historyBody').innerHTML=rowsTableHtml(normalRows,'일반 경기 이력이 없습니다.');
   }
