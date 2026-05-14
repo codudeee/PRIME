@@ -3,6 +3,15 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABA
 
 function configured(){ return !!(SUPABASE_URL && SUPABASE_KEY); }
 function clean(v){ return String(v == null ? '' : v).trim(); }
+function stripLeadingNicknameDecorations(value){
+  return String(value == null ? '' : value)
+    .normalize('NFKC')
+    .replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g, '')
+    .trim()
+    .replace(/^[^\p{L}\p{N}가-힣]+/u, '')
+    .trim();
+}
+
 function cleanId(v){ return clean(v).toLowerCase().replace(/^discord-/, ''); }
 function explicitDiscordId(src={}){
   const direct = cleanId(src.discordId || src.discord_id);
@@ -31,7 +40,7 @@ function normalizeTier(v){
 function normalizeUser(raw){
   const src = raw && raw.raw && typeof raw.raw === 'object' ? {...raw.raw, ...raw} : {...(raw || {})};
   const did = explicitDiscordId(src);
-  const nick = clean(src.nickname || src.nick || src.name || src.displayName || src.discord_username || src.discordUsername || src.username || src.discordGlobalName);
+  const nick = stripLeadingNicknameDecorations(src.nickname || src.nick || src.name || src.displayName || src.discord_username || src.discordUsername || src.username || src.discordGlobalName);
   const pubg = clean(src.pubgId || src.pubg_id || src.pubgID || src.gameId || src.pubgName || src.ref || src.pubg);
   const role = normalizeRole(src.memberRole || src.role || src.userRole || src.authRole || src.adminRole || (src.is_admin ? 'admin' : 'user'));
   const tierInput = (src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : (src.baseRole != null ? src.baseRole : (src.memberTierName || src.tierName))))));
@@ -232,7 +241,7 @@ async function writeUserDoc(user, forceAdmin=false){
   };
   const body = {
     discord_id: discordId,
-    discord_username: clean(u.discordUsername || u.username || u.displayName || u.nickname),
+    discord_username: stripLeadingNicknameDecorations(u.discordUsername || u.username || ''),
     nickname: clean(u.nickname || u.displayName || u.nick || u.name),
     pubg_id: clean(u.pubgId || u.gameId || u.ref),
     tier,

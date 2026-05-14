@@ -1,7 +1,8 @@
 const store = require("./pkl-supabase-store");
 function clean(v){ return String(v == null ? "" : v).trim(); }
+function stripLeadingNicknameDecorations(v){ return String(v == null ? "" : v).normalize("NFKC").replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g, "").trim().replace(/^[^\p{L}\p{N}가-힣]+/u, "").trim(); }
 function did(u){ u = u || {}; return clean(u.discord_id || u.discordId || u.discord || u.user_id || u.userId || u.uid || u.id || "").replace(/^discord-/i, ""); }
-function identity(u){ u = u || {}; return { discordId: did(u), nickname: clean(u.nickname || u.nick || u.name || u.discord_username || u.discordUsername), pubgId: clean(u.pubg_id || u.pubgId || u.gameId || u.ref) }; }
+function identity(u){ u = u || {}; return { discordId: did(u), nickname: stripLeadingNicknameDecorations(u.nickname || u.nick || u.name || u.discord_username || u.discordUsername), pubgId: clean(u.pubg_id || u.pubgId || u.gameId || u.ref) }; }
 module.exports = async function handler(req, res){
   try{
     if(req.method !== "POST") return res.status(405).json({ok:false, message:"Method not allowed"});

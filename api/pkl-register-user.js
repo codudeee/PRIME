@@ -1,7 +1,8 @@
 
 let supabaseStore;
 try{ supabaseStore = require("./pkl-supabase-store"); }catch(e){ supabaseStore = { async readUsers(){ return []; }, async writeUsers(users){ return users; } }; }
-function normalizeNickname(value){return String(value==null?"":value).normalize("NFKC").replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]/g,"").trim();}
+function stripLeadingNicknameDecorations(value){return String(value==null?"":value).normalize("NFKC").replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g,"").trim().replace(/^[^\p{L}\p{N}가-힣]+/u,"").trim();}
+function normalizeNickname(value){return stripLeadingNicknameDecorations(value).replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]/g,"").trim();}
 function normalizePubgId(value){return String(value==null?"":value).normalize("NFKC").trim();}
 function isKoreanNickname(value){return /^[가-힣]{1,4}$/.test(normalizeNickname(value));}
 function isValidPubgId(value){return /^[A-Za-z0-9_-]{2,32}$/.test(normalizePubgId(value));}

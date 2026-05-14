@@ -42,7 +42,8 @@ function mask(value) {
   if (v.length <= 8) return "****";
   return `${v.slice(0, 4)}••••${v.slice(-4)}`;
 }
-function normalizeNickname(value){ return String(value == null ? "" : value).normalize("NFKC").replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]/g, "").trim(); }
+function stripLeadingNicknameDecorations(value){ return String(value == null ? "" : value).normalize("NFKC").replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g, "").trim().replace(/^[^\p{L}\p{N}가-힣]+/u, "").trim(); }
+function normalizeNickname(value){ return stripLeadingNicknameDecorations(value).replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]/g, "").trim(); }
 function isKoreanNickname(value){ return /^[가-힣]{1,4}$/.test(normalizeNickname(value)); }
 function normalizePubgId(value){ return String(value == null ? "" : value).normalize("NFKC").trim(); }
 function cleanId(v){ return String(v == null ? "" : v).trim().toLowerCase().replace(/^discord-/, ""); }
@@ -164,7 +165,8 @@ function writeJson(k,v){localStorage.setItem(k,JSON.stringify(v));}
 function cleanId(v){return String(v==null?"":v).trim().toLowerCase().replace(/^discord-/,"");}
 function explicitDiscordId(u){u=u||{};var d=cleanId(u.discordId||u.discord_id);if(d)return d;['uid','id','userId','key'].some(function(k){var raw=String(u[k]||'').trim();if(/^discord-/i.test(raw)){d=cleanId(raw);return true;}return false;});return d;}
 function sameDiscordUser(a,b){var ad=explicitDiscordId(a),bd=explicitDiscordId(b);return !!(ad&&bd&&ad===bd);}
-function normalizeNickname(v){return String(v==null?"":v).normalize("NFKC").replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]/g,"").trim();}
+function stripLeadingNicknameDecorations(v){return String(v==null?"":v).normalize("NFKC").replace(/[\u00a0\u200b\u200c\u200d\ufeff]/g,"").trim().replace(/^[^\p{L}\p{N}가-힣]+/u,"").trim();}
+function normalizeNickname(v){return stripLeadingNicknameDecorations(v).replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]/g,"").trim();}
 function isKoreanNickname(v){return /^[가-힣]{1,4}$/.test(normalizeNickname(v));}
 function normalizePubgId(v){return String(v==null?"":v).normalize("NFKC").trim();}
 function isValidPubgId(v){return /^[A-Za-z0-9_-]{1,32}$/.test(normalizePubgId(v));}
@@ -206,7 +208,7 @@ exports.handler = async function(event) {
   const meRes = await fetch("https://discord.com/api/users/@me", { headers: { Authorization: `${token.token_type} ${token.access_token}` } });
   if (!meRes.ok) return { statusCode: 502, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" }, body: `Discord 사용자 정보 요청 실패: ${escapeHtml(await meRes.text())}` };
   const me = await meRes.json();
-  const displayName = me.global_name || me.username || `discord_${me.id}`;
+  const displayName = normalizeNickname(me.global_name || me.username || `discord_${me.id}`);
   const discordUser = { uid:`discord-${me.id}`, id:`discord-${me.id}`, discordId:me.id, discordUsername:me.username||"", discordGlobalName:me.global_name||"", email:me.email||"", avatar:me.avatar?`https://cdn.discordapp.com/avatars/${me.id}/${me.avatar}.png`:"", nickname:displayName, nick:displayName, name:displayName, displayName, pubgId:displayName, provider:"discord", authType:"discord", join:new Date().toLocaleString("ko-KR"), last:new Date().toLocaleString("ko-KR") };
 
   if (await isBlockedByBanRecords(discordUser)) {
