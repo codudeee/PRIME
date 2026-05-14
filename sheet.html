@@ -6578,8 +6578,16 @@ function pklSheetCanPersistState(st){
   if(pklSheetHasMeaningfulState(st)) return true;
   return Number(st && st.resetNonce || 0) > 0;
 }
+function pklSheetResetLockActive(){
+  try{
+    const lock = window.__PKL_RESET_LOCK || JSON.parse(localStorage.getItem('PKL_SHEET_RESET_LOCK_V2') || 'null');
+    if(!lock || Date.now() > Number(lock.until || 0)) return false;
+    return Number(state && state.resetNonce || 0) < Number(lock.nonce || 0);
+  }catch(e){ return false; }
+}
 function pklPersistSheetStateNow(){
   try{
+    if(window.__PKL_SHEET_RESET_RUNNING || pklSheetResetLockActive()) return;
     if(!pklSheetCanPersistState(state)) return;
     state.selectedTeamId=selectedTeamId;
     state.savedAt=new Date().toISOString();
@@ -6673,6 +6681,7 @@ function load(){
   return {mode:'squad',selectedTeamId:'team1',teams:baseTeams,rounds:Array.from({length:30},(_,i)=>makeRound(i+1)),feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},itemHistory:[],startTime:'',endTime:'',resetNonce:0};
 }
 function save(){
+  if(window.__PKL_SHEET_RESET_RUNNING || pklSheetResetLockActive()) return;
   if(pklApplyingRemoteSheetState) return;
   state.selectedTeamId=selectedTeamId;
   if(!pklSheetCanPersistState(state)){
@@ -11140,6 +11149,12 @@ document.addEventListener("DOMContentLoaded", function(){
       eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},itemHistory:[],
       startTime:'',endTime:'',resetNonce:nonce,savedAt:new Date().toISOString()
     };
+    try{
+      window.__PKL_SHEET_RESET_STATE=emptySheetState;
+      if(window.PKLSheetLiveBridge && typeof window.PKLSheetLiveBridge.applyState==='function'){
+        window.PKLSheetLiveBridge.applyState(emptySheetState);
+      }
+    }catch(e){}
     try{
       window.__PKL_SHEET_RESET_STATE=emptySheetState;
       if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.resetToEmpty==='function'){
