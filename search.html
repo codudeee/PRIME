@@ -417,7 +417,7 @@ function ensurePlayer(name){
 function makeRecord(row,label){
   const kills=Number(row.kills||0);
   const deaths=Number(row.deaths||0);
-  return {match:row.matchTitle||label,date:row.savedAt?String(row.savedAt).slice(0,10):'-',team:row.teamName||'-',round:'전체합산',map:row.mode==='normal'?'일반':'유료',kills:kills,deaths:deaths,score:kills-deaths};
+  return {match:row.matchTitle||label,date:row.savedAt?String(row.savedAt).slice(0,10):'-',team:row.teamName||'-',round:'전체합산',map:row.mode==='normal'?'일반':'유료',kills:kills,deaths:deaths,score:kills-deaths,roundCount:Number(row.roundCount||1),bestRoundKill:Number(row.bestRoundKill||kills||0)};
 }
 try{
   const paidRows=pklRowsFromResultMatches('paid');
@@ -493,7 +493,11 @@ function showTab(tab){
     document.getElementById('historyBody').innerHTML=rowsTableHtml(allRows,'매치 기록이 없습니다.');
   }
   else if(tab==='normal'){
-    summary.innerHTML=`<div class="summary-row"><div><div class="mini-label">일반정보</div><div class="mini-value">일반경기 저장분만 따로 표시합니다. 유료 TOP킬러/요약 카운팅에는 반영하지 않습니다.</div></div><div><div class="mini-label">일반 기록</div><div class="mini-value">${normalRows.length}개 기록</div></div></div>`;
+    const normalKills=normalRows.reduce((sum,r)=>sum+Number(r.kills||0),0);
+    const normalRounds=normalRows.reduce((sum,r)=>sum+Number(r.roundCount||1),0);
+    const normalBest=normalRows.reduce((best,r)=>Math.max(best,Number(r.bestRoundKill||r.kills||0)),0);
+    const normalAvg=normalRounds?(normalKills/normalRounds):0;
+    summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">일반 총 킬</div><div class="stat-value">${normalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">일반 참여 라운드</div><div class="stat-value">${normalRounds}</div></div></div><div class="stat-card"><div><div class="stat-label">일반 평균 킬</div><div class="stat-value">${normalAvg.toFixed(1)}</div></div></div><div class="stat-card"><div><div class="stat-label">일반 최고 킬</div><div class="stat-value">${normalBest}</div></div></div></div><div class="summary-row"><div><div class="mini-label">일반정보</div><div class="mini-value">일반경기 저장분만 따로 표시합니다. 유료 TOP킬러/유저정보 카운팅에는 반영하지 않습니다.</div></div><div><div class="mini-label">일반 기록</div><div class="mini-value">${normalRows.length}개 기록</div></div></div>`;
     document.getElementById('historyNote').textContent=normalRows.length+'개 일반 기록';
     document.getElementById('historyBody').innerHTML=rowsTableHtml(normalRows,'일반 경기 이력이 없습니다.');
   }
