@@ -6810,8 +6810,8 @@ function save(){
   /* localStorage 운영 시트 저장 제거: Supabase/shared + session 현재 탭 백업만 사용 */
   /* 결과저장/초기화 전까지 현재 경기 시트는 Supabase 공유값에도 유지한다.
      단, 빈 기본 시트는 메인 이동/재진입 렌더 때 원격 시트를 덮어쓰지 않는다. */
-  pklScheduleSheetPersist(180);
-  try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(120); }catch(e){}
+  pklScheduleSheetPersist(90);
+  try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(45); }catch(e){}
 }
 function makeRound(no){return {no,map:'',teams:{}}}
 function visibleTeams(){
@@ -8889,7 +8889,7 @@ function pklCommitScoreInput(target, options){
     renderBoard();
     if(target.type==='checkbox' || field==='chicken' || field==='stop') renderSheet();
     renderFeeds();
-    try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(target.type==='checkbox'?20:180);}catch(e){}
+    try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(target.type==='checkbox'?20:45);}catch(e){}
     save();
   }else{
     if(pklScoreInputSaveTimer) clearTimeout(pklScoreInputSaveTimer);
@@ -8898,7 +8898,7 @@ function pklCommitScoreInput(target, options){
       checkColdStates();
       renderBoard();
       renderFeeds();
-      try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(180);}catch(e){}
+      try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(45);}catch(e){}
       save();
     },120);
   }
@@ -8945,7 +8945,7 @@ window.PKLSheetLiveBridge={
       const remoteReset=Number(next && next.resetNonce || 0);
       if(remoteReset && remoteReset>localReset){
         // hard reset/new empty sheet from server must win over old local sheet
-      }else if((pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<15000) && remoteReset<=localReset) return false;
+      }else if((pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<900) && remoteReset<=localReset) return false;
       const localFilled=pklSheetFilledMemberCount(state);
       const remoteFilled=pklSheetFilledMemberCount(next);
       const localActivity=pklSheetScoreActivityCount(state);
@@ -8953,8 +8953,8 @@ window.PKLSheetLiveBridge={
       const remoteTeamImportNonce=Number(next && next.teamImportNonce || 0);
       const localTeamImportNonce=Number(state && state.teamImportNonce || 0);
       const isNewServerTeamImport=!!(remoteTeamImportNonce && remoteTeamImportNonce>localTeamImportNonce);
-      if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset) return false;
-      if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset) return false;
+      // 최신 원격 상태는 체크 해제/점수 삭제처럼 값이 줄어드는 변경도 즉시 적용한다.
+      // 오래된 reset/빈 시트 차단은 pklShouldIgnoreStaleRemoteReset / resetNonce 보호 로직에서 처리한다.
       next.rounds.forEach(function(r){
         Object.keys((r&&r.teams)||{}).forEach(function(k){
           var d=r.teams[k]||{};
@@ -8996,17 +8996,13 @@ function pklApplySupabaseSheetStateOnce(){
     const remoteTeamImportNonce=Number(next.teamImportNonce||0);
     const localTeamImportNonce=Number(state && state.teamImportNonce || 0);
     const isNewServerTeamImport=remoteTeamImportNonce && remoteTeamImportNonce>localTeamImportNonce;
-    if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && (pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<15000) && remoteReset<=localReset){
+    if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && (pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<900) && remoteReset<=localReset){
       return false;
     }
     const localActivity=pklSheetScoreActivityCount(state);
     const remoteActivity=pklSheetScoreActivityCount(next);
-    if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset){
-      return false;
-    }
-    if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset){
-      return false;
-    }
+    // 최신 원격 상태는 체크 해제/점수 삭제처럼 값이 줄어드는 변경도 즉시 적용한다.
+    // 오래된 reset/빈 시트 차단은 별도 resetNonce/시간 보호 로직에서 처리한다.
     if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localMeaningful && !remoteMeaningful && remoteReset<=localReset){
       return false;
     }
