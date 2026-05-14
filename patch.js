@@ -123,9 +123,9 @@
   }
 
   function bindEvents(){
-    els.patchAddBtnSide?.addEventListener("click", () => openEditor("add"));
-    els.patchEditBtn?.addEventListener("click", () => openEditor("edit"));
-    els.patchDeleteBtn?.addEventListener("click", openConfirm);
+    els.patchAddBtnSide?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); openEditor("add"); });
+    els.patchEditBtn?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); openEditor("edit"); });
+    els.patchDeleteBtn?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); openConfirm(); });
     els.patchModalClose?.addEventListener("click", closeEditor);
     els.patchCancelBtn?.addEventListener("click", closeEditor);
     els.patchSaveBtn?.addEventListener("click", saveEditor);
