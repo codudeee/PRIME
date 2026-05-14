@@ -7357,3 +7357,69 @@ body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-view.is-paid{
   border-color:rgba(34,211,238,.28);
   background:rgba(34,211,238,.10);
 }
+
+/* === PKL TEAM CURSOR CLEANUP: keep text cursor only on real inputs === */
+body,
+body .team-container,
+body .team-container *,
+body .control-panel,
+body .control-panel *,
+body .team-card,
+body .team-card *,
+body .tier-waiting-area,
+body .tier-waiting-area *,
+body .modal,
+body .modal *{
+  cursor:default;
+}
+
+body button,
+body a,
+body label,
+body summary,
+body select,
+body option,
+body [role="button"],
+body .btn,
+body .button,
+body .clickable,
+body .pkl-clickable,
+body .pkl-custom-select,
+body .pkl-custom-select *,
+body .pkl-team-mode-dropdown,
+body .pkl-team-mode-dropdown *,
+body .team-slot,
+body .player-chip,
+body .player-card,
+body .reroll-card,
+body .pkl-reroll-list-row,
+body .pkl-reroll-check,
+body input[type="checkbox"],
+body input[type="radio"],
+body input[type="button"],
+body input[type="submit"],
+body input[type="reset"]{
+  cursor:pointer !important;
+}
+
+body input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+body textarea,
+body [contenteditable="true"]{
+  cursor:text !important;
+  user-select:text;
+  -webkit-user-select:text;
+}
+
+body input[type="number"]{
+  cursor:text !important;
+}
+
+body .pkl-viewer-disabled-control,
+body button:disabled,
+body input:disabled,
+body select:disabled,
+body textarea:disabled,
+body [aria-disabled="true"]{
+  cursor:not-allowed !important;
+}
+
