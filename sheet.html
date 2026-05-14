@@ -6298,10 +6298,20 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
   padding-right:76px !important;
 }
 .team-card.pkl-buddy-score-card .score-gauge-text{
+  position:absolute !important;
+  top:50% !important;
   left:50% !important;
   right:auto !important;
   transform:translate(-50%,-50%) !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:calc(100% - 88px) !important;
+  height:100% !important;
+  line-height:1 !important;
   text-align:center !important;
+  white-space:nowrap !important;
+  overflow:visible !important;
   color:var(--pkl-buddy-color,#fff) !important;
   text-shadow:0 0 10px color-mix(in srgb, var(--pkl-buddy-color,#fff) 45%, transparent) !important;
 }
