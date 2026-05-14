@@ -239,6 +239,19 @@
     }catch(e){return false;}
   }
 
+  function isHardResetLive(live){
+    try{
+      return !!(live && Number(live.resetNonce||0)>0 && liveFilledMemberCount(live)===0 && liveScoreActivityCount(live)===0);
+    }catch(e){return false;}
+  }
+  function makeEmptyLiveSheetState(live){
+    var nonce=Number((live&&live.resetNonce)||Date.now());
+    var now=(live&&live.updatedAt)||new Date().toISOString();
+    var teams=Array.isArray(live&&live.teams) && live.teams.length ? live.teams : Array.from({length:10},function(_,i){return {id:'team'+(i+1),target:0,members:Array.from({length:4},function(){return {name:'',tier:''};})};});
+    var rounds=Array.isArray(live&&live.rounds) && live.rounds.length ? live.rounds : Array.from({length:30},function(_,i){return {no:i+1,map:'',teams:{}};});
+    return {mode:(live&&live.mode)||'squad',pklTeamMode:'',pklTeamCount:10,pklTeamSlots:4,pklBuddyMode:false,selectedTeamId:(live&&live.selectedTeamId)||'team1',teams:teams,rounds:rounds,feeds:[],sideBets:[],eventKeys:{},colds:{},fires:{},fireCancels:{},surrenders:{},itemHistory:[],startTime:'',endTime:'',resetNonce:nonce,teamImportNonce:0,updatedFromTeamBoardAt:'',savedAt:now};
+  }
+
   function liveFreshTime(x){
     try{
       var arr=[
@@ -269,6 +282,10 @@
     if(!live || !Array.isArray(live.rounds)) return null;
     if(resetLockedAgainst(live && live.resetNonce)) return null;
     var st=readSheetState();
+    if(isHardResetLive(live)){
+      if(shouldIgnoreStaleResetLive(live, st)) return null;
+      return makeEmptyLiveSheetState(live);
+    }
     if(shouldIgnoreStaleResetLive(live, st)) return null;
     try{
       var localMs=Date.parse((st&&st.savedAt)||(st&&st.teamExportedAt)||(st&&st.updatedAt)||(st&&st.updatedFromTeamBoardAt)||'');
@@ -392,7 +409,7 @@
     st.savedAt=st.savedAt||now;
     try{localStorage.setItem(STORAGE_KEY, JSON.stringify(st)); sessionStorage.setItem(STORAGE_KEY, JSON.stringify(st)); sessionStorage.setItem(STORAGE_KEY+'_SESSION_BACKUP', JSON.stringify(st));}catch(e){}
     var snap={version:1,updatedAt:now,teams:[]};
-    var live={version:4,seq:Date.now(),updatedAt:now,resetNonce:nonce,mode:st.mode||'squad',selectedTeamId:st.selectedTeamId||'team1',teams:[],rounds:[],feeds:[],eventKeys:{},colds:{},fires:{},surrenders:{}};
+    var live={version:4,seq:Date.now(),updatedAt:now,resetNonce:nonce,mode:st.mode||'squad',selectedTeamId:st.selectedTeamId||'team1',teams:Array.isArray(st.teams)?st.teams:[],rounds:Array.isArray(st.rounds)?st.rounds:[],feeds:[],eventKeys:{},colds:{},fires:{},fireCancels:{},surrenders:{}};
     lastPayloadText='';
     lastLiveSeq=Date.now();
     writeLocalSnapshot(snap);

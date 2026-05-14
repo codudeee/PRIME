@@ -11380,7 +11380,7 @@ document.addEventListener("DOMContentLoaded", function(){
         setShared('pklSheetFeeds', []),
         fetch('/api/pkl-data-store',{
           method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
-          body:JSON.stringify({type:'live_scores',id:'live_scoreboard',payload:{payload:{version:1,updatedAt:new Date().toISOString(),teams:[]},live:{version:4,seq:Date.now(),updatedAt:new Date().toISOString(),resetNonce:nonce,mode:'squad',selectedTeamId:'team1',teams:[],rounds:[],feeds:[],eventKeys:{},colds:{},fires:{},surrenders:{}}}})
+          body:JSON.stringify({type:'live_scores',id:'live_scoreboard',payload:{payload:{version:1,updatedAt:new Date().toISOString(),teams:[]},live:{version:4,seq:Date.now(),updatedAt:new Date().toISOString(),resetNonce:nonce,mode:'squad',selectedTeamId:'team1',teams:emptySheetState.teams,rounds:emptySheetState.rounds,feeds:[],eventKeys:{},colds:{},fires:{},surrenders:{},fireCancels:{}}}})
         })
       ]);
     }catch(err){
@@ -12240,7 +12240,7 @@ async function pklForceResetSheetAfterMatchSave(){
       window.PKLScoreboardRealtime.resetToEmpty(emptyState, nonce);
     }
   }catch(e){}
-  var emptyLive={version:4,seq:Date.now(),updatedAt:new Date().toISOString(),resetNonce:nonce,mode:'squad',selectedTeamId:'team1',teams:[],rounds:[],feeds:[],eventKeys:{},colds:{},fires:{},surrenders:{}};
+  var emptyLive={version:4,seq:Date.now(),updatedAt:new Date().toISOString(),resetNonce:nonce,mode:'squad',selectedTeamId:'team1',teams:emptyState.teams,rounds:emptyState.rounds,feeds:[],eventKeys:{},colds:{},fires:{},surrenders:{},fireCancels:{}};
   await Promise.all([
     pklDataStorePostStrict({type:'shared',key:SHEET_KEY,value:emptyState}),
     pklDataStorePostStrict({type:'shared',key:'pklSideListItems',value:[]}),
