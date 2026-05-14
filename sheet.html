@@ -6509,7 +6509,6 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 'use strict';
 const STORAGE_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
 const SHEET_SESSION_BACKUP_KEY=STORAGE_KEY + '_SESSION_BACKUP';
-const TEAM_IMPORT_KEY='PKL_TEAM_TO_SHEET_IMPORT_V1';
 const MAPS=['','에','미','사','태','론','비','데'];
 
 const baseTeams=Array.from({length:10},(_,i)=>({
@@ -6546,7 +6545,7 @@ function pklSheetHasMeaningfulState(st){
   return false;
 }
 function pklSheetTime(st){
-  const t=Date.parse((st && (st.savedAt || st.updatedFromTeamBoardAt)) || '');
+  const t=Date.parse(st && st.savedAt || '');
   return Number.isFinite(t) ? t : 0;
 }
 function pklSheetFilledMemberCount(st){
@@ -6635,8 +6634,6 @@ function load(){
     return null;
   }
   const candidates=[];
-  try{ candidates.push(parseStored(sessionStorage.getItem(TEAM_IMPORT_KEY))); }catch(e){}
-  try{ candidates.push(parseStored(localStorage.getItem(TEAM_IMPORT_KEY))); }catch(e){}
   try{ candidates.push(parseStored(sessionStorage.getItem(SHEET_SESSION_BACKUP_KEY))); }catch(e){}
   try{ candidates.push(parseStored(sessionStorage.getItem(STORAGE_KEY))); }catch(e){}
   try{ candidates.push(parseStored(localStorage.getItem(STORAGE_KEY))); }catch(e){}
@@ -8812,13 +8809,8 @@ function pklApplySupabaseSheetStateOnce(){
     const remoteTime=pklSheetTime(next);
     const remoteReset=Number(next.resetNonce||0);
     const localReset=Number(state && state.resetNonce || 0);
-    const localImportNonce=Number(state && state.teamImportNonce || 0);
-    const remoteImportNonce=Number(next && next.teamImportNonce || 0);
     const localFilled=pklSheetFilledMemberCount(state);
     const remoteFilled=pklSheetFilledMemberCount(next);
-    if(localImportNonce && remoteImportNonce < localImportNonce && remoteReset<=localReset){
-      return false;
-    }
     if((pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<15000) && remoteReset<=localReset){
       return false;
     }
@@ -8840,7 +8832,6 @@ function pklApplySupabaseSheetStateOnce(){
     selectedTeamId = state.selectedTeamId || selectedTeamId || (state.teams[0] && state.teams[0].id) || 'team1';
     if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId = (visibleTeams()[0] && visibleTeams()[0].viewId) || 'team1';
     try{ const sheetJson=JSON.stringify(state); sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); localStorage.setItem(STORAGE_KEY, sheetJson); }catch(e){}
-    try{ sessionStorage.removeItem(TEAM_IMPORT_KEY); localStorage.removeItem(TEAM_IMPORT_KEY); }catch(e){}
     render();
     return true;
   };
@@ -11774,8 +11765,28 @@ var SHEET_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
 var RESULT_KEY='PKL_RESULT_MATCHES_V1';
 var USER_MATCH_STATS_KEY='PKL_USER_MATCH_STATS_V1';
 function toast(msg){ if(typeof window.pklSheetPermissionToast==='function') window.pklSheetPermissionToast(msg); }
-function readState(){try{return JSON.parse(localStorage.getItem(SHEET_KEY)||'null')||{};}catch(e){return {};}}
-function writeState(st){st.savedAt=new Date().toISOString();localStorage.setItem(SHEET_KEY,JSON.stringify(st));}
+function pklClone(obj){try{return JSON.parse(JSON.stringify(obj||{}));}catch(e){return obj||{};}}
+function readState(){
+  /* 결과 저장은 localStorage가 아니라 현재 화면의 실제 시트 상태를 우선 사용한다.
+     점수 입력 직후 localStorage 반영이 늦어도 저장 누른 순간 화면 상태가 그대로 결과표로 간다. */
+  try{
+    if(typeof state!=='undefined' && state && Array.isArray(state.teams) && Array.isArray(state.rounds)){
+      if(typeof selectedTeamId!=='undefined') state.selectedTeamId=selectedTeamId;
+      return pklClone(state);
+    }
+  }catch(e){}
+  try{return JSON.parse(localStorage.getItem(SHEET_KEY)||'null')||{};}catch(e){return {};}
+}
+function writeState(st){
+  st=st&&typeof st==='object'?st:{};
+  st.savedAt=new Date().toISOString();
+  try{
+    if(typeof state!=='undefined') state=st;
+    if(typeof selectedTeamId!=='undefined') selectedTeamId=st.selectedTeamId||'team1';
+  }catch(e){}
+  try{sessionStorage.setItem(SHEET_KEY,JSON.stringify(st));sessionStorage.setItem(SHEET_KEY+'_SESSION_BACKUP',JSON.stringify(st));}catch(e){}
+  localStorage.setItem(SHEET_KEY,JSON.stringify(st));
+}
 function makeRound(no){return {no:no,map:'',teams:{}};}
 function closeAll(){document.querySelectorAll('.pkl-admin-action-modal').forEach(function(m){m.classList.remove('show');m.setAttribute('aria-hidden','true');});}
 function openModal(id){closeAll();var m=document.getElementById(id);if(m){m.classList.add('show');m.setAttribute('aria-hidden','false');}}
@@ -11942,6 +11953,59 @@ function pklDirectMatchSave(match){
   }catch(e){return Promise.resolve(null);}
 }
 
+
+function pklEmptySheetStateAfterMatchSave(prev){
+  var now=Date.now();
+  return {
+    mode:'squad',
+    pklTeamMode:'',
+    pklTeamCount:Number(prev && prev.pklTeamCount || 10) || 10,
+    pklTeamSlots:4,
+    pklBuddyMode:false,
+    selectedTeamId:'team1',
+    teams:[],
+    rounds:[],
+    feeds:[],
+    sideBets:[],
+    eventKeys:{},
+    surrenders:{},
+    fires:{},
+    fireCancels:{},
+    colds:{},
+    itemHistory:[],
+    startTime:'',
+    endTime:'',
+    resetNonce:now,
+    savedAt:new Date(now).toISOString()
+  };
+}
+async function pklClearSheetAfterMatchSave(prev){
+  var empty=pklEmptySheetStateAfterMatchSave(prev);
+  try{
+    window.__PKL_SHEET_RESET_RUNNING=true;
+    window.__PKL_RESET_LOCK={nonce:empty.resetNonce,until:Date.now()+600000};
+    localStorage.setItem('PKL_SHEET_RESET_LOCK_V2',JSON.stringify(window.__PKL_RESET_LOCK));
+  }catch(e){}
+  try{
+    [SHEET_KEY,SHEET_KEY+'_SESSION_BACKUP','PKL_TEAM_TO_SHEET_IMPORT_V1','pklSideListItems','pklSideList','pklSideBets','pklSheetFeeds','pklItemHistoryCounts','PKL_SURRENDER_CONSENT_STORE_V1','PKL_FIRE_CONSENT_STORE_V1'].forEach(function(k){
+      try{localStorage.removeItem(k);}catch(e){}
+      try{sessionStorage.removeItem(k);}catch(e){}
+    });
+  }catch(e){}
+  writeState(empty);
+  try{if(window.PKLSheetLiveBridge&&typeof window.PKLSheetLiveBridge.applyState==='function') window.PKLSheetLiveBridge.applyState(empty);}catch(e){}
+  try{if(window.PKLScoreboardRealtime&&typeof window.PKLScoreboardRealtime.resetToEmpty==='function') window.PKLScoreboardRealtime.resetToEmpty(empty, empty.resetNonce);}catch(e){}
+  await Promise.all([
+    pklDirectSharedSet(SHEET_KEY,empty,true),
+    pklDirectSharedSet('pklSideListItems',[],true),
+    pklDirectSharedSet('pklSideList',[],true),
+    pklDirectSharedSet('pklSideBets',[],true),
+    pklDirectSharedSet('pklSheetFeeds',[],true)
+  ]);
+  try{pklBroadcastDataUpdate(SHEET_KEY);pklBroadcastDataUpdate('pklSideListItems');pklBroadcastDataUpdate('pklSideBets');}catch(e){}
+  try{window.dispatchEvent(new CustomEvent('pkl-sheet-hard-reset',{detail:{nonce:empty.resetNonce,state:empty}}));}catch(e){}
+  return empty;
+}
 async function pklResetJoinWaitingAfterMatchSave(){
   var recruitState={
     state:'waiting',
@@ -11986,6 +12050,7 @@ async function pklFetchResultMatches(){
 }
 async function saveMatch(kind){
   var st=readState();
+  if(!st || !Array.isArray(st.teams) || !Array.isArray(st.rounds)) throw new Error('저장할 시트 데이터가 없습니다.');
   var matches=await pklFetchResultMatches();
   if(!Array.isArray(matches))matches=[];
   var idNumber=pklNextSavedMatchNumber(matches,kind);
@@ -12011,52 +12076,13 @@ async function saveMatch(kind){
   await pklSaveResultMatches(matches);
   await pklDirectMatchSave(matches[0]);
   if(kind!=='normal') pklUpsertMatchUserStats(id,matchTitle,snap);
-  var emptyTeams=Array.from({length:10},function(_,i){return {id:'team'+(i+1),target:0,members:Array.from({length:4},function(){return {name:'',tier:''};})};});
-  st.mode=st.mode||'squad';
-  st.selectedTeamId='team1';
-  st.teams=emptyTeams;
-  st.rounds=Array.from({length:30},function(_,i){return makeRound(i+1);});
-  st.feeds=[];
-  st.sideBets=[];
-  st.itemHistory=[];
-  st.fires={};
-  st.fireCancels={};
-  st.colds={};
-  st.surrenders={};
-  st.eventKeys={};
-  st.startTime='';
-  st.endTime='';
-  st.resetNonce=Date.now();
-  st.savedAt=new Date().toISOString();
-
-  /* 경기저장 성공 후에는 새 경기용 빈 시트만 남긴다.
-     결과표 저장/JOIN 초기화가 끝나기 전에 지우지 않고, 성공 이후에만
-     스코어보드/점수시트/LIVE/SIDE/이용내역을 같은 상태로 비운다. */
-  writeState(st);
-  try{ pklSharedSet(SHEET_KEY,st); pklBroadcastDataUpdate(SHEET_KEY); }catch(e){}
-  await Promise.all([
-    pklDirectSharedSet(SHEET_KEY,st),
-    pklDirectSharedSet('pklSideListItems',[]),
-    pklDirectSharedSet('pklSideList',[]),
-    pklDirectSharedSet('pklSideBets',[]),
-    pklDirectSharedSet('pklSheetFeeds',[])
-  ]);
+  /* 결과표 저장이 완전히 성공한 뒤에만 현재 시트를 초기화한다.
+     저장 전 snapshot에는 현재 점수시트/스코어보드/LIVE/이용내역/사이드목록을 그대로 담는다. */
+  await pklClearSheetAfterMatchSave(st);
   await pklResetJoinWaitingAfterMatchSave();
-  try{
-    localStorage.removeItem('pklItemHistoryCounts');
-    localStorage.removeItem('pklSideListItems');
-    localStorage.removeItem('pklSideList');
-    localStorage.removeItem('pklSideBets');
-    localStorage.removeItem('pklSheetFeeds');
-    localStorage.removeItem('PKL_SURRENDER_CONSENT_STORE_V1');
-    localStorage.removeItem('PKL_FIRE_CONSENT_STORE_V1');
-    localStorage.removeItem('pklColdTeamModalShown.v1');
-    sessionStorage.removeItem('PKL_SURRENDER_CONSENT_STORE_V1');
-    sessionStorage.removeItem('PKL_FIRE_CONSENT_STORE_V1');
-  }catch(e){}
   try{ if(typeof window.pklRenderItemHistoryTable==='function') window.pklRenderItemHistoryTable(); }catch(e){}
   toast('경기가 결과표에 저장되었습니다.');
-  setTimeout(function(){location.href='result.html?v='+Date.now();},650);
+  setTimeout(function(){location.href='result.html?v='+Date.now();},450);
 }
 document.addEventListener('click',function(e){
   var t=e.target;if(!t)return;
