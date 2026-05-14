@@ -1452,15 +1452,27 @@ function pklResultLoadMatches(){
 }
 async function pklResultFetchMatchesFromServer(){
   var next=[];
+  /* 결과표 렌더 지연/화면 차이 원인 제거:
+     PKLSupabaseDataSync 준비를 기다리지 않고 shared API를 직접 먼저 읽는다.
+     localStorage fallback은 쓰지 않는다. */
   try{
-    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function'){
-      var shared=await window.PKLSupabaseDataSync.getShared(RESULT_MATCHES_KEY);
-      if(Array.isArray(shared)) next=shared;
-      else if(typeof shared==='string'){
-        try{var parsed=JSON.parse(shared); if(Array.isArray(parsed)) next=parsed;}catch(_e){}
-      }
-    }
+    var res=await fetch('/api/pkl-data-store?type=shared&key='+encodeURIComponent(RESULT_MATCHES_KEY)+'&t='+Date.now(),{cache:'no-store'});
+    var data=await res.json().catch(function(){return null;});
+    var direct=data && data.item ? data.item.value : null;
+    if(Array.isArray(direct)) next=direct;
+    else if(typeof direct==='string'){try{var parsedDirect=JSON.parse(direct); if(Array.isArray(parsedDirect)) next=parsedDirect;}catch(_e){}}
   }catch(e){}
+  if(!next.length){
+    try{
+      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function'){
+        var shared=await window.PKLSupabaseDataSync.getShared(RESULT_MATCHES_KEY);
+        if(Array.isArray(shared)) next=shared;
+        else if(typeof shared==='string'){
+          try{var parsed=JSON.parse(shared); if(Array.isArray(parsed)) next=parsed;}catch(_e){}
+        }
+      }
+    }catch(e){}
+  }
 
   /* 삭제한 회차가 다시 살아나는 원인 제거:
      match_logs는 과거 저장/기록 테이블이라 결과표 회차 원본으로 복구하지 않는다.
@@ -1485,19 +1497,24 @@ async function pklResultFetchMatchesFromServer(){
 }
 function pklResultSharedSet(key,value){
   const text=typeof value==='string'?value:JSON.stringify(value);
-  try{localStorage.setItem(key,text);}catch(_e){}
   try{
     if(String(key)===RESULT_MATCHES_KEY){
       /* 결과표 회차 목록은 shared key 하나로만 관리한다.
-         PKLSupabaseDataSync.setShared(RESULT_MATCHES_KEY)는 match_logs로 저장하는
-         구버전 호환 분기가 있어 관리자 화면에서 과거 회차가 섞일 수 있으므로
-         여기서는 shared API로 직접 저장한다. */
+         저장 실패를 조용히 삼키면 시크릿/내 화면이 갈라지므로 응답을 검증한다. */
       return fetch('/api/pkl-data-store',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
+        cache:'no-store',
         body:JSON.stringify({type:'shared',key:key,value:(typeof value==='string'?JSON.parse(value):value)})
-      }).then(function(res){return res.json().catch(function(){return null;});}).catch(function(){return null;});
+      }).then(function(res){
+        return res.json().catch(function(){return null;}).then(function(data){
+          if(!res.ok || !data || data.ok===false) throw new Error((data&&data.message)||('HTTP '+res.status));
+          try{localStorage.setItem(key,text);}catch(_e){}
+          return data;
+        });
+      }).catch(function(err){console.warn('[PKL RESULT] shared save failed',err);return {ok:false,message:err&&err.message?err.message:String(err)};});
     }
+    try{localStorage.setItem(key,text);}catch(_e){}
     if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function'){
       window.PKLSupabaseDataSync.setShared(key,text);
     }else if(typeof window.saveSharedData==='function'){
@@ -2650,7 +2667,7 @@ function bind(){
 }
 function renderAll(){renderBoard();renderSheet();renderSide();}
 bind();renderAll();
-setTimeout(function(){pklResultFetchMatchesFromServer();},60);
+setTimeout(function(){pklResultFetchMatchesFromServer();},0);
 /* 3차 청소: storage/supabase/user 이벤트 기반 결과표 재렌더 금지.
    결과표는 최초 렌더와 저장/삭제/선택 클릭 흐름에서만 갱신한다.
    자동 user event renderSide가 로컬/메모리 유저와 서버 유저를 섞어 중복 표시를 만들 수 있어 제거. */
@@ -3395,7 +3412,7 @@ window.addEventListener('load', restoreDiscordSession);
   var pendingId=null;
   var pendingAll=false;
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
-  function readLocal(){try{var v=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+  function readLocal(){return [];}
   function getMatches(){
     try{if(typeof window.PKLResultGetMatches==='function') return window.PKLResultGetMatches();}catch(e){}
     try{if(Array.isArray(window.MATCHES)) return window.MATCHES;}catch(e){}
@@ -3403,7 +3420,6 @@ window.addEventListener('load', restoreDiscordSession);
   }
   function setMatches(list, selectId){
     list=Array.isArray(list)?list:[];
-    try{localStorage.setItem(KEY,JSON.stringify(list));}catch(e){}
     try{
       if(typeof window.PKLResultSetMatches==='function'){ window.PKLResultSetMatches(list, selectId); return; }
       window.MATCHES=list;

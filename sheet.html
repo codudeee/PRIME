@@ -11837,20 +11837,38 @@ function pklNextSavedMatchNumber(matches,kind){
   });
   return max+1;
 }
-function pklSaveResultMatches(matches){
+async function pklSaveResultMatches(matches){
   matches=Array.isArray(matches)?matches:[];
+  var result=await pklDirectSharedSet(RESULT_KEY,matches,true);
+  if(!result || result.ok===false){
+    throw new Error((result && result.message) || '결과표 저장 실패');
+  }
   try{localStorage.setItem(RESULT_KEY,JSON.stringify(matches));}catch(e){}
   try{pklBroadcastDataUpdate(RESULT_KEY);}catch(e){}
-  return pklDirectSharedSet(RESULT_KEY,matches);
+  return result;
 }
-function pklDirectSharedSet(key,value){
+function pklDirectSharedSet(key,value,strict){
   try{
     return fetch('/api/pkl-data-store',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
+      cache:'no-store',
       body:JSON.stringify({type:'shared',key:key,value:value})
-    }).then(function(res){return res.json().catch(function(){return null;});}).catch(function(){return null;});
-  }catch(e){return Promise.resolve(null);}
+    }).then(function(res){
+      return res.json().catch(function(){return null;}).then(function(data){
+        if(strict && (!res.ok || !data || data.ok===false)){
+          throw new Error((data && data.message) || ('HTTP '+res.status));
+        }
+        return data;
+      });
+    }).catch(function(err){
+      if(strict) throw err;
+      return {ok:false,message:err&&err.message?err.message:String(err)};
+    });
+  }catch(e){
+    if(strict) return Promise.reject(e);
+    return Promise.resolve({ok:false,message:e&&e.message?e.message:String(e)});
+  }
 }
 function pklDirectMatchSave(match){
   try{
@@ -11894,6 +11912,8 @@ async function pklResetJoinWaitingAfterMatchSave(){
   ]);
 }
 async function pklFetchResultMatches(){
+  /* 결과표 저장 번호/목록은 브라우저 캐시를 보지 않고 서버 원본만 본다.
+     내 화면과 시크릿 화면이 달라지는 원인이 localStorage fallback이었기 때문에 제거한다. */
   try{
     var res=await fetch('/api/pkl-data-store?type=shared&key='+encodeURIComponent(RESULT_KEY)+'&t='+Date.now(),{cache:'no-store'});
     var data=await res.json().catch(function(){return null;});
@@ -11901,7 +11921,6 @@ async function pklFetchResultMatches(){
     if(Array.isArray(value)) return value;
     if(typeof value==='string'){try{var parsed=JSON.parse(value); if(Array.isArray(parsed)) return parsed;}catch(e){}}
   }catch(e){}
-  try{var local=JSON.parse(localStorage.getItem(RESULT_KEY)||'[]'); if(Array.isArray(local)) return local;}catch(e){}
   return [];
 }
 async function saveMatch(kind){
@@ -11978,7 +11997,7 @@ async function saveMatch(kind){
   toast('경기가 결과표에 저장되었습니다.');
   setTimeout(function(){location.href='result.html?v='+Date.now();},650);
 }
-document.addEventListener('click',function(e){var t=e.target;if(!t)return;if(t.closest&&t.closest('[data-pkl-admin-action-close], [data-pkl-match-save-close]')){e.preventDefault();closeAll();return;}if(t.id==='pklAdminFireCancelOpen'){e.preventDefault();renderFireCancel();openModal('pklFireCancelModal');return;}if(t.id==='pklAdminTimeEditOpen'){e.preventDefault();openTime();return;}if(t.id==='pklAdminTimeSave'){e.preventDefault();saveTime();return;}if(t.id==='pklAdminRoundResetOpen'){e.preventDefault();openRoundReset();return;}if(t.id==='pklAdminRoundResetRun'){e.preventDefault();resetRound();return;}if(t.id==='pklAdminMatchSave'){e.preventDefault();openMatchSaveConfirm('league');return;}if(t.id==='pklAdminNormalMatchSave'){e.preventDefault();openMatchSaveConfirm('normal');return;}if(t.id==='pklMatchSaveConfirmRun'){e.preventDefault();var kind=pklPendingMatchSaveKind==='normal'?'normal':undefined;closeAll();saveMatch(kind);return;}if(t.classList&&t.classList.contains('pkl-admin-action-modal'))closeAll();var fire=t.closest&&t.closest('[data-fire-team][data-fire-round]');if(fire){e.preventDefault();removeFire(fire.getAttribute('data-fire-team'),Number(fire.getAttribute('data-fire-round')));renderFireCancel();toast('불판 사용이 취소되었습니다.');setTimeout(function(){location.reload();},260);}},true);
+document.addEventListener('click',function(e){var t=e.target;if(!t)return;if(t.closest&&t.closest('[data-pkl-admin-action-close], [data-pkl-match-save-close]')){e.preventDefault();closeAll();return;}if(t.id==='pklAdminFireCancelOpen'){e.preventDefault();renderFireCancel();openModal('pklFireCancelModal');return;}if(t.id==='pklAdminTimeEditOpen'){e.preventDefault();openTime();return;}if(t.id==='pklAdminTimeSave'){e.preventDefault();saveTime();return;}if(t.id==='pklAdminRoundResetOpen'){e.preventDefault();openRoundReset();return;}if(t.id==='pklAdminRoundResetRun'){e.preventDefault();resetRound();return;}if(t.id==='pklAdminMatchSave'){e.preventDefault();openMatchSaveConfirm('league');return;}if(t.id==='pklAdminNormalMatchSave'){e.preventDefault();openMatchSaveConfirm('normal');return;}if(t.id==='pklMatchSaveConfirmRun'){e.preventDefault();var kind=pklPendingMatchSaveKind==='normal'?'normal':undefined;closeAll();saveMatch(kind).catch(function(err){toast('결과표 저장 실패: '+(err&&err.message?err.message:String(err)));});return;}if(t.classList&&t.classList.contains('pkl-admin-action-modal'))closeAll();var fire=t.closest&&t.closest('[data-fire-team][data-fire-round]');if(fire){e.preventDefault();removeFire(fire.getAttribute('data-fire-team'),Number(fire.getAttribute('data-fire-round')));renderFireCancel();toast('불판 사용이 취소되었습니다.');setTimeout(function(){location.reload();},260);}},true);
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();});
 })();
 </script>
