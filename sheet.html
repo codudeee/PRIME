@@ -6293,7 +6293,33 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 </style>
 
 <style id="pkl-buddy-score-style">
-.score-gauge-team-total{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:#fff;opacity:.9}
+/* PKL 깐부모드 스코어보드: 2팀 공동 목표 게이지 + 각 팀 총점 */
+.team-card.pkl-buddy-score-card .card-score-main{
+  padding-right:76px !important;
+}
+.team-card.pkl-buddy-score-card .score-gauge-text{
+  left:50% !important;
+  right:auto !important;
+  transform:translate(-50%,-50%) !important;
+  text-align:center !important;
+  color:var(--pkl-buddy-color,#fff) !important;
+  text-shadow:0 0 10px color-mix(in srgb, var(--pkl-buddy-color,#fff) 45%, transparent) !important;
+}
+.score-gauge-team-total{
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  min-width:54px;
+  text-align:right;
+  font-size:13px;
+  font-weight:900;
+  color:#fff;
+  opacity:.96;
+  letter-spacing:-.3px;
+  text-shadow:0 0 10px rgba(255,255,255,.20);
+  z-index:3;
+}
 
 </style>
 <style id="pkl-scoreboard-5col-scroll-20260513">
@@ -7545,17 +7571,66 @@ function isGeneratedScoreboardView(view){
   return Boolean(view && Array.isArray(view.members) && view.members.some(member=>String(member && member.name || '').trim()));
 }
 
+function pklIsBuddyScoreMode(){
+  const raw=String(state && (state.pklTeamMode || state.teamMode || state.mode) || '').toLowerCase();
+  return !!(state && (state.pklBuddyMode || raw.includes('partner') || raw.includes('buddy') || raw.includes('깐부')));
+}
+function pklViewTeamNumber(view, fallbackIndex){
+  const m=String(view && (view.id || view.realId || view.viewId) || '').match(/(\d+)/);
+  return m ? Number(m[1]) : Number(fallbackIndex||0)+1;
+}
+function pklBuddyPairIndex(view, fallbackIndex){
+  const direct=Number(view && (view.pklBuddyIndex || view.buddyPair || view.pairIndex));
+  if(Number.isFinite(direct) && direct>0) return direct;
+  return Math.floor((pklViewTeamNumber(view, fallbackIndex)-1)/2)+1;
+}
+function pklBuddyPairColor(pairIndex){
+  const colors=['#7dd3fc','#f0abfc','#86efac','#fde68a','#c4b5fd','#fca5a5','#93c5fd','#fdba74','#67e8f9','#d9f99d'];
+  return colors[Math.max(0,(Number(pairIndex)||1)-1)%colors.length];
+}
 function scoreboardViews(){
-  return visibleTeams().filter(isGeneratedScoreboardView).map((view,idx)=>{
+  const buddyMode=pklIsBuddyScoreMode();
+  const rows=visibleTeams().filter(isGeneratedScoreboardView).map((view,idx)=>{
     const st=calcView(view);
     const target=Number(st.target||0);
-    const rawPercent=target>0 ? Math.round(st.score / target * 100) : (st.score<0 ? -100 : (st.score>0 ? 100 : 0));
-    const percent=Number.isFinite(rawPercent) ? rawPercent : 0;
-    const gauge=Math.max(0, Math.min(100, percent));
-    const isNegativeGauge=(st.score<0 || percent<0);
-    const gaugeSize=isNegativeGauge ? 0 : gauge;
-    return {view, st, target, percent, gauge, gaugeSize, isNegativeGauge, originalIndex:idx};
-  }).sort((a,b)=>
+    const ownRawPercent=target>0 ? Math.round(st.score / target * 100) : (st.score<0 ? -100 : (st.score>0 ? 100 : 0));
+    const ownPercent=Number.isFinite(ownRawPercent) ? ownRawPercent : 0;
+    const ownGauge=Math.max(0, Math.min(100, ownPercent));
+    const isNegativeGauge=(st.score<0 || ownPercent<0);
+    const gaugeSize=isNegativeGauge ? 0 : ownGauge;
+    const pairIndex=buddyMode ? pklBuddyPairIndex(view, idx) : 0;
+    return {view, st, target, percent:ownPercent, gauge:ownGauge, gaugeSize, isNegativeGauge, originalIndex:idx, teamNumber:pklViewTeamNumber(view, idx), pairIndex};
+  });
+  if(buddyMode){
+    const pairMap={};
+    rows.forEach(row=>{
+      const key=String(row.pairIndex||0);
+      if(!pairMap[key]) pairMap[key]={score:0,target:0,pureKills:0};
+      pairMap[key].score+=Number(row.st.score||0);
+      pairMap[key].target+=Number(row.target||0);
+      pairMap[key].pureKills+=Number(row.st.pureKills||0);
+    });
+    rows.forEach(row=>{
+      const pair=pairMap[String(row.pairIndex||0)] || {score:row.st.score,target:row.target,pureKills:row.st.pureKills};
+      const rawPercent=pair.target>0 ? Math.round(pair.score / pair.target * 100) : (pair.score<0 ? -100 : (pair.score>0 ? 100 : 0));
+      const percent=Number.isFinite(rawPercent) ? rawPercent : 0;
+      const gauge=Math.max(0, Math.min(100, percent));
+      row.pairScore=pair.score;
+      row.pairTarget=pair.target;
+      row.pairPercent=percent;
+      row.pairGaugeSize=(pair.score<0 || percent<0)?0:gauge;
+      row.pairNegative=(pair.score<0 || percent<0);
+      row.pairColor=pklBuddyPairColor(row.pairIndex);
+    });
+    return rows.sort((a,b)=>
+      b.pairPercent-a.pairPercent ||
+      b.pairScore-a.pairScore ||
+      a.pairIndex-b.pairIndex ||
+      a.teamNumber-b.teamNumber ||
+      a.originalIndex-b.originalIndex
+    );
+  }
+  return rows.sort((a,b)=>
     b.percent-a.percent ||
     b.st.score-a.st.score ||
     b.st.pureKills-a.st.pureKills ||
@@ -7565,10 +7640,19 @@ function scoreboardViews(){
 
 function renderBoard(){
   const grid=document.getElementById('teamGrid');
-  grid.innerHTML=scoreboardViews().map(({view,st,target,percent,gaugeSize,isNegativeGauge},idx)=>{
-    const negativeScoreClass=isNegativeGauge?' is-negative-score':'';
-    return `<article class="team-card ${view.viewId===selectedTeamId?'active':''} ${isViewSurrendered(view.viewId)?'is-surrendered-team':''} ${isColdView(view.viewId)?'is-cold-team':''}" data-team="${view.viewId}">
-      <div class="card-score-main${negativeScoreClass}" style="--gauge:${gaugeSize}%"><span class="score-gauge-text">${st.score} / ${target} (${percent}%)</span></div>
+  const buddyMode=pklIsBuddyScoreMode();
+  grid.innerHTML=scoreboardViews().map((row,idx)=>{
+    const {view,st,target,percent,gaugeSize,isNegativeGauge}=row;
+    const displayTarget=buddyMode ? Number(row.pairTarget||0) : target;
+    const displayScore=buddyMode ? Number(row.pairScore||0) : Number(st.score||0);
+    const displayPercent=buddyMode ? Number(row.pairPercent||0) : percent;
+    const displayGauge=buddyMode ? Number(row.pairGaugeSize||0) : gaugeSize;
+    const negativeScoreClass=(buddyMode ? row.pairNegative : isNegativeGauge)?' is-negative-score':'';
+    const buddyClass=buddyMode?' pkl-buddy-score-card':'';
+    const buddyStyle=buddyMode?`;--pkl-buddy-color:${row.pairColor}`:'';
+    const teamTotalHtml=buddyMode?`<span class="score-gauge-team-total">${Number(st.score||0)}점</span>`:'';
+    return `<article class="team-card${buddyClass} ${view.viewId===selectedTeamId?'active':''} ${isViewSurrendered(view.viewId)?'is-surrendered-team':''} ${isColdView(view.viewId)?'is-cold-team':''}" data-team="${view.viewId}" data-pkl-buddy-pair="${buddyMode?row.pairIndex:''}">
+      <div class="card-score-main${negativeScoreClass}" style="--gauge:${displayGauge}%${buddyStyle}"><span class="score-gauge-text">${displayScore} / ${displayTarget} (${displayPercent}%)</span>${teamTotalHtml}</div>
       <div class="member-list">
         ${view.members.map((m,i)=>{
           const killScore=Number(st.kills[i]||0);
