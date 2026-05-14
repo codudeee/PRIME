@@ -390,51 +390,59 @@ function visibleTeams(){return (state.teams||[]).slice(0,10).map((t,i)=>({id:t.i
 function chickenScore(round,data){return Number(data.chicken||0)?(String(round.map||'')==='사'?5:8):0;}
 function pklIsNormalMatch(match){return String(match&&match.kind||'').toLowerCase()==='normal'||/일반/.test(String(match&&match.title||''))||/일반/.test(String(match&&match.type||''));}
 function pklSnapshotVisibleTeams(snapshot){const st=snapshot&&typeof snapshot==='object'?snapshot:{};const mode=st.mode||'squad';const teams=Array.isArray(st.teams)?st.teams:[];if(mode==='duo'){const out=[];teams.forEach((t,i)=>{const id=t.id||('team'+(i+1));const mem=Array.isArray(t.members)?t.members:[];out.push({id:id+'a',realId:id,name:(mem[0]&&mem[0].name?mem[0].name:(i+1)+'팀')+' A',offset:0,len:2,members:mem});out.push({id:id+'b',realId:id,name:(mem[2]&&mem[2].name?mem[2].name:(i+1)+'팀')+' B',offset:2,len:2,members:mem});});return out;}return teams.map((t,i)=>({id:t.id||('team'+(i+1)),realId:t.id||('team'+(i+1)),name:t.name||t.teamName||(((i+1)+'팀')),offset:0,len:4,members:Array.isArray(t.members)?t.members:[]}));}
-function pklRowsFromResultMatches(mode){const rows=[];const wantNormal=mode==='normal';(Array.isArray(matches)?matches:[]).forEach(match=>{if(!match)return;const isNormal=pklIsNormalMatch(match);if(wantNormal!==isNormal)return;const snap=match.snapshot&&typeof match.snapshot==='object'?match.snapshot:null;if(!snap)return;const rounds=Array.isArray(snap.rounds)?snap.rounds:[];pklSnapshotVisibleTeams(snap).forEach(team=>{for(let idx=team.offset;idx<team.offset+team.len;idx++){const member=team.members[idx]||{};const name=String(member.name||member.nickname||member.nick||member.displayName||'').trim();if(!name||name==='-')continue;let kills=0,deaths=0,bestRoundKill=0,roundCount=0;rounds.forEach(round=>{const d=(round&&round.teams&&round.teams[team.realId])||{};const rk=Number((Array.isArray(d.kills)?d.kills:[])[idx]||0);const rd=Number((Array.isArray(d.deaths)?d.deaths:[])[idx]||0);kills+=rk;deaths+=rd;bestRoundKill=Math.max(bestRoundKill,rk);roundCount+=1;});rows.push({matchId:match.id,matchTitle:match.title||'PKL 회차',savedAt:match.savedAt||match.date||'',name,teamName:team.name,kills,deaths,bestRoundKill,roundCount,mode:wantNormal?'normal':'paid'});}});});return rows;}
+function pklRowsFromResultMatches(mode){const rows=[];const wantAll=mode==='all';const wantNormal=mode==='normal';(Array.isArray(matches)?matches:[]).forEach(match=>{if(!match)return;const isNormal=pklIsNormalMatch(match);if(!wantAll&&wantNormal!==isNormal)return;const snap=match.snapshot&&typeof match.snapshot==='object'?match.snapshot:null;if(!snap)return;const rounds=Array.isArray(snap.rounds)?snap.rounds:[];pklSnapshotVisibleTeams(snap).forEach(team=>{for(let idx=team.offset;idx<team.offset+team.len;idx++){const member=team.members[idx]||{};const name=String(member.name||member.nickname||member.nick||member.displayName||'').trim();if(!name||name==='-')continue;let kills=0,deaths=0,bestRoundKill=0,roundCount=0;rounds.forEach(round=>{const d=(round&&round.teams&&round.teams[team.realId])||{};const rk=Number((Array.isArray(d.kills)?d.kills:[])[idx]||0);const rd=Number((Array.isArray(d.deaths)?d.deaths:[])[idx]||0);kills+=rk;deaths+=rd;bestRoundKill=Math.max(bestRoundKill,rk);roundCount+=1;});const rowMode=isNormal?'normal':'paid';rows.push({matchId:match.id,matchTitle:match.title||'PKL 회차',savedAt:match.savedAt||match.date||'',name,teamName:team.name,kills,deaths,bestRoundKill,roundCount,mode:rowMode,map:isNormal?'일반':'유료'});}});});return rows;}
 let state=makeDemo();let matches=[];let players=[];let current=null;
 function buildPlayers(){
 const map=new Map();
+function ensurePlayer(name){
+  name=String(name||'').trim();
+  if(!name)return null;
+  const key=norm(name);
+  if(!map.has(key)) map.set(key,{name,teams:new Set(),rows:[],normalRows:[],allRows:[],totalKills:0,totalDeaths:0,bestKill:0,rounds:0,score:0,allTotalKills:0,allTotalDeaths:0,allBestKill:0,allRounds:0,allScore:0});
+  return map.get(key);
+}
+function makeRecord(row,label){
+  const kills=Number(row.kills||0);
+  const deaths=Number(row.deaths||0);
+  return {match:row.matchTitle||label,date:row.savedAt?String(row.savedAt).slice(0,10):'-',team:row.teamName||'-',round:'전체합산',map:row.mode==='normal'?'일반':'유료',kills:kills,deaths:deaths,score:kills-deaths};
+}
 try{
-  const stats=pklRowsFromResultMatches('paid');
-  if(Array.isArray(stats) && stats.length){
-    stats.forEach(row=>{
-      const name=String(row&&row.name||'').trim();
-      if(!name)return;
-      const key=norm(name);
-      if(!map.has(key)) map.set(key,{name,teams:new Set(),rows:[],totalKills:0,totalDeaths:0,bestKill:0,rounds:0,score:0});
-      const p=map.get(key);
-      const kills=Number(row.kills||0);
-      const deaths=Number(row.deaths||0);
-      const score=kills-deaths;
-      p.teams.add(row.teamName||'-');
-      p.rows.push({
-        match:row.matchTitle||'PKL 회차',
-        date:row.savedAt?String(row.savedAt).slice(0,10):'-',
-        team:row.teamName||'-',
-        round:'전체합산',
-        map:'결과표',
-        kills:kills,
-        deaths:deaths,
-        score:score
-      });
-      p.totalKills+=kills;
-      p.totalDeaths+=deaths;
-      p.bestKill=Math.max(p.bestKill,Number(row.bestRoundKill||kills||0));
-      p.rounds+=Number(row.roundCount||1);
-      p.score+=score;
-    });
-    const normalRows=pklRowsFromResultMatches('normal');
-    normalRows.forEach(row=>{
-      const key=norm(row.name);
-      if(!map.has(key)) map.set(key,{name:row.name,teams:new Set(),rows:[],normalRows:[],totalKills:0,totalDeaths:0,bestKill:0,rounds:0,score:0});
-      const p=map.get(key);
-      if(!Array.isArray(p.normalRows)) p.normalRows=[];
-      p.normalRows.push({match:row.matchTitle||'PKL 일반 경기',date:row.savedAt?String(row.savedAt).slice(0,10):'-',team:row.teamName||'-',round:'전체합산',map:'일반',kills:Number(row.kills||0),deaths:Number(row.deaths||0),score:Number(row.kills||0)-Number(row.deaths||0)});
-    });
-    return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),normalRows:Array.isArray(p.normalRows)?p.normalRows:[],avg:p.rounds?(p.totalKills/p.rounds):0})).sort((a,b)=>b.totalKills-a.totalKills||a.name.localeCompare(b.name,'ko'));
+  const paidRows=pklRowsFromResultMatches('paid');
+  const normalRows=pklRowsFromResultMatches('normal');
+  paidRows.forEach(row=>{
+    const p=ensurePlayer(row.name); if(!p)return;
+    const record=makeRecord(row,'PKL 유료 경기');
+    p.teams.add(row.teamName||'-');
+    p.rows.push(record);
+    p.allRows.push(record);
+    p.totalKills+=record.kills;
+    p.totalDeaths+=record.deaths;
+    p.bestKill=Math.max(p.bestKill,Number(row.bestRoundKill||record.kills||0));
+    p.rounds+=Number(row.roundCount||1);
+    p.score+=record.score;
+    p.allTotalKills+=record.kills;
+    p.allTotalDeaths+=record.deaths;
+    p.allBestKill=Math.max(p.allBestKill,Number(row.bestRoundKill||record.kills||0));
+    p.allRounds+=Number(row.roundCount||1);
+    p.allScore+=record.score;
+  });
+  normalRows.forEach(row=>{
+    const p=ensurePlayer(row.name); if(!p)return;
+    const record=makeRecord(row,'PKL 일반 경기');
+    p.teams.add(row.teamName||'-');
+    p.normalRows.push(record);
+    p.allRows.push(record);
+    p.allTotalKills+=record.kills;
+    p.allTotalDeaths+=record.deaths;
+    p.allBestKill=Math.max(p.allBestKill,Number(row.bestRoundKill||record.kills||0));
+    p.allRounds+=Number(row.roundCount||1);
+    p.allScore+=record.score;
+  });
+  if(map.size){
+    return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),normalRows:Array.isArray(p.normalRows)?p.normalRows:[],allRows:Array.isArray(p.allRows)?p.allRows:[],avg:p.rounds?(p.totalKills/p.rounds):0,allAvg:p.allRounds?(p.allTotalKills/p.allRounds):0})).sort((a,b)=>b.totalKills-a.totalKills||b.allTotalKills-a.allTotalKills||a.name.localeCompare(b.name,'ko'));
   }
 }catch(e){console.error(e);}
-const match=matches[0]||DEFAULT_MATCHES[0];visibleTeams().forEach((team,teamIndex)=>{team.members.forEach((member,memberIndex)=>{const name=String(member&&member.name||'').trim();if(!name||name==='-')return;const key=norm(name);if(!map.has(key))map.set(key,{name,teams:new Set(),rows:[],totalKills:0,totalDeaths:0,bestKill:0,rounds:0,score:0});const p=map.get(key);p.teams.add(team.name);(state.rounds||[]).forEach((round,ri)=>{const d=teamData(round,team.id);const kills=Number(d.kills&&d.kills[memberIndex]||0);const deaths=Number(d.deaths&&d.deaths[memberIndex]||0);const score=kills-deaths;p.rows.push({match:match.title||'PKL 회차',date:match.date||'-',team:team.name,round:round.no||ri+1,map:round.map||'-',kills,deaths,score});p.totalKills+=kills;p.totalDeaths+=deaths;p.bestKill=Math.max(p.bestKill,kills);p.rounds+=1;p.score+=score;});});});return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),normalRows:Array.isArray(p.normalRows)?p.normalRows:[],avg:p.rounds?(p.totalKills/p.rounds):0})).sort((a,b)=>b.totalKills-a.totalKills||a.name.localeCompare(b.name,'ko'));}
+const match=matches[0]||DEFAULT_MATCHES[0];visibleTeams().forEach((team,teamIndex)=>{team.members.forEach((member,memberIndex)=>{const name=String(member&&member.name||'').trim();if(!name||name==='-')return;const p=ensurePlayer(name);if(!p)return;p.teams.add(team.name);(state.rounds||[]).forEach((round,ri)=>{const d=teamData(round,team.id);const kills=Number(d.kills&&d.kills[memberIndex]||0);const deaths=Number(d.deaths&&d.deaths[memberIndex]||0);const score=kills-deaths;const record={match:match.title||'PKL 회차',date:match.date||'-',team:team.name,round:round.no||ri+1,map:round.map||'-',kills,deaths,score};p.rows.push(record);p.allRows.push(record);p.totalKills+=kills;p.totalDeaths+=deaths;p.bestKill=Math.max(p.bestKill,kills);p.rounds+=1;p.score+=score;p.allTotalKills+=kills;p.allTotalDeaths+=deaths;p.allBestKill=Math.max(p.allBestKill,kills);p.allRounds+=1;p.allScore+=score;});});});return Array.from(map.values()).map(p=>({...p,teams:Array.from(p.teams),normalRows:Array.isArray(p.normalRows)?p.normalRows:[],allRows:Array.isArray(p.allRows)?p.allRows:[],avg:p.rounds?(p.totalKills/p.rounds):0,allAvg:p.allRounds?(p.allTotalKills/p.allRounds):0})).sort((a,b)=>b.totalKills-a.totalKills||a.name.localeCompare(b.name,'ko'));}
 function pklSearchReadUsers(){if(Array.isArray(window.PKLSupabaseUsers)&&window.PKLSupabaseUsers.length)return window.PKLSupabaseUsers;if(window.PKLUserProfile&&window.PKLUserProfile.users)return window.PKLUserProfile.users();return [];}
 function pklSearchNormName(v){return String(v??'').trim().toLowerCase();}
 function pklSearchUserNames(u){return [u?.nickname,u?.nick,u?.name,u?.displayName,u?.pubgId,u?.gameId,u?.ref,u?.pubgName,u?.playerName,u?.ingameName].map(pklSearchNormName).filter(Boolean);}
@@ -449,10 +457,41 @@ function rowsTableHtml(rows,emptyText){
   rows=Array.isArray(rows)?rows:[];
   return rows.map(r=>`<tr><td>${esc(r.match)}</td><td>${esc(r.date)}</td><td>${esc(r.team)}</td><td>${esc(r.round)}</td><td>${esc(r.map)}</td><td>${Number(r.kills||0)}</td><td>${Number(r.deaths||0)}</td><td>${Number(r.score||0)}</td></tr>`).join('')||`<tr><td colspan="8">${esc(emptyText||'기록이 없습니다.')}</td></tr>`;
 }
-function showTab(tab){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));if(!current)return;const summary=document.getElementById('summaryTab');const paidRows=Array.isArray(current.rows)?current.rows:[];const normalRows=Array.isArray(current.normalRows)?current.normalRows:[];if(tab==='summary'){summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">총 킬</div><div class="stat-value">${current.totalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">참여 라운드</div><div class="stat-value">${current.rounds}</div></div></div><div class="stat-card"><div><div class="stat-label">평균 킬</div><div class="stat-value">${current.avg.toFixed(1)}</div></div></div><div class="stat-card"><div><div class="stat-label">최고 킬</div><div class="stat-value">${current.bestKill}</div></div></div></div><div class="summary-row"><div><div class="mini-label">최근 유료 참여</div><div class="mini-value">${esc((paidRows[0]&&paidRows[0].match)||'-')} ${esc((paidRows[0]&&paidRows[0].date)||'')}</div></div><div><div class="mini-label">유료 팀 이력</div><div class="mini-value">${esc(current.teams.join(' · ')||'-')}</div></div></div>`;document.getElementById('historyNote').textContent=paidRows.length+'개 유료 기록';document.getElementById('historyBody').innerHTML=rowsTableHtml(paidRows,'유료 매치 기록이 없습니다.');}
-else if(tab==='history'){summary.innerHTML=`<div class="summary-row"><div><div class="mini-label">매치 기록</div><div class="mini-value">유료 회차 기준 기록입니다.</div></div><div><div class="mini-label">총 기록</div><div class="mini-value">${paidRows.length}개 기록</div></div></div>`;document.getElementById('historyNote').textContent=paidRows.length+'개 유료 기록';document.getElementById('historyBody').innerHTML=rowsTableHtml(paidRows,'유료 매치 기록이 없습니다.');}
-else if(tab==='normal'){summary.innerHTML=`<div class="summary-row"><div><div class="mini-label">일반 이력</div><div class="mini-value">일반경기 저장분만 따로 표시합니다. 유료 TOP킬러/요약 카운팅에는 반영하지 않습니다.</div></div><div><div class="mini-label">일반 기록</div><div class="mini-value">${normalRows.length}개 기록</div></div></div>`;document.getElementById('historyNote').textContent=normalRows.length+'개 일반 기록';document.getElementById('historyBody').innerHTML=rowsTableHtml(normalRows,'일반 경기 이력이 없습니다.');}
-else if(tab==='detail'){const deathRate=current.rounds?((current.totalDeaths/current.rounds)*100).toFixed(1):'0.0';summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">총 사망</div><div class="stat-value">${current.totalDeaths}</div></div></div><div class="stat-card"><div><div class="stat-label">킬/데스</div><div class="stat-value">${current.totalDeaths?(current.totalKills/current.totalDeaths).toFixed(2):current.totalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">사망률</div><div class="stat-value">${deathRate}%</div></div></div><div class="stat-card"><div><div class="stat-label">순수 점수</div><div class="stat-value">${current.score}</div></div></div></div>`;document.getElementById('historyNote').textContent=paidRows.length+'개 유료 기록';document.getElementById('historyBody').innerHTML=rowsTableHtml(paidRows,'유료 매치 기록이 없습니다.');}}
+function showTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  if(!current)return;
+  const summary=document.getElementById('summaryTab');
+  const paidRows=Array.isArray(current.rows)?current.rows:[];
+  const normalRows=Array.isArray(current.normalRows)?current.normalRows:[];
+  const allRows=Array.isArray(current.allRows)?current.allRows:paidRows.concat(normalRows);
+  const allKills=Number(current.allTotalKills??current.totalKills??0);
+  const allDeaths=Number(current.allTotalDeaths??current.totalDeaths??0);
+  const allRounds=Number(current.allRounds??current.rounds??0);
+  const allBest=Number(current.allBestKill??current.bestKill??0);
+  const allScore=Number(current.allScore??current.score??0);
+  if(tab==='summary'){
+    summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">유료 총 킬</div><div class="stat-value">${current.totalKills}</div></div></div><div class="stat-card"><div><div class="stat-label">유료 참여 라운드</div><div class="stat-value">${current.rounds}</div></div></div><div class="stat-card"><div><div class="stat-label">유료 평균 킬</div><div class="stat-value">${current.avg.toFixed(1)}</div></div></div><div class="stat-card"><div><div class="stat-label">유료 최고 킬</div><div class="stat-value">${current.bestKill}</div></div></div></div><div class="summary-row"><div><div class="mini-label">최근 유료 참여</div><div class="mini-value">${esc((paidRows[0]&&paidRows[0].match)||'-')} ${esc((paidRows[0]&&paidRows[0].date)||'')}</div></div><div><div class="mini-label">유료 팀 이력</div><div class="mini-value">${esc(current.teams.join(' · ')||'-')}</div></div></div>`;
+    document.getElementById('historyNote').textContent=paidRows.length+'개 유료 기록';
+    document.getElementById('historyBody').innerHTML=rowsTableHtml(paidRows,'유료 매치 기록이 없습니다.');
+  }
+  else if(tab==='history'){
+    summary.innerHTML=`<div class="summary-row"><div><div class="mini-label">매치 기록</div><div class="mini-value">무료/유료 포함, 이 유저가 참여한 모든 저장 기록입니다.</div></div><div><div class="mini-label">총 기록</div><div class="mini-value">${allRows.length}개 기록</div></div></div>`;
+    document.getElementById('historyNote').textContent=allRows.length+'개 전체 기록';
+    document.getElementById('historyBody').innerHTML=rowsTableHtml(allRows,'매치 기록이 없습니다.');
+  }
+  else if(tab==='normal'){
+    summary.innerHTML=`<div class="summary-row"><div><div class="mini-label">일반 이력</div><div class="mini-value">일반경기 저장분만 따로 표시합니다. 유료 TOP킬러/요약 카운팅에는 반영하지 않습니다.</div></div><div><div class="mini-label">일반 기록</div><div class="mini-value">${normalRows.length}개 기록</div></div></div>`;
+    document.getElementById('historyNote').textContent=normalRows.length+'개 일반 기록';
+    document.getElementById('historyBody').innerHTML=rowsTableHtml(normalRows,'일반 경기 이력이 없습니다.');
+  }
+  else if(tab==='detail'){
+    const deathRate=allRounds?((allDeaths/allRounds)*100).toFixed(1):'0.0';
+    const kd=allDeaths?(allKills/allDeaths).toFixed(2):allKills;
+    summary.innerHTML=`<div class="stat-grid"><div class="stat-card"><div><div class="stat-label">전체 총 킬</div><div class="stat-value">${allKills}</div></div></div><div class="stat-card"><div><div class="stat-label">전체 총 사망</div><div class="stat-value">${allDeaths}</div></div></div><div class="stat-card"><div><div class="stat-label">전체 킬/데스</div><div class="stat-value">${kd}</div></div></div><div class="stat-card"><div><div class="stat-label">전체 순수 점수</div><div class="stat-value">${allScore}</div></div></div></div><div class="summary-row"><div><div class="mini-label">전체 최고 킬</div><div class="mini-value">${allBest}</div></div><div><div class="mini-label">전체 사망률</div><div class="mini-value">${deathRate}%</div></div></div>`;
+    document.getElementById('historyNote').textContent=allRows.length+'개 전체 기록';
+    document.getElementById('historyBody').innerHTML=rowsTableHtml(allRows,'상세 통계 기록이 없습니다.');
+  }
+}
 function renderPlayer(p){current=p;document.getElementById('emptyState').classList.add('hidden');document.getElementById('resultState').classList.remove('hidden');const pn=document.getElementById('playerName'); if(pn) pn.innerHTML=esc(p.name)+' '+pklSearchTierBadgeHtml(p);document.getElementById('playerTeam').textContent=p.teams[0]||'PKL PLAYER';showTab(document.querySelector('.tab-btn.active')?.dataset.tab||'summary');saveRecent(p.name);}
 function searchPlayer(q){const key=norm(q);if(!key)return;const exact=players.find(p=>norm(p.name)===key);const partial=players.find(p=>norm(p.name).includes(key));const p=exact||partial;if(p){renderPlayer(p);return;}document.getElementById('emptyState').classList.remove('hidden');document.getElementById('resultState').classList.add('hidden');document.getElementById('emptyState').innerHTML='<div><div class="empty-mark">!</div><h3>검색 결과 없음</h3><p>저장된 전적 데이터에서 해당 닉네임을 찾지 못했습니다.</p></div>';document.getElementById('historyNote').textContent='검색 결과 없음';document.getElementById('historyBody').innerHTML='<tr><td colspan="8">검색 결과가 없습니다.</td></tr>';}
 document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault();searchPlayer(document.getElementById('searchInput').value);});
@@ -462,7 +501,7 @@ document.getElementById('tabBar').addEventListener('click',e=>{const btn=e.targe
 async function pklInitSearchRecords(){
   state=await loadState();
   matches=await loadMatches();
-  players=buildPlayers().filter(p=>p&&p.name&&((Array.isArray(p.rows)&&p.rows.length)||(Array.isArray(p.normalRows)&&p.normalRows.length)));
+  players=buildPlayers().filter(p=>p&&p.name&&((Array.isArray(p.rows)&&p.rows.length)||(Array.isArray(p.normalRows)&&p.normalRows.length)||(Array.isArray(p.allRows)&&p.allRows.length)));
   try{
     const realUsers=(window.PKLUserProfile&&window.PKLUserProfile.users)?window.PKLUserProfile.users():[];
     if(Array.isArray(realUsers)&&realUsers.length){
