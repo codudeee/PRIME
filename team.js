@@ -2076,7 +2076,10 @@ function completeTeams() {
     sheetState.fires = sheetState.fires && typeof sheetState.fires === 'object' ? sheetState.fires : {};
     sheetState.startTime = state.matchStartTime || sheetState.startTime || '';
     sheetState.endTime = state.matchEndTime || sheetState.endTime || '';
-    sheetState.updatedFromTeamBoardAt = new Date().toISOString();
+    const exportedAt = new Date().toISOString();
+    sheetState.updatedFromTeamBoardAt = exportedAt;
+    sheetState.savedAt = exportedAt;
+    sheetState.teamImportNonce = Date.now();
     const sheetJson = JSON.stringify(sheetState);
     try { localStorage.setItem(SHEET_STORAGE_KEY, sheetJson); } catch (error) {}
     try { sessionStorage.setItem(SHEET_STORAGE_KEY, sheetJson); } catch (error) {}
