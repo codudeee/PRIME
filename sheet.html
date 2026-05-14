@@ -6573,6 +6573,56 @@ let pklSheetRemoteSaveTimer=null;
 let pklLastLocalSheetEditAt=0;
 let pklDeferredRemoteSheetTimer=null;
 let pklSheetPersistTimer=null;
+let pklSheetLocalDirtyFields=Object.create(null);
+const PKL_SHEET_LOCAL_DIRTY_TTL=6500;
+function pklDirtyPath(parts){return parts.map(function(v){return String(v).replace(/[\.|]/g,'_');}).join('|');}
+function pklMarkSheetDirty(parts){
+  try{pklSheetLocalDirtyFields[pklDirtyPath(parts)]=Date.now();}catch(e){}
+  pklMarkLocalSheetEdit();
+}
+function pklCleanupSheetDirty(now){
+  now=now||Date.now();
+  try{Object.keys(pklSheetLocalDirtyFields).forEach(function(k){if(now-Number(pklSheetLocalDirtyFields[k]||0)>PKL_SHEET_LOCAL_DIRTY_TTL) delete pklSheetLocalDirtyFields[k];});}catch(e){}
+}
+function pklProtectLocalDirtyFields(next){
+  try{
+    if(!next || !Array.isArray(next.rounds) || !Array.isArray(state && state.rounds)) return next;
+    const now=Date.now();
+    const remoteReset=Number(next && next.resetNonce || 0);
+    const localReset=Number(state && state.resetNonce || 0);
+    if(remoteReset && remoteReset>localReset) return next;
+    pklCleanupSheetDirty(now);
+    const keys=Object.keys(pklSheetLocalDirtyFields);
+    if(!keys.length) return next;
+    keys.forEach(function(key){
+      if(now-Number(pklSheetLocalDirtyFields[key]||0)>PKL_SHEET_LOCAL_DIRTY_TTL) return;
+      const parts=key.split('|');
+      if(parts[0]!=='round') return;
+      const ri=Number(parts[1]);
+      const teamId=parts[2];
+      const field=parts[3];
+      if(!Number.isFinite(ri) || !teamId || !field) return;
+      const localRound=state.rounds[ri];
+      if(!localRound) return;
+      if(!next.rounds[ri]) next.rounds[ri]={no:ri+1,map:'',teams:{}};
+      if(field==='map'){ next.rounds[ri].map=localRound.map||''; return; }
+      const localTeam=localRound.teams && localRound.teams[teamId];
+      if(!localTeam) return;
+      if(!next.rounds[ri].teams) next.rounds[ri].teams={};
+      if(!next.rounds[ri].teams[teamId]) next.rounds[ri].teams[teamId]={kills:[0,0,0,0],deaths:[0,0,0,0],chicken:false,stop:0};
+      const remoteTeam=next.rounds[ri].teams[teamId];
+      if(field==='kills' || field==='deaths'){
+        const mi=Number(parts[4]);
+        if(!Array.isArray(remoteTeam[field])) remoteTeam[field]=[0,0,0,0];
+        if(Array.isArray(localTeam[field]) && Number.isFinite(mi)) remoteTeam[field][mi]=Number(localTeam[field][mi]||0);
+        return;
+      }
+      if(field==='chicken'){ remoteTeam.chicken=!!localTeam.chicken; return; }
+      if(field==='stop'){ remoteTeam.stop=Number(localTeam.stop||0); return; }
+    });
+  }catch(e){}
+  return next;
+}
 
 function pklSheetHasMeaningfulState(st){
   if(!st || typeof st!=='object') return false;
@@ -8875,7 +8925,10 @@ document.addEventListener('change',e=>{
       const view=currentView();
       if(!pklCanEditRound(view, roundIndex)){ render(); return; }
       state.rounds[roundIndex].map=e.target.value;
+      pklMarkSheetDirty(['round', roundIndex, realTeamId(view.viewId), 'map']);
       render();
+      try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(20);}catch(e){}
+      save();
       return;
     }
     pklCommitScoreInput(e.target,{immediate:true});
@@ -8891,10 +8944,10 @@ function pklCommitScoreInput(target, options){
   const view=currentView();
   if(!pklCanEditRound(view, roundIndex)){ render(); return true; }
   const r=state.rounds[roundIndex], realId=realTeamId(view.viewId), d=teamData(r,realId);
-  if(field==='kill') d.kills[Number(target.dataset.member)]=Number(target.value||0);
-  if(field==='death') d.deaths[Number(target.dataset.member)]=target.type==='checkbox'?(target.checked?1:0):Number(target.value||0);
-  if(field==='chicken') d.chicken=target.type==='checkbox'?!!target.checked:!!Number(target.value||0);
-  if(field==='stop') d.stop=Number(target.value||0);
+  if(field==='kill') { const mi=Number(target.dataset.member); d.kills[mi]=Number(target.value||0); pklMarkSheetDirty(['round', roundIndex, realId, 'kills', mi]); }
+  if(field==='death') { const mi=Number(target.dataset.member); d.deaths[mi]=target.type==='checkbox'?(target.checked?1:0):Number(target.value||0); pklMarkSheetDirty(['round', roundIndex, realId, 'deaths', mi]); }
+  if(field==='chicken') { d.chicken=target.type==='checkbox'?!!target.checked:!!Number(target.value||0); pklMarkSheetDirty(['round', roundIndex, realId, 'chicken']); }
+  if(field==='stop') { d.stop=Number(target.value||0); pklMarkSheetDirty(['round', roundIndex, realId, 'stop']); }
   checkAutoEvents(roundIndex, realId);
   pklUpdateRecordRowTotal(target.closest('tr'), roundIndex, view, realId);
   if(options && options.immediate){
@@ -8968,6 +9021,8 @@ window.PKLSheetLiveBridge={
       const localTeamImportNonce=Number(state && state.teamImportNonce || 0);
       const isNewServerTeamImport=!!(remoteTeamImportNonce && remoteTeamImportNonce>localTeamImportNonce);
       // 최신 원격 상태는 체크 해제/점수 삭제처럼 값이 줄어드는 변경도 즉시 적용한다.
+      // 단, 내가 방금 입력한 row는 오래된 원격 snapshot이 다시 덮지 못하게 보호한다.
+      next=pklProtectLocalDirtyFields(next);
       // 오래된 reset/빈 시트 차단은 pklShouldIgnoreStaleRemoteReset / resetNonce 보호 로직에서 처리한다.
       next.rounds.forEach(function(r){
         Object.keys((r&&r.teams)||{}).forEach(function(k){
@@ -9016,6 +9071,8 @@ function pklApplySupabaseSheetStateOnce(){
     const localActivity=pklSheetScoreActivityCount(state);
     const remoteActivity=pklSheetScoreActivityCount(next);
     // 최신 원격 상태는 체크 해제/점수 삭제처럼 값이 줄어드는 변경도 즉시 적용한다.
+    // 단, 내가 방금 입력한 row는 오래된 원격 snapshot이 다시 덮지 못하게 보호한다.
+    pklProtectLocalDirtyFields(next);
     // 오래된 reset/빈 시트 차단은 별도 resetNonce/시간 보호 로직에서 처리한다.
     if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localMeaningful && !remoteMeaningful && remoteReset<=localReset){
       return false;
