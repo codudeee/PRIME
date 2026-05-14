@@ -6678,26 +6678,15 @@ function pklReadStoredSheetState(key, storage){
     return pklNormalizeLoadedSheetState(saved);
   }catch(e){return null;}
 }
-function pklActiveSheetResetNonce(){
-  try{
-    const lock = window.__PKL_RESET_LOCK || JSON.parse(localStorage.getItem('PKL_SHEET_RESET_LOCK_V2') || 'null');
-    if(!lock || Date.now() > Number(lock.until || 0)) return 0;
-    return Number(lock.nonce || 0) || 0;
-  }catch(e){ return 0; }
-}
-function pklEmptySheetStateAfterReset(nonce){
-  return {mode:'squad',selectedTeamId:'team1',teams:baseTeams,rounds:Array.from({length:30},(_,i)=>makeRound(i+1)),feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},itemHistory:[],startTime:'',endTime:'',resetNonce:Number(nonce||Date.now()),savedAt:new Date().toISOString()};
-}
 function pklRecentTeamImportState(){
   const imports=[];
   try{ imports.push(pklReadStoredSheetState(TEAM_IMPORT_KEY, sessionStorage)); }catch(e){}
   try{ imports.push(pklReadStoredSheetState(TEAM_IMPORT_KEY, localStorage)); }catch(e){}
   const now=Date.now();
-  const resetNonce=pklActiveSheetResetNonce();
   return imports.filter(Boolean).filter(st=>{
     const nonce=Number(st.teamImportNonce||0);
     const t=nonce || pklSheetTime(st);
-    return pklSheetFilledMemberCount(st)>0 && t && now - t < 10*60*1000 && (!resetNonce || t > resetNonce);
+    return pklSheetFilledMemberCount(st)>0 && t && now - t < 10*60*1000;
   }).sort((a,b)=>(Number(b.teamImportNonce||0)||pklSheetTime(b))-(Number(a.teamImportNonce||0)||pklSheetTime(a)))[0] || null;
 }
 function pklActivateTeamImportLock(importState){
@@ -6725,11 +6714,6 @@ function load(){
   if(importState){
     pklActivateTeamImportLock(importState);
     return importState;
-  }
-  const resetNonce=pklActiveSheetResetNonce();
-  if(resetNonce){
-    try{ sessionStorage.removeItem(TEAM_IMPORT_KEY); localStorage.removeItem(TEAM_IMPORT_KEY); }catch(e){}
-    return pklEmptySheetStateAfterReset(resetNonce);
   }
   const candidates=[];
   try{ candidates.push(pklReadStoredSheetState(SHEET_SESSION_BACKUP_KEY, sessionStorage)); }catch(e){}
@@ -7581,10 +7565,22 @@ function scoreboardViews(){
 
 function renderBoard(){
   const grid=document.getElementById('teamGrid');
+  const buddyPalette=['#ff7aa2','#7ab6ff','#9d7aff','#7affc8','#ffd36f'];
   grid.innerHTML=scoreboardViews().map(({view,st,target,percent,gaugeSize,isNegativeGauge},idx)=>{
     const negativeScoreClass=isNegativeGauge?' is-negative-score':'';
+    const buddyMode=!!view.pklBuddyMode;
+    const buddyIndex=Math.max(1,Number(view.pklBuddyIndex||0));
+    const buddyColor=buddyPalette[(buddyIndex-1)%buddyPalette.length];
+    let buddyTarget=target;
+    if(buddyMode){
+      const pairViews=scoreboardViews().filter(v=>Number(v.view.pklBuddyIndex||0)===buddyIndex);
+      buddyTarget=pairViews.reduce((sum,v)=>sum+Number(v.target||0),0);
+    }
     return `<article class="team-card ${view.viewId===selectedTeamId?'active':''} ${isViewSurrendered(view.viewId)?'is-surrendered-team':''} ${isColdView(view.viewId)?'is-cold-team':''}" data-team="${view.viewId}">
-      <div class="card-score-main${negativeScoreClass}" style="--gauge:${gaugeSize}%"><span class="score-gauge-text">${st.score} / ${target} (${percent}%)</span></div>
+      <div class="card-score-main${negativeScoreClass}" style="--gauge:${gaugeSize}%">
+        <span class="score-gauge-text" ${buddyMode?`style="color:${buddyColor}"`:''}>${st.score} / ${buddyTarget} (${percent}%)</span>
+        ${buddyMode?`<span class="score-gauge-team-total">TEAM ${st.score}</span>`:''}
+      </div>
       <div class="member-list">
         ${view.members.map((m,i)=>{
           const killScore=Number(st.kills[i]||0);
@@ -7592,7 +7588,8 @@ function renderBoard(){
           const memberScore=killScore-deathScore;
           const canDrag=pklIsSheetStaff();
           const dragAttrs=canDrag ? ` draggable="true" data-pkl-member-drag="1" data-real-team="${realTeamId(view.viewId)}" data-member-index="${(view.memberOffset||0)+i}" title="관리자/운영자 드래그 이동"` : '';
-          return `<div class="member-row ${canDrag?'pkl-member-draggable':''}"${dragAttrs}><span class="member-name">${m.name ? escape(m.name) : '&nbsp;'}</span><span class="member-kd">${memberScore} (${killScore}/${deathScore})</span></div>`;
+          const buddyStyle=(view.pklBuddyMode&&view.pklBuddyIndex)?`style="color:${buddyColor}"`:'';
+          return `<div class="member-row ${canDrag?'pkl-member-draggable':''}"${dragAttrs}><span class="member-name">${m.name ? escape(m.name) : '&nbsp;'}</span><span class="member-kd" ${buddyStyle}>${memberScore} (${killScore}/${deathScore})</span></div>`;
         }).join('')}
         <div class="member-row team-extra-row"><span class="member-name">🍗 ${st.chicken}</span><span class="member-kd">⛔ ${st.stop}</span></div>
       </div>
@@ -11153,12 +11150,8 @@ document.addEventListener("DOMContentLoaded", function(){
   'use strict';
 
   var SHEET_STORAGE_KEY = 'PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
-  var TEAM_IMPORT_KEY = 'PKL_TEAM_TO_SHEET_IMPORT_V1';
-  var RESET_LOCK_KEY = 'PKL_SHEET_RESET_LOCK_V2';
   var SHEET_EXTRA_KEYS = [
     SHEET_STORAGE_KEY,
-    SHEET_STORAGE_KEY + '_SESSION_BACKUP',
-    TEAM_IMPORT_KEY,
     'pklSideListItems',
     'pklSideList',
     'pklSideBets',
@@ -11195,10 +11188,9 @@ document.addEventListener("DOMContentLoaded", function(){
       var remove=[];
       for(var i=0;i<localStorage.length;i++){
         var key=localStorage.key(i);
-        if(key && /match[_-]?sheet|sheet[_-]?live|side[_-]?list|side[_-]?bet|team_to_sheet_import/i.test(key)) remove.push(key);
+        if(key && /match[_-]?sheet|sheet[_-]?live|side[_-]?list|side[_-]?bet/i.test(key)) remove.push(key);
       }
       remove.forEach(function(key){ localStorage.removeItem(key); });
-      sessionStorage.removeItem(TEAM_IMPORT_KEY);
     }catch(e){}
   }
   async function performReset(){
@@ -11209,7 +11201,7 @@ document.addEventListener("DOMContentLoaded", function(){
     var nonce=Date.now();
     try{
       window.__PKL_RESET_LOCK={nonce:nonce,until:Date.now()+600000};
-      localStorage.setItem(RESET_LOCK_KEY, JSON.stringify(window.__PKL_RESET_LOCK));
+      localStorage.setItem('PKL_SHEET_RESET_LOCK_V2', JSON.stringify(window.__PKL_RESET_LOCK));
     }catch(e){}
     clearSheetStorage();
     try{
@@ -12092,13 +12084,6 @@ async function saveMatch(kind){
   st.endTime='';
   st.resetNonce=Date.now();
   st.savedAt=new Date().toISOString();
-  try{
-    window.__PKL_RESET_LOCK={nonce:st.resetNonce,until:Date.now()+600000};
-    localStorage.setItem('PKL_SHEET_RESET_LOCK_V2', JSON.stringify(window.__PKL_RESET_LOCK));
-    sessionStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
-    localStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
-    sessionStorage.removeItem(SHEET_KEY + '_SESSION_BACKUP');
-  }catch(e){}
 
   /* 경기저장 성공 후에는 새 경기용 빈 시트만 남긴다.
      결과표 저장/JOIN 초기화가 끝나기 전에 지우지 않고, 성공 이후에만
@@ -12122,8 +12107,6 @@ async function saveMatch(kind){
     localStorage.removeItem('PKL_SURRENDER_CONSENT_STORE_V1');
     localStorage.removeItem('PKL_FIRE_CONSENT_STORE_V1');
     localStorage.removeItem('pklColdTeamModalShown.v1');
-    localStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
-    sessionStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
     sessionStorage.removeItem('PKL_SURRENDER_CONSENT_STORE_V1');
     sessionStorage.removeItem('PKL_FIRE_CONSENT_STORE_V1');
   }catch(e){}
