@@ -1456,23 +1456,29 @@ function pklResultLoadMatches(){
 }
 async function pklResultFetchMatchesFromServer(){
   var next=[];
+  var directFound=false;
   /* 결과표 렌더 지연/화면 차이 원인 제거:
      PKLSupabaseDataSync 준비를 기다리지 않고 shared API를 직접 먼저 읽는다.
-     localStorage fallback은 쓰지 않는다. */
+     localStorage fallback은 쓰지 않는다.
+     중요: shared 원본이 []이면 '삭제 완료' 상태이므로, 오래된 sync/cache로 fallback하지 않는다. */
   try{
     var res=await fetch('/api/pkl-data-store?type=shared&key='+encodeURIComponent(RESULT_MATCHES_KEY)+'&t='+Date.now(),{cache:'no-store'});
     var data=await res.json().catch(function(){return null;});
-    var direct=data && data.item ? data.item.value : null;
-    if(Array.isArray(direct)) next=direct;
-    else if(typeof direct==='string'){try{var parsedDirect=JSON.parse(direct); if(Array.isArray(parsedDirect)) next=parsedDirect;}catch(_e){}}
+    if(data && data.item && Object.prototype.hasOwnProperty.call(data.item,'value')){
+      directFound=true;
+      var direct=data.item.value;
+      if(Array.isArray(direct)) next=direct;
+      else if(typeof direct==='string'){try{var parsedDirect=JSON.parse(direct); if(Array.isArray(parsedDirect)) next=parsedDirect;}catch(_e){ next=[]; }}
+      else next=[];
+    }
   }catch(e){}
-  if(!next.length){
+  if(!directFound){
     try{
       if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared==='function'){
         var shared=await window.PKLSupabaseDataSync.getShared(RESULT_MATCHES_KEY);
-        if(Array.isArray(shared)) next=shared;
+        if(Array.isArray(shared)){ next=shared; directFound=true; }
         else if(typeof shared==='string'){
-          try{var parsed=JSON.parse(shared); if(Array.isArray(parsed)) next=parsed;}catch(_e){}
+          try{var parsed=JSON.parse(shared); if(Array.isArray(parsed)){ next=parsed; directFound=true; }}catch(_e){}
         }
       }
     }catch(e){}
@@ -1616,13 +1622,27 @@ function pklResultRoundNo(m){
   if(mm) return Number(mm[1]);
   return 999999;
 }
+function pklResultModeLabelFromMatch(m){
+  const snap=(m&&m.snapshot)||{};
+  const rawTitle=String((m&&m.title)||'');
+  const titleMode=rawTitle.match(/회차\s+(.+?)(?:\s*-\s*(?:일반|무료|유료))?$/);
+  if(titleMode && titleMode[1] && !/^경기$/.test(titleMode[1].trim())) return titleMode[1].trim();
+  const raw=String((snap&&snap.pklTeamMode)||'').trim();
+  const buddy=!!(snap&&snap.pklBuddyMode);
+  const slots=Number(snap&&snap.pklTeamSlots)||0;
+  const teams=Number(snap&&snap.pklTeamCount)||0;
+  if(raw==='squadPartner20' || (/squad/i.test(raw) && /partner|buddy/i.test(raw)) || (buddy && slots>=4)) return '스쿼드 깐부';
+  if(raw==='duoPartner20' || (/duo/i.test(raw) && /partner|buddy/i.test(raw)) || (buddy && slots===2)) return '듀오 깐부';
+  if(raw==='duo20' || /duo/i.test(raw) || slots===2 || teams>=30) return '듀오';
+  return '스쿼드';
+}
 function pklResultCleanMatchTitle(m){
   if(!m) return 'PKL 회차';
   const n=pklResultRoundNo(m);
   const raw=String(m.title||'').trim();
   if(Number.isFinite(n) && n>0 && n<999999){
     const suffix=/무료|일반/.test(raw)||String(m.kind||'')==='normal' ? ' - 일반' : '';
-    return 'PKL '+n+'회차'+suffix;
+    return 'PKL '+n+'회차 '+pklResultModeLabelFromMatch(m)+suffix;
   }
   return raw && !/^match[_\-]?\d{8,}$/i.test(raw) ? raw : 'PKL 회차';
 }
@@ -2515,18 +2535,27 @@ async function deleteAllResultAdminMatches(){
   if(!pklResultIsStaff()){ pklResultPermissionToast('접근 제한: 관리자/운영자만 사용 가능합니다.'); return; }
   const ids=(Array.isArray(MATCHES)?MATCHES:[]).map(m=>m&&m.id).filter(Boolean);
   MATCHES=[];
+  window.MATCHES=MATCHES;
   pklDeleteAllMatchLinkedData(ids);
   adminEditingMatchId=null;
   selectedMatchId='';
+  window.selectedMatchId='';
   pendingDeleteMatchId=null;
   pendingDeleteAllMatches=false;
-  try{localStorage.removeItem(RESULT_MATCHES_KEY);}catch(_e){}
-  await pklResultSharedSet(RESULT_MATCHES_KEY,[]);
+  try{localStorage.setItem(RESULT_MATCHES_KEY,'[]');}catch(_e){}
+  try{sessionStorage.setItem(RESULT_MATCHES_KEY,'[]');}catch(_e){}
+  const saved=await pklResultSharedSet(RESULT_MATCHES_KEY,[]);
+  if(saved && saved.ok===false){
+    pklResultPermissionToast('전체 삭제 저장 실패: '+(saved.message||''));
+    return;
+  }
   closeResultDeleteConfirm();
+  pklResultApplySelectedMatchState();
   renderAll();
   renderResultAdminModal();
   pklResultPermissionToast('모든 회차가 삭제되었습니다.');
 }
+window.deleteAllResultAdminMatches=deleteAllResultAdminMatches;
 
 let pendingDeleteMatchId=null;
 let pendingDeleteAllMatches=false;
@@ -3428,11 +3457,13 @@ window.addEventListener('load', restoreDiscordSession);
   }
   function setMatches(list, selectId){
     list=Array.isArray(list)?list:[];
+    try{localStorage.setItem(KEY,JSON.stringify(list));}catch(_e){}
+    try{sessionStorage.setItem(KEY,JSON.stringify(list));}catch(_e2){}
     try{
       if(typeof window.PKLResultSetMatches==='function'){ window.PKLResultSetMatches(list, selectId); return; }
       window.MATCHES=list;
       if(typeof window.pklResultSharedSet==='function') window.pklResultSharedSet(KEY,list);
-      else fetch('/api/pkl-data-store',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'shared',key:KEY,value:list})}).catch(function(){});
+      else fetch('/api/pkl-data-store',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({type:'shared',key:KEY,value:list})}).catch(function(){});
     }catch(e){}
   }
   function sort(list){
@@ -3496,7 +3527,10 @@ window.addEventListener('load', restoreDiscordSession);
   function closeConfirm(){var modal=document.getElementById('resultDeleteConfirmModal'); if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');modal.style.display='none';} pendingAll=false; pendingId=null;}
   function deleteSelected(){
     var list=getMatches();
-    if(pendingAll){setMatches([]);closeConfirm();refreshPage();return;}
+    if(pendingAll){
+      if(typeof window.deleteAllResultAdminMatches==='function'){ window.deleteAllResultAdminMatches(); closeConfirm(); return; }
+      setMatches([]);closeConfirm();refreshPage();return;
+    }
     var id=pendingId||currentId(); if(!id) return;
     setMatches(list.filter(function(m){return String(m&&m.id)!==String(id);}));
     closeConfirm();refreshPage();
