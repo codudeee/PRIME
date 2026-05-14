@@ -114,7 +114,7 @@ button{cursor:pointer}
 .team-foot{height:42px;border-top:1px solid rgba(255,255,255,.075);display:flex;align-items:center;justify-content:center;gap:18px;font-size:20px;font-weight:1000;color:#fff;white-space:nowrap;}
 .foot-stat{display:inline-flex;align-items:center;justify-content:center;gap:5px;color:#fff;}
 .foot-stat b{font-size:20px;color:#fff;font-weight:1000;}
-.foot-stat.chicken:before{content:"🍗";font-size:19px;line-height:1}.foot-stat.stop:before{content:"⛔";font-size:17px;line-height:1}.foot-stat.cold:before{content:"❄";font-size:18px;line-height:1;color:#baf4ff}
+.foot-stat.chicken:before{content:"🍗";font-size:19px;line-height:1}.foot-stat.stop:before{content:"⛔";font-size:17px;line-height:1}
 
 .sheet-panel{display:block;}
 .sheet-toggle{width:100%;height:54px;border:0;background:linear-gradient(90deg,rgba(155,92,255,.18),rgba(255,255,255,.012),transparent);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:23px;font-weight:1000;font-style:italic;text-shadow:0 0 15px rgba(155,92,255,.50)}
@@ -1292,6 +1292,10 @@ button{cursor:pointer}
 
 
 <link rel="stylesheet" href="./pkl-horizontal-scroll-only.css?v=20260513-scroll-only">
+
+<style id="pkl-result-remove-cold-column-final">
+.team-foot .foot-stat.cold{display:none!important;}
+</style>
 </head>
 <body>
 
@@ -1669,16 +1673,16 @@ function pklResultSanitizeIncomingMatches(list){
   const out=Array.from(byKey.values());
   return out.sort(function(a,b){
     const an=pklResultRoundNo(a), bn=pklResultRoundNo(b);
-    if(an!==bn) return an-bn;
-    return String(a.savedAt||a.id||'').localeCompare(String(b.savedAt||b.id||''),'ko');
+    if(an!==bn) return bn-an;
+    return String(b.savedAt||b.id||'').localeCompare(String(a.savedAt||a.id||''),'ko');
   });
 }
 function pklResultSortMatches(){
   if(!Array.isArray(MATCHES)) MATCHES=[];
   MATCHES=pklResultSanitizeIncomingMatches(MATCHES).sort(function(a,b){
     const an=pklResultRoundNo(a), bn=pklResultRoundNo(b);
-    if(an!==bn) return an-bn;
-    return String(a.savedAt||a.id||'').localeCompare(String(b.savedAt||b.id||''),'ko');
+    if(an!==bn) return bn-an;
+    return String(b.savedAt||b.id||'').localeCompare(String(a.savedAt||a.id||''),'ko');
   });
 }
 function pklResultNextRoundNumber(){
@@ -1986,7 +1990,7 @@ function renderBoard(){
           return `<div class="member-row has-name">${nameHtml}<span class="member-kd">${scoreText}</span></div>`;
         }).join('')}
       </div>
-      <div class="team-foot"><span class="foot-stat chicken"><b>${st.chicken}</b></span><span class="foot-stat stop"><b>${st.stop}</b></span><span class="foot-stat cold"><b>0</b></span></div>
+      <div class="team-foot"><span class="foot-stat chicken"><b>${st.chicken}</b></span><span class="foot-stat stop"><b>${st.stop}</b></span></div>
     </article>`;
   }).join('');
 }
