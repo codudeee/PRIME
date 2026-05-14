@@ -105,7 +105,7 @@ function createUser(discordUser, nickname, saved){
     uid: saved?.uid || discordUser.uid,
     id: saved?.id || discordUser.id,
     discordId: discordUser.discordId,
-    nickname: finalNickname,
+    nickname: normalizeNickname( finalNickname,
     nick: finalNickname,
     name: finalNickname,
     displayName: finalNickname,
@@ -173,7 +173,7 @@ function goHome(){location.replace("/index.html");}
 if(payload.existingUser){syncLocal(payload.existingUser);goHome();return;}
 var loading=document.getElementById("pklLoading"),form=document.getElementById("pklNickForm"),input=document.getElementById("pklNickname"),pubgInput=document.getElementById("pklPubgId"),error=document.getElementById("pklNickError");
 if(loading)loading.className+=" hide";if(form)form.className+=" show";if(input){input.value="";setTimeout(function(){input.focus();},50);}
-form.addEventListener("submit",async function(e){e.preventDefault();var nickname=normalizeNickname(input.value);var pubgId=normalizePubgId(pubgInput&&pubgInput.value);if(!isKoreanNickname(nickname)){error.textContent="닉네임은 한글만 사용해서 1~4글자로 입력해주세요.";input.focus();return;}if(!isValidPubgId(pubgId)){error.textContent="배그 ID는 영문, 숫자, -, _ 만 사용할 수 있습니다.";(pubgInput||input).focus();return;}error.textContent="";try{var res=await fetch("/api/pkl-register-user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({discordUser:payload.discordUser,nickname:nickname,pubgId:pubgId})});var data=await res.json();if(!res.ok||!data.ok){error.textContent=data.message||"닉네임 설정에 실패했습니다.";input.focus();return;}syncLocal(data.user);goHome();}catch(err){error.textContent="가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.";input.focus();}});
+form.addEventListener("submit",async function(e){e.preventDefault();var nickname=normalizeNickname(input.value);var pubgId=normalizePubgId(pubgInput&&pubgInput.value);if(!isKoreanNickname(nickname)){error.textContent="닉네임은 한글만 사용해서 1~4글자로 입력해주세요.";input.focus();return;}if(!isValidPubgId(pubgId)){error.textContent="배그 ID는 영문, 숫자, -, _ 만 사용할 수 있습니다.";(pubgInput||input).focus();return;}error.textContent="";try{var res=await fetch("/api/pkl-register-user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({discordUser:payload.discordUser,nickname: normalizeNickname(nickname,pubgId:pubgId})});var data=await res.json();if(!res.ok||!data.ok){error.textContent=data.message||"닉네임 설정에 실패했습니다.";input.focus();return;}syncLocal(data.user);goHome();}catch(err){error.textContent="가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.";input.focus();}});
 })();</script></body></html>`;
 }
 
@@ -207,7 +207,7 @@ exports.handler = async function(event) {
   if (!meRes.ok) return { statusCode: 502, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" }, body: `Discord 사용자 정보 요청 실패: ${escapeHtml(await meRes.text())}` };
   const me = await meRes.json();
   const displayName = me.global_name || me.username || `discord_${me.id}`;
-  const discordUser = { uid:`discord-${me.id}`, id:`discord-${me.id}`, discordId:me.id, discordUsername:me.username||"", discordGlobalName:me.global_name||"", email:me.email||"", avatar:me.avatar?`https://cdn.discordapp.com/avatars/${me.id}/${me.avatar}.png`:"", nickname:displayName, nick:displayName, name:displayName, displayName, pubgId:displayName, provider:"discord", authType:"discord", join:new Date().toLocaleString("ko-KR"), last:new Date().toLocaleString("ko-KR") };
+  const discordUser = { uid:`discord-${me.id}`, id:`discord-${me.id}`, discordId:me.id, discordUsername:me.username||"", discordGlobalName:me.global_name||"", email:me.email||"", avatar:me.avatar?`https://cdn.discordapp.com/avatars/${me.id}/${me.avatar}.png`:"", nickname: normalizeNickname(displayName, nick:displayName, name:displayName, displayName, pubgId:displayName, provider:"discord", authType:"discord", join:new Date().toLocaleString("ko-KR"), last:new Date().toLocaleString("ko-KR") };
 
   if (await isBlockedByBanRecords(discordUser)) {
     return { statusCode: 403, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store", "Set-Cookie": "pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" }, body: oauthErrorHtml("가입 제한", "추방 기록이 있는 계정은 회원가입할 수 없습니다. 운영진에게 문의해주세요.", { Discord: displayName, Reason: "banRecords" }) };

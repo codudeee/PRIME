@@ -26,7 +26,7 @@ function buildApprovedUser(discordUser,nickname,pubgId,old){
     uid: old?.uid || discordUser?.uid || (discordUser?.discordId ? `discord-${discordUser.discordId}` : `discord-${Date.now()}`),
     id: old?.id || discordUser?.id || (discordUser?.discordId ? `discord-${discordUser.discordId}` : `discord-${Date.now()}`),
     discordId: discordUser?.discordId || old?.discordId || "",
-    nickname:nick,
+    nickname: normalizeNickname(nick,
     nick:nick,
     name:nick,
     displayName:nick,
@@ -84,7 +84,7 @@ async function handler(req,res){
       serverUsers = list.filter(u => !!explicitDiscordId(u));
     }catch(e){ serverUsers = []; }
     const allUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(serverUsers) : serverUsers;
-    const banSeed = Object.assign({}, discordUser, {nickname:nickname, pubgId:pubgId, gameId:pubgId, ref:pubgId});
+    const banSeed = Object.assign({}, discordUser, {nickname: normalizeNickname(nickname, pubgId:pubgId, gameId:pubgId, ref:pubgId});
     let blocked=false;
     try{ if(supabaseStore&&typeof supabaseStore.hasActiveBanRecord==='function') blocked=await supabaseStore.hasActiveBanRecord(banSeed); }catch(e){ blocked=false; }
     if(!blocked){ const activeBans = await readActiveBans(); blocked=activeBans.some(b=>sameAnyUser(b, banSeed)); }
