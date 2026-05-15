@@ -1322,7 +1322,7 @@ button{cursor:pointer}
 </style>
 
 
-<link rel="stylesheet" href="./pkl-horizontal-scroll-only.css?v=20260513-scroll-only">
+<link rel="stylesheet" href="./pkl-horizontal-scroll-only.css?v=20260515-hscroll-final">
 
 <style id="pkl-result-remove-cold-column-final">
 .team-foot .foot-stat.cold{display:none!important;}
@@ -1526,7 +1526,7 @@ async function pklResultFetchMatchesFromServer(){
       await pklResultSharedSet(RESULT_MATCHES_KEY,MATCHES);
     }
   }catch(_cleanSave){}
-  /* result rounds are server-only; do not mirror to localStorage. */
+  try{localStorage.setItem(RESULT_MATCHES_KEY,JSON.stringify(MATCHES));}catch(e){}
   if(!MATCHES.find(function(m){return String(m&&m.id)===String(selectedMatchId);})) {
     selectedMatchId=(MATCHES[0]&&MATCHES[0].id)||'';
   }
@@ -1550,6 +1550,7 @@ function pklResultSharedSet(key,value){
       }).then(function(res){
         return res.json().catch(function(){return null;}).then(function(data){
           if(!res.ok || !data || data.ok===false) throw new Error((data&&data.message)||('HTTP '+res.status));
+          try{localStorage.setItem(key,text);}catch(_e){}
           return data;
         });
       }).catch(function(err){console.warn('[PKL RESULT] shared save failed',err);return {ok:false,message:err&&err.message?err.message:String(err)};});
@@ -1607,18 +1608,23 @@ function makeEmptyState(){
   return {mode:'squad',selectedTeamId:'',teams:[],rounds:[],feeds:[],sideBets:[],surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''};
 }
 function loadState(){
-  /* Result page must not restore the current sheet from this browser.
-     If a saved round has no snapshot, show an empty state instead of using
-     localStorage from the live sheet; otherwise users/admins can see different
-     results and deleted/old sheet data can appear again. */
+  const raw=localStorage.getItem(STORAGE_KEY);
+  if(raw!==null){
+    try{
+      const saved=JSON.parse(raw);
+      if(saved && typeof saved==='object' && Array.isArray(saved.teams) && Array.isArray(saved.rounds)){
+        return Object.assign(makeEmptyState(), saved, {rounds:saved.rounds});
+      }
+    }catch(e){}
+  }
   return makeEmptyState();
 }
 function pklResultStateForMatch(match){
   if(!match) return makeEmptyState();
   if(match.snapshot && Array.isArray(match.snapshot.teams) && Array.isArray(match.snapshot.rounds)){
-    return Object.assign(makeEmptyState(), JSON.parse(JSON.stringify(match.snapshot)));
+    return Object.assign(makeDemo(), JSON.parse(JSON.stringify(match.snapshot)));
   }
-  return makeEmptyState();
+  return loadState();
 }
 function pklResultApplySelectedMatchState(){
   pklResultSortMatches();
@@ -2626,7 +2632,8 @@ async function deleteAllResultAdminMatches(){
   window.selectedMatchId='';
   pendingDeleteMatchId=null;
   pendingDeleteAllMatches=false;
-  /* Do not write result delete state to browser storage; server shared key is the source. */
+  try{localStorage.setItem(RESULT_MATCHES_KEY,'[]');}catch(_e){}
+  try{sessionStorage.setItem(RESULT_MATCHES_KEY,'[]');}catch(_e){}
   const saved=await pklResultSharedSet(RESULT_MATCHES_KEY,[]);
   if(saved && saved.ok===false){
     pklResultPermissionToast('전체 삭제 저장 실패: '+(saved.message||''));
@@ -3209,7 +3216,7 @@ window.addEventListener('load', restoreDiscordSession);
 })();
 </script>
 
-  <script src="./pkl-responsive-scale.js?v=20260513b"></script>
+  <script src="./pkl-responsive-scale.js?v=20260515-hscroll-final"></script>
 
 <script id="pkl-result-cumulative-final-script">
 (function(){

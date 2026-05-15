@@ -1,38 +1,198 @@
-/* PKL horizontal scroll only
-   - 창이 줄어도 페이지를 모바일/좁은 화면 배치로 접지 않고
-   - 기존 위치/칸/비율은 건드리지 않으며
-   - 브라우저 하단 가로 스크롤만 사용한다.
-*/
-:root{--pkl-fixed-desktop-width:1440px;--pkl-fixed-content-width:1320px;}
-html{overflow-x:auto !important;}
-body{min-width:var(--pkl-fixed-desktop-width) !important;overflow-x:visible !important;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
-@media (max-width:1440px){
-  .site,.page,.page-wrap,.wrap,.container,.team-page,.result-page,.sheet-page,.app{min-width:var(--pkl-fixed-desktop-width) !important;}
-  .topbar,.pkl-common-header,#pklCommonHeader{min-width:var(--pkl-fixed-desktop-width) !important;}
-  .topbar-inner,#pklCommonHeader .topbar-inner{
-    width:var(--pkl-fixed-content-width) !important;
-    min-width:var(--pkl-fixed-content-width) !important;
-    max-width:var(--pkl-fixed-content-width) !important;
-    margin-left:auto !important;
-    margin-right:auto !important;
-    display:grid !important;
-    grid-template-columns:240px minmax(620px,1fr) 240px !important;
-    align-items:center !important;
-  }
-  .main-nav,#pklCommonHeader .main-nav{
-    display:flex !important;
-    flex-direction:row !important;
-    flex-wrap:nowrap !important;
-    justify-content:center !important;
-    align-items:center !important;
-    gap:40px !important;
-  }
-  .user-box,#pklCommonHeader .user-box{
-    display:flex !important;
-    flex-direction:row !important;
-    flex-wrap:nowrap !important;
-    justify-content:flex-end !important;
-    align-items:center !important;
-  }
-  .main-nav a,#pklCommonHeader .main-nav a,.top-btn,.account-trigger,.nav-btn,.btn,button{white-space:nowrap;}
+/* =========================================================
+   PKL horizontal-only page scroll FINAL
+   - 창 폭이 줄어도 데스크톱 UI를 접거나 축소하지 않는다.
+   - 가로 스크롤은 브라우저 하단 1개만 사용한다.
+   - 세로 스크롤바는 숨기되 마우스 휠/트랙패드 세로 스크롤은 유지한다.
+   - admin 스크롤바 디자인을 공통 스타일로 사용한다.
+   ========================================================= */
+:root{
+  --pkl-scroll-page-width: 1440px;
+  --pkl-scroll-content-width: 1320px;
+  --pkl-scrollbar-track: rgba(255,255,255,.045);
+  --pkl-scrollbar-thumb-a: rgba(216,180,254,.72);
+  --pkl-scrollbar-thumb-b: rgba(124,58,237,.52);
+}
+
+/* 페이지별 실제 데스크톱 폭. body:has()는 Chromium/Vercel 환경에서 정상 동작한다. */
+body:has(.app .sidebar){--pkl-scroll-page-width:1500px;--pkl-scroll-content-width:1468px;}
+body:has(.team-page){--pkl-scroll-page-width:1560px;--pkl-scroll-content-width:1528px;}
+body:has(.result-page),
+body:has(.result-layout){--pkl-scroll-page-width:1440px;--pkl-scroll-content-width:1320px;}
+body:has(.tier-page){--pkl-scroll-page-width:1440px;--pkl-scroll-content-width:1320px;}
+body:has(.search-page),
+body:has(#pklSearchPage){--pkl-scroll-page-width:1360px;--pkl-scroll-content-width:1280px;}
+body:has(.patch-page){--pkl-scroll-page-width:1360px;--pkl-scroll-content-width:1280px;}
+body:has(.rule-page),
+body:has(.rule-layout){--pkl-scroll-page-width:1360px;--pkl-scroll-content-width:1280px;}
+body:has(.myinfo-page),
+body:has(.myinfo-shell),
+body:has(.profile-shell){--pkl-scroll-page-width:1360px;--pkl-scroll-content-width:1280px;}
+
+html{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:none !important;
+  overflow-x:auto !important;
+  overflow-y:auto !important;
+  -webkit-text-size-adjust:100% !important;
+  text-size-adjust:100% !important;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(167,139,250,.58) rgba(255,255,255,.045);
+}
+
+body{
+  width:max-content !important;
+  min-width:var(--pkl-scroll-page-width) !important;
+  max-width:none !important;
+  overflow-x:visible !important;
+  overflow-y:visible !important;
+  transform:none !important;
+  zoom:1 !important;
+}
+
+/* 브라우저 기본 스크롤바: 세로는 보이지 않게, 하단 가로만 PKL 스타일로 표시 */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar{width:0;height:11px;}
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track{background:var(--pkl-scrollbar-track);border-radius:999px;margin:0 14px;}
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb{border:2px solid rgba(10,9,20,.92);background:linear-gradient(90deg,var(--pkl-scrollbar-thumb-b),var(--pkl-scrollbar-thumb-a));border-radius:999px;box-shadow:0 0 12px rgba(124,58,237,.28);}
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover{background:linear-gradient(90deg,rgba(139,92,246,.72),rgba(233,213,255,.88));}
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner{background:transparent;}
+
+/* 전체 페이지 래퍼는 최소 폭만 보장한다. 내부 overflow로 가로 스크롤을 새로 만들지 않는다. */
+.site,
+.page,
+.page-wrap,
+.wrap,
+.container,
+.app,
+.team-page,
+.sheet-page,
+.result-page,
+.result-layout,
+.tier-page,
+.search-page,
+.patch-page,
+.rule-page,
+.rule-layout,
+.myinfo-page,
+.myinfo-shell,
+.profile-shell,
+.contact-page,
+.shop-page,
+.support-page,
+.event-page,
+#pklCommonHeader,
+.topbar,
+.pkl-common-header{
+  min-width:var(--pkl-scroll-page-width) !important;
+  max-width:none !important;
+}
+
+/* 가운데 컨텐츠는 기존 데스크톱 배치를 유지한다. */
+.topbar-inner,
+#pklCommonHeader .topbar-inner,
+.hero,
+.primary-grid,
+.quickbar,
+.info-grid,
+.main,
+.content,
+.main-content,
+.board-wrap,
+.sheet-wrap,
+.result-wrap,
+.team-wrap,
+.tier-wrap,
+.search-wrap,
+.patch-wrap,
+.rule-wrap{
+  min-width:min(var(--pkl-scroll-content-width), var(--pkl-scroll-page-width)) !important;
+  max-width:none !important;
+}
+
+/* team 페이지: 중복 가로 스크롤 원인이 되는 내부 페이지 스크롤을 제거하고 브라우저 하단만 사용 */
+.team-page{
+  width:var(--pkl-scroll-page-width) !important;
+  min-width:var(--pkl-scroll-page-width) !important;
+  overflow:visible !important;
+}
+.builder-layout{
+  min-width:calc(var(--pkl-scroll-page-width) - 64px) !important;
+  max-width:none !important;
+  overflow:visible !important;
+}
+
+/* admin: 오른쪽 끝이 잘리지 않도록 실제 앱 폭 + 여백까지 문서 폭에 포함 */
+body:has(.app .sidebar) .app{
+  width:calc(var(--pkl-scroll-page-width) - 32px) !important;
+  min-width:calc(var(--pkl-scroll-page-width) - 32px) !important;
+  max-width:none !important;
+  overflow:visible !important;
+}
+body:has(.app .sidebar) .grid{
+  min-width:calc(var(--pkl-scroll-page-width) - 298px) !important;
+  overflow:visible !important;
+}
+
+/* 표/긴 버튼은 찌그러뜨리지 않고 페이지 가로 스크롤로 확인 */
+table{min-width:max-content;}
+.main-nav,
+#pklCommonHeader .main-nav,
+.user-box,
+.quickbar,
+.tabs,
+.tab-row,
+.nav-tabs,
+.action-row,
+.toolbar,
+.control-row,
+.button-row,
+.btn-row,
+.feature-actions{flex-wrap:nowrap !important;}
+.main-nav a,
+#pklCommonHeader .main-nav a,
+.top-btn,
+.account-trigger,
+.card-btn,
+.quickbar a,
+.nav-btn,
+.tab-btn,
+.btn,
+button,
+select,
+.badge,
+.tier-badge,
+.role-badge{white-space:nowrap !important;flex-shrink:0;}
+
+/* 페이지 내부 리스트/테이블 세로 스크롤바도 세로 막대는 숨기되 휠 스크롤은 유지 */
+.user-list,
+.table-wrap,
+.mailbox-body,
+.pkl-notice-body,
+.pkl-notice-list,
+.pkl-policy-box-body,
+#joinWaitList,
+#joinCancelList,
+textarea{
+  -ms-overflow-style:none;
+  scrollbar-width:none;
+}
+.user-list::-webkit-scrollbar,
+.table-wrap::-webkit-scrollbar,
+.mailbox-body::-webkit-scrollbar,
+.pkl-notice-body::-webkit-scrollbar,
+.pkl-notice-list::-webkit-scrollbar,
+.pkl-policy-box-body::-webkit-scrollbar,
+#joinWaitList::-webkit-scrollbar,
+#joinCancelList::-webkit-scrollbar,
+textarea::-webkit-scrollbar{width:0;height:0;}
+
+@media (max-width:2000px){
+  html{min-width:0 !important;overflow-x:auto !important;}
+  body{min-width:var(--pkl-scroll-page-width) !important;width:max-content !important;overflow-x:visible !important;}
+  .site,#pklCommonHeader,.topbar,.team-page,.app,.result-page,.result-layout,.tier-page,.search-page,.patch-page,.rule-page,.myinfo-page{min-width:var(--pkl-scroll-page-width) !important;}
 }
