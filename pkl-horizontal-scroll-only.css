@@ -1,42 +1,53 @@
 /* =========================================================
-   PKL horizontal scroll only - SAFE FINAL
-   - 기존 카드/박스/그리드 크기 변경 금지
-   - 가로 스크롤은 브라우저/페이지 전체 1개만 사용
-   - 우측 세로 스크롤바는 숨기고 마우스 휠 세로 스크롤은 유지
+   PKL horizontal scrollbar guard - RESTORE SAFE
+   목적: UI 카드/칸/그리드/레이아웃 크기는 절대 건드리지 않고,
+        창이 좁아졌을 때 브라우저 하단 가로 스크롤 1개만 생기게 한다.
    ========================================================= */
 :root{
-  --pkl-page-min-width:1440px;
-  --pkl-sheet-min-width:1540px;
-  --pkl-scroll-track:rgba(255,255,255,.045);
+  --pkl-page-scroll-width:1440px;
+  --pkl-sheet-scroll-width:1540px;
   --pkl-scroll-thumb-1:rgba(233,213,255,.86);
   --pkl-scroll-thumb-2:rgba(168,85,247,.62);
 }
 
 html{
-  min-width:var(--pkl-page-min-width) !important;
   overflow-x:auto !important;
   overflow-y:auto !important;
-  scrollbar-width:none; /* Firefox: 세로 기본바 숨김 */
   -webkit-text-size-adjust:100% !important;
   text-size-adjust:100% !important;
 }
 
 body{
-  min-width:var(--pkl-page-min-width) !important;
+  min-width:var(--pkl-page-scroll-width) !important;
   overflow-x:visible !important;
-  overflow-y:auto !important; /* 휠 스크롤 유지 */
-  scrollbar-width:none;
+  overflow-y:auto !important;
   transform:none !important;
   zoom:1 !important;
 }
 
-/* Chrome/Edge/Safari: 세로 스크롤바는 숨기고, 하단 가로 스크롤만 admin 스타일로 표시 */
+/* sheet 계열은 원래 화면 폭이 더 넓어서 body 기준 폭만 넓힌다.
+   내부 .app/.left/.sheet/.table 등 실제 UI 폭은 건드리지 않는다. */
+body:has(.app .sheet),
+body:has(.sheet){
+  min-width:var(--pkl-sheet-scroll-width) !important;
+}
+
+/* 오른쪽 세로 스크롤바는 숨기고, 마우스 휠 세로 스크롤은 유지한다. */
 html::-webkit-scrollbar,
-body::-webkit-scrollbar{width:0;height:12px;}
+body::-webkit-scrollbar{
+  width:0;
+  height:12px;
+}
 html::-webkit-scrollbar:vertical,
-body::-webkit-scrollbar:vertical{width:0;background:transparent;}
+body::-webkit-scrollbar:vertical{
+  width:0;
+  background:transparent;
+}
 html::-webkit-scrollbar:horizontal,
-body::-webkit-scrollbar:horizontal{height:12px;background:transparent;}
+body::-webkit-scrollbar:horizontal{
+  height:12px;
+  background:transparent;
+}
 html::-webkit-scrollbar-track:horizontal,
 body::-webkit-scrollbar-track:horizontal{
   background:linear-gradient(90deg,rgba(255,255,255,.035),rgba(168,85,247,.035));
@@ -55,36 +66,13 @@ body::-webkit-scrollbar-thumb:horizontal:hover{
   box-shadow:0 0 18px rgba(216,180,254,.48);
 }
 
-/* 페이지 최상위 껍데기에만 최소폭 적용: 내부 카드/그리드/박스 크기는 절대 변경하지 않음 */
-.site,
-#pklCommonHeader,
-.topbar,
-.pkl-common-header,
-.page,
-.page-wrap,
-.app,
-.team-page,
-.result-page,
-.rule-page,
-.search-page,
-.patch-page,
-.tier-page,
-.myinfo-page,
-.contact-page,
-.shop-page,
-.support-page,
-.event-page{
-  min-width:var(--pkl-page-min-width) !important;
+/* Firefox: 세로 스크롤바 숨김 우선. Chrome/Edge에서는 위 WebKit 스타일로 하단 바가 보인다. */
+html,
+body{
+  scrollbar-width:none;
 }
 
-/* sheet 계열은 원래 자체 화면 폭이 더 넓어서 해당 폭까지만 전체 페이지 스크롤로 처리 */
-.sheet-page,
-body:has(.sheet-page),
-body:has(.sheet-page) html{
-  min-width:var(--pkl-sheet-min-width) !important;
-}
-
-/* 메뉴/버튼 줄바꿈만 방지. 폭 자체는 건드리지 않음 */
+/* 메뉴/버튼 줄바꿈 방지만 유지. 폭/크기/배치 변경 없음. */
 .main-nav,
 #pklCommonHeader .main-nav,
 .user-box,
@@ -112,34 +100,4 @@ select,
 .tier-badge,
 .role-badge{
   white-space:nowrap !important;
-  flex-shrink:0;
 }
-
-/* team: 내부/미디어쿼리 overflow:auto 때문에 생기는 두 번째 가로 스크롤 제거 */
-.team-page{
-  width:var(--pkl-page-min-width) !important;
-  max-width:none !important;
-  overflow:hidden !important;
-}
-@media (max-width:1280px){
-  .team-page{
-    width:var(--pkl-page-min-width) !important;
-    min-width:var(--pkl-page-min-width) !important;
-    height:100vh !important;
-    min-height:720px !important;
-    overflow:hidden !important;
-  }
-}
-
-/* sheet: 페이지 전체 가로 스크롤만 사용. 테이블/사이드 내부 가로 스크롤은 중복 제거 */
-.sheet-page{
-  width:var(--pkl-sheet-min-width) !important;
-  max-width:none !important;
-  overflow:hidden !important;
-}
-.sheet-page .table-wrap,
-.sheet-page .side-body{
-  overflow-x:hidden !important;
-}
-
-/* 표 크기는 각 페이지의 기존 CSS를 그대로 따른다. */
