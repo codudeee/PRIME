@@ -113,10 +113,7 @@
   function hydrateFromBootstrap(data){
     if(!data||typeof data!=="object") return;
     if(Array.isArray(data.users) && data.users.length) writeUserAliases(data.users);
-    if(Array.isArray(data.match_logs)){
-      var matches=data.match_logs.map(function(r){return (r && (r.snapshot || r.raw)) || r;}).filter(Boolean);
-      if(matches.length){silentSet(RESULT_MATCH_KEY,matches);emitKey(RESULT_MATCH_KEY);}
-    }
+    /* match_logs는 과거 기록/백업용이다. 결과표 회차 원본으로 자동 복원하지 않는다. */
     if(data.shared_data && typeof data.shared_data === "object"){
       Object.keys(data.shared_data).forEach(function(key){rememberShared(key,data.shared_data[key]);});
     }
