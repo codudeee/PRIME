@@ -26,15 +26,12 @@
     var w=pageWidth();
     html.style.setProperty('overflow-x','auto','important');
     html.style.setProperty('overflow-y','auto','important');
-    html.style.setProperty('scrollbar-width','thin');
-    html.style.setProperty('scrollbar-color','rgba(167,139,250,.58) rgba(255,255,255,.045)');
-    html.style.setProperty('min-width', '0', 'important');
+    html.style.setProperty('min-width', w+'px', 'important');
     body.style.setProperty('overflow-x','visible','important');
-    body.style.setProperty('overflow-y','visible','important');
     body.style.setProperty('min-width', w+'px', 'important');
     body.style.setProperty('transform','none','important');
     body.style.setProperty('zoom','1','important');
-    body.style.setProperty('width','max-content','important');
+    body.style.setProperty('width','auto','important');
     body.style.setProperty('--pkl-page-scale','1');
   }
 
