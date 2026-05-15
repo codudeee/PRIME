@@ -1593,6 +1593,11 @@ button,input,select,textarea{font-family:inherit}button{cursor:pointer}input,sel
 .member-data-main p{margin:5px 0 0;color:rgba(231,225,255,.68);font-size:12px;font-weight:800;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .member-data-meta{text-align:right;color:rgba(231,225,255,.62);font-size:11px;font-weight:900;line-height:1.55;}
 @media(max-width:900px){.member-data-summary{grid-template-columns:repeat(2,minmax(0,1fr));}.member-data-log-card{grid-template-columns:1fr}.member-data-meta{text-align:left}}
+
+/* PKL admin date compact display */
+.metric b.pkl-admin-last-compact{font-size:13px;line-height:1.2;margin-top:6px;display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;word-break:keep-all;}
+.metric b.pkl-admin-last-compact .date-y{font-size:12px;color:rgba(255,255,255,.72);font-weight:900;}
+.metric b.pkl-admin-last-compact .date-md{font-size:15px;color:#fff;font-weight:1000;}
 </style>
 
 
@@ -6863,6 +6868,144 @@ function renderEmptyProfile(){
   const memoList=document.getElementById("memoList"); if(memoList)memoList.innerHTML='<div class="detail-log-empty">회원 데이터가 없습니다.</div>';
 }
 
+
+/* ===== PKL admin display/stat source patch ===== */
+const PKL_ADMIN_RESULT_MATCHES_KEY="PKL_RESULT_MATCHES_V1";
+let pklAdminMatchesCache=null;
+let pklAdminMatchesCacheAt=0;
+function pklAdminCleanNick(v){
+  if(window.pklCleanNickDisplay) return window.pklCleanNickDisplay(v);
+  let s=String(v??'').trim();
+  for(let i=0;i<8;i++){
+    const n=s.replace(/^[\s\uFE0F\u200D]+/g,'').replace(/^[^\p{L}\p{N}가-힣]+/u,'').trimStart();
+    if(n===s) break; s=n;
+  }
+  return s.trim();
+}
+function pklAdminNormNick(v){return pklAdminCleanNick(v).replace(/\s+/g,'').toLowerCase();}
+async function pklAdminGetSharedValue(key,fallback){
+  try{
+    const res=await fetch('/api/pkl-data-store?type=shared&key='+encodeURIComponent(key)+'&t='+Date.now(),{cache:'no-store'});
+    if(res.ok){
+      const data=await res.json().catch(()=>null);
+      if(data&&data.item&&Object.prototype.hasOwnProperty.call(data.item,'value')&&data.item.value!==null) return data.item.value;
+    }
+  }catch(e){}
+  return fallback;
+}
+async function pklAdminLoadResultMatches(){
+  const now=Date.now();
+  if(Array.isArray(pklAdminMatchesCache)&&now-pklAdminMatchesCacheAt<15000) return pklAdminMatchesCache;
+  const value=await pklAdminGetSharedValue(PKL_ADMIN_RESULT_MATCHES_KEY,[]);
+  pklAdminMatchesCache=Array.isArray(value)?value:[];
+  pklAdminMatchesCacheAt=now;
+  return pklAdminMatchesCache;
+}
+function pklAdminMatchVisibleTeams(snapshot){
+  const st=snapshot&&typeof snapshot==='object'?snapshot:{};
+  const mode=String(st.mode||st.matchMode||'squad').toLowerCase();
+  const teams=Array.isArray(st.teams)?st.teams:[];
+  if(mode==='duo'){
+    const out=[];
+    teams.forEach((t,i)=>{
+      const id=t.id||('team'+(i+1));
+      const mem=Array.isArray(t.members)?t.members:[];
+      out.push({id:id+'a',realId:id,name:(i+1)+'팀 A',offset:0,len:2,members:mem});
+      out.push({id:id+'b',realId:id,name:(i+1)+'팀 B',offset:2,len:2,members:mem});
+    });
+    return out;
+  }
+  return teams.map((t,i)=>({id:t.id||('team'+(i+1)),realId:t.id||('team'+(i+1)),name:t.name||t.teamName||((i+1)+'팀'),offset:0,len:4,members:Array.isArray(t.members)?t.members:[]}));
+}
+function pklAdminCellHasInput(value){
+  if(value===null||value===undefined)return false;
+  if(typeof value==='string')return value.trim()!==''&&value.trim()!=='0';
+  if(typeof value==='number')return Number.isFinite(value)&&value!==0;
+  if(typeof value==='boolean')return value;
+  return false;
+}
+function pklAdminRoundHasInput(data,idx){
+  if(!data||typeof data!=='object')return false;
+  const keys=['kills','deaths','scores','score','points','bonus','penalty','stop','stops','chicken','chickens'];
+  return keys.some(key=>{
+    const value=data[key];
+    if(Array.isArray(value))return pklAdminCellHasInput(value[idx]);
+    if(key==='chicken'||key==='stop')return pklAdminCellHasInput(value);
+    return false;
+  });
+}
+function pklAdminUserMatchesMember(u,member){
+  const did=String(u&& (u.discordId||u.discord_id)||'').trim();
+  const mdid=String(member&& (member.discordId||member.discord_id||member.id)||'').replace(/^discord-/i,'').trim();
+  if(did&&mdid&&did===mdid)return true;
+  const key=pklAdminNormNick(u&& (u.nickname||u.name));
+  const mkey=pklAdminNormNick(member&& (member.name||member.nickname||member.nick||member.displayName));
+  return !!key&&!!mkey&&key===mkey;
+}
+function pklAdminComputeUserResultStats(user,matches){
+  const out={matches:0,rounds:0,kills:0,wins:0};
+  (Array.isArray(matches)?matches:[]).forEach(match=>{
+    const snap=match&&match.snapshot&&typeof match.snapshot==='object'?match.snapshot:null;
+    if(!snap)return;
+    const rounds=Array.isArray(snap.rounds)?snap.rounds:[];
+    let userInMatch=false, matchKills=0, matchRounds=0, matchWin=false;
+    pklAdminMatchVisibleTeams(snap).forEach(team=>{
+      for(let idx=team.offset;idx<team.offset+team.len;idx++){
+        const member=(team.members||[])[idx]||{};
+        if(!pklAdminUserMatchesMember(user,member))continue;
+        userInMatch=true;
+        rounds.forEach(round=>{
+          const d=(round&&round.teams&&round.teams[team.realId])||{};
+          const kills=Array.isArray(d.kills)?d.kills:[];
+          matchKills+=Number(kills[idx]||0);
+          if(pklAdminRoundHasInput(d,idx))matchRounds+=1;
+          if(Number(d.chicken||0)>0)matchWin=true;
+        });
+      }
+    });
+    if(userInMatch){out.matches+=1;out.rounds+=matchRounds;out.kills+=matchKills;if(matchWin)out.wins+=1;}
+  });
+  return out;
+}
+async function pklUpdateAdminUserResultStats(user){
+  const token=String(user&& (user.discordId||user.discord_id||user.nickname||user.name)||'');
+  try{
+    const matches=await pklAdminLoadResultMatches();
+    const nowUser=(state.users&&state.users[current])||user;
+    if(String(nowUser&& (nowUser.discordId||nowUser.discord_id||nowUser.nickname||nowUser.name)||'')!==token) return;
+    const stats=pklAdminComputeUserResultStats(nowUser,matches);
+    const mJoin=document.getElementById('mJoin');
+    const mWin=document.getElementById('mWin');
+    const mAvg=document.getElementById('mAvgKill');
+    if(mJoin)mJoin.textContent=stats.rounds+'R';
+    if(mWin)mWin.textContent=stats.matches?Math.round((stats.wins/stats.matches)*100)+'%':'0%';
+    if(mAvg)mAvg.textContent=stats.rounds?(stats.kills/stats.rounds).toFixed(1):'0.0';
+  }catch(e){}
+}
+function pklAdminParseDate(v){
+  if(!v)return null;
+  const d=new Date(v);
+  if(!Number.isNaN(d.getTime()))return d;
+  const m=String(v).match(/(\d{4})\D*(\d{1,2})\D*(\d{1,2})(?:\D+(\d{1,2}):(\d{1,2}))?/);
+  if(!m)return null;
+  return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),Number(m[4]||0),Number(m[5]||0));
+}
+function pklAdminLastDate(u){return pklAdminParseDate(u&& (u.last||u.lastLogin||u.last_login||u.updated_at||u.updatedAt));}
+function pklUpdateAdminVisitStats(users){
+  const now=new Date();
+  const todayKey=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+  let today=0,current=0;
+  (Array.isArray(users)?users:[]).forEach(u=>{
+    const d=pklAdminLastDate(u);
+    if(!d)return;
+    const key=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
+    if(key===todayKey)today+=1;
+    if(now.getTime()-d.getTime()<=10*60*1000)current+=1;
+  });
+  ['sTodayUsers','dashTodayUsers'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=String(today);});
+  ['sCurrentUsers','dashCurrentUsers'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=String(current);});
+}
+
 function renderProfile(){
   normalizeAllUserRoles();
   const u=state.users[current]||state.users[0];
@@ -6875,7 +7018,13 @@ function renderProfile(){
     const d=new Date(raw);
     if(!Number.isNaN(d.getTime())) return d.toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\. /g,'.').replace(/\.$/,'');
     const m=raw.match(/(\d{4})\D*(\d{1,2})\D*(\d{1,2})/);
-    return m ? `${m[1]}.${String(m[2]).padStart(2,'0')}.${String(m[3]).padStart(2,'0')}.` : raw;
+    return m ? `${m[1]}.${String(m[2]).padStart(2,'0')}.${String(m[3]).padStart(2,'0')}` : raw.replace(/\.$/,'');
+  };
+  const fmtDateCompactHtml=(v)=>{
+    const text=fmtDate(v);
+    const m=String(text||'').match(/(\d{4})\D*(\d{1,2})\D*(\d{1,2})/);
+    if(!m) return esc(text||'-');
+    return `<span class="date-y">${esc(m[1])}년</span><span class="date-md">${String(m[2]).padStart(2,'0')}월 ${String(m[3]).padStart(2,'0')}일</span>`;
   };
   setText("bigAvatar",current+1);
   const pName=document.getElementById("pName");
@@ -6901,13 +7050,25 @@ function renderProfile(){
   setText("dOrder",fmtDate(u.join||u.joinDate||u.created_at||u.createdAt));
   setText("mJoin",(Number(u.logs||0)||0)+"회");
   setText("mWin","-");
-  setText("mLast",fmtDate(u.last||u.lastLogin||u.updated_at||u.updatedAt));
+  const lastEl=document.getElementById("mLast");
+  if(lastEl){ lastEl.className="pkl-admin-last-compact"; lastEl.innerHTML=fmtDateCompactHtml(u.last||u.lastLogin||u.updated_at||u.updatedAt); }
   setText("mAvgKill","-");
+  if(typeof pklUpdateAdminUserResultStats === "function") pklUpdateAdminUserResultStats(u);
   renderMemoList();
   if(activeDetailTab!=="detail")renderDetailLog(activeDetailTab);
 }
 
-function renderStats(){const active=state.users.filter(u=>u.role!=="prisoner").length;["sTodayUsers","dashTodayUsers"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=state.users.length});["sCurrentUsers","dashCurrentUsers"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=active});["navPending","pendingBoardCount","dashPendingCount"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=state.pending.length});const uc=document.getElementById("userCount");if(uc)uc.textContent=state.users.length+"명";const du=document.getElementById("dashUserCount");if(du)du.textContent=state.users.length;const bc=document.getElementById("banCount");if(bc)bc.textContent=state.bans.length;}
+function renderStats(){
+  const users=Array.isArray(state.users)?state.users:[];
+  const active=users.filter(u=>u.role!=="prisoner").length;
+  ["sTodayUsers","dashTodayUsers"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent="-"});
+  ["sCurrentUsers","dashCurrentUsers"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent="-"});
+  if(typeof pklUpdateAdminVisitStats === "function") pklUpdateAdminVisitStats(users);
+  ["navPending","pendingBoardCount","dashPendingCount"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=state.pending.length});
+  const uc=document.getElementById("userCount");if(uc)uc.textContent=state.users.length+"명";
+  const du=document.getElementById("dashUserCount");if(du)du.textContent=state.users.length;
+  const bc=document.getElementById("banCount");if(bc)bc.textContent=state.bans.length;
+}
 function renderCurrentScreen(){const visible=[...document.querySelectorAll('.admin-screen, #userManageTab')].find(el=>getComputedStyle(el).display!=="none");if(!visible)return;if(visible.id==="pendingManageTab")renderPendingList();if(visible.id==="bansManageTab")renderBanRecords();if(visible.id==="warningsManageTab")renderWarnRecords();if(visible.id==="dashboardManageTab")renderStats();}
 function selectUser(i){current=i;activeDetailTab="detail";restoreDetailBody();document.querySelectorAll('.tab').forEach((b,idx)=>b.classList.toggle('active',idx===0));render();}
 
