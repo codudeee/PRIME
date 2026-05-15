@@ -8472,7 +8472,10 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     if(idx<0) idx=typeof current==='number'?current:-1;
     if(idx<0) return;
     list[idx]=Object.assign({},list[idx],user);
-    try{ if(typeof window.PKLAdminInvalidateUsersRenderCache==='function') window.PKLAdminInvalidateUsersRenderCache(); }catch(e){}
+    /* 2026-05 admin partial patch 강화:
+       단일 회원 저장/티어 변경 후 회원목록 전체 renderKey를 무효화하지 않는다.
+       카드/상세 DOM만 직접 갱신해서 20명+ 목록 전체 innerHTML 재생성을 방지한다.
+       목록 구조가 실제로 바뀌는 검색/페이지 추가/전체 reload 때만 cache version을 갱신한다. */
     current=idx;
     try{ if(window.PKLUsersSource&&typeof window.PKLUsersSource.updateCachedUser==='function') window.PKLUsersSource.updateCachedUser(list[idx],{silent:true}); }catch(e){}
     try{ if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers(list.slice(),false); }catch(e){}
