@@ -2313,3 +2313,236 @@ function syncUserEverywhere(user){
   }, true);
 })();
 </script>
+
+
+<script id="pklMyinfoSupabaseFirstPatch20260515">
+(function(){
+  "use strict";
+  if(window.__PKL_MYINFO_SUPABASE_FIRST_PATCH_20260515__) return;
+  window.__PKL_MYINFO_SUPABASE_FIRST_PATCH_20260515__ = true;
+
+  const LOGIN_KEYS = ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user","discordUser","loginUser"];
+  let pklMyinfoOriginalUser = null;
+  let pklMyinfoNicknameCheckedValue = "";
+  let pklMyinfoCurrentRemoteUser = null;
+
+  function parse(raw, fb){ try{ return raw ? JSON.parse(raw) : fb; }catch(e){ return fb; } }
+  function clean(v){ return String(v == null ? "" : v).trim(); }
+  function stripNickname(v){
+    return clean(v)
+      .normalize("NFKC")
+      .replace(/^[\s\u00a0\u200b\u200c\u200d\ufeff]+/g,"")
+      .replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u,"")
+      .trim();
+  }
+  function discordIdOf(u){
+    u = u || {};
+    const direct = clean(u.discord_id || u.discordId || "").replace(/^discord-/i, "");
+    if(direct) return direct;
+    for(const k of ["uid","id","userId","memberId","key"]){
+      const raw = clean(u[k]);
+      if(/^discord-/i.test(raw)) return raw.replace(/^discord-/i, "");
+      if(/^\d{8,}$/.test(raw)) return raw;
+    }
+    return "";
+  }
+  function pubgOf(u){ return clean((u||{}).pubg_id || (u||{}).pubgId || (u||{}).gameId || (u||{}).pubgName || (u||{}).ref); }
+  function nickOf(u){ return stripNickname((u||{}).nickname || (u||{}).nick || (u||{}).name || (u||{}).displayName || (u||{}).discord_username || (u||{}).discordUsername || (u||{}).username); }
+  function sameUser(a,b){
+    const ai = discordIdOf(a), bi = discordIdOf(b);
+    if(ai && bi) return ai === bi;
+    if(ai || bi) return false;
+    const ap = pubgOf(a).toLowerCase(), bp = pubgOf(b).toLowerCase();
+    return !!(ap && bp && ap === bp);
+  }
+  function cleanPubg(value){ return clean(value).replace(/[^A-Za-z0-9_-]/g, ""); }
+  function primeOf(u){ return Number((u||{}).prime ?? (u||{}).points ?? (u||{}).dia ?? (u||{}).chicken ?? 0) || 0; }
+  function normalizeUser(u){
+    u = Object.assign({}, u || {});
+    const n = nickOf(u);
+    const p = cleanPubg(pubgOf(u));
+    const did = discordIdOf(u);
+    if(n){ u.nickname = n; u.nick = n; u.name = n; u.displayName = n; }
+    if(p){ u.pubgId = p; u.gameId = p; u.pubg_id = p; u.ref = p; }
+    if(did){ u.discordId = did; u.discord_id = did; u.uid = u.uid || did; u.id = u.id || did; }
+    const prime = primeOf(u);
+    u.prime = prime; u.points = prime; u.dia = prime;
+    return u;
+  }
+  function getLoginUser(){
+    for(const k of LOGIN_KEYS){
+      const u = parse(localStorage.getItem(k) || sessionStorage.getItem(k), null);
+      if(u && typeof u === "object") return normalizeUser(u);
+    }
+    return null;
+  }
+  function writeLoginUser(user){
+    user = normalizeUser(user);
+    for(const k of LOGIN_KEYS){
+      try{
+        const old = parse(localStorage.getItem(k) || sessionStorage.getItem(k), null);
+        if(!old || sameUser(old, user) || ["pklLoginUser","pklCurrentUser"].includes(k)){
+          localStorage.setItem(k, JSON.stringify(Object.assign({}, old || {}, user)));
+        }
+      }catch(e){}
+    }
+  }
+  async function fetchUsers(query, limit){
+    const q = clean(query);
+    const url = `/api/pkl-users?limit=${encodeURIComponent(limit || 20)}&offset=0${q ? `&q=${encodeURIComponent(q)}` : ""}&_=${Date.now()}`;
+    const res = await fetch(url, {cache:"no-store", headers:{"Cache-Control":"no-store"}});
+    if(!res.ok) throw new Error("유저 정보를 불러오지 못했습니다.");
+    const data = await res.json().catch(()=>null);
+    return (Array.isArray(data) ? data : (Array.isArray(data?.users) ? data.users : []))
+      .filter(Boolean)
+      .map(normalizeUser);
+  }
+  async function fetchCurrentRemoteUser(base){
+    base = normalizeUser(base || getLoginUser() || {});
+    const did = discordIdOf(base);
+    const q = did || nickOf(base) || pubgOf(base);
+    if(!q) return base;
+    const list = await fetchUsers(q, 10).catch(()=>[]);
+    const exact = list.find(u => did && discordIdOf(u) === did)
+      || list.find(u => pubgOf(base) && pubgOf(u).toLowerCase() === pubgOf(base).toLowerCase())
+      || list.find(u => nickOf(base) && nickOf(u) === nickOf(base));
+    return normalizeUser(Object.assign({}, base, exact || {}));
+  }
+  function setMsg(id, text, type){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.textContent = text || "";
+    el.classList.remove("ok","bad");
+    if(type) el.classList.add(type);
+  }
+  function clearMessages(){
+    ["errorMsg","successMsg"].forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent=""; el.classList.remove("active"); } });
+  }
+  function showError(text){ const el=document.getElementById("errorMsg"); if(el){ el.textContent=text; el.classList.add("active"); } }
+  function showSuccess(text){ const el=document.getElementById("successMsg"); if(el){ el.textContent=text; el.classList.add("active"); } }
+  function renderPrime(user){ const el=document.getElementById("primeValue"); if(el) el.textContent = (primeOf(user)||0).toLocaleString("ko-KR"); }
+  function fillForm(user){
+    user = normalizeUser(user || {});
+    const nickInput = document.getElementById("nicknameInput");
+    const pubgInput = document.getElementById("pubgInput");
+    if(nickInput) nickInput.value = nickOf(user);
+    if(pubgInput) pubgInput.value = cleanPubg(pubgOf(user));
+    renderPrime(user);
+    pklMyinfoOriginalUser = Object.assign({}, user);
+    pklMyinfoCurrentRemoteUser = Object.assign({}, user);
+    pklMyinfoNicknameCheckedValue = nickOf(user);
+    setMsg("nicknameMsg", "현재 닉네임입니다.", "ok");
+  }
+  async function renderMyInfoSupabaseFirst(){
+    const login = getLoginUser();
+    if(!login){ location.href = "login.html"; return; }
+    fillForm(login);
+    try{
+      const remote = await fetchCurrentRemoteUser(login);
+      fillForm(remote);
+      writeLoginUser(remote);
+      if(window.PKLUserProfile && typeof window.PKLUserProfile.setUsers === "function") window.PKLUserProfile.setUsers([remote], false);
+    }catch(e){
+      console.warn("[PKL] myinfo Supabase hydrate skipped", e);
+    }
+  }
+  async function nicknameExistsRemote(nickname){
+    const target = stripNickname(nickname);
+    if(!target) return false;
+    const list = await fetchUsers(target, 20).catch(()=>[]);
+    return list.some(u => !sameUser(u, pklMyinfoOriginalUser) && nickOf(u) === target);
+  }
+  window.checkNicknameDuplicate = async function(){
+    clearMessages();
+    const input = document.getElementById("nicknameInput");
+    const nickname = stripNickname(input && input.value);
+    if(input) input.value = nickname;
+    if(!nickname){ setMsg("nicknameMsg", "닉네임을 입력해주세요.", "bad"); return false; }
+    if(pklMyinfoOriginalUser && nickname === nickOf(pklMyinfoOriginalUser)){
+      pklMyinfoNicknameCheckedValue = nickname;
+      setMsg("nicknameMsg", "현재 사용 중인 닉네임입니다.", "ok");
+      return true;
+    }
+    if(await nicknameExistsRemote(nickname)){
+      pklMyinfoNicknameCheckedValue = "";
+      setMsg("nicknameMsg", "이미 사용 중인 닉네임입니다.", "bad");
+      return false;
+    }
+    pklMyinfoNicknameCheckedValue = nickname;
+    setMsg("nicknameMsg", "사용 가능한 닉네임입니다.", "ok");
+    return true;
+  };
+  window.saveMyInfo = async function(e){
+    if(e && e.preventDefault) e.preventDefault();
+    clearMessages();
+    const nickInput = document.getElementById("nicknameInput");
+    const pubgInput = document.getElementById("pubgInput");
+    const nickname = stripNickname(nickInput && nickInput.value);
+    const pubgId = cleanPubg(pubgInput && pubgInput.value);
+    if(nickInput) nickInput.value = nickname;
+    if(pubgInput) pubgInput.value = pubgId;
+    if(!nickname){ showError("닉네임을 입력해주세요."); return false; }
+    if(!pubgId){ showError("PUBG ID를 입력해주세요."); return false; }
+    if(!/^[A-Za-z0-9_-]+$/.test(pubgId)){ showError("PUBG ID는 영문, 숫자, -, _ 만 사용할 수 있습니다."); return false; }
+    if(pklMyinfoNicknameCheckedValue !== nickname){
+      setMsg("nicknameMsg", "닉네임 중복확인을 먼저 해주세요.", "bad");
+      showError("닉네임 중복확인을 먼저 해주세요.");
+      return false;
+    }
+    if(await nicknameExistsRemote(nickname)){
+      setMsg("nicknameMsg", "이미 사용 중인 닉네임입니다.", "bad");
+      showError("이미 사용 중인 닉네임입니다.");
+      pklMyinfoNicknameCheckedValue = "";
+      return false;
+    }
+    const base = normalizeUser(Object.assign({}, getLoginUser() || {}, pklMyinfoCurrentRemoteUser || {}, pklMyinfoOriginalUser || {}));
+    const updated = normalizeUser(Object.assign({}, base, {
+      nickname, nick:nickname, name:nickname,
+      pubgId, gameId:pubgId, pubg_id:pubgId,
+      prime: primeOf(base), points: primeOf(base), dia: primeOf(base),
+      updatedAt: new Date().toISOString(),
+      pklProfileUpdatedAt: new Date().toISOString(),
+      __pklProfileWrite: true
+    }));
+    try{
+      const res = await fetch("/api/pkl-users", {
+        method:"POST",
+        headers:{"Content-Type":"application/json","Cache-Control":"no-store"},
+        body: JSON.stringify({user: updated})
+      });
+      const data = await res.json().catch(()=>null);
+      if(!res.ok || data?.ok === false) throw new Error(data?.message || "저장 실패");
+      const saved = normalizeUser(data?.user || updated);
+      writeLoginUser(saved);
+      if(window.PKLUserProfile && typeof window.PKLUserProfile.setUsers === "function") window.PKLUserProfile.setUsers([saved], false);
+      pklMyinfoOriginalUser = Object.assign({}, saved);
+      pklMyinfoCurrentRemoteUser = Object.assign({}, saved);
+      pklMyinfoNicknameCheckedValue = nickOf(saved);
+      fillForm(saved);
+      try{ window.dispatchEvent(new CustomEvent("pkl-role-data-updated", {detail:{user:saved}})); }catch(_e){}
+      showSuccess("내 정보가 저장되었습니다. 관리자 회원목록에도 반영되었습니다.");
+      return true;
+    }catch(err){
+      console.error("[PKL] myinfo save failed", err);
+      showError(err.message || String(err));
+      return false;
+    }
+  };
+  window.renderMyInfo = renderMyInfoSupabaseFirst;
+  window.refreshPrimeFromSupabase = async function(user){
+    try{ const remote = await fetchCurrentRemoteUser(user || getLoginUser()); fillForm(remote); writeLoginUser(remote); }catch(e){}
+  };
+  document.addEventListener("DOMContentLoaded", function(){
+    const pubgInput = document.getElementById("pubgInput");
+    const nickInput = document.getElementById("nicknameInput");
+    if(pubgInput){
+      pubgInput.addEventListener("input",()=>{ const cleaned=cleanPubg(pubgInput.value); if(pubgInput.value!==cleaned) pubgInput.value=cleaned; setMsg("pubgMsg","영문, 숫자, 하이픈(-), 언더바(_)만 입력할 수 있습니다.",""); });
+    }
+    if(nickInput){
+      nickInput.addEventListener("input",()=>{ const cleaned=stripNickname(nickInput.value); if(cleaned !== pklMyinfoNicknameCheckedValue) setMsg("nicknameMsg","닉네임 변경 시 중복확인이 필요합니다.",""); });
+    }
+    renderMyInfoSupabaseFirst();
+  });
+  if(document.readyState !== "loading") renderMyInfoSupabaseFirst();
+})();
+</script>
