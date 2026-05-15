@@ -669,7 +669,7 @@ font-weight:700;
 .pkl-referral-msg{grid-column:1/-1;min-height:17px;font-size:12px;color:#c4b5fd;font-weight:900}
 </style>
 
-<link rel="stylesheet" href="./pkl-horizontal-scroll-only.css?v=20260513-scroll-only">
+<link rel="stylesheet" href="./pkl-horizontal-scroll-only.css?v=20260515-hscroll-safe">
 </head>
 <body>
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -685,7 +685,7 @@ font-weight:700;
         Discord 인증으로 PKL 계정에 로그인합니다.
       </div>
       <div class="form">
-        <button class="discord-btn" type="button" onclick="location.href='/api/discord-login'">
+        <button class="discord-btn" type="button" onclick="PKLStartDiscordLogin()">
           Discord로 로그인
         </button>
         <p class="success-msg">Discord 인증 후 자동으로 메인 화면으로 이동합니다.</p>
@@ -864,6 +864,27 @@ function checkAdminAccess(role){
   };
   document.addEventListener('DOMContentLoaded',install);
   setTimeout(install,500);
+})();
+</script>
+
+<script id="pkl-login-returnto-mobile-discord-fix">
+(function(){
+  function safeReturnTo(v){
+    try{
+      if(!v) return '/index.html';
+      var u = new URL(v, location.origin);
+      if(u.origin !== location.origin) return '/index.html';
+      if(/login\.html/i.test(u.pathname)) return '/index.html';
+      return (u.pathname || '/index.html') + (u.search || '');
+    }catch(e){ return '/index.html'; }
+  }
+  window.PKLStartDiscordLogin = function(){
+    var params = new URLSearchParams(location.search);
+    var next = params.get('returnTo') || params.get('next') || sessionStorage.getItem('PKL_LOGIN_RETURN_TO') || '';
+    if(!next && document.referrer) next = safeReturnTo(document.referrer);
+    next = safeReturnTo(next || '/index.html');
+    location.href = '/api/discord-login?returnTo=' + encodeURIComponent(next);
+  };
 })();
 </script>
 </body>

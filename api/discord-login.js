@@ -12,6 +12,21 @@ function currentSiteUrl(event) {
   return `${proto}://${host}`.replace(/\/$/, "");
 }
 
+function sanitizeReturnTo(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const decoded = decodeURIComponent(raw);
+    if (/^https?:\/\//i.test(decoded)) {
+      const u = new URL(decoded);
+      if (u.host !== PRODUCTION_HOST) return "";
+      return (u.pathname || "/index.html") + (u.search || "");
+    }
+    if (decoded.startsWith("/") && !decoded.startsWith("//")) return decoded.slice(0, 180);
+  } catch (e) {}
+  return "";
+}
+
 function getRedirectUri(event) {
   const configured = env("DISCORD_REDIRECT_URI") || env("PUBLIC_DISCORD_REDIRECT_URI");
   if (configured && /^https:\/\//i.test(configured) && !/localhost|127\.0\.0\.1/i.test(configured)) return configured.replace(/\/$/, "");
@@ -32,6 +47,8 @@ exports.handler = async function(event) {
     };
   }
 
+  const q = event.queryStringParameters || {};
+  const returnTo = sanitizeReturnTo(q.returnTo || q.next || q.redirect || q.r || "");
   const state = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const params = new URLSearchParams({
     client_id: clientId,
@@ -46,7 +63,7 @@ exports.handler = async function(event) {
     headers: {
       "Cache-Control": "no-store",
       Location: `https://discord.com/oauth2/authorize?${params.toString()}`,
-      "Set-Cookie": `pkl_discord_oauth_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`
+      "Set-Cookie": [`pkl_discord_oauth_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`, `pkl_login_return_to=${encodeURIComponent(returnTo || "/index.html")}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`]
     },
     body: ""
   };
