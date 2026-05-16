@@ -622,35 +622,10 @@ async function readUserDocs(options={}){
   }
   return { users, count: Number.isFinite(count) ? count : users.length, limit, offset, q };
 }
-function isWarningOnlyUserWrite(src={}){
-  src = src && typeof src === 'object' ? src : {};
-  const raw = src.raw && typeof src.raw === 'object' ? src.raw : {};
-  const actionText = clean(src.action || src.type || src.reason || raw.action || raw.type || raw.reason || '');
-  const warningCount = Number(src.warnings ?? src.warn ?? raw.warnings ?? raw.warn ?? 0) || 0;
-  const hasPenaltyText = /warning|warn|경고|제재|penalty/i.test(actionText);
-  return warningCount > 0 || hasPenaltyText;
-}
-function userNotRegisteredError(message){
-  const err = new Error(message || '가입된 회원이 아니어서 users 테이블에 새 계정을 생성하지 않았습니다.');
-  err.code = 'USER_NOT_REGISTERED';
-  err.statusCode = 404;
-  return err;
-}
-
 async function writeUserDoc(user, forceAdmin=false){
   let input = (user && typeof user === 'object') ? user : {};
-  const writeOptions = (forceAdmin && typeof forceAdmin === 'object') ? forceAdmin : { forceAdmin: !!forceAdmin };
-  const allowCreateUser = !!(
-    writeOptions.allowCreate ||
-    writeOptions.registration ||
-    input.__allowCreateUser === true ||
-    input.__source === 'discord-login' ||
-    input.__source === 'discord-callback' ||
-    input.__source === 'pkl-register-user' ||
-    input.status === 'approved' && input.approved === true && (input.authType === 'discord' || input.provider === 'discord')
-  );
   try{ input = {...input, ...(await discordRolePatchForUser(input))}; }catch(_e){}
-  const u = normalizeUser(writeOptions.forceAdmin ? {...input, role:'admin', memberRole:'admin', is_admin:true} : input);
+  const u = normalizeUser(forceAdmin ? {...input, role:'admin', memberRole:'admin', is_admin:true} : input);
   const discordId = explicitDiscordId(u);
   if(!discordId) throw new Error('discord_id가 없어 저장할 수 없습니다.');
 
@@ -662,20 +637,6 @@ async function writeUserDoc(user, forceAdmin=false){
     const rows = await findUserRowsByDiscordId(discordId);
     existingRow = Array.isArray(rows) && rows[0] ? rows[0] : null;
   }catch(e){ existingRow = null; }
-
-  // 경고/제재/일반 동기화 저장은 users row를 새로 만들면 안 된다.
-  // 사이트 최초 로그인/회원가입으로 생성된 회원만 users에 존재해야 닉네임 중복·권한·티어가 꼬이지 않는다.
-  if(!existingRow && !allowCreateUser){
-    if(isWarningOnlyUserWrite(input)){
-      await insertAdminLogSafe({
-        action: 'warning_skipped_unregistered_user',
-        actor: clean(input.actor || input.admin || input.manager || 'SYSTEM'),
-        target: clean(input.nickname || input.nick || input.name || input.pubgId || input.gameId || discordId),
-        detail: { discord_id: discordId, reason: clean(input.reason || input.memo || '미가입 유저 경고 생성 차단'), input }
-      });
-    }
-    throw userNotRegisteredError('가입된 회원이 아니어서 경고/수정 처리로 users 계정을 새로 만들지 않았습니다. 먼저 사이트 최초 로그인이 필요합니다.');
-  }
 
   const existingRaw = existingRow && existingRow.raw && typeof existingRow.raw === 'object' ? existingRow.raw : {};
   const existingUser = existingRow ? rowToUser(existingRow) : null;
@@ -872,24 +833,12 @@ async function adjustUserPrime(identity={}, amount=0, reason='', actor=''){
 
 
 async function updateUserWithLog(identity={}, log={}, originalIdentity={}, beforeSnapshot={}){
-  const actionHint = clean(log.type || log.action || identity.action || identity.type || '');
-  const warningLike = /warning|warn|경고|제재|penalty/i.test(actionHint) || Number(identity.warnings ?? identity.warn ?? 0) > 0;
-  let row = null;
-  if(warningLike){
-    try{
-      row = await readUserRowByIdentity(originalIdentity && explicitDiscordId(originalIdentity) ? originalIdentity : identity);
-    }catch(e){
-      await insertAdminLogSafe({
-        action: 'warning_skipped_unregistered_user',
-        actor: clean(log.actor || log.admin || identity.actor || 'ADMIN'),
-        target: clean(identity.nickname || identity.nick || identity.name || identity.pubgId || identity.gameId || explicitDiscordId(identity)),
-        detail: { discord_id: explicitDiscordId(identity), reason: clean(log.reason || identity.reason || '미가입 유저 경고 생성 차단'), input: identity }
-      });
-      throw userNotRegisteredError('가입된 회원이 아니어서 경고 처리로 users 계정을 새로 만들지 않았습니다. 먼저 사이트 최초 로그인이 필요합니다.');
-    }
-  }
-  const sourceBefore = hasClientSnapshot(beforeSnapshot) ? beforeSnapshot : (hasClientSnapshot(originalIdentity) ? originalIdentity : null);
-  row = row || (sourceBefore ? clientRowFromUser(sourceBefore) : await readUserRowByIdentity(originalIdentity && explicitDiscordId(originalIdentity) ? originalIdentity : identity));
+  // 경고/제재/회원수정은 반드시 Supabase users 실제 row가 있는 회원에게만 적용한다.
+  // 이전 코드처럼 화면/봇에서 넘어온 client snapshot을 row처럼 사용하면,
+  // users 테이블에는 없는 미가입자가 API 응답으로만 생성된 것처럼 admin 목록에 남는 ghost user가 생긴다.
+  const lookupIdentity = (originalIdentity && explicitDiscordId(originalIdentity)) ? originalIdentity
+    : ((beforeSnapshot && explicitDiscordId(beforeSnapshot)) ? beforeSnapshot : identity);
+  const row = await readUserRowByIdentity(lookupIdentity);
   const beforeUser = rowToUser(row);
   const explicitAccessRoleChange = hasExplicitAccessRoleInput(identity || {}) && !/^tier_change$/i.test(clean(log.type || log.action));
   const nextInput = normalizeUser({...beforeUser, ...(identity || {})});
