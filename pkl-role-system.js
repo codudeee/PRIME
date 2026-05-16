@@ -274,6 +274,29 @@
     },true);
   }
 
+
+  function writeLoginSnapshot(user){
+    if(!user || !loginStrongId(user)) return;
+    var keys=["discordUser","pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"];
+    keys.forEach(function(k){try{localStorage.setItem(k,JSON.stringify(user));sessionStorage.removeItem(k);}catch(e){}});
+  }
+  async function refreshCurrentUserFromServer(){
+    var local=currentUser();
+    var did=loginStrongId(local).replace(/^discord-/,'');
+    if(!did || refreshCurrentUserFromServer._loading) return null;
+    refreshCurrentUserFromServer._loading=true;
+    try{
+      var res=await fetch('/api/pkl-users?limit=20&offset=0&q='+encodeURIComponent(did),{cache:'no-store',headers:{Accept:'application/json'}});
+      if(!res.ok) return null;
+      var data=await res.json();
+      var users=Array.isArray(data&&data.users)?data.users:[];
+      var found=users.find(function(u){return loginStrongId(u).replace(/^discord-/,'')===did;});
+      if(found){ writeLoginSnapshot(found); try{window.dispatchEvent(new CustomEvent('pkl-current-user-refreshed',{detail:{user:found}}));}catch(e){} enforceVisibility(document); return found; }
+    }catch(e){}
+    finally{refreshCurrentUserFromServer._loading=false;}
+    return null;
+  }
+
   window.PKLRoleSystem={
     escape:esc,
     normalize:normalizeMemberRole,
@@ -300,10 +323,11 @@
     currentHasRole:currentHasRole,
     showAccessModal:showAccessModal,
     enforceVisibility:enforceVisibility,
-    bindAccessClickGuard:bindAccessClickGuard
+    bindAccessClickGuard:bindAccessClickGuard,
+    refreshCurrentUserFromServer:refreshCurrentUserFromServer
   };
 
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",function(){injectStyle();enforceVisibility(document);bindAccessClickGuard();}); else {injectStyle();enforceVisibility(document);bindAccessClickGuard();}
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",function(){injectStyle();enforceVisibility(document);bindAccessClickGuard();refreshCurrentUserFromServer();}); else {injectStyle();enforceVisibility(document);bindAccessClickGuard();refreshCurrentUserFromServer();}
 })();
 
 

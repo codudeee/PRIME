@@ -76,7 +76,8 @@ async function handler(req,res){
       ? JSON.parse(req.body||"{}")
       : (req.body||{});
 
-    const discordUser=body.discordUser||{};
+    let discordUser=body.discordUser||{};
+    try{ if(supabaseStore && typeof supabaseStore.discordRolePatchForUser === "function") discordUser = Object.assign({}, discordUser, await supabaseStore.discordRolePatchForUser(discordUser)); }catch(_e){}
     const nickname=normalizeNickname(body.nickname || body.nick || body.name || body.displayName);
     const pubgId=normalizePubgId(body.pubgId || body.pubg_id || body.gameId || body.ref);
     const recommender=normalizeNickname(body.recommender || body.referrer || body.recommend || "");
@@ -154,16 +155,18 @@ async function handler(req,res){
 
     const user=buildApprovedUser(discordUser, nickname, pubgId, shouldResetAfterBanRelease(existing)?resetReleasedUserBase(existing):existing||{});
     if(!existing){
-      user.role="user";
-      user.memberRole="user";
-      user.userRole="user";
-      user.authRole="user";
-      user.adminRole="일반";
-      user.memberRoleName="일반";
-      user.isAdmin=false;
-      user.admin=false;
-      user.manager=false;
-      user.operator=false;
+      const accessRole = String(user.memberRole || user.role || "user").toLowerCase();
+      const safeRole = (accessRole === "admin" || accessRole === "operator") ? accessRole : "user";
+      user.role=safeRole;
+      user.memberRole=safeRole;
+      user.userRole=safeRole;
+      user.authRole=safeRole;
+      user.adminRole=safeRole === "admin" ? "관리자" : (safeRole === "operator" ? "운영자" : "일반");
+      user.memberRoleName=user.adminRole;
+      user.isAdmin=safeRole === "admin";
+      user.admin=safeRole === "admin";
+      user.manager=safeRole === "admin" || safeRole === "operator";
+      user.operator=safeRole === "operator";
     }
     const savedUser = supabaseStore.writeUserDoc ? await supabaseStore.writeUserDoc(user) : user;
 

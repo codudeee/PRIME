@@ -36,6 +36,85 @@ function normalizeTier(v){
   if(!raw || raw === '없음' || raw.toLowerCase() === 'none') return 'none';
   return raw;
 }
+
+function env(name){ return clean(process.env[name] || ''); }
+function envList(name){ return env(name).split(/[,:\s]+/).map(cleanId).filter(Boolean); }
+function parseJsonMap(value){ try{ const o = JSON.parse(value || '{}'); return o && typeof o === 'object' ? o : {}; }catch(e){ return {}; } }
+const ACCESS_ROLE_ENV_KEYS = {
+  admin: ['PKL_DISCORD_ADMIN_ROLE_IDS','DISCORD_ADMIN_ROLE_IDS','PKL_ADMIN_ROLE_IDS'],
+  operator: ['PKL_DISCORD_OPERATOR_ROLE_IDS','DISCORD_OPERATOR_ROLE_IDS','PKL_OPERATOR_ROLE_IDS']
+};
+const TIER_ENV_KEYS = {
+  tier0_high:['PKL_TIER0_HIGH_ROLE_ID','DISCORD_TIER0_HIGH_ROLE_ID'], tier0_mid:['PKL_TIER0_MID_ROLE_ID','DISCORD_TIER0_MID_ROLE_ID'], tier0_low:['PKL_TIER0_LOW_ROLE_ID','DISCORD_TIER0_LOW_ROLE_ID'],
+  tier1_high:['PKL_TIER1_HIGH_ROLE_ID','DISCORD_TIER1_HIGH_ROLE_ID'], tier1_mid:['PKL_TIER1_MID_ROLE_ID','DISCORD_TIER1_MID_ROLE_ID'], tier1_low:['PKL_TIER1_LOW_ROLE_ID','DISCORD_TIER1_LOW_ROLE_ID'],
+  tier2_high:['PKL_TIER2_HIGH_ROLE_ID','DISCORD_TIER2_HIGH_ROLE_ID'], tier2_mid:['PKL_TIER2_MID_ROLE_ID','DISCORD_TIER2_MID_ROLE_ID'], tier2_low:['PKL_TIER2_LOW_ROLE_ID','DISCORD_TIER2_LOW_ROLE_ID'],
+  tier3_high:['PKL_TIER3_HIGH_ROLE_ID','DISCORD_TIER3_HIGH_ROLE_ID'], tier3_mid:['PKL_TIER3_MID_ROLE_ID','DISCORD_TIER3_MID_ROLE_ID'], tier3_low:['PKL_TIER3_LOW_ROLE_ID','DISCORD_TIER3_LOW_ROLE_ID'],
+  tier4_high:['PKL_TIER4_HIGH_ROLE_ID','DISCORD_TIER4_HIGH_ROLE_ID'], tier4_mid:['PKL_TIER4_MID_ROLE_ID','DISCORD_TIER4_MID_ROLE_ID'], tier4_low:['PKL_TIER4_LOW_ROLE_ID','DISCORD_TIER4_LOW_ROLE_ID'],
+  beast:['PKL_BEAST_ROLE_ID','DISCORD_BEAST_ROLE_ID']
+};
+function configuredAdminDiscordIds(){ return envList('PKL_ADMIN_DISCORD_IDS').concat(envList('DISCORD_ADMIN_IDS')).concat(envList('ADMIN_DISCORD_IDS')); }
+function highestAccessRoleFromDiscordRoleIds(roleIds=[]){
+  const ids = new Set((Array.isArray(roleIds)?roleIds:[]).map(cleanId).filter(Boolean));
+  for(const key of ACCESS_ROLE_ENV_KEYS.admin){ if(envList(key).some(id=>ids.has(id))) return 'admin'; }
+  for(const key of ACCESS_ROLE_ENV_KEYS.operator){ if(envList(key).some(id=>ids.has(id))) return 'operator'; }
+  return '';
+}
+function tierFromDiscordRoleIds(roleIds=[]){
+  const ids = new Set((Array.isArray(roleIds)?roleIds:[]).map(cleanId).filter(Boolean));
+  const jsonMap = Object.assign({}, parseJsonMap(env('PKL_DISCORD_TIER_ROLE_MAP')), parseJsonMap(env('DISCORD_TIER_ROLE_MAP')));
+  for(const [roleId,tierName] of Object.entries(jsonMap)){ if(ids.has(cleanId(roleId))) return normalizeTier(tierName); }
+  for(const [tierName, keys] of Object.entries(TIER_ENV_KEYS)){
+    for(const key of keys){ if(envList(key).some(id=>ids.has(id))) return normalizeTier(tierName); }
+  }
+  return 'none';
+}
+async function fetchDiscordGuildMember(discordId){
+  const did = cleanId(discordId);
+  const guildId = env('PKL_DISCORD_GUILD_ID') || env('DISCORD_GUILD_ID') || env('GUILD_ID');
+  const token = env('DISCORD_BOT_TOKEN') || env('PKL_DISCORD_BOT_TOKEN') || env('BOT_TOKEN');
+  if(!did || !guildId || !token) return null;
+  const res = await fetch(`https://discord.com/api/v10/guilds/${encodeURIComponent(guildId)}/members/${encodeURIComponent(did)}`, { headers:{ Authorization:`Bot ${token}`, Accept:'application/json' }});
+  if(!res.ok) return null;
+  return await res.json().catch(()=>null);
+}
+async function discordRolePatchForUser(user){
+  const did = explicitDiscordId(user || {});
+  if(!did) return {};
+  let member = null;
+  try{ member = await fetchDiscordGuildMember(did); }catch(e){ member = null; }
+  const roleIds = Array.isArray(member && member.roles) ? member.roles : [];
+  const patch = {};
+  const tier = tierFromDiscordRoleIds(roleIds);
+  if(tier && tier !== 'none'){
+    patch.tier = tier; patch.memberTier = tier; patch.gradeRole = tier; patch.tierRole = tier; patch.baseRole = tier; patch.originalRole = tier;
+  }
+  let accessRole = highestAccessRoleFromDiscordRoleIds(roleIds);
+  if(configuredAdminDiscordIds().includes(did)) accessRole = 'admin';
+  if(accessRole){ patch.role = accessRole; patch.memberRole = accessRole; patch.userRole = accessRole; patch.authRole = accessRole; }
+  if(member){
+    patch.discordGuildRoleIds = roleIds;
+    patch.discordGuildNick = clean(member.nick || '');
+    patch.lastDiscordGuildSyncAt = new Date().toISOString();
+  }
+  return patch;
+}
+async function syncDiscordGuildRoles(user, options={}){
+  const did = explicitDiscordId(user || {});
+  if(!did) return null;
+  const patch = await discordRolePatchForUser(user);
+  if(!Object.keys(patch).length) return null;
+  const rows = await findUserRowsByDiscordId(did);
+  if(!rows.length) return normalizeUser({...user, ...patch});
+  const row = rows[0];
+  const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
+  const nextRole = patch.role ? normalizeRole(patch.role) : normalizeRole(row.role || raw.role || 'user');
+  const nextTier = patch.memberTier ? normalizeTier(patch.memberTier) : normalizeTier(row.tier || raw.memberTier || raw.tier || 'none');
+  const mergedRaw = {...raw, ...patch, role:nextRole, memberRole:nextRole, userRole:nextRole, authRole:nextRole, adminRole:nextRole==='admin'?'관리자':(nextRole==='operator'?'운영자':(nextRole==='prisoner'?'수감자':'일반')), memberRoleName:nextRole==='admin'?'관리자':(nextRole==='operator'?'운영자':(nextRole==='prisoner'?'수감자':'일반')), tier:nextTier==='none'?'없음':nextTier, memberTier:nextTier, gradeRole:nextTier, tierRole:nextTier};
+  const body = { role: nextRole, tier: nextTier, raw: mergedRaw, updated_at: new Date().toISOString() };
+  const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, { method:'PATCH', headers:{Prefer:'return=representation'}, body:JSON.stringify(body) });
+  return Array.isArray(json) && json[0] ? rowToUser(json[0]) : rowToUser({...row, ...body});
+}
+
 function normalizeUser(raw){
   const src = raw && raw.raw && typeof raw.raw === 'object' ? {...raw.raw, ...raw} : {...(raw || {})};
   const did = explicitDiscordId(src);
@@ -337,7 +416,8 @@ async function readUserDocs(options={}){
   return { users, count: Number.isFinite(count) ? count : users.length, limit, offset, q };
 }
 async function writeUserDoc(user, forceAdmin=false){
-  const input = (user && typeof user === 'object') ? user : {};
+  let input = (user && typeof user === 'object') ? user : {};
+  try{ input = {...input, ...(await discordRolePatchForUser(input))}; }catch(_e){}
   const u = normalizeUser(forceAdmin ? {...input, role:'admin', memberRole:'admin', is_admin:true} : input);
   const discordId = explicitDiscordId(u);
   if(!discordId) throw new Error('discord_id가 없어 저장할 수 없습니다.');
@@ -357,7 +437,10 @@ async function writeUserDoc(user, forceAdmin=false){
   const existingTier = existingRow ? normalizeTier(existingRow.tier != null ? existingRow.tier : existingUser?.tier) : 'none';
   const keepExistingTier = !!(existingRow && existingTier !== 'none' && incomingTier === 'none');
   const tier = keepExistingTier ? existingTier : incomingTier;
-  const role = forceAdmin ? 'admin' : (existingRow ? normalizeRole(existingRow.role || existingUser?.role || existingUser?.memberRole) : normalizeRole(u.memberRole || u.role || (u.is_admin ? 'admin' : 'user')));
+  const envAdmin = configuredAdminDiscordIds().includes(discordId);
+  const incomingRole = normalizeRole(u.memberRole || u.role || (u.is_admin ? 'admin' : 'user'));
+  const existingRole = existingRow ? normalizeRole(existingRow.role || existingUser?.role || existingUser?.memberRole) : 'user';
+  const role = forceAdmin || envAdmin ? 'admin' : (existingRow ? (incomingRole === 'admin' || incomingRole === 'operator' ? incomingRole : existingRole) : incomingRole);
   const prime = existingRow ? (Number(existingRow.prime ?? existingRow.points ?? existingUser?.prime ?? 0) || 0) : (Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0) || 0);
   const warnings = existingRow ? (Number(existingRow.warnings ?? existingUser?.warnings ?? 0) || 0) : (Number(u.warnings ?? 0) || 0);
   const raw = {
@@ -733,4 +816,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, syncDiscordGuildRoles, discordRolePatchForUser, explicitDiscordId, hasDiscordIdentity };

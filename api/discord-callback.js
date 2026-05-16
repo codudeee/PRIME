@@ -105,6 +105,15 @@ function normalizeRole(role){
   return "user";
 }
 async function readServerUsers(searchUser){
+  const did = explicitDiscordId(searchUser || {});
+  if (did && supabaseStore && typeof supabaseStore.findUserRowsByDiscordId === "function") {
+    try {
+      const rows = await supabaseStore.findUserRowsByDiscordId(did);
+      if (Array.isArray(rows) && rows.length) {
+        return rows.map(r => supabaseStore.normalizeUser ? supabaseStore.normalizeUser(Object.assign({}, (r.raw && typeof r.raw === 'object' ? r.raw : {}), { discordId:r.discord_id, discordUsername:r.discord_username, nickname:r.nickname, pubgId:r.pubg_id, tier:r.tier, role:r.role, prime:r.prime, points:r.points, warnings:r.warnings })) : r).filter(u => !!explicitDiscordId(u));
+      }
+    } catch(e) {}
+  }
   if (supabaseStore && typeof supabaseStore.readUserDocs === "function") {
     const q = searchUser && (searchUser.discordId || searchUser.discord_id || searchUser.uid || searchUser.id || searchUser.nickname);
     const result = await supabaseStore.readUserDocs({ limit: 100, offset: 0, q: q || "" });
@@ -230,23 +239,27 @@ exports.handler = async function(event) {
   if (!meRes.ok) return { statusCode: 502, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" }, body: `Discord 사용자 정보 요청 실패: ${escapeHtml(await meRes.text())}` };
   const me = await meRes.json();
   const displayName = me.global_name || me.username || `discord_${me.id}`;
-  const discordUser = { uid:`discord-${me.id}`, id:`discord-${me.id}`, discordId:me.id, discordUsername:me.username||"", discord_username:me.username||"", username:me.username||"", discordGlobalName:me.global_name||"", global_name:me.global_name||"", displayName:displayName, email:me.email||"", avatar:me.avatar?`https://cdn.discordapp.com/avatars/${me.id}/${me.avatar}.png`:"", nickname:displayName, nick:displayName, name:displayName, displayName, pubgId:displayName, provider:"discord", authType:"discord", join:new Date().toLocaleString("ko-KR"), last:new Date().toLocaleString("ko-KR") };
+  let discordUser = { uid:`discord-${me.id}`, id:`discord-${me.id}`, discordId:me.id, discordUsername:me.username||"", discord_username:me.username||"", username:me.username||"", discordGlobalName:me.global_name||"", global_name:me.global_name||"", displayName:displayName, email:me.email||"", avatar:me.avatar?`https://cdn.discordapp.com/avatars/${me.id}/${me.avatar}.png`:"", nickname:displayName, nick:displayName, name:displayName, displayName, pubgId:displayName, provider:"discord", authType:"discord", join:new Date().toLocaleString("ko-KR"), last:new Date().toLocaleString("ko-KR") };
+  try{ if(supabaseStore && typeof supabaseStore.discordRolePatchForUser === "function") discordUser = Object.assign({}, discordUser, await supabaseStore.discordRolePatchForUser(discordUser)); }catch(_e){}
 
   if (await isBlockedByBanRecords(discordUser)) {
     return { statusCode: 403, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store", "Set-Cookie": ["pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0", "pkl_login_return_to=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"] }, body: oauthErrorHtml("가입 제한", "추방 기록이 있는 계정은 회원가입할 수 없습니다. 운영진에게 문의해주세요.", { Discord: displayName, Reason: "banRecords" }) };
   }
 
   const serverUsers = await readServerUsers(discordUser);
-  const existing = serverUsers.find(u => sameDiscordUser(u, discordUser));
+  let existing = serverUsers.find(u => sameDiscordUser(u, discordUser));
+  if (existing) {
+    await registerServerUser(discordUser, existing.nickname || existing.nick || existing.name);
+    try{ if(supabaseStore && typeof supabaseStore.syncDiscordProfile === "function") await supabaseStore.syncDiscordProfile(discordUser); }catch(_e){}
+    try{ if(supabaseStore && typeof supabaseStore.syncDiscordGuildRoles === "function") existing = await supabaseStore.syncDiscordGuildRoles(discordUser) || existing; }catch(_e){}
+    const fresh = await readServerUsers(discordUser).catch(()=>[]);
+    existing = fresh.find(u => sameDiscordUser(u, discordUser)) || existing;
+  }
   const payload = {
   existingUser: existing || null,
   discordUser,
   returnTo
 };
-  if (existing) {
-    await registerServerUser(discordUser, existing.nickname || existing.nick || existing.name);
-    try{ if(supabaseStore && typeof supabaseStore.syncDiscordProfile === "function") await supabaseStore.syncDiscordProfile(discordUser); }catch(_e){}
-  }
 
   return { statusCode: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control":"no-store", "Set-Cookie": ["pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0", "pkl_login_return_to=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"] }, body: callbackHtml(payload) };
 };
