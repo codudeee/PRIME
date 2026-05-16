@@ -11,12 +11,6 @@ function stripLeadingNicknameDecorations(v){
     .trim();
 }
 function cleanNickname(v){ return stripLeadingNicknameDecorations(v); }
-function discordServerNickname(v){
-  const first = stripLeadingNicknameDecorations(String(v == null ? '' : v).split('/')[0] || '');
-  if(!first) return '';
-  const m = first.match(/[가-힣][가-힣0-9A-Za-z_\-\s]{0,18}/u);
-  return cleanNickname(m ? m[0] : first);
-}
 function cleanId(v){ return clean(v).toLowerCase().replace(/^discord-/, ''); }
 function explicitDiscordId(src={}){
   const direct = cleanId(src.discordId || src.discord_id);
@@ -42,180 +36,10 @@ function normalizeTier(v){
   if(!raw || raw === '없음' || raw.toLowerCase() === 'none') return 'none';
   return raw;
 }
-function registeredNicknameFromRaw(raw){
-  raw = raw && typeof raw === 'object' ? raw : {};
-  return cleanNickname(raw.registeredNickname || raw.pklNickname || raw.pkl_nickname || raw.signupNickname || raw.signup_nickname || '');
-}
-function registeredPubgFromRaw(raw){
-  raw = raw && typeof raw === 'object' ? raw : {};
-  return clean(raw.registeredPubgId || raw.pklPubgId || raw.pkl_pubg_id || raw.signupPubgId || raw.signup_pubg_id || '');
-}
-function isKoreanNameText(v){
-  const t = cleanNickname(v);
-  return !!t && /[가-힣]/.test(t);
-}
-function discordDisplayFromRaw(raw){
-  raw = raw && typeof raw === 'object' ? raw : {};
-  // 사이트 표시 닉네임은 Discord 서버 프로필 닉네임만 사용한다.
-  // username/global_name/discord_id는 여기서 절대 fallback으로 쓰지 않는다.
-  return discordServerNickname(raw.discordGuildNick || raw.guildNick || raw.serverNick || raw.discordServerNickname || '');
-}
-function safeDisplayNickname(src){
-  src = src && typeof src === 'object' ? src : {};
-  const raw = src.raw && typeof src.raw === 'object' ? src.raw : src;
-  // 표시 닉네임은 Discord 서버 프로필 닉네임의 '/' 앞 한글닉만 최우선으로 사용한다.
-  // 서버닉이 없을 때만 가입 당시 PKL 닉네임/현재 저장 닉네임을 유지하고,
-  // username/global_name/discord_id는 절대 닉네임 fallback으로 쓰지 않는다.
-  const guildNick = discordDisplayFromRaw(Object.assign({}, raw, src));
-  if(guildNick) return guildNick;
-  const registered = registeredNicknameFromRaw(raw);
-  if(registered) return registered;
-  const pkl = cleanNickname(src.pklNickname || src.pkl_nickname || src.signupNickname || src.signup_nickname || raw.pklNickname || raw.pkl_nickname || raw.signupNickname || raw.signup_nickname || '');
-  if(pkl) return pkl;
-  const current = cleanNickname(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name || '');
-  if(current) return current;
-  return '';
-}
-
-function env(name){ return clean(process.env[name] || ''); }
-function envList(name){ return env(name).split(/[,:\s]+/).map(cleanId).filter(Boolean); }
-function parseJsonMap(value){ try{ const o = JSON.parse(value || '{}'); return o && typeof o === 'object' ? o : {}; }catch(e){ return {}; } }
-const ACCESS_ROLE_ENV_KEYS = {
-  admin: ['PKL_DISCORD_ADMIN_ROLE_IDS','DISCORD_ADMIN_ROLE_IDS','PKL_ADMIN_ROLE_IDS'],
-  operator: ['PKL_DISCORD_OPERATOR_ROLE_IDS','DISCORD_OPERATOR_ROLE_IDS','PKL_OPERATOR_ROLE_IDS']
-};
-const TIER_ENV_KEYS = {
-  tier0_high:['PKL_TIER0_HIGH_ROLE_ID','DISCORD_TIER0_HIGH_ROLE_ID'], tier0_mid:['PKL_TIER0_MID_ROLE_ID','DISCORD_TIER0_MID_ROLE_ID'], tier0_low:['PKL_TIER0_LOW_ROLE_ID','DISCORD_TIER0_LOW_ROLE_ID'],
-  tier1_high:['PKL_TIER1_HIGH_ROLE_ID','DISCORD_TIER1_HIGH_ROLE_ID'], tier1_mid:['PKL_TIER1_MID_ROLE_ID','DISCORD_TIER1_MID_ROLE_ID'], tier1_low:['PKL_TIER1_LOW_ROLE_ID','DISCORD_TIER1_LOW_ROLE_ID'],
-  tier2_high:['PKL_TIER2_HIGH_ROLE_ID','DISCORD_TIER2_HIGH_ROLE_ID'], tier2_mid:['PKL_TIER2_MID_ROLE_ID','DISCORD_TIER2_MID_ROLE_ID'], tier2_low:['PKL_TIER2_LOW_ROLE_ID','DISCORD_TIER2_LOW_ROLE_ID'],
-  tier3_high:['PKL_TIER3_HIGH_ROLE_ID','DISCORD_TIER3_HIGH_ROLE_ID'], tier3_mid:['PKL_TIER3_MID_ROLE_ID','DISCORD_TIER3_MID_ROLE_ID'], tier3_low:['PKL_TIER3_LOW_ROLE_ID','DISCORD_TIER3_LOW_ROLE_ID'],
-  tier4_high:['PKL_TIER4_HIGH_ROLE_ID','DISCORD_TIER4_HIGH_ROLE_ID'], tier4_mid:['PKL_TIER4_MID_ROLE_ID','DISCORD_TIER4_MID_ROLE_ID'], tier4_low:['PKL_TIER4_LOW_ROLE_ID','DISCORD_TIER4_LOW_ROLE_ID'],
-  beast:['PKL_BEAST_ROLE_ID','DISCORD_BEAST_ROLE_ID']
-};
-function configuredAdminDiscordIds(){ return envList('PKL_ADMIN_DISCORD_IDS').concat(envList('DISCORD_ADMIN_IDS')).concat(envList('ADMIN_DISCORD_IDS')); }
-function highestAccessRoleFromDiscordRoleIds(roleIds=[]){
-  const ids = new Set((Array.isArray(roleIds)?roleIds:[]).map(cleanId).filter(Boolean));
-  for(const key of ACCESS_ROLE_ENV_KEYS.admin){ if(envList(key).some(id=>ids.has(id))) return 'admin'; }
-  for(const key of ACCESS_ROLE_ENV_KEYS.operator){ if(envList(key).some(id=>ids.has(id))) return 'operator'; }
-  return '';
-}
-function tierFromDiscordRoleIds(roleIds=[]){
-  const ids = new Set((Array.isArray(roleIds)?roleIds:[]).map(cleanId).filter(Boolean));
-  const jsonMap = Object.assign({}, parseJsonMap(env('PKL_DISCORD_TIER_ROLE_MAP')), parseJsonMap(env('DISCORD_TIER_ROLE_MAP')));
-  for(const [roleId,tierName] of Object.entries(jsonMap)){ if(ids.has(cleanId(roleId))) return normalizeTier(tierName); }
-  for(const [tierName, keys] of Object.entries(TIER_ENV_KEYS)){
-    for(const key of keys){ if(envList(key).some(id=>ids.has(id))) return normalizeTier(tierName); }
-  }
-  return 'none';
-}
-async function fetchDiscordGuildMember(discordId){
-  const did = cleanId(discordId);
-  const guildId = env('PKL_DISCORD_GUILD_ID') || env('DISCORD_GUILD_ID') || env('GUILD_ID');
-  const token = env('DISCORD_BOT_TOKEN') || env('PKL_DISCORD_BOT_TOKEN') || env('BOT_TOKEN');
-  if(!did || !guildId || !token) return null;
-  const auth = /^Bot\s+/i.test(token) ? token : `Bot ${token}`;
-  let controller=null, timer=null;
-  try{ controller=new AbortController(); timer=setTimeout(()=>{try{controller.abort();}catch(_e){}}, 1800); }catch(_e){}
-  try{
-    const res = await fetch(`https://discord.com/api/v10/guilds/${encodeURIComponent(guildId)}/members/${encodeURIComponent(did)}`, { headers:{ Authorization:auth, Accept:'application/json' }, signal:controller && controller.signal });
-    if(!res.ok) return null;
-    return await res.json().catch(()=>null);
-  }catch(_e){
-    return null;
-  }finally{
-    if(timer) clearTimeout(timer);
-  }
-}
-async function discordRolePatchForUser(user){
-  const did = explicitDiscordId(user || {});
-  if(!did) return {};
-  let member = null;
-  try{ member = await fetchDiscordGuildMember(did); }catch(e){ member = null; }
-  const roleIds = Array.isArray(member && member.roles) ? member.roles : [];
-  const patch = {};
-  const tier = tierFromDiscordRoleIds(roleIds);
-  if(tier && tier !== 'none'){
-    patch.tier = tier; patch.memberTier = tier; patch.gradeRole = tier; patch.tierRole = tier; patch.baseRole = tier; patch.originalRole = tier;
-  }
-  let accessRole = highestAccessRoleFromDiscordRoleIds(roleIds);
-  if(configuredAdminDiscordIds().includes(did)) accessRole = 'admin';
-  if(accessRole){ patch.role = accessRole; patch.memberRole = accessRole; patch.userRole = accessRole; patch.authRole = accessRole; }
-  if(member){
-    const guildNickRaw = clean(member.nick || '');
-    const guildNick = discordServerNickname(guildNickRaw);
-    patch.discordGuildRoleIds = roleIds;
-    patch.discordGuildNick = guildNickRaw;
-    patch.discordServerNickname = guildNick;
-    if(guildNick){ patch.nickname = guildNick; patch.nick = guildNick; patch.name = guildNick; patch.displayName = guildNick; }
-    patch.lastDiscordGuildSyncAt = new Date().toISOString();
-  }
-  return patch;
-}
-async function syncDiscordGuildRoles(user, options={}){
-  const did = explicitDiscordId(user || {});
-  if(!did) return null;
-  const patch = await discordRolePatchForUser(user);
-  if(!Object.keys(patch).length) return null;
-  const rows = await findUserRowsByDiscordId(did);
-  if(!rows.length) return normalizeUser({...user, ...patch});
-  const row = rows[0];
-  const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
-  const nextRole = patch.role ? normalizeRole(patch.role) : normalizeRole(row.role || raw.role || 'user');
-  const nextTier = patch.memberTier ? normalizeTier(patch.memberTier) : normalizeTier(row.tier || raw.memberTier || raw.tier || 'none');
-  const serverNick = discordServerNickname(patch.discordGuildNick || patch.discordServerNickname || raw.discordGuildNick || raw.discordServerNickname || '');
-  const mergedRaw = {...raw, ...patch, role:nextRole, memberRole:nextRole, userRole:nextRole, authRole:nextRole, adminRole:nextRole==='admin'?'관리자':(nextRole==='operator'?'운영자':(nextRole==='prisoner'?'수감자':'일반')), memberRoleName:nextRole==='admin'?'관리자':(nextRole==='operator'?'운영자':(nextRole==='prisoner'?'수감자':'일반')), tier:nextTier==='none'?'없음':nextTier, memberTier:nextTier, gradeRole:nextTier, tierRole:nextTier};
-  if(serverNick){ mergedRaw.nickname = serverNick; mergedRaw.nick = serverNick; mergedRaw.name = serverNick; mergedRaw.displayName = serverNick; mergedRaw.discordServerNickname = serverNick; }
-  const body = { role: nextRole, tier: nextTier, raw: mergedRaw, updated_at: new Date().toISOString() };
-  if(serverNick) body.nickname = serverNick;
-  const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, { method:'PATCH', headers:{Prefer:'return=representation'}, body:JSON.stringify(body) });
-  return Array.isArray(json) && json[0] ? rowToUser(json[0]) : rowToUser({...row, ...body});
-}
-
-async function syncDiscordGuildNicknames(options={}){
-  const limit = Math.max(1, Math.min(Number(options.limit || 2000) || 2000, 5000));
-  const offset = Math.max(0, Number(options.offset || 0) || 0);
-  const result = { ok:true, checked:0, updated:0, skipped:0, missingConfig:false, errors:[] };
-  const guildId = env('PKL_DISCORD_GUILD_ID') || env('DISCORD_GUILD_ID') || env('GUILD_ID');
-  const token = env('DISCORD_BOT_TOKEN') || env('PKL_DISCORD_BOT_TOKEN') || env('BOT_TOKEN');
-  if(!guildId || !token){ result.missingConfig = true; return result; }
-  const { json } = await supabaseFetch(`users?select=*&discord_id=not.is.null&discord_id=neq.&order=updated_at.desc.nullslast&offset=${offset}&limit=${limit}`);
-  const rows = Array.isArray(json) ? json : [];
-  for(const row of rows){
-    const did = cleanId(row.discord_id || (row.raw && (row.raw.discordId || row.raw.discord_id)) || '');
-    if(!did){ result.skipped++; continue; }
-    result.checked++;
-    try{
-      const member = await fetchDiscordGuildMember(did);
-      const serverNickRaw = clean(member && member.nick);
-      const serverNick = discordServerNickname(serverNickRaw);
-      if(!serverNick){ result.skipped++; continue; }
-      const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
-      raw.discordGuildNick = serverNickRaw;
-      raw.guildNick = serverNickRaw;
-      raw.discordServerNickname = serverNick;
-      raw.nickname = serverNick;
-      raw.nick = serverNick;
-      raw.name = serverNick;
-      raw.displayName = serverNick;
-      raw.lastDiscordGuildSyncAt = new Date().toISOString();
-      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
-        method:'PATCH',
-        headers:{Prefer:'return=minimal'},
-        body:JSON.stringify({ nickname:serverNick, raw, updated_at:raw.lastDiscordGuildSyncAt })
-      });
-      result.updated++;
-    }catch(e){
-      result.errors.push({discord_id:did, message:String(e && e.message || e).slice(0,180)});
-    }
-  }
-  return result;
-}
-
-
 function normalizeUser(raw){
   const src = raw && raw.raw && typeof raw.raw === 'object' ? {...raw.raw, ...raw} : {...(raw || {})};
   const did = explicitDiscordId(src);
-  const nick = safeDisplayNickname(src);
+  const nick = cleanNickname(src.nickname || src.nick || src.name || src.displayName || src.discord_username || src.discordUsername || src.username || src.discordGlobalName);
   const pubg = clean(src.pubgId || src.pubg_id || src.pubgID || src.gameId || src.pubgName || src.ref || src.pubg);
   const role = normalizeRole(src.memberRole || src.role || src.userRole || src.authRole || src.adminRole || (src.is_admin ? 'admin' : 'user'));
   const tierInput = (src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : (src.baseRole != null ? src.baseRole : (src.memberTierName || src.tierName))))));
@@ -230,8 +54,6 @@ function normalizeUser(raw){
     userId: did ? `discord-${did}` : clean(src.userId || src.uid || src.id || ''),
     key: did ? `discord-${did}` : clean(src.key || src.uid || src.id || ''),
     discordUsername: clean(src.discordUsername || src.discord_username || src.username || ''),
-    discordDisplayName: clean(src.discordDisplayName || src.discordGlobalName || src.global_name || src.displayName || src.discord_username || src.discordUsername || ''),
-    discordGlobalName: clean(src.discordGlobalName || src.global_name || src.discordDisplayName || ''),
     nickname: nick || (did ? `회원-${did.slice(-4)}` : ''),
     nick: nick || (did ? `회원-${did.slice(-4)}` : ''),
     name: nick || (did ? `회원-${did.slice(-4)}` : ''),
@@ -323,44 +145,6 @@ function canonicalDiscordIdFromRow(row){
     key: raw.key || row.key
   });
 }
-function normalizeIdentityText(v){
-  return clean(v).normalize('NFKC').toLowerCase().replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]+/g, '');
-}
-function canonicalPubgIdFromRow(row){
-  row = row || {};
-  const raw = row.raw && typeof row.raw === 'object' ? row.raw : {};
-  return normalizeIdentityText(row.pubg_id || raw.pubgId || raw.pubg_id || raw.gameId || raw.pubgName || raw.ref || raw.pubg);
-}
-function canonicalNicknameFromRow(row){
-  row = row || {};
-  const raw = row.raw && typeof row.raw === 'object' ? row.raw : {};
-  return normalizeIdentityText(row.nickname || raw.nickname || raw.nick || raw.name || raw.displayName);
-}
-function accessRoleRank(v){
-  const r = normalizeRole(v);
-  if(r === 'admin') return 4;
-  if(r === 'operator') return 3;
-  if(r === 'prisoner') return 2;
-  if(r === 'guest') return 1;
-  return 0;
-}
-function highestRoleFromRows(rows){
-  let best = 'user', rank = 0;
-  (Array.isArray(rows)?rows:[]).forEach(row => {
-    const raw = row && row.raw && typeof row.raw === 'object' ? row.raw : {};
-    const candidates = [row && row.role, raw.memberRole, raw.role, raw.userRole, raw.authRole, raw.adminRole];
-    candidates.forEach(v => { const r = normalizeRole(v); const n = accessRoleRank(r); if(n > rank){ rank = n; best = r; } });
-  });
-  return best;
-}
-function bestTierFromRows(rows, fallback){
-  for(const row of (Array.isArray(rows)?rows:[])){
-    const raw = row && row.raw && typeof row.raw === 'object' ? row.raw : {};
-    const t = normalizeTier(row.tier || raw.memberTier || raw.gradeRole || raw.tierRole || raw.tier || raw.baseRole);
-    if(t && t !== 'none') return t;
-  }
-  return normalizeTier(fallback || 'none');
-}
 function scoreUserRowForKeep(row){
   const r = row || {};
   let score = 0;
@@ -374,58 +158,39 @@ function scoreUserRowForKeep(row){
 }
 async function cleanupDuplicateUsersByDiscordId(limit=2000){
   const { json } = await supabaseFetch(`users?select=*&order=updated_at.desc.nullslast&limit=${Math.max(100, Math.min(5000, Number(limit)||2000))}`);
-  let rows = Array.isArray(json) ? json : [];
+  const rows = Array.isArray(json) ? json : [];
+  const groups = new Map();
+  rows.forEach(row => {
+    const did = canonicalDiscordIdFromRow(row);
+    if(!did) return;
+    if(!groups.has(did)) groups.set(did, []);
+    groups.get(did).push(row);
+  });
   let mergedCount = 0, normalizedCount = 0;
-
-  async function mergeGroup(list, reason){
-    list = (Array.isArray(list)?list:[]).filter(Boolean);
-    if(list.length < 1) return null;
+  for (const [did, list] of groups.entries()) {
+    if(!list.length) continue;
+    const needsNormalize = list.some(r => cleanId(r.discord_id) !== did || clean(r.discord_id) !== did);
+    if(list.length < 2 && !needsNormalize) continue;
     const sorted = list.map((row, idx) => ({ row, idx, score: scoreUserRowForKeep(row), updated: Date.parse(row.updated_at || row.created_at || '') || 0 }))
       .sort((a,b)=> (b.score-a.score) || (b.updated-a.updated) || (a.idx-b.idx));
     const keep = sorted[0].row;
     const raws = list.map(r => (r.raw && typeof r.raw === 'object') ? r.raw : {});
     const latest = sorted[0].row;
     const mergedRaw = Object.assign({}, ...raws, latest.raw && typeof latest.raw === 'object' ? latest.raw : {});
-    const did = canonicalDiscordIdFromRow(keep) || list.map(canonicalDiscordIdFromRow).find(Boolean) || '';
-    const pubgOriginal = clean(registeredPubgFromRaw(mergedRaw) || keep.pubg_id || latest.pubg_id || mergedRaw.pubgId || mergedRaw.pubg_id || mergedRaw.gameId || '');
-    const nicknameOriginal = cleanNickname(registeredNicknameFromRaw(mergedRaw) || keep.nickname || latest.nickname || mergedRaw.nickname || mergedRaw.nick || mergedRaw.name || '');
-    if(did){
-      mergedRaw.discordId = did;
-      mergedRaw.discord_id = did;
-      mergedRaw.uid = `discord-${did}`;
-      mergedRaw.id = `discord-${did}`;
-      mergedRaw.userId = `discord-${did}`;
-    }
-    const role = highestRoleFromRows(list);
-    const tier = bestTierFromRows(sorted.map(x=>x.row), latest.tier || keep.tier || mergedRaw.memberTier || mergedRaw.gradeRole || mergedRaw.tier || 'none');
-    Object.assign(mergedRaw, {
-      nickname: nicknameOriginal || mergedRaw.nickname || mergedRaw.nick || mergedRaw.name || '',
-      nick: nicknameOriginal || mergedRaw.nick || mergedRaw.nickname || mergedRaw.name || '',
-      name: nicknameOriginal || mergedRaw.name || mergedRaw.nickname || mergedRaw.nick || '',
-      pubgId: pubgOriginal || mergedRaw.pubgId || mergedRaw.pubg_id || mergedRaw.gameId || '',
-      gameId: pubgOriginal || mergedRaw.gameId || mergedRaw.pubgId || mergedRaw.pubg_id || '',
-      role,
-      memberRole: role,
-      userRole: role,
-      authRole: role,
-      adminRole: role === 'admin' ? '관리자' : (role === 'operator' ? '운영자' : (role === 'prisoner' ? '수감자' : '일반')),
-      memberRoleName: role === 'admin' ? '관리자' : (role === 'operator' ? '운영자' : (role === 'prisoner' ? '수감자' : '일반')),
-      tier: tier === 'none' ? '없음' : tier,
-      memberTier: tier,
-      gradeRole: tier,
-      tierRole: tier,
-      duplicateCleanupReason: reason || 'identity',
-      duplicateCleanupAt: new Date().toISOString()
-    });
+    mergedRaw.discordId = did;
+    mergedRaw.discord_id = did;
+    mergedRaw.uid = `discord-${did}`;
+    mergedRaw.id = `discord-${did}`;
+    mergedRaw.userId = `discord-${did}`;
     const body = {
-      discord_id: did || cleanId(keep.discord_id || ''),
+      discord_id: did,
       discord_username: clean(latest.discord_username || keep.discord_username || mergedRaw.discordUsername || mergedRaw.discord_username || ''),
-      nickname: nicknameOriginal,
-      pubg_id: pubgOriginal,
-      tier,
-      role,
-      prime: Math.max(...list.map(r => Number(r.prime ?? r.points ?? ((r.raw&&r.raw.prime) || 0)) || 0), 0),
-      warnings: Math.max(...list.map(r => Number(r.warnings ?? ((r.raw&&r.raw.warnings) || 0)) || 0), 0),
+      nickname: cleanNickname(latest.nickname || keep.nickname || mergedRaw.nickname || mergedRaw.nick || mergedRaw.name || ''),
+      pubg_id: clean(latest.pubg_id || keep.pubg_id || mergedRaw.pubgId || mergedRaw.pubg_id || mergedRaw.gameId || ''),
+      tier: normalizeTier(latest.tier || keep.tier || mergedRaw.memberTier || mergedRaw.gradeRole || mergedRaw.tier || 'none'),
+      role: normalizeRole(latest.role || keep.role || mergedRaw.memberRole || mergedRaw.role || 'user'),
+      prime: Number(latest.prime ?? latest.points ?? keep.prime ?? keep.points ?? mergedRaw.prime ?? mergedRaw.points ?? 0) || 0,
+      warnings: Number(latest.warnings ?? keep.warnings ?? mergedRaw.warnings ?? 0) || 0,
       raw: mergedRaw,
       updated_at: new Date().toISOString()
     };
@@ -439,45 +204,7 @@ async function cleanupDuplicateUsersByDiscordId(limit=2000){
       await supabaseFetch(`users?id=eq.${encodeURIComponent(keepId)}`, { method:'PATCH', headers:{Prefer:'return=minimal'}, body: JSON.stringify(body) }).catch(()=>{});
       normalizedCount += 1;
     }
-    return keepId;
   }
-
-  async function runPass(kind){
-    const groups = new Map();
-    rows.forEach(row => {
-      let key = '';
-      if(kind === 'discord'){
-        const did = canonicalDiscordIdFromRow(row);
-        if(!did) return;
-        key = `discord:${did}`;
-      } else if(kind === 'pubg'){
-        const pubg = canonicalPubgIdFromRow(row);
-        if(!pubg) return;
-        key = `pubg:${pubg}`;
-      } else if(kind === 'nicknamePubg'){
-        const nick = canonicalNicknameFromRow(row);
-        const pubg = canonicalPubgIdFromRow(row);
-        if(!nick || !pubg) return;
-        key = `nickpubg:${nick}|${pubg}`;
-      }
-      if(!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(row);
-    });
-    for (const [key, list] of groups.entries()) {
-      const needsNormalize = kind === 'discord' && list.some(r => {
-        const did = canonicalDiscordIdFromRow(r);
-        return did && (cleanId(r.discord_id) !== did || clean(r.discord_id) !== did);
-      });
-      if(list.length < 2 && !needsNormalize) continue;
-      await mergeGroup(list, key);
-    }
-  }
-
-  // 같은 Discord 계정 중복 row만 병합한다.
-  // PUBG ID/닉네임은 여러 사람이 같거나 잘못 입력할 수 있어서 병합 기준으로 쓰면
-  // 가람/주희처럼 서로 다른 Discord 계정이 한 row로 섞인다.
-  await runPass('discord');
-
   return { mergedCount, normalizedCount };
 }
 
@@ -527,12 +254,10 @@ async function canonicalizeDuplicateDiscordRows(discordId, keepBody){
 function rowToUser(r){
   r = r || {};
   const raw = r.raw && typeof r.raw === 'object' ? r.raw : {};
-  const rawDiscordId = raw.discordId || raw.discord_id || raw.userId || raw.uid || raw.id || '';
   return normalizeUser({
     ...raw,
-    discordId: r.discord_id || rawDiscordId,
-    discord_id: r.discord_id || rawDiscordId,
-    discordUsername: r.discord_username || raw.discordUsername || raw.discord_username || raw.username || '',
+    discordId: r.discord_id,
+    discordUsername: r.discord_username,
     nickname: r.nickname,
     pubgId: r.pubg_id,
     memberTier: r.tier,
@@ -566,47 +291,21 @@ async function supabaseFetch(path, options={}){
   const json = await res.json().catch(()=> null);
   return { json, headers: res.headers };
 }
-function isWarningGhostUser(u){
-  u = u && typeof u === 'object' ? u : {};
-  const raw = u.raw && typeof u.raw === 'object' ? u.raw : {};
-  const role = normalizeRole(u.role || u.memberRole || raw.role || raw.memberRole || 'user');
-  const pubg = clean(u.pubgId || u.pubg_id || u.gameId || raw.pubgId || raw.pubg_id || raw.gameId || raw.registeredPubgId || raw.pklPubgId || '');
-  const joined = ['registered','loginCreated','discordLogin','joinedSite','siteRegistered'].some(k => String(raw[k] || '').toLowerCase() === 'true');
-  const explicitGhost = ['warningOnly','pendingWarning','createdByWarning','ghostUser'].some(k => String(raw[k] || '').toLowerCase() === 'true');
-  if(role === 'admin' || role === 'operator') return false;
-  if(explicitGhost) return true;
-  return !joined && !pubg;
-}
-
 async function readUserDocs(options={}){
-  // 회원목록 조회에서 자동 cleanup/delete를 절대 실행하지 않는다.
-  // 정리는 명시적인 PATCH action에서만 수행한다.
+  if(!options.tierOnly && options.cleanup !== false){
+    try{ await cleanupDuplicateUsersByDiscordId(2000); }catch(e){}
+  }
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
   const offset = Math.max(0, Number(options.offset || 0));
   const q = clean(options.q || '');
-  const discordId = cleanId(options.discordId || options.discord_id || '');
   const tierOnly = !!options.tierOnly;
-
-  if(discordId){
-    const rows = await findUserRowsByDiscordId(discordId);
-    const rawUsers = (Array.isArray(rows) ? rows : []).map(rowToUser).filter(u => !!u.discordId);
-    const seenDiscord = new Set();
-    const users = [];
-    for (const u of rawUsers) {
-      const did = cleanId(u.discordId || u.discord_id);
-      if (!did || seenDiscord.has(did)) continue;
-      seenDiscord.add(did);
-      users.push(u);
-    }
-    return { users, count: users.length, limit, offset, q, discordId };
-  }
 
   // 티어표 전용 요청은 화면에 필요한 컬럼만 가져오고 count=exact를 쓰지 않는다.
   // count=exact + select=* 는 유저가 늘수록 티어표 유저칸 표시를 늦춘다.
   const select = tierOnly
     ? 'discord_id,discord_username,nickname,pubg_id,tier,role,created_at,updated_at'
     : '*';
-  let path = `users?select=${select}&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
+  let path = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
   if(tierOnly){
     path += `&tier=not.is.null&tier=neq.%EC%97%86%EC%9D%8C&tier=neq.none`;
   }
@@ -621,7 +320,7 @@ async function readUserDocs(options={}){
     const pageLength = Array.isArray(json) ? json.length : 0;
     count = offset + pageLength + (pageLength >= limit ? 1 : 0);
   }
-  const rawUsers = (Array.isArray(json) ? json : []).map(rowToUser).filter(u => !!u.discordId && !isWarningGhostUser(u));
+  const rawUsers = (Array.isArray(json) ? json : []).map(rowToUser).filter(u => !!u.discordId);
   // Supabase users is the only source, but the API also normalizes the page result once here.
   // This prevents the client pages from each doing their own cache/nickname merge and creating duplicate visible users.
   const seenDiscord = new Set();
@@ -636,8 +335,7 @@ async function readUserDocs(options={}){
   return { users, count: Number.isFinite(count) ? count : users.length, limit, offset, q };
 }
 async function writeUserDoc(user, forceAdmin=false){
-  let input = (user && typeof user === 'object') ? user : {};
-  try{ input = {...input, ...(await discordRolePatchForUser(input))}; }catch(_e){}
+  const input = (user && typeof user === 'object') ? user : {};
   const u = normalizeUser(forceAdmin ? {...input, role:'admin', memberRole:'admin', is_admin:true} : input);
   const discordId = explicitDiscordId(u);
   if(!discordId) throw new Error('discord_id가 없어 저장할 수 없습니다.');
@@ -657,10 +355,7 @@ async function writeUserDoc(user, forceAdmin=false){
   const existingTier = existingRow ? normalizeTier(existingRow.tier != null ? existingRow.tier : existingUser?.tier) : 'none';
   const keepExistingTier = !!(existingRow && existingTier !== 'none' && incomingTier === 'none');
   const tier = keepExistingTier ? existingTier : incomingTier;
-  const envAdmin = configuredAdminDiscordIds().includes(discordId);
-  const incomingRole = normalizeRole(u.memberRole || u.role || (u.is_admin ? 'admin' : 'user'));
-  const existingRole = existingRow ? normalizeRole(existingRow.role || existingUser?.role || existingUser?.memberRole) : 'user';
-  const role = forceAdmin || envAdmin ? 'admin' : (existingRow ? (incomingRole === 'admin' || incomingRole === 'operator' ? incomingRole : existingRole) : incomingRole);
+  const role = forceAdmin ? 'admin' : (existingRow ? normalizeRole(existingRow.role || existingUser?.role || existingUser?.memberRole) : normalizeRole(u.memberRole || u.role || (u.is_admin ? 'admin' : 'user')));
   const prime = existingRow ? (Number(existingRow.prime ?? existingRow.points ?? existingUser?.prime ?? 0) || 0) : (Number(u.prime ?? u.points ?? u.dia ?? u.chicken ?? 0) || 0);
   const warnings = existingRow ? (Number(existingRow.warnings ?? existingUser?.warnings ?? 0) || 0) : (Number(u.warnings ?? 0) || 0);
   const raw = {
@@ -686,32 +381,11 @@ async function writeUserDoc(user, forceAdmin=false){
     chicken: prime,
     warnings
   };
-  const incomingServerNickname = discordServerNickname(u.discordGuildNick || u.guildNick || u.serverNick || u.discordServerNickname || raw.discordGuildNick || raw.guildNick || raw.serverNick || raw.discordServerNickname || '');
-  const incomingPklNickname = cleanNickname(u.registeredNickname || u.pklNickname || u.pkl_nickname || u.signupNickname || u.signup_nickname || u.nickname || u.nick || u.name || '');
-  const incomingPubg = clean(u.pubgId || u.gameId || u.ref);
-  const savedNickname = cleanNickname(existingRow && (registeredNicknameFromRaw(existingRaw) || existingRow.nickname || existingUser?.nickname));
-  const savedPubg = clean(existingRow && (registeredPubgFromRaw(existingRaw) || existingRow.pubg_id || existingUser?.pubgId));
-  // 서버 프로필 닉네임이 실제로 확인되면 항상 최신 서버닉으로 갱신한다.
-  // 서버닉이 없을 때만 기존 PKL 가입 닉네임/관리자가 저장한 닉네임을 보존한다.
-  const finalNickname = incomingServerNickname || (existingRow ? (savedNickname || incomingPklNickname) : incomingPklNickname);
-  const finalPubg = existingRow ? (savedPubg || incomingPubg) : incomingPubg;
-  if(incomingServerNickname){
-    raw.discordServerNickname = incomingServerNickname;
-    raw.nickname = incomingServerNickname;
-    raw.nick = incomingServerNickname;
-    raw.name = incomingServerNickname;
-    raw.displayName = incomingServerNickname;
-  }
-  raw.registeredNickname = raw.registeredNickname || (incomingPklNickname || finalNickname);
-  raw.pklNickname = raw.pklNickname || (incomingPklNickname || finalNickname);
-  raw.registeredPubgId = raw.registeredPubgId || finalPubg;
-  raw.pklPubgId = raw.pklPubgId || finalPubg;
-
   const body = {
     discord_id: discordId,
-    discord_username: clean(u.discordGlobalName || u.global_name || u.displayName || u.discordUsername || u.discord_username || u.username || u.nickname),
-    nickname: finalNickname,
-    pubg_id: finalPubg,
+    discord_username: clean(u.discordUsername || u.username || u.displayName || u.nickname),
+    nickname: cleanNickname(u.nickname || u.displayName || u.nick || u.name),
+    pubg_id: clean(u.pubgId || u.gameId || u.ref),
     tier,
     prime,
     warnings,
@@ -744,7 +418,7 @@ function clientRowFromUser(src={}){
   return {
     id: clean(src.supabase_id || src.row_id || src.db_id || ''),
     discord_id: did,
-    discord_username: clean(src.discordGlobalName || src.global_name || src.displayName || src.discordUsername || src.discord_username || raw.discordGlobalName || raw.global_name || raw.displayName || raw.discordUsername || raw.discord_username || src.username || ''),
+    discord_username: clean(src.discordUsername || src.discord_username || raw.discordUsername || raw.discord_username || src.username || ''),
     nickname: clean(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name),
     pubg_id: clean(src.pubgId || src.pubg_id || src.gameId || src.ref || raw.pubgId || raw.pubg_id || raw.gameId || raw.ref),
     tier: normalizeTier(src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : raw.tier)))),
@@ -851,12 +525,6 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
   const beforeUser = rowToUser(row);
   const explicitAccessRoleChange = hasExplicitAccessRoleInput(identity || {}) && !/^tier_change$/i.test(clean(log.type || log.action));
   const nextInput = normalizeUser({...beforeUser, ...(identity || {})});
-  const manualNickname = cleanNickname(identity && (identity.nickname || identity.nick || identity.name));
-  const manualPubgId = clean(identity && (identity.pubgId || identity.pubg_id || identity.gameId || identity.ref));
-  // 관리홈에서 직접 수정한 닉네임/PUBG ID는 raw.registeredNickname 우선순위 때문에
-  // normalizeUser() 안에서 예전 값으로 되돌아가지 않게 여기서 다시 고정한다.
-  if(manualNickname){ nextInput.nickname = manualNickname; nextInput.nick = manualNickname; nextInput.name = manualNickname; nextInput.displayName = manualNickname; }
-  if(manualPubgId){ nextInput.pubgId = manualPubgId; nextInput.gameId = manualPubgId; nextInput.pubgName = manualPubgId; nextInput.ref = manualPubgId; }
   if(!explicitAccessRoleChange){
     const keepRole = normalizeRole(row.role || beforeUser.role || beforeUser.memberRole);
     nextInput.role = keepRole;
@@ -887,22 +555,6 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
     memoList:Array.isArray(nextInput.memoList)?nextInput.memoList:(Array.isArray(raw.memoList)?raw.memoList:[]),
     mailbox:Array.isArray(nextInput.mailbox)?nextInput.mailbox:(Array.isArray(raw.mailbox)?raw.mailbox:[])
   };
-  if(manualNickname){
-    mergedRaw.nickname = manualNickname;
-    mergedRaw.nick = manualNickname;
-    mergedRaw.name = manualNickname;
-    mergedRaw.displayName = manualNickname;
-    mergedRaw.registeredNickname = manualNickname;
-    mergedRaw.pklNickname = manualNickname;
-  }
-  if(manualPubgId){
-    mergedRaw.pubgId = manualPubgId;
-    mergedRaw.gameId = manualPubgId;
-    mergedRaw.pubgName = manualPubgId;
-    mergedRaw.ref = manualPubgId;
-    mergedRaw.registeredPubgId = manualPubgId;
-    mergedRaw.pklPubgId = manualPubgId;
-  }
   if(!explicitAccessRoleChange){
     const keepRole = normalizeRole(row.role || beforeUser.role || beforeUser.memberRole);
     mergedRaw.role = keepRole;
@@ -1010,64 +662,6 @@ async function deleteBanRecord(ban={}, actor='ADMIN'){
   return { deleted:true };
 }
 
-
-async function syncDiscordProfile(user){
-  const did = explicitDiscordId(user || {});
-  if(!did) return null;
-  const display = clean(user.discordGlobalName || user.global_name || user.displayName || user.globalName || user.nick || user.name || user.nickname || user.discordUsername || user.discord_username || user.username || '');
-  const username = clean(user.discordUsername || user.discord_username || user.username || '');
-  if(!display && !username) return null;
-  const rows = await findUserRowsByDiscordId(did);
-  if(!rows.length) return null;
-  const keep = rows[0];
-  const raw = keep.raw && typeof keep.raw === 'object' ? {...keep.raw} : {};
-  raw.discordId = did;
-  raw.discord_id = did;
-  raw.discordUsername = username || raw.discordUsername || raw.discord_username || '';
-  raw.discord_username = username || raw.discord_username || raw.discordUsername || '';
-  raw.discordGlobalName = display || raw.discordGlobalName || raw.global_name || '';
-  raw.global_name = display || raw.global_name || raw.discordGlobalName || '';
-  raw.discordDisplayName = display || raw.discordDisplayName || '';
-  raw.lastDiscordProfileSyncAt = new Date().toISOString();
-  const body = {
-    discord_username: display || username || keep.discord_username || '',
-    raw,
-    updated_at: raw.lastDiscordProfileSyncAt
-  };
-  const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(keep.id)}`, {method:'PATCH', headers:{Prefer:'return=representation'}, body:JSON.stringify(body)});
-  return Array.isArray(json) && json[0] ? rowToUser(json[0]) : rowToUser(Object.assign({}, keep, body));
-}
-
-async function updateUserTier(identity={}, tierValue='', actor='TIER'){
-  const discordId = explicitDiscordId(identity || {});
-  if(!discordId) throw new Error('Discord ID가 없는 회원은 티어를 변경할 수 없습니다.');
-  const row = await readUserRowByIdentity({ discordId });
-  const nextTier = normalizeTier(tierValue || identity.memberTier || identity.gradeRole || identity.tierRole || identity.tier);
-  if(!nextTier || nextTier === 'none') throw new Error('변경할 티어 값이 없습니다.');
-  const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
-  const beforeTier = normalizeTier(row.tier || raw.memberTier || raw.gradeRole || raw.tierRole || raw.tier || 'none');
-  raw.tier = nextTier === 'none' ? '없음' : nextTier;
-  raw.memberTier = nextTier;
-  raw.gradeRole = nextTier;
-  raw.tierRole = nextTier;
-  raw.baseRole = nextTier;
-  raw.memberTierName = nextTier;
-  const body = { tier: nextTier, raw, updated_at: new Date().toISOString() };
-  const { json } = await supabaseFetch(`users?discord_id=eq.${encodeURIComponent(discordId)}`, {
-    method:'PATCH',
-    headers:{ Prefer:'return=representation' },
-    body:JSON.stringify(body)
-  });
-  const saved = Array.isArray(json) && json[0] ? json[0] : {...row, ...body};
-  Promise.resolve().then(()=>insertAdminLogSafe({
-    action:'tier_change',
-    actor:clean(actor || 'TIER'),
-    target:row.nickname || row.pubg_id || row.discord_id || '',
-    detail:{ discord_id:row.discord_id, before:beforeTier, after:nextTier, source:'tier_board' }
-  })).catch(()=>{});
-  return rowToUser(saved);
-}
-
 async function readLegacyUsers(options={}){
   const limit = Math.max(1, Math.min(500, Number(options.limit || 200)));
   const { json } = await supabaseFetch(`users?select=*&or=(discord_id.is.null,discord_id.eq.)&order=nickname.asc.nullslast&limit=${limit}`);
@@ -1087,8 +681,8 @@ async function cleanupDiscordUser(user){
   const body = {
     discord_id: did,
     discord_username: clean(base.discordUsername || base.discord_username),
-    nickname: cleanNickname(registeredNicknameFromRaw(base.raw || base) || base.nickname || base.name),
-    pubg_id: clean(registeredPubgFromRaw(base.raw || base) || base.pubgId || base.gameId || base.ref),
+    nickname: cleanNickname(base.nickname || base.name),
+    pubg_id: clean(base.pubgId || base.gameId || base.ref),
     tier: normalizeTier(base.memberTier || base.gradeRole || base.tierRole || base.tier),
     prime: Number(base.prime || base.points || base.dia || 0) || 0,
     warnings: Number(base.warnings || 0) || 0,
@@ -1109,4 +703,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, updateUserTier, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, syncDiscordGuildRoles, syncDiscordGuildNicknames, discordRolePatchForUser, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, explicitDiscordId, hasDiscordIdentity };
