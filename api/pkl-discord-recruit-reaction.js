@@ -85,16 +85,65 @@ async function handler(req,res){
       if(supplied !== TOKEN) return json(res,401,{ok:false,message:'invalid token'});
     }
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const action = clean(body.action || body.type || '').toLowerCase();
-    const user = normalizeUser(body.user || body.member || body);
-    if(!keyOf(user)) return json(res,400,{ok:false,message:'discord user required'});
+    const rawAction = clean(body.action || body.type || body.command || body.event || '').toLowerCase();
+    const action = rawAction.replace(/[\s_-]+/g, '');
+    const userSource = body.user || body.member || body.author || body.host || body.requester || null;
+    const user = normalizeUser(userSource || body);
     const st = await readJoinState();
-    if(req.method === 'GET' || action === 'count' || action === 'status' || action === 'check'){
+
+    // /모집, /모집마감, /모집체크 같은 디스코드 명령은 참가자 user 없이 상태만 변경/조회한다.
+    // 이전 로직은 모든 POST에서 user를 먼저 요구해서 /모집 명령 자체가 400으로 막혔다.
+    if(req.method === 'GET' || /^(count|status|check|state|info|조회|체크)$/.test(action)){
       return json(res,200,{ok:true,state:st,waitCount:(st.waitList||[]).length,cancelCount:(st.cancelList||[]).length});
     }
+
+    if(/^(open|start|recruit|recruitopen|openrecruit|joinopen|모집|모집열기|모집시작)$/.test(action)){
+      const now = new Date().toISOString();
+      st.recruitState = Object.assign({}, st.recruitState || {}, {
+        state:'open',
+        openedAt: now,
+        updatedAt: now,
+        source:'discord'
+      });
+      if(keyOf(user)) st.recruitState.host = {
+        key:user.key, uid:user.uid, userId:user.userId, id:user.id,
+        discord_id:user.discord_id, discordId:user.discordId,
+        name:user.name, nickname:user.nickname, pubgId:user.pubgId
+      };
+      if(body.deadline || body.deadlineText) st.recruitState.deadlineText = clean(body.deadlineText || body.deadline);
+      if(body.max || body.limit || body.maxCount) st.recruitState.maxCount = Number(body.max || body.limit || body.maxCount) || undefined;
+      const saved = await writeJoinState(st);
+      return json(res,200,{ok:true,action:'open',state:saved,waitCount:(saved.waitList||[]).length,cancelCount:(saved.cancelList||[]).length});
+    }
+
+    if(/^(close|end|stop|closed|recruitclose|closerecruit|joinclose|모집마감|마감|모집종료)$/.test(action)){
+      const now = new Date().toISOString();
+      st.recruitState = Object.assign({}, st.recruitState || {}, {state:'closed', closedAt:now, updatedAt:now, source:'discord'});
+      const saved = await writeJoinState(st);
+      return json(res,200,{ok:true,action:'close',state:saved,waitCount:(saved.waitList||[]).length,cancelCount:(saved.cancelList||[]).length});
+    }
+
+    if(/^(waiting|standby|resetstate|ready|대기|모집대기|모집대기중)$/.test(action)){
+      const now = new Date().toISOString();
+      st.recruitState = Object.assign({}, st.recruitState || {}, {state:'waiting', updatedAt:now, source:'discord'});
+      const saved = await writeJoinState(st);
+      return json(res,200,{ok:true,action:'waiting',state:saved,waitCount:(saved.waitList||[]).length,cancelCount:(saved.cancelList||[]).length});
+    }
+
+    if(/^(reset|clear|init|초기화|전체초기화)$/.test(action)){
+      const now = new Date().toISOString();
+      st.waitList = [];
+      st.cancelList = [];
+      st.recruitState = {state:'waiting', reset:true, resetAt:now, resetNonce:clean(body.resetNonce || now), source:'discord'};
+      const saved = await writeJoinState(st);
+      return json(res,200,{ok:true,action:'reset',state:saved,waitCount:0,cancelCount:0});
+    }
+
+    // 아래부터는 이모지 참가/취소 처리라 실제 Discord user가 반드시 필요하다.
+    if(!keyOf(user)) return json(res,400,{ok:false,message:'discord user required'});
     st.waitList = unique(st.waitList);
     st.cancelList = unique(st.cancelList);
-    if(action === 'cancel' || action === 'remove' || action === 'leave'){
+    if(/^(cancel|remove|leave|reactionremove|참가취소|취소|나가기)$/.test(action)){
       st.waitList = st.waitList.filter(x=>!same(x,user));
       if(!st.cancelList.some(x=>same(x,user))) st.cancelList.push(Object.assign({}, user, {canceledAt:new Date().toISOString(), reason:clean(body.reason || 'Discord reaction')}));
     }else{
