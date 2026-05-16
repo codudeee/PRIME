@@ -8477,7 +8477,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return Object.assign({},raw,u,{nickname:nick,name:nick,nick:nick,displayName:nick,pubgId:pubg,gameId:pubg,uid:did?'discord-'+did:'',id:did?'discord-'+did:'',userId:did?'discord-'+did:'',discordId:did,discord_id:did,memberRole:memberRole,role:u.role||memberRole,gradeRole:tier,tierRole:tier,memberTier:tier,baseRole:tier,join:fmtDate(u.join||u.joinDate||u.joined_at||u.created_at||u.createdAt),last:fmtDate(u.last||u.lastLogin||u.updated_at||u.updatedAt),warnings:Number(u.warnings||u.warning_count||0),dia:Number(u.prime||u.points||u.dia||u.money||u.point||0),prime:Number(u.prime||u.points||u.dia||0),points:Number(u.points||u.prime||u.dia||0),history:Array.isArray(u.history)?u.history:(Array.isArray(raw.history)?raw.history:[]),memoList:Array.isArray(u.memoList)?u.memoList:(Array.isArray(raw.memoList)?raw.memoList:[]),mailbox:Array.isArray(u.mailbox)?u.mailbox:(Array.isArray(raw.mailbox)?raw.mailbox:[])});
   }
   async function fetchUsers(){
-    var res=await fetch('/api/pkl-users?limit=20&offset=0',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
+    var res=await fetch('/api/pkl-users?limit=20&offset=0&syncDiscord=1',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok || !data.ok || !Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
     return data.users;
@@ -8952,7 +8952,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   }
   async function fetchAdminUsersPage(offset){
     if(!offset) await runDuplicateCleanupOnce();
-    var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
+    var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset)+'&syncDiscord=1',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
     if(typeof data.count==='number' && isFinite(data.count)) __pklAdminUsersTotal=data.count;

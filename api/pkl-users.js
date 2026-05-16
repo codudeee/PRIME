@@ -22,8 +22,18 @@ module.exports = async function handler(req, res) {
       const offset = intParam(req.query && req.query.offset, 0, 0, 1000000);
       const q = String((req.query && req.query.q) || '').trim();
       const discordId = String((req.query && (req.query.discordId || req.query.discord_id)) || '').trim();
-      const result = await supabaseStore.readUserDocs({ limit, offset, q, discordId, tierOnly });
-      return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, discordId, tierOnly });
+      let result = await supabaseStore.readUserDocs({ limit, offset, q, discordId, tierOnly });
+      const syncDiscord = String((req.query && (req.query.syncDiscord || req.query.sync_discord || req.query.discordSync || req.query.discord_sync)) || '').trim() === '1';
+      if (syncDiscord && !tierOnly && typeof supabaseStore.syncDiscordGuildRoles === 'function') {
+        const maxSync = Math.min(Array.isArray(result.users) ? result.users.length : 0, 30);
+        const synced = [];
+        for (let i = 0; i < maxSync; i += 1) {
+          const u = result.users[i];
+          try { synced.push(await supabaseStore.syncDiscordGuildRoles(u) || u); } catch (_) { synced.push(u); }
+        }
+        result = Object.assign({}, result, { users: synced.concat((result.users || []).slice(maxSync)) });
+      }
+      return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, discordId, tierOnly, syncDiscord });
     }
     if (req.method === 'PATCH') {
       const body = parseBody(req);
