@@ -20,20 +20,19 @@
     return fetch(SUPABASE_URL+'/rest/v1/'+path,opt).then(function(r){return r.ok?r.json().catch(function(){return null;}):null;}).catch(function(){return null;});
   }
   function postLiveScoreboardPayload(payload, updatedAt){
-    /* 시트 입력은 서버 API 한 경로만 사용한다.
-       브라우저에서 Supabase REST 직접 POST 후 실패 시 API fallback을 타면 요청이 겹치거나 오래 붙잡혀
-       다음 입력 publish가 10초 이상 밀릴 수 있다. */
-    var controller=null, timeout=null;
-    try{ controller=new AbortController(); timeout=setTimeout(function(){try{controller.abort();}catch(_e){}}, 2500); }catch(_e){}
+    // 브라우저에서 Supabase REST를 직접 두드리면 RLS/네트워크 fallback 때문에 10초 이상 밀리는 경우가 있었다.
+    // 점수 라이브 반영은 서버 API 한 경로만 사용해서 즉시 upsert한다.
+    var controller=null, timer=null;
+    try{ controller=new AbortController(); timer=setTimeout(function(){try{controller.abort();}catch(e){}}, 3500); }catch(e){}
     return fetch('/api/pkl-data-store',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       cache:'no-store',
       signal:controller&&controller.signal,
-      body:JSON.stringify({type:'live_scores',id:'live_scoreboard',payload:payload})
+      body:JSON.stringify({type:'live_scores',id:'live_scoreboard',payload:payload,updated_at:updatedAt||new Date().toISOString()})
     }).then(function(res){return res.ok?res.json().catch(function(){return null;}):null;})
       .catch(function(){return null;})
-      .finally(function(){if(timeout)clearTimeout(timeout);});
+      .finally(function(){if(timer)clearTimeout(timer);});
   }
   function rowToDoc(row){return row&&row.payload?{fields:{payload:{stringValue:JSON.stringify(row.payload.payload||row.payload)},live:{stringValue:JSON.stringify(row.payload.live||null)}}}:null;}
 
@@ -295,7 +294,9 @@
     try{
       var localMs=Date.parse((st&&st.savedAt)||(st&&st.teamExportedAt)||(st&&st.updatedAt)||(st&&st.updatedFromTeamBoardAt)||'');
       var liveMs=Date.parse((live&&live.updatedAt)||'');
-      if(localMs && liveMs && localMs-liveMs>250) return null;
+      var bridge=window.PKLSheetLiveBridge;
+      var recentlyEdited=bridge&&bridge.getLastLocalEditAt&&Date.now()-Number(bridge.getLastLocalEditAt()||0)<1200;
+      if(recentlyEdited && localMs && liveMs && localMs-liveMs>250) return null;
     }catch(e){}
     try{
       var localFilled=filledMemberCount(st), remoteFilled=liveFilledMemberCount(live);
@@ -386,7 +387,7 @@
     fallbackPollTimer=setInterval(function(){
       if(document.hidden) return;
       tick();
-    }, 700);
+    }, 300);
     document.addEventListener('visibilitychange', function(){
       if(!document.hidden) setTimeout(tick, 120);
     });
@@ -396,7 +397,7 @@
     if(!bridge || typeof bridge.applyState!=='function') return;
     try{
       if(bridge.isTyping && bridge.isTyping()) return;
-      if(bridge.getLastLocalEditAt && Date.now()-Number(bridge.getLastLocalEditAt()||0)<900) return;
+      if(bridge.getLastLocalEditAt && Date.now()-Number(bridge.getLastLocalEditAt()||0)<250) return;
     }catch(e){}
     var st=mergeLiveIntoState(readRemoteLive(doc));
     if(st) bridge.applyState(normalizeLiveState(st));

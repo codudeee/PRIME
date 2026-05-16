@@ -6782,7 +6782,7 @@ function save(){
   localStorage.setItem(STORAGE_KEY,sheetJson);
   /* 결과저장/초기화 전까지 현재 경기 시트는 Supabase 공유값에도 유지한다.
      단, 빈 기본 시트는 메인 이동/재진입 렌더 때 원격 시트를 덮어쓰지 않는다. */
-  pklScheduleSheetPersist(900);
+  pklScheduleSheetPersist(180);
   try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(120); }catch(e){}
 }
 function makeRound(no){return {no,map:'',teams:{}}}
@@ -8877,8 +8877,7 @@ function pklCommitScoreInput(target, options){
     if(pklScoreInputSaveTimer){clearTimeout(pklScoreInputSaveTimer);pklScoreInputSaveTimer=null;}
     checkColdStates();
     renderBoard();
-    /* 점수/체크 입력은 현재 행과 보드/피드만 갱신한다.
-       전체 renderSheet()를 호출하면 입력마다 tbody 전체가 다시 그려져 10초 지연처럼 보일 수 있다. */
+    if(target.type==='checkbox' || field==='chicken' || field==='stop') renderSheet();
     renderFeeds();
     try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(target.type==='checkbox'?20:180);}catch(e){}
     save();
@@ -8933,18 +8932,25 @@ window.PKLSheetLiveBridge={
     try{
       const localReset=Number(state && state.resetNonce || 0);
       const remoteReset=Number(next && next.resetNonce || 0);
-      if(remoteReset && remoteReset>localReset){
-        // hard reset/new empty sheet from server must win over old local sheet
-      }else if((pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<15000) && remoteReset<=localReset) return false;
-      const localFilled=pklSheetFilledMemberCount(state);
-      const remoteFilled=pklSheetFilledMemberCount(next);
       const remoteTeamImportNonce=Number(next && next.teamImportNonce || 0);
       const localTeamImportNonce=Number(state && state.teamImportNonce || 0);
       const isNewServerTeamImport=remoteTeamImportNonce && remoteTeamImportNonce>localTeamImportNonce;
+      const hasHardReset=!!(remoteReset && remoteReset>localReset);
+      if(hasHardReset){
+        // hard reset/new empty sheet from server must win over old local sheet
+      }else if(!isNewServerTeamImport && (pklIsTypingSheetScore() || Date.now()-pklLastLocalSheetEditAt<900) && remoteReset<=localReset) return false;
+      const localFilled=pklSheetFilledMemberCount(state);
+      const remoteFilled=pklSheetFilledMemberCount(next);
       const localActivity=pklSheetScoreActivityCount(state);
       const remoteActivity=pklSheetScoreActivityCount(next);
-      if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset) return false;
-      if(!isNewServerTeamImport && !(remoteReset && remoteReset>localReset) && localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset) return false;
+      if(!isNewServerTeamImport && !hasHardReset && localActivity>0 && remoteActivity<localActivity && remoteReset<=localReset){
+        const lt=pklSheetTime(state), rt=pklSheetTime(next);
+        if(!rt || !lt || rt < lt - 1500) return false;
+      }
+      if(!isNewServerTeamImport && !hasHardReset && localFilled>0 && remoteFilled<localFilled && remoteReset<=localReset){
+        const lt=pklSheetTime(state), rt=pklSheetTime(next);
+        if(!rt || !lt || rt < lt - 1500) return false;
+      }
       next.rounds.forEach(function(r){
         Object.keys((r&&r.teams)||{}).forEach(function(k){
           var d=r.teams[k]||{};
@@ -8955,20 +8961,21 @@ window.PKLSheetLiveBridge={
           r.teams[k]=d;
         });
       });
+      state=next;
+      selectedTeamId=state.selectedTeamId||selectedTeamId||(state.teams[0]&&state.teams[0].id)||'team1';
+      const sheetJson=JSON.stringify(state);
+      try{ sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
+      // 원격 반영 중 localStorage 운영키를 다시 쓰면 pkl-supabase-sync가 shared 저장을 재발행해서
+      // 시크릿창/다른 탭 반영이 polling 루프로 밀린다. 화면 state만 갱신하고 서버 재저장은 하지 않는다.
       pklApplyingRemoteSheetState=true;
       try{
-        state=next;
-        selectedTeamId=state.selectedTeamId||selectedTeamId||(state.teams[0]&&state.teams[0].id)||'team1';
-        const sheetJson=JSON.stringify(state);
-        try{ sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
-        localStorage.setItem(STORAGE_KEY, sheetJson);
         render();
         updateTopBetJackpot();
       }finally{
         pklApplyingRemoteSheetState=false;
       }
       return true;
-    }catch(e){return false;}
+    }catch(e){pklApplyingRemoteSheetState=false;return false;}
   },
   isTyping:function(){return pklIsTypingSheetScore();},
   markLocalEdit:function(){pklMarkLocalSheetEdit();},
@@ -9010,8 +9017,9 @@ function pklApplySupabaseSheetStateOnce(){
     state = next;
     selectedTeamId = state.selectedTeamId || selectedTeamId || (state.teams[0] && state.teams[0].id) || 'team1';
     if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId = (visibleTeams()[0] && visibleTeams()[0].viewId) || 'team1';
-    try{ const sheetJson=JSON.stringify(state); sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); localStorage.setItem(STORAGE_KEY, sheetJson); }catch(e){}
-    render();
+    try{ const sheetJson=JSON.stringify(state); sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
+    pklApplyingRemoteSheetState=true;
+    try{ render(); }finally{ pklApplyingRemoteSheetState=false; }
     return true;
   };
   if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
