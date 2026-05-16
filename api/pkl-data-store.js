@@ -30,15 +30,61 @@ function tableFor(type){
   if(type === 'join' || type === 'join_queue') return 'join_queue';
   return '';
 }
+
+function did(u){ return clean(u && (u.discord_id || u.discordId || u.discord || u.user_id || u.userId || u.id || '')).replace(/^discord-/i, '').toLowerCase(); }
+function keyOfUser(u){ return did(u) || clean(u && (u.pubg_id || u.pubgId || u.gameId || u.ref || u.nickname || u.name)).toLowerCase(); }
+function sameUser(a,b){ const ak=keyOfUser(a), bk=keyOfUser(b); return !!(ak && bk && ak === bk); }
+function uniqueUsers(list){ const out=[]; (Array.isArray(list)?list:[]).forEach(function(x){ if(x && typeof x === 'object' && !out.some(function(p){return sameUser(p,x);})){ out.push(x); } }); return out; }
+function mergeUsersList(a,b){ return uniqueUsers([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[])); }
+function removeUsers(list, remove){ const rem=uniqueUsers(remove); return uniqueUsers(list).filter(function(x){ return !rem.some(function(r){return sameUser(r,x);}); }); }
+function parseMs(v){ const n=Date.parse(v || ''); return Number.isFinite(n) ? n : 0; }
+function normalizeJoinPayload(payload, updatedAt){ payload = payload && typeof payload === 'object' ? payload : {}; return { version:2, waitList: uniqueUsers(payload.waitList), cancelList: uniqueUsers(payload.cancelList), recruitState: payload.recruitState || {state:'waiting'}, updatedAt: payload.updatedAt || updatedAt || new Date().toISOString() }; }
+async function readCanonicalJoinState(){
+  const liveRows = await sb('live_scores?id=eq.join_state&select=*&limit=1', { method:'GET' }).catch(()=>[]);
+  const liveRow = Array.isArray(liveRows) ? liveRows[0] : null;
+  const live = normalizeJoinPayload(liveRow && liveRow.payload, liveRow && liveRow.updated_at);
+  const sharedWait = await readShared('pklJoinWaitList').catch(()=>({value:null,updated_at:null}));
+  const sharedCancel = await readShared('pklJoinCancelList').catch(()=>({value:null,updated_at:null}));
+  const sharedRecruit = await readShared('pklJoinRecruitState').catch(()=>({value:null,updated_at:null}));
+  const sharedUpdated = Math.max(parseMs(sharedWait.updated_at), parseMs(sharedCancel.updated_at), parseMs(sharedRecruit.updated_at));
+  let waitList = mergeUsersList(live.waitList, sharedWait.value);
+  let cancelList = mergeUsersList(live.cancelList, sharedCancel.value);
+  waitList = removeUsers(waitList, cancelList);
+  cancelList = removeUsers(cancelList, waitList);
+  const recruitState = sharedUpdated > parseMs(live.updatedAt) && sharedRecruit.value && typeof sharedRecruit.value === 'object' ? sharedRecruit.value : live.recruitState;
+  const updatedAt = new Date(Math.max(parseMs(live.updatedAt), sharedUpdated, Date.now())).toISOString();
+  const payload = { version:2, waitList, cancelList, recruitState: recruitState || {state:'waiting'}, updatedAt };
+  return { id:'join_state', payload, updated_at: updatedAt, source:'canonical_join_state' };
+}
+
 async function readRows(type, id){
   const table = tableFor(type);
   if(!table) throw new Error('Unknown table type');
+  if(table === 'live_scores' && safeId(id || '') === 'join_state'){
+    return [await readCanonicalJoinState()];
+  }
   const q = id ? `?id=eq.${encodeURIComponent(id)}&select=*` : '?select=*';
   return await sb(`${table}${q}`, { method:'GET' }) || [];
 }
+function isJoinReset(body){
+  const rs = body && body.recruitState || {};
+  return !!(rs.resetNonce || rs.resetAt || rs.reset === true || ((rs.state === 'waiting' || rs.state === 'closed') && Array.isArray(body.waitList) && body.waitList.length === 0 && Array.isArray(body.cancelList) && body.cancelList.length === 0));
+}
 async function writeLive(id, payload){
   const rowId = safeId(id);
-  const body = payload == null ? {} : payload;
+  let body = payload == null ? {} : payload;
+  if(rowId === 'join_state' && body && typeof body === 'object' && !isJoinReset(body)){
+    const current = await readCanonicalJoinState().catch(()=>null);
+    if(current && current.payload){
+      body = Object.assign({}, body, {
+        version:2,
+        waitList: removeUsers(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)),
+        cancelList: removeUsers(mergeUsersList(current.payload.cancelList, body.cancelList), mergeUsersList(current.payload.waitList, body.waitList)),
+        recruitState: body.recruitState && body.recruitState.state ? body.recruitState : current.payload.recruitState,
+        updatedAt: new Date().toISOString()
+      });
+    }
+  }
   const saved = await sb('live_scores?on_conflict=id', { method:'POST', body: JSON.stringify({ id: rowId, payload: body, updated_at: new Date().toISOString() }) });
   if(rowId === 'join_state' && body && typeof body === 'object'){
     await Promise.all([

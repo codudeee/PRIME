@@ -24,11 +24,43 @@ async function sb(path, options={}){
   if(!t) return null;
   try{return JSON.parse(t);}catch(e){return t;}
 }
+async function readShared(key){
+  const rows = await sb(`pkl_shared_data?select=*&key=eq.${encodeURIComponent(key)}&limit=1`, {method:'GET'}).catch(()=>[]);
+  const row = Array.isArray(rows) ? rows[0] : null;
+  return row ? {value: row.value, updated_at: row.updated_at || row.created_at || null} : {value:null, updated_at:null};
+}
+function ms(v){ const n=Date.parse(v || ''); return Number.isFinite(n) ? n : 0; }
+function mergeLists(a,b){ return unique([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[])); }
+function removeList(list, removals){ const r=unique(removals); return unique(list).filter(x=>!r.some(y=>same(x,y))); }
+function normalizeStatePayload(payload, updatedAt){
+  payload = payload && typeof payload === 'object' ? payload : {};
+  return {
+    version: 2,
+    waitList: unique(payload.waitList),
+    cancelList: unique(payload.cancelList),
+    recruitState: payload.recruitState || {state:'waiting'},
+    updatedAt: payload.updatedAt || updatedAt || new Date().toISOString()
+  };
+}
 async function readJoinState(){
   const rows = await sb('live_scores?id=eq.join_state&select=payload,updated_at&limit=1', {method:'GET'}).catch(()=>[]);
   const row = Array.isArray(rows) ? rows[0] : null;
-  const payload = row && row.payload && typeof row.payload === 'object' ? row.payload : {};
-  return Object.assign({version:2, waitList:[], cancelList:[], recruitState:{state:'waiting'}}, payload, {updatedAt: payload.updatedAt || (row && row.updated_at) || new Date().toISOString()});
+  const live = normalizeStatePayload(row && row.payload, row && row.updated_at);
+  const sharedWait = await readShared('pklJoinWaitList');
+  const sharedCancel = await readShared('pklJoinCancelList');
+  const sharedRecruit = await readShared('pklJoinRecruitState');
+  const sharedUpdated = Math.max(ms(sharedWait.updated_at), ms(sharedCancel.updated_at), ms(sharedRecruit.updated_at));
+
+  // 근본 원인: 사이트 일부 화면은 pkl_shared_data 값을 보고, 디스코드 봇 API는 live_scores/join_state만 봐서
+  // 한쪽이 8명, 한쪽이 5명처럼 갈라졌다. 읽는 순간 두 저장 위치를 단일 join_state로 재합성한다.
+  let waitList = mergeLists(live.waitList, sharedWait.value);
+  let cancelList = mergeLists(live.cancelList, sharedCancel.value);
+  waitList = removeList(waitList, cancelList);
+  cancelList = removeList(cancelList, waitList);
+  const recruitState = sharedUpdated > ms(live.updatedAt) && sharedRecruit.value && typeof sharedRecruit.value === 'object'
+    ? sharedRecruit.value
+    : live.recruitState;
+  return {version:2, waitList, cancelList, recruitState:recruitState || {state:'waiting'}, updatedAt:new Date(Math.max(ms(live.updatedAt), sharedUpdated, Date.now())).toISOString()};
 }
 async function writeShared(key, value){
   return await sb('pkl_shared_data?on_conflict=key', {method:'POST', body:JSON.stringify({key, value:value == null ? null : value, updated_at:new Date().toISOString()})}).catch(()=>null);
@@ -46,7 +78,7 @@ async function writeJoinState(st){
 }
 async function handler(req,res){
   try{
-    if(req.method !== 'POST') return json(res,405,{ok:false,message:'POST only'});
+    if(req.method !== 'POST' && req.method !== 'GET') return json(res,405,{ok:false,message:'POST/GET only'});
     if(TOKEN){
       const auth = clean(req.headers.authorization || req.headers.Authorization || '');
       const supplied = auth.replace(/^Bearer\s+/i,'') || clean(req.headers['x-pkl-bot-token']);
@@ -57,6 +89,9 @@ async function handler(req,res){
     const user = normalizeUser(body.user || body.member || body);
     if(!keyOf(user)) return json(res,400,{ok:false,message:'discord user required'});
     const st = await readJoinState();
+    if(req.method === 'GET' || action === 'count' || action === 'status' || action === 'check'){
+      return json(res,200,{ok:true,state:st,waitCount:(st.waitList||[]).length,cancelCount:(st.cancelList||[]).length});
+    }
     st.waitList = unique(st.waitList);
     st.cancelList = unique(st.cancelList);
     if(action === 'cancel' || action === 'remove' || action === 'leave'){
