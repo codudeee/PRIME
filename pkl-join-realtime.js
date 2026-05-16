@@ -123,8 +123,10 @@
     serverSt=serverSt?normalizeState(serverSt):null;
     if(!serverSt || isResetState(localSt)) return localSt;
     var merged=normalizeState(localSt);
-    merged.waitList=withoutMembers(mergeByIdentity(serverSt.waitList, localSt.waitList), mergeByIdentity(serverSt.cancelList, localSt.cancelList));
-    merged.cancelList=withoutMembers(mergeByIdentity(serverSt.cancelList, localSt.cancelList), merged.waitList);
+    // localSt는 방금 클릭한 브라우저의 최종 상태다.
+    // 대기취소→다시 참가 시, 서버의 옛 cancelList가 local waitList를 다시 지우지 못하게 한다.
+    merged.waitList=withoutMembers(mergeByIdentity(serverSt.waitList, localSt.waitList), localSt.cancelList);
+    merged.cancelList=withoutMembers(mergeByIdentity(serverSt.cancelList, localSt.cancelList), localSt.waitList);
     merged.recruitState=localSt.recruitState&&localSt.recruitState.state?localSt.recruitState:serverSt.recruitState;
     merged.updatedAt=now();
     return applyPending(merged);

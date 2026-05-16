@@ -38,7 +38,15 @@ function uniqueUsers(list){ const out=[]; (Array.isArray(list)?list:[]).forEach(
 function mergeUsersList(a,b){ return uniqueUsers([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[])); }
 function removeUsers(list, remove){ const rem=uniqueUsers(remove); return uniqueUsers(list).filter(function(x){ return !rem.some(function(r){return sameUser(r,x);}); }); }
 function parseMs(v){ const n=Date.parse(v || ''); return Number.isFinite(n) ? n : 0; }
-function normalizeJoinPayload(payload, updatedAt){ payload = payload && typeof payload === 'object' ? payload : {}; return { version:2, waitList: uniqueUsers(payload.waitList), cancelList: uniqueUsers(payload.cancelList), recruitState: payload.recruitState || {state:'waiting'}, updatedAt: payload.updatedAt || updatedAt || new Date().toISOString() }; }
+function normalizeJoinPayload(payload, updatedAt){
+  payload = payload && typeof payload === 'object' ? payload : {};
+  let waitList = uniqueUsers(payload.waitList);
+  let cancelList = uniqueUsers(payload.cancelList);
+  // 같은 유저가 양쪽에 같이 남아 있으면 최종 상태가 깨진다.
+  // payload 안에서 대기자 목록을 우선으로 정리한다.
+  cancelList = removeUsers(cancelList, waitList);
+  return { version:2, waitList, cancelList, recruitState: payload.recruitState || {state:'waiting'}, updatedAt: payload.updatedAt || updatedAt || new Date().toISOString() };
+}
 async function readCanonicalJoinState(){
   const liveRows = await sb('live_scores?id=eq.join_state&select=*&limit=1', { method:'GET' }).catch(()=>[]);
   const liveRow = Array.isArray(liveRows) ? liveRows[0] : null;
@@ -47,9 +55,14 @@ async function readCanonicalJoinState(){
   const sharedCancel = await readShared('pklJoinCancelList').catch(()=>({value:null,updated_at:null}));
   const sharedRecruit = await readShared('pklJoinRecruitState').catch(()=>({value:null,updated_at:null}));
   const sharedUpdated = Math.max(parseMs(sharedWait.updated_at), parseMs(sharedCancel.updated_at), parseMs(sharedRecruit.updated_at));
-  let waitList = mergeUsersList(live.waitList, sharedWait.value);
-  let cancelList = mergeUsersList(live.cancelList, sharedCancel.value);
-  waitList = removeUsers(waitList, cancelList);
+  let liveWait = uniqueUsers(live.waitList);
+  let liveCancel = uniqueUsers(live.cancelList);
+  let sharedWaitList = uniqueUsers(sharedWait.value);
+  let sharedCancelList = uniqueUsers(sharedCancel.value);
+  let waitList = mergeUsersList(liveWait, sharedWaitList);
+  let cancelList = mergeUsersList(liveCancel, sharedCancelList);
+  // 상태가 갈라졌을 때 최신/명시적 대기 목록을 우선한다.
+  // 대기취소 후 다시 참가한 유저가 과거 cancelList 때문에 계속 취소자로 남는 문제 방지.
   cancelList = removeUsers(cancelList, waitList);
   const recruitState = sharedUpdated > parseMs(live.updatedAt) && sharedRecruit.value && typeof sharedRecruit.value === 'object' ? sharedRecruit.value : live.recruitState;
   const updatedAt = new Date(Math.max(parseMs(live.updatedAt), sharedUpdated, Date.now())).toISOString();
@@ -78,8 +91,11 @@ async function writeLive(id, payload){
     if(current && current.payload){
       body = Object.assign({}, body, {
         version:2,
-        waitList: removeUsers(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)),
-        cancelList: removeUsers(mergeUsersList(current.payload.cancelList, body.cancelList), mergeUsersList(current.payload.waitList, body.waitList)),
+        // body는 버튼 클릭 후 브라우저/봇이 보낸 '최종 의도'다.
+        // body.waitList에 있으면 과거 cancelList에서 반드시 제거하고,
+        // body.cancelList에 있으면 과거 waitList에서 반드시 제거한다.
+        waitList: removeUsers(mergeUsersList(current.payload.waitList, body.waitList), uniqueUsers(body.cancelList)),
+        cancelList: removeUsers(mergeUsersList(current.payload.cancelList, body.cancelList), uniqueUsers(body.waitList)),
         recruitState: body.recruitState && body.recruitState.state ? body.recruitState : current.payload.recruitState,
         updatedAt: new Date().toISOString()
       });
