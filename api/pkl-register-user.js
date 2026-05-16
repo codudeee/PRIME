@@ -179,7 +179,7 @@ async function handler(req,res){
       user.manager=safeRole === "admin" || safeRole === "operator";
       user.operator=safeRole === "operator";
     }
-    const savedUser = supabaseStore.writeUserDoc ? await supabaseStore.writeUserDoc(user) : user;
+    const savedUser = supabaseStore.writeUserDoc ? await supabaseStore.writeUserDoc(Object.assign({}, user, {__allowCreateUser:true, __source:'pkl-register-user'}), {allowCreate:true}) : user;
 
     if(!existing && recommender){
       const recommenderUser = allUsers.find(u => normalizeNickname(u.nickname||u.nick||u.name||u.displayName) === recommender || normalizePubgId(u.pubgId||u.gameId||u.ref) === recommender);

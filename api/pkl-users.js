@@ -79,12 +79,13 @@ module.exports = async function handler(req, res) {
       const body = parseBody(req);
       const input = body.user || (Array.isArray(body.users) ? body.users[0] : null);
       if (!input || typeof input !== 'object') return res.status(400).json({ ok: false, message: '저장할 user가 없습니다.' });
-      const user = await supabaseStore.writeUserDoc(input, !!body.forceAdmin);
+      const user = await supabaseStore.writeUserDoc(input, body.forceAdmin ? {forceAdmin:true, allowCreate:true} : {allowCreate:false});
       return res.status(200).json({ ok: true, user, users: [user] });
     }
     res.setHeader('Allow', 'GET, POST, PATCH');
     return res.status(405).json({ ok: false, message: 'Method not allowed' });
   } catch (error) {
-    return res.status(500).json({ ok: false, message: error.message || String(error) });
+    const status = Number(error && (error.statusCode || error.status)) || (error && error.code === 'USER_NOT_REGISTERED' ? 404 : 500);
+    return res.status(status).json({ ok: false, code: error && error.code, message: error.message || String(error) });
   }
 };

@@ -123,13 +123,13 @@ async function readServerUsers(searchUser){
   return [];
 }
 async function writeServerUser(user){
-  if (supabaseStore && typeof supabaseStore.writeUserDoc === "function") return await supabaseStore.writeUserDoc(user);
+  if (supabaseStore && typeof supabaseStore.writeUserDoc === "function") return await supabaseStore.writeUserDoc(Object.assign({}, user, {__allowCreateUser:true, __source:"discord-callback"}), {allowCreate:true});
   if (supabaseStore && typeof supabaseStore.writeUsers === "function") return await supabaseStore.writeUsers([user]);
   return user;
 }
 function createUser(discordUser, nickname, saved){
   saved = shouldResetAfterBanRelease(saved) ? resetReleasedUserBase(saved) : saved;
-  const finalNickname = normalizeNickname(nickname || saved?.nickname || discordUser.nickname);
+  const finalNickname = normalizeNickname(koreanNicknameFromDiscordGuildNick(discordUser.discordGuildNick || discordUser.guildNick || '') || nickname || saved?.nickname || discordUser.nickname);
   const memberRole = normalizeRole(saved?.memberRole || saved?.role || "user");
   return Object.assign({}, saved || {}, discordUser, {
     uid: saved?.uid || discordUser.uid,
@@ -160,7 +160,7 @@ async function registerServerUser(discordUser, nickname){
   const users = await readServerUsers(discordUser);
   const existingIndex = users.findIndex(u => sameDiscordUser(u, discordUser));
   const saved = existingIndex >= 0 ? users[existingIndex] : null;
-  const finalNickname = normalizeNickname(nickname || saved?.nickname || discordUser.nickname);
+  const finalNickname = normalizeNickname(koreanNicknameFromDiscordGuildNick(discordUser.discordGuildNick || discordUser.guildNick || '') || nickname || saved?.nickname || discordUser.nickname);
   if (!saved && !isKoreanNickname(finalNickname)) return { ok:false, statusCode:400, message:"닉네임은 한글만 사용해서 1~4글자로 입력해주세요." };
   const merged = createUser(discordUser, finalNickname, saved || {});
   if (!saved){
@@ -198,7 +198,7 @@ function normalizeNickname(v){return String(v==null?"":v).normalize("NFKC").repl
 function isKoreanNickname(v){return /^[가-힣]{1,4}$/.test(normalizeNickname(v));}
 function normalizePubgId(v){return String(v==null?"":v).normalize("NFKC").trim();}
 function isValidPubgId(v){return /^[A-Za-z0-9_-]{1,32}$/.test(normalizePubgId(v));}
-function syncLocal(user){try{localStorage.removeItem("pklManualLogout");localStorage.removeItem("pklUsers");localStorage.removeItem("PKL_USERS");localStorage.removeItem("pklAdminState_v3");}catch(e){}LOGIN_KEYS.concat(["discordUser"]).forEach(function(k){try{localStorage.removeItem(k);}catch(e){}try{sessionStorage.removeItem(k);}catch(e){}});LOGIN_KEYS.concat(["discordUser"]).forEach(function(k){try{localStorage.setItem(k,JSON.stringify(user));}catch(e){}try{sessionStorage.setItem(k,JSON.stringify(user));}catch(e){}});}
+function syncLocal(user){try{localStorage.removeItem("pklManualLogout");localStorage.removeItem("pklUsers");localStorage.removeItem("PKL_USERS");localStorage.removeItem("pklAdminState_v3");}catch(e){}LOGIN_KEYS.forEach(function(k){writeJson(k,user);try{sessionStorage.removeItem(k);}catch(e){}});}
 function goHome(){var to=payload.returnTo||"/index.html";location.replace(to);}
 if(payload.existingUser){syncLocal(payload.existingUser);goHome();return;}
 var loading=document.getElementById("pklLoading"),form=document.getElementById("pklNickForm"),input=document.getElementById("pklNickname"),pubgInput=document.getElementById("pklPubgId"),error=document.getElementById("pklNickError");
