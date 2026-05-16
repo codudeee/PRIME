@@ -56,25 +56,23 @@ function isKoreanNameText(v){
 }
 function discordDisplayFromRaw(raw){
   raw = raw && typeof raw === 'object' ? raw : {};
-  // 이름 표시는 반드시 우리 서버 프로필 닉네임만 사용한다.
-  // Discord username/global_name/displayName은 서버 프로필이 아니므로 여기서 절대 fallback 하지 않는다.
+  // 사이트 표시 닉네임은 Discord 서버 프로필 닉네임만 사용한다.
+  // username/global_name/discord_id는 여기서 절대 fallback으로 쓰지 않는다.
   return discordServerNickname(raw.discordGuildNick || raw.guildNick || raw.serverNick || raw.discordServerNickname || '');
 }
 function safeDisplayNickname(src){
   src = src && typeof src === 'object' ? src : {};
   const raw = src.raw && typeof src.raw === 'object' ? src.raw : src;
-  // 1순위: Discord 서버 프로필 닉네임의 '/' 앞 한글닉
+  // 표시 닉네임은 디스코드 서버 프로필 닉네임의 '/' 앞 한글닉을 최우선으로 사용한다.
   const guildNick = discordDisplayFromRaw(Object.assign({}, raw, src));
   if(guildNick) return guildNick;
-  // 2순위: 가입 당시 PKL 닉네임. 서버닉이 아직 동기화되지 않았을 때 username으로 떨어지는 것을 막는다.
   const registered = registeredNicknameFromRaw(raw);
   if(registered) return registered;
   const pkl = cleanNickname(src.pklNickname || src.pkl_nickname || src.signupNickname || src.signup_nickname || raw.pklNickname || raw.pkl_nickname || raw.signupNickname || raw.signup_nickname || '');
   if(pkl) return pkl;
-  // 3순위: 기존 nickname 컬럼. 단, Discord username/global_name은 여기서도 사용하지 않는다.
   const current = cleanNickname(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name || '');
   if(current) return current;
-  return '';
+  return discordDisplayFromRaw(Object.assign({}, raw, src));
 }
 
 function env(name){ return clean(process.env[name] || ''); }
@@ -111,9 +109,10 @@ function tierFromDiscordRoleIds(roleIds=[]){
 async function fetchDiscordGuildMember(discordId){
   const did = cleanId(discordId);
   const guildId = env('PKL_DISCORD_GUILD_ID') || env('DISCORD_GUILD_ID') || env('GUILD_ID');
-  const token = env('DISCORD_BOT_TOKEN') || env('PKL_DISCORD_BOT_TOKEN') || env('BOT_TOKEN') || env('DISCORD_TOKEN') || env('PKL_BOT_TOKEN');
+  const token = env('DISCORD_BOT_TOKEN') || env('PKL_DISCORD_BOT_TOKEN') || env('BOT_TOKEN');
   if(!did || !guildId || !token) return null;
-  const res = await fetch(`https://discord.com/api/v10/guilds/${encodeURIComponent(guildId)}/members/${encodeURIComponent(did)}`, { headers:{ Authorization:`Bot ${token}`, Accept:'application/json' }});
+  const auth = /^Bot\s+/i.test(token) ? token : `Bot ${token}`;
+  const res = await fetch(`https://discord.com/api/v10/guilds/${encodeURIComponent(guildId)}/members/${encodeURIComponent(did)}`, { headers:{ Authorization:auth, Accept:'application/json' }});
   if(!res.ok) return null;
   return await res.json().catch(()=>null);
 }
@@ -161,6 +160,47 @@ async function syncDiscordGuildRoles(user, options={}){
   const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, { method:'PATCH', headers:{Prefer:'return=representation'}, body:JSON.stringify(body) });
   return Array.isArray(json) && json[0] ? rowToUser(json[0]) : rowToUser({...row, ...body});
 }
+
+async function syncDiscordGuildNicknames(options={}){
+  const limit = Math.max(1, Math.min(Number(options.limit || 2000) || 2000, 5000));
+  const offset = Math.max(0, Number(options.offset || 0) || 0);
+  const result = { ok:true, checked:0, updated:0, skipped:0, missingConfig:false, errors:[] };
+  const guildId = env('PKL_DISCORD_GUILD_ID') || env('DISCORD_GUILD_ID') || env('GUILD_ID');
+  const token = env('DISCORD_BOT_TOKEN') || env('PKL_DISCORD_BOT_TOKEN') || env('BOT_TOKEN');
+  if(!guildId || !token){ result.missingConfig = true; return result; }
+  const { json } = await supabaseFetch(`users?select=*&discord_id=not.is.null&discord_id=neq.&order=updated_at.desc.nullslast&offset=${offset}&limit=${limit}`);
+  const rows = Array.isArray(json) ? json : [];
+  for(const row of rows){
+    const did = cleanId(row.discord_id || (row.raw && (row.raw.discordId || row.raw.discord_id)) || '');
+    if(!did){ result.skipped++; continue; }
+    result.checked++;
+    try{
+      const member = await fetchDiscordGuildMember(did);
+      const serverNickRaw = clean(member && member.nick);
+      const serverNick = discordServerNickname(serverNickRaw);
+      if(!serverNick){ result.skipped++; continue; }
+      const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
+      raw.discordGuildNick = serverNickRaw;
+      raw.guildNick = serverNickRaw;
+      raw.discordServerNickname = serverNick;
+      raw.nickname = serverNick;
+      raw.nick = serverNick;
+      raw.name = serverNick;
+      raw.displayName = serverNick;
+      raw.lastDiscordGuildSyncAt = new Date().toISOString();
+      await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
+        method:'PATCH',
+        headers:{Prefer:'return=minimal'},
+        body:JSON.stringify({ nickname:serverNick, raw, updated_at:raw.lastDiscordGuildSyncAt })
+      });
+      result.updated++;
+    }catch(e){
+      result.errors.push({discord_id:did, message:String(e && e.message || e).slice(0,180)});
+    }
+  }
+  return result;
+}
+
 
 function normalizeUser(raw){
   const src = raw && raw.raw && typeof raw.raw === 'object' ? {...raw.raw, ...raw} : {...(raw || {})};
@@ -1014,4 +1054,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, updateUserTier, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, syncDiscordGuildRoles, discordRolePatchForUser, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, updateUserTier, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, syncDiscordGuildRoles, syncDiscordGuildNicknames, discordRolePatchForUser, explicitDiscordId, hasDiscordIdentity };

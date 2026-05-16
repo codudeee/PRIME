@@ -8497,7 +8497,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   function mapUser(u){
     u=u||{};
     var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
-    var nick=clean(u.nickname||raw.nickname||u.name||u.nick||u.discordUsername||u.discord_username||raw.discord_username||u.username);
+    var serverNick=clean(raw.discordServerNickname||raw.discordGuildNick||raw.guildNick||u.discordServerNickname||u.discordGuildNick||u.guildNick); if(serverNick.indexOf('/')>=0) serverNick=serverNick.split('/')[0]; serverNick=serverNick.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); var nick=clean(serverNick||u.nickname||raw.nickname||u.name||u.nick);
     var pubg=clean(u.pubgId||u.gameId||u.pubg_id||raw.pubg_id||u.pubgName||u.pubg_name||u.ref);
     var did=keyOf(u)||clean(raw.discordId||raw.discord_id).toLowerCase().replace(/^discord-/, '');
     var memberRole=clean(u.memberRole||u.member_role||raw.memberRole||raw.member_role||u.role||raw.role||(u.is_admin||u.admin?'admin':'user'))||'user';
@@ -8982,6 +8982,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     wrap.appendChild(hint);
   }
   var __pklAdminDuplicateCleanupDone=false;
+  var __pklAdminGuildNicknameSyncDone=false;
   async function runDuplicateCleanupOnce(){
     if(__pklAdminDuplicateCleanupDone) return;
     __pklAdminDuplicateCleanupDone=true;
@@ -8989,8 +8990,15 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'cleanupDuplicateUsers',limit:2000})});
     }catch(e){}
   }
+  async function runDiscordGuildNicknameSyncOnce(){
+    if(__pklAdminGuildNicknameSyncDone) return;
+    __pklAdminGuildNicknameSyncDone=true;
+    try{
+      await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'syncDiscordGuildNicknames',limit:2000})});
+    }catch(e){}
+  }
   async function fetchAdminUsersPage(offset){
-    if(!offset) await runDuplicateCleanupOnce();
+    if(!offset){ await runDuplicateCleanupOnce(); await runDiscordGuildNicknameSyncOnce(); }
     var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));

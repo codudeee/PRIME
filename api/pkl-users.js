@@ -22,11 +22,26 @@ module.exports = async function handler(req, res) {
       const offset = intParam(req.query && req.query.offset, 0, 0, 1000000);
       const q = String((req.query && req.query.q) || '').trim();
       const discordId = String((req.query && (req.query.discordId || req.query.discord_id)) || '').trim();
-      const result = await supabaseStore.readUserDocs({ limit, offset, q, discordId, tierOnly });
+      let result = await supabaseStore.readUserDocs({ limit, offset, q, discordId, tierOnly });
+      // admin/user list and current-user checks should reflect the Discord server profile nickname/roles from Supabase.
+      // Do not do this on tierOnly bulk calls because that can fetch hundreds of Discord members and cause lag.
+      if (!tierOnly && supabaseStore.syncDiscordGuildRoles && Array.isArray(result.users) && result.users.length) {
+        const synced = [];
+        for (const u of result.users) {
+          try { synced.push(await supabaseStore.syncDiscordGuildRoles(u) || u); }
+          catch (_) { synced.push(u); }
+        }
+        result = Object.assign({}, result, { users: synced });
+      }
       return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, discordId, tierOnly });
     }
     if (req.method === 'PATCH') {
       const body = parseBody(req);
+      if (body.action === 'syncDiscordGuildNicknames') {
+        if (typeof supabaseStore.syncDiscordGuildNicknames !== 'function') throw new Error('Discord guild nickname sync function missing');
+        const result = await supabaseStore.syncDiscordGuildNicknames({ limit: Number(body.limit || 2000), offset: Number(body.offset || 0) });
+        return res.status(200).json({ ok: true, ...result });
+      }
       if (body.action === 'cleanupDuplicateUsers') {
         if (typeof supabaseStore.cleanupDuplicateUsersByDiscordId !== 'function') throw new Error('Supabase duplicate cleanup function missing');
         const result = await supabaseStore.cleanupDuplicateUsersByDiscordId(Number(body.limit || 2000));
@@ -36,11 +51,6 @@ module.exports = async function handler(req, res) {
         if (typeof supabaseStore.adjustUserPrime !== 'function') throw new Error('Supabase prime adjustment function missing');
         const result = await supabaseStore.adjustUserPrime(body.user || body.identity || {}, Number(body.amount || 0), String(body.reason || ''), String(body.actor || 'ADMIN'));
         return res.status(200).json({ ok: true, ...result });
-      }
-      if (body.action === 'updateTier') {
-        if (typeof supabaseStore.updateUserTier !== 'function') throw new Error('Supabase tier update function missing');
-        const user = await supabaseStore.updateUserTier(body.identity || body.user || {}, body.tier || body.memberTier || body.role || '', body.actor || 'TIER');
-        return res.status(200).json({ ok: true, user });
       }
       if (body.action === 'updateUserWithLog') {
         if (typeof supabaseStore.updateUserWithLog !== 'function') throw new Error('Supabase user log function missing');

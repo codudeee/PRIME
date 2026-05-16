@@ -19,16 +19,7 @@
     }
     return '';
   }
-  function nick(u){
-    u = u || {};
-    var raw = u.raw && typeof u.raw === 'object' ? u.raw : {};
-    function serverNick(v){
-      v = clean(String(v || '').split('/')[0] || '').replace(/^[^가-힣A-Za-z0-9]+/g,'').trim();
-      var m = v.match(/[가-힣][가-힣0-9A-Za-z_\-\s]{0,18}/);
-      return clean(m ? m[0] : v);
-    }
-    return serverNick(u.discordGuildNick || u.guildNick || u.serverNick || u.discordServerNickname || raw.discordGuildNick || raw.guildNick || raw.serverNick || raw.discordServerNickname) || clean(raw.registeredNickname || raw.pklNickname || u.registeredNickname || u.pklNickname || u.nickname || u.nick || u.name);
-  }
+  function nick(u){ u = u || {}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var sn=clean(raw.discordServerNickname||raw.discordGuildNick||raw.guildNick||u.discordServerNickname||u.discordGuildNick||u.guildNick); if(sn.indexOf('/')>=0) sn=sn.split('/')[0]; sn=sn.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); return clean(sn || u.nickname || u.nick || u.name || u.displayName); }
   function pubg(u){ u = u || {}; return clean(u.pubgId || u.pubg_id || u.pubgID || u.gameId || u.pubgName || u.ref || u.pubg); }
   function role(v){
     var raw = clean(v), l = raw.toLowerCase();
