@@ -20,19 +20,43 @@
     return fetch(SUPABASE_URL+'/rest/v1/'+path,opt).then(function(r){return r.ok?r.json().catch(function(){return null;}):null;}).catch(function(){return null;});
   }
   function postLiveScoreboardPayload(payload, updatedAt){
-    // 브라우저에서 Supabase REST를 직접 두드리면 RLS/네트워크 fallback 때문에 10초 이상 밀리는 경우가 있었다.
-    // 점수 라이브 반영은 서버 API 한 경로만 사용해서 즉시 upsert한다.
-    var controller=null, timer=null;
-    try{ controller=new AbortController(); timer=setTimeout(function(){try{controller.abort();}catch(e){}}, 3500); }catch(e){}
-    return fetch('/api/pkl-data-store',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      cache:'no-store',
-      signal:controller&&controller.signal,
-      body:JSON.stringify({type:'live_scores',id:'live_scoreboard',payload:payload,updated_at:updatedAt||new Date().toISOString()})
-    }).then(function(res){return res.ok?res.json().catch(function(){return null;}):null;})
-      .catch(function(){return null;})
-      .finally(function(){if(timer)clearTimeout(timer);});
+    /*
+      점수 반영 지연의 핵심 원인: 브라우저가 서버 API 응답을 3~10초 기다린 뒤에야
+      live_scores가 갱신되면 다른 창은 결국 polling fallback으로만 보게 된다.
+      실시간 점수는 live_scores 한 row upsert만 필요하므로, Supabase REST 직접 upsert를
+      1순위로 시도하고 실패할 때만 서버 API로 fallback한다.
+      운영 데이터의 원본은 여전히 Supabase live_scores이며 localStorage 복구는 사용하지 않는다.
+    */
+    var now=updatedAt||new Date().toISOString();
+    var body={id:'live_scoreboard',payload:payload,updated_at:now};
+    function directUpsert(){
+      if(!configured()) return Promise.resolve(false);
+      var controller=null,timer=null;
+      try{controller=new AbortController();timer=setTimeout(function(){try{controller.abort();}catch(e){}},1200);}catch(e){}
+      return fetch(SUPABASE_URL+'/rest/v1/live_scores?on_conflict=id',{
+        method:'POST',
+        headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+        cache:'no-store',
+        signal:controller&&controller.signal,
+        body:JSON.stringify(body)
+      }).then(function(res){return !!(res&&res.ok);})
+        .catch(function(){return false;})
+        .finally(function(){if(timer)clearTimeout(timer);});
+    }
+    function apiFallback(){
+      var controller=null,timer=null;
+      try{controller=new AbortController();timer=setTimeout(function(){try{controller.abort();}catch(e){}},2500);}catch(e){}
+      return fetch('/api/pkl-data-store',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        cache:'no-store',
+        signal:controller&&controller.signal,
+        body:JSON.stringify({type:'live_scores',id:'live_scoreboard',payload:payload,updated_at:now})
+      }).then(function(res){return !!(res&&res.ok);})
+        .catch(function(){return false;})
+        .finally(function(){if(timer)clearTimeout(timer);});
+    }
+    return directUpsert().then(function(ok){return ok || apiFallback();});
   }
   function rowToDoc(row){return row&&row.payload?{fields:{payload:{stringValue:JSON.stringify(row.payload.payload||row.payload)},live:{stringValue:JSON.stringify(row.payload.live||null)}}}:null;}
 
@@ -387,7 +411,7 @@
     fallbackPollTimer=setInterval(function(){
       if(document.hidden) return;
       tick();
-    }, 300);
+    }, 500);
     document.addEventListener('visibilitychange', function(){
       if(!document.hidden) setTimeout(tick, 120);
     });

@@ -26,11 +26,11 @@ module.exports = async function handler(req, res) {
       // admin/user list and current-user checks should reflect the Discord server profile nickname/roles from Supabase.
       // Do not do this on tierOnly bulk calls because that can fetch hundreds of Discord members and cause lag.
       if (!tierOnly && supabaseStore.syncDiscordGuildRoles && Array.isArray(result.users) && result.users.length) {
-        const synced = [];
-        for (const u of result.users) {
-          try { synced.push(await supabaseStore.syncDiscordGuildRoles(u) || u); }
-          catch (_) { synced.push(u); }
-        }
+        const pageUsers = result.users.slice(0, limit);
+        const synced = await Promise.all(pageUsers.map(async (u) => {
+          try { return await supabaseStore.syncDiscordGuildRoles(u) || u; }
+          catch (_) { return u; }
+        }));
         result = Object.assign({}, result, { users: synced });
       }
       return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, discordId, tierOnly });

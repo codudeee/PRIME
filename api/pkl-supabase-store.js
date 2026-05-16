@@ -114,9 +114,17 @@ async function fetchDiscordGuildMember(discordId){
   const token = env('DISCORD_BOT_TOKEN') || env('PKL_DISCORD_BOT_TOKEN') || env('BOT_TOKEN');
   if(!did || !guildId || !token) return null;
   const auth = /^Bot\s+/i.test(token) ? token : `Bot ${token}`;
-  const res = await fetch(`https://discord.com/api/v10/guilds/${encodeURIComponent(guildId)}/members/${encodeURIComponent(did)}`, { headers:{ Authorization:auth, Accept:'application/json' }});
-  if(!res.ok) return null;
-  return await res.json().catch(()=>null);
+  let controller=null, timer=null;
+  try{ controller=new AbortController(); timer=setTimeout(()=>{try{controller.abort();}catch(_e){}}, 1800); }catch(_e){}
+  try{
+    const res = await fetch(`https://discord.com/api/v10/guilds/${encodeURIComponent(guildId)}/members/${encodeURIComponent(did)}`, { headers:{ Authorization:auth, Accept:'application/json' }, signal:controller && controller.signal });
+    if(!res.ok) return null;
+    return await res.json().catch(()=>null);
+  }catch(_e){
+    return null;
+  }finally{
+    if(timer) clearTimeout(timer);
+  }
 }
 async function discordRolePatchForUser(user){
   const did = explicitDiscordId(user || {});
