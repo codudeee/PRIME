@@ -8942,7 +8942,16 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     hint.style.cssText='margin:8px 0 2px;padding:12px 10px;border:1px solid rgba(216,180,254,.13);border-radius:14px;background:rgba(255,255,255,.035);color:rgba(221,214,254,.78);font-size:12px;font-weight:900;text-align:center;';
     wrap.appendChild(hint);
   }
+  var __pklAdminDuplicateCleanupDone=false;
+  async function runDuplicateCleanupOnce(){
+    if(__pklAdminDuplicateCleanupDone) return;
+    __pklAdminDuplicateCleanupDone=true;
+    try{
+      await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'cleanupDuplicateUsers',limit:2000})});
+    }catch(e){}
+  }
   async function fetchAdminUsersPage(offset){
+    if(!offset) await runDuplicateCleanupOnce();
     var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));

@@ -62,3 +62,50 @@ create unique index if not exists users_discord_id_unique_idx
   where discord_id is not null and discord_id <> '';
 
 commit;
+
+
+-- 2026-05 추가 보강: raw에 남은 Discord 식별자와 discord_id가 서로 달라서
+-- admin 목록에 같은 계정이 2명처럼 보이는 경우를 정리합니다.
+-- 이 SQL은 숨김 처리가 아니라 중복 row를 실제로 병합/삭제합니다.
+with normalized as (
+  select
+    id,
+    lower(regexp_replace(coalesce(nullif(discord_id,''), raw->>'discordId', raw->>'discord_id', raw->>'uid', raw->>'id', raw->>'userId'), '^discord-', '', 'i')) as did
+  from public.users
+  where coalesce(nullif(discord_id,''), raw->>'discordId', raw->>'discord_id', raw->>'uid', raw->>'id', raw->>'userId') is not null
+), ranked as (
+  select
+    u.*,
+    n.did,
+    row_number() over (
+      partition by n.did
+      order by
+        case when lower(regexp_replace(coalesce(u.discord_id,''), '^discord-', '', 'i')) = n.did then 0 else 1 end,
+        u.updated_at desc nulls last,
+        u.created_at desc nulls last,
+        u.id
+    ) as rn
+  from public.users u
+  join normalized n on n.id = u.id
+  where coalesce(n.did,'') <> ''
+), keep_rows as (
+  select * from ranked where rn = 1
+), dup_rows as (
+  select * from ranked where rn > 1
+)
+update public.users u
+set
+  discord_id = k.did,
+  raw = coalesce(u.raw,'{}'::jsonb)
+    || jsonb_build_object('discordId', k.did, 'discord_id', k.did, 'uid', 'discord-' || k.did, 'id', 'discord-' || k.did, 'userId', 'discord-' || k.did),
+  updated_at = now()
+from keep_rows k
+where u.id = k.id;
+
+delete from public.users u
+using dup_rows d
+where u.id = d.id;
+
+create unique index if not exists users_discord_id_unique_idx
+  on public.users (discord_id)
+  where discord_id is not null and discord_id <> '';

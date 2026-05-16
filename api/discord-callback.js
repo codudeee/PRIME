@@ -185,7 +185,7 @@ function writeJson(k,v){localStorage.setItem(k,JSON.stringify(v));}
 function cleanId(v){return String(v==null?"":v).trim().toLowerCase().replace(/^discord-/,"");}
 function explicitDiscordId(u){u=u||{};var d=cleanId(u.discordId||u.discord_id);if(d)return d;['uid','id','userId','key'].some(function(k){var raw=String(u[k]||'').trim();if(/^discord-/i.test(raw)){d=cleanId(raw);return true;}return false;});return d;}
 function sameDiscordUser(a,b){var ad=explicitDiscordId(a),bd=explicitDiscordId(b);return !!(ad&&bd&&ad===bd);}
-function normalizeNickname(v){return String(v==null?"":v).normalize("NFKC").replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]/g,"").replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u,"").trim();}
+function normalizeNickname(v){return String(v==null?"":v).normalize("NFKC").replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]/g,"").replace(/^[^A-Za-z0-9가-힣_-]+/g,"").trim();}
 function isKoreanNickname(v){return /^[가-힣]{1,4}$/.test(normalizeNickname(v));}
 function normalizePubgId(v){return String(v==null?"":v).normalize("NFKC").trim();}
 function isValidPubgId(v){return /^[A-Za-z0-9_-]{1,32}$/.test(normalizePubgId(v));}
@@ -194,7 +194,7 @@ function goHome(){var to=payload.returnTo||"/index.html";location.replace(to);}
 if(payload.existingUser){syncLocal(payload.existingUser);goHome();return;}
 var loading=document.getElementById("pklLoading"),form=document.getElementById("pklNickForm"),input=document.getElementById("pklNickname"),pubgInput=document.getElementById("pklPubgId"),error=document.getElementById("pklNickError");
 if(loading)loading.className+=" hide";if(form)form.className+=" show";if(input){input.value="";setTimeout(function(){input.focus();},50);}
-form.addEventListener("submit",async function(e){e.preventDefault();var nickname=normalizeNickname(input.value);var pubgId=normalizePubgId(pubgInput&&pubgInput.value);if(!isKoreanNickname(nickname)){error.textContent="닉네임은 한글만 사용해서 1~4글자로 입력해주세요.";input.focus();return;}if(!isValidPubgId(pubgId)){error.textContent="배그 ID는 영문, 숫자, -, _ 만 사용할 수 있습니다.";(pubgInput||input).focus();return;}error.textContent="";try{var res=await fetch("/api/pkl-register-user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({discordUser:payload.discordUser,nickname:nickname,pubgId:pubgId})});var data=await res.json();if(!res.ok||!data.ok){error.textContent=data.message||"닉네임 설정에 실패했습니다.";input.focus();return;}syncLocal(data.user);goHome();}catch(err){error.textContent="가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.";input.focus();}});
+form.addEventListener("submit",async function(e){e.preventDefault();var nickname=normalizeNickname(input.value);var pubgId=normalizePubgId(pubgInput&&pubgInput.value);if(!isKoreanNickname(nickname)){error.textContent="닉네임은 한글만 사용해서 1~4글자로 입력해주세요.";input.focus();return;}if(!isValidPubgId(pubgId)){error.textContent="배그 ID는 영문, 숫자, -, _ 만 사용할 수 있습니다.";(pubgInput||input).focus();return;}error.textContent="";try{var res=await fetch("/api/pkl-register-user",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({discordUser:payload.discordUser,nickname:nickname,nick:nickname,name:nickname,pubgId:pubgId,gameId:pubgId,ref:pubgId})});var data=await res.json();if(!res.ok||!data.ok){error.textContent=data.message||"닉네임 설정에 실패했습니다.";input.focus();return;}syncLocal(data.user);goHome();}catch(err){error.textContent="가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.";input.focus();}});
 })();</script></body></html>`;
 }
 

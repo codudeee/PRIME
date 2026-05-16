@@ -26,6 +26,11 @@ module.exports = async function handler(req, res) {
     }
     if (req.method === 'PATCH') {
       const body = parseBody(req);
+      if (body.action === 'cleanupDuplicateUsers') {
+        if (typeof supabaseStore.cleanupDuplicateUsersByDiscordId !== 'function') throw new Error('Supabase duplicate cleanup function missing');
+        const result = await supabaseStore.cleanupDuplicateUsersByDiscordId(Number(body.limit || 2000));
+        return res.status(200).json({ ok: true, ...result });
+      }
       if (body.action === 'adjustPrime') {
         if (typeof supabaseStore.adjustUserPrime !== 'function') throw new Error('Supabase prime adjustment function missing');
         const result = await supabaseStore.adjustUserPrime(body.user || body.identity || {}, Number(body.amount || 0), String(body.reason || ''), String(body.actor || 'ADMIN'));

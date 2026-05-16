@@ -132,6 +132,82 @@ async function findUserRowsByDiscordId(discordId){
     }catch(_){ return []; }
   }
 }
+
+function canonicalDiscordIdFromRow(row){
+  row = row || {};
+  const raw = row.raw && typeof row.raw === 'object' ? row.raw : {};
+  return explicitDiscordId({
+    discordId: row.discord_id || raw.discordId || raw.discord_id,
+    discord_id: row.discord_id || raw.discord_id || raw.discordId,
+    uid: raw.uid || row.uid,
+    id: raw.id || row.id,
+    userId: raw.userId || row.userId,
+    key: raw.key || row.key
+  });
+}
+function scoreUserRowForKeep(row){
+  const r = row || {};
+  let score = 0;
+  if(clean(r.discord_id) && cleanId(r.discord_id) === canonicalDiscordIdFromRow(r)) score += 100;
+  if(clean(r.nickname)) score += 20;
+  if(clean(r.pubg_id)) score += 15;
+  if(clean(r.role) && normalizeRole(r.role) !== 'user') score += 10;
+  if(Number(r.prime || r.points || 0) > 0) score += 5;
+  score += Math.min(4, Number(r.warnings || 0) || 0);
+  return score;
+}
+async function cleanupDuplicateUsersByDiscordId(limit=2000){
+  const { json } = await supabaseFetch(`users?select=*&order=updated_at.desc.nullslast&limit=${Math.max(100, Math.min(5000, Number(limit)||2000))}`);
+  const rows = Array.isArray(json) ? json : [];
+  const groups = new Map();
+  rows.forEach(row => {
+    const did = canonicalDiscordIdFromRow(row);
+    if(!did) return;
+    if(!groups.has(did)) groups.set(did, []);
+    groups.get(did).push(row);
+  });
+  let mergedCount = 0, normalizedCount = 0;
+  for (const [did, list] of groups.entries()) {
+    if(!list.length) continue;
+    const needsNormalize = list.some(r => cleanId(r.discord_id) !== did || clean(r.discord_id) !== did);
+    if(list.length < 2 && !needsNormalize) continue;
+    const sorted = list.map((row, idx) => ({ row, idx, score: scoreUserRowForKeep(row), updated: Date.parse(row.updated_at || row.created_at || '') || 0 }))
+      .sort((a,b)=> (b.score-a.score) || (b.updated-a.updated) || (a.idx-b.idx));
+    const keep = sorted[0].row;
+    const raws = list.map(r => (r.raw && typeof r.raw === 'object') ? r.raw : {});
+    const latest = sorted[0].row;
+    const mergedRaw = Object.assign({}, ...raws, latest.raw && typeof latest.raw === 'object' ? latest.raw : {});
+    mergedRaw.discordId = did;
+    mergedRaw.discord_id = did;
+    mergedRaw.uid = `discord-${did}`;
+    mergedRaw.id = `discord-${did}`;
+    mergedRaw.userId = `discord-${did}`;
+    const body = {
+      discord_id: did,
+      discord_username: clean(latest.discord_username || keep.discord_username || mergedRaw.discordUsername || mergedRaw.discord_username || ''),
+      nickname: cleanNickname(latest.nickname || keep.nickname || mergedRaw.nickname || mergedRaw.nick || mergedRaw.name || ''),
+      pubg_id: clean(latest.pubg_id || keep.pubg_id || mergedRaw.pubgId || mergedRaw.pubg_id || mergedRaw.gameId || ''),
+      tier: normalizeTier(latest.tier || keep.tier || mergedRaw.memberTier || mergedRaw.gradeRole || mergedRaw.tier || 'none'),
+      role: normalizeRole(latest.role || keep.role || mergedRaw.memberRole || mergedRaw.role || 'user'),
+      prime: Number(latest.prime ?? latest.points ?? keep.prime ?? keep.points ?? mergedRaw.prime ?? mergedRaw.points ?? 0) || 0,
+      warnings: Number(latest.warnings ?? keep.warnings ?? mergedRaw.warnings ?? 0) || 0,
+      raw: mergedRaw,
+      updated_at: new Date().toISOString()
+    };
+    const keepId = clean(keep.id);
+    const deleteIds = list.map(r => clean(r.id)).filter(id => id && id !== keepId);
+    if(deleteIds.length){
+      await supabaseFetch(`users?id=in.(${deleteIds.map(encodeURIComponent).join(',')})`, { method:'DELETE', headers:{Prefer:'return=minimal'} }).catch(()=>{});
+      mergedCount += deleteIds.length;
+    }
+    if(keepId){
+      await supabaseFetch(`users?id=eq.${encodeURIComponent(keepId)}`, { method:'PATCH', headers:{Prefer:'return=minimal'}, body: JSON.stringify(body) }).catch(()=>{});
+      normalizedCount += 1;
+    }
+  }
+  return { mergedCount, normalizedCount };
+}
+
 async function canonicalizeDuplicateDiscordRows(discordId, keepBody){
   const did = cleanId(discordId);
   if(!did) return null;
@@ -216,6 +292,9 @@ async function supabaseFetch(path, options={}){
   return { json, headers: res.headers };
 }
 async function readUserDocs(options={}){
+  if(!options.tierOnly && options.cleanup !== false){
+    try{ await cleanupDuplicateUsersByDiscordId(2000); }catch(e){}
+  }
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
   const offset = Math.max(0, Number(options.offset || 0));
   const q = clean(options.q || '');
@@ -624,4 +703,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, explicitDiscordId, hasDiscordIdentity };

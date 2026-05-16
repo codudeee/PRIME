@@ -77,17 +77,24 @@ async function handler(req,res){
       : (req.body||{});
 
     const discordUser=body.discordUser||{};
-    const nickname=normalizeNickname(body.nickname);
-    const pubgId=normalizePubgId(body.pubgId);
+    const nickname=normalizeNickname(body.nickname || body.nick || body.name || body.displayName);
+    const pubgId=normalizePubgId(body.pubgId || body.pubg_id || body.gameId || body.ref);
     const recommender=normalizeNickname(body.recommender || body.referrer || body.recommend || "");
 
     let serverUsers=[];
+    try{ if(supabaseStore.cleanupDuplicateUsersByDiscordId) await supabaseStore.cleanupDuplicateUsersByDiscordId(2000); }catch(e){}
     try{
-      const r = supabaseStore.readUserDocs
-        ? await supabaseStore.readUserDocs({ limit: 100, offset: 0, q: discordUser.discordId || nickname || "" })
-        : { users: await supabaseStore.readUsers() };
-      const list = Array.isArray(r.users) ? r.users : (Array.isArray(r) ? r : []);
-      serverUsers = list.filter(u => !!explicitDiscordId(u));
+      if(supabaseStore.findUserRowsByDiscordId && discordUser.discordId){
+        const rows = await supabaseStore.findUserRowsByDiscordId(discordUser.discordId);
+        serverUsers = rows.map(r => supabaseStore.normalizeUser ? supabaseStore.normalizeUser(Object.assign({}, (r.raw&&typeof r.raw==='object'?r.raw:{}), {discordId:r.discord_id, discordUsername:r.discord_username, nickname:r.nickname, pubgId:r.pubg_id, tier:r.tier, role:r.role, prime:r.prime, points:r.points, warnings:r.warnings})) : r).filter(u => !!explicitDiscordId(u));
+      }
+      if(!serverUsers.length){
+        const r = supabaseStore.readUserDocs
+          ? await supabaseStore.readUserDocs({ limit: 100, offset: 0, q: discordUser.discordId || nickname || "", cleanup:false })
+          : { users: await supabaseStore.readUsers() };
+        const list = Array.isArray(r.users) ? r.users : (Array.isArray(r) ? r : []);
+        serverUsers = list.filter(u => !!explicitDiscordId(u));
+      }
     }catch(e){ serverUsers = []; }
     const allUsers = supabaseStore.mergeUsers ? supabaseStore.mergeUsers(serverUsers) : serverUsers;
     const banSeed = Object.assign({}, discordUser, {nickname:nickname, pubgId:pubgId, gameId:pubgId, ref:pubgId});
