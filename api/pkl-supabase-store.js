@@ -56,21 +56,25 @@ function isKoreanNameText(v){
 }
 function discordDisplayFromRaw(raw){
   raw = raw && typeof raw === 'object' ? raw : {};
-  return discordServerNickname(raw.discordGuildNick || raw.guildNick || raw.serverNick || raw.discordServerNickname || raw.discordDisplayName || raw.discordGlobalName || raw.global_name || raw.discord_name || raw.discord_username || raw.discordUsername || raw.username || '');
+  // 이름 표시는 Discord 서버 프로필 닉네임만 사용한다.
+  // username/global_name은 서버 닉네임이 아니므로 여기서 fallback으로 쓰면
+  // GK_SMF_..., vsjjoah 같은 디코 ID/계정명이 관리홈에 표시된다.
+  return discordServerNickname(raw.discordGuildNick || raw.guildNick || raw.serverNick || raw.discordServerNickname || raw.guildNickname || '');
 }
 function safeDisplayNickname(src){
   src = src && typeof src === 'object' ? src : {};
   const raw = src.raw && typeof src.raw === 'object' ? src.raw : src;
-  // 표시 닉네임은 디스코드 서버 프로필 닉네임의 '/' 앞 한글닉을 최우선으로 사용한다.
-  const guildNick = discordDisplayFromRaw(Object.assign({}, raw, src));
+  // 표시 닉네임은 Discord 서버 프로필 닉네임의 '/' 앞 한글닉을 최우선으로 사용한다.
+  // 서버 닉네임이 없을 때는 가입 시 저장된 PKL 닉네임으로만 내려간다.
+  const guildNick = discordDisplayFromRaw(Object.assign({}, src, raw));
   if(guildNick) return guildNick;
   const registered = registeredNicknameFromRaw(raw);
   if(registered) return registered;
   const pkl = cleanNickname(src.pklNickname || src.pkl_nickname || src.signupNickname || src.signup_nickname || raw.pklNickname || raw.pkl_nickname || raw.signupNickname || raw.signup_nickname || '');
   if(pkl) return pkl;
   const current = cleanNickname(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name || '');
-  if(current) return current;
-  return discordDisplayFromRaw(Object.assign({}, raw, src));
+  if(current && isKoreanNameText(current)) return current;
+  return '';
 }
 
 function env(name){ return clean(process.env[name] || ''); }
@@ -128,11 +132,14 @@ async function discordRolePatchForUser(user){
   if(configuredAdminDiscordIds().includes(did)) accessRole = 'admin';
   if(accessRole){ patch.role = accessRole; patch.memberRole = accessRole; patch.userRole = accessRole; patch.authRole = accessRole; }
   if(member){
-    const guildNickRaw = clean(member.nick || '');
+    const guildNickRaw = clean(member.nick || member.nickname || '');
     const guildNick = discordServerNickname(guildNickRaw);
     patch.discordGuildRoleIds = roleIds;
     patch.discordGuildNick = guildNickRaw;
+    patch.guildNick = guildNickRaw;
     patch.discordServerNickname = guildNick;
+    // username/global_name은 서버 프로필 닉네임이 아니므로 nickname 컬럼에 저장하지 않는다.
+    // 서버 프로필 닉네임이 있을 때만 / 앞 한글닉으로 사이트 표시명을 갱신한다.
     if(guildNick){ patch.nickname = guildNick; patch.nick = guildNick; patch.name = guildNick; patch.displayName = guildNick; }
     patch.lastDiscordGuildSyncAt = new Date().toISOString();
   }

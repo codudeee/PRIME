@@ -3,15 +3,31 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABA
 const TOKEN = String(process.env.PKL_DISCORD_REACTION_TOKEN || process.env.PKL_BOT_API_TOKEN || '').trim();
 function json(res, status, body){ res.status(status).setHeader('Cache-Control','no-store'); return res.json(body); }
 function clean(v){ return String(v == null ? '' : v).trim(); }
+function stripLeadingNicknameDecorations(v){
+  return clean(v).normalize('NFKC')
+    .replace(/^[\s\u00a0\u200b\u200c\u200d\ufeff]+/g, '')
+    .replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u, '')
+    .trim();
+}
+function koreanNicknameFromDiscordGuildNick(value){
+  const raw = clean(value).normalize('NFKC');
+  const first = stripLeadingNicknameDecorations((raw.split('/')[0] || ''))
+    .replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]/g, '')
+    .replace(/[^가-힣]/g, '');
+  return /^[가-힣]{1,4}$/.test(first) ? first : '';
+}
 function did(u){ return clean(u.discord_id || u.discordId || u.discord || u.user_id || u.userId || u.id || '').replace(/^discord-/i, ''); }
 function keyOf(u){ return did(u) || clean(u.pubg_id || u.pubgId || u.pubg || u.gameId || u.ref || u.nickname || u.name).toLowerCase(); }
 function normalizeUser(u){
   u = u || {};
   const discordId = did(u);
-  const nickname = clean(u.nickname || u.nick || u.name || u.displayName || u.global_name || u.username || '참가자').replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u, '');
+  const guildNickRaw = clean(u.discordGuildNick || u.guildNick || u.discordServerNickname || u.memberNick || '');
+  const guildNick = koreanNicknameFromDiscordGuildNick(guildNickRaw);
+  const fallbackNick = clean(u.nickname || u.nick || u.name || u.displayName || u.global_name || u.username || '참가자').replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u, '');
+  const nickname = guildNick || fallbackNick;
   const pubgId = clean(u.pubg_id || u.pubgId || u.pubg || u.gameId || u.ref || nickname);
   const key = discordId || clean(u.key || u.uid || u.userId || nickname || pubgId);
-  return { key, uid:key, userId:key, id: discordId ? `discord-${discordId}` : key, discord_id:discordId, discordId, discordUsername:clean(u.discordUsername || u.discord_username || u.username || ''), discordGlobalName:clean(u.discordGlobalName || u.global_name || u.displayName || u.nick || u.name || u.nickname || ''), name:nickname, nickname, pubgId, joinedAt:new Date().toISOString() };
+  return { key, uid:key, userId:key, id: discordId ? `discord-${discordId}` : key, discord_id:discordId, discordId, discordUsername:clean(u.discordUsername || u.discord_username || u.username || ''), discordGlobalName:clean(u.discordGlobalName || u.global_name || u.displayName || u.nick || u.name || u.nickname || ''), discordGuildNick:guildNickRaw, discordServerNickname:guildNick, name:nickname, nickname, pubgId, joinedAt:new Date().toISOString() };
 }
 function same(a,b){ const ak=keyOf(a), bk=keyOf(b); return !!(ak && bk && ak === bk); }
 function unique(arr){ const out=[]; (Array.isArray(arr)?arr:[]).forEach(x=>{ if(x && typeof x==='object' && !out.some(p=>same(p,x))) out.push(x); }); return out; }
