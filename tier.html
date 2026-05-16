@@ -2725,9 +2725,39 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
   }
 
   function pklTierCanEdit(){
+    if(window.__PKL_TIER_CAN_EDIT_SERVER === true) return true;
     return pklTierIsAdminUser(pklTierCurrentUserForEdit());
   }
   window.pklTierCanEdit = pklTierCanEdit;
+
+  async function pklTierRefreshCurrentUserPermission(){
+    const current = pklTierCurrentUserForEdit();
+    const did = String(current?.discordId || current?.discord_id || current?.id || current?.uid || '').replace(/^discord-/i,'').trim();
+    if(!did) return;
+    try{
+      const res = await fetch('/api/pkl-users?q=' + encodeURIComponent(did) + '&limit=20', {cache:'no-store', headers:{Accept:'application/json'}});
+      const data = await res.json().catch(() => ({}));
+      const users = Array.isArray(data.users) ? data.users : [];
+      const found = users.find(u => String(u.discordId || u.discord_id || u.id || u.uid || '').replace(/^discord-/i,'').trim() === did);
+      if(found){
+        window.__PKL_TIER_CAN_EDIT_SERVER = pklTierIsAdminUser(found);
+        try{
+          const merged = {...current, ...found};
+          sessionStorage.setItem('pklLoginUser', JSON.stringify(merged));
+          localStorage.setItem('pklLoginUser', JSON.stringify(merged));
+        }catch(e){}
+        document.querySelectorAll('.pkl-tier-member').forEach(node => {
+          node.setAttribute('draggable', window.__PKL_TIER_CAN_EDIT_SERVER ? 'true' : 'false');
+          node.dataset.canDrag = window.__PKL_TIER_CAN_EDIT_SERVER ? '1' : '0';
+        });
+        if(typeof window.renderPklTierMembers === 'function') window.renderPklTierMembers();
+      }
+    }catch(e){
+      console.error('PKL tier permission refresh failed', e);
+    }
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pklTierRefreshCurrentUserPermission);
+  else pklTierRefreshCurrentUserPermission();
 
   function pklTierVisibleUsers(){
     const state = pklTierReadAdminState();
@@ -2939,16 +2969,41 @@ document.addEventListener("DOMContentLoaded", function(){
     tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
     beast:"짐승"
   };
-  function readConfig(){
-    try{
-      const data = JSON.parse(localStorage.getItem(SCORE_KEY) || "null");
-      if(data && typeof data === "object") return data;
-    }catch(e){}
-    return {};
-  }
+  let scoreConfig = {};
+  let saveTimer = null;
   function normalizeNumber(value, fallback){
     const n = Number(String(value ?? "").replace(/[^0-9-]/g,""));
     return Number.isFinite(n) ? n : fallback;
+  }
+  function normalizeConfig(config){
+    const out = {};
+    if(config && typeof config === "object"){
+      Object.keys(config).forEach(key => {
+        const value = config[key];
+        if(!value || typeof value !== "object") return;
+        const lane = ROLE_TO_LANE[key] || key;
+        const target = normalizeNumber(value.target, 0);
+        const death = normalizeNumber(value.death, 0);
+        out[lane] = { target, death };
+        const role = Object.keys(ROLE_TO_LANE).find(k => ROLE_TO_LANE[k] === lane);
+        if(role) out[role] = { target, death, lane };
+      });
+    }
+    return out;
+  }
+  function readConfig(){ return normalizeConfig(scoreConfig || window.__PKL_TIER_SCORE_CONFIG || {}); }
+  async function loadConfig(){
+    try{
+      const res = await fetch('/api/pkl-shared?key=' + encodeURIComponent(SCORE_KEY), {cache:'no-store', headers:{Accept:'application/json'}});
+      const data = await res.json().catch(() => ({}));
+      const value = data && data.item ? data.item.value : null;
+      scoreConfig = normalizeConfig(value);
+      window.__PKL_TIER_SCORE_CONFIG = scoreConfig;
+      applyConfig();
+      window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:scoreConfig}}));
+    }catch(e){
+      console.error('PKL tier score config load failed', e);
+    }
   }
   function collectConfig(){
     const config = readConfig();
@@ -2964,8 +3019,26 @@ document.addEventListener("DOMContentLoaded", function(){
       const role = Object.keys(ROLE_TO_LANE).find(key => ROLE_TO_LANE[key] === lane);
       if(role) config[role] = { target, death, lane };
     });
-    localStorage.setItem(SCORE_KEY, JSON.stringify(config));
-    localStorage.setItem("pklTierScoreLastSync", JSON.stringify({ at:new Date().toISOString() }));
+    scoreConfig = normalizeConfig(config);
+    window.__PKL_TIER_SCORE_CONFIG = scoreConfig;
+    window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:scoreConfig}}));
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveConfig, 250);
+  }
+  async function saveConfig(){
+    const payload = normalizeConfig(scoreConfig);
+    try{
+      const res = await fetch('/api/pkl-shared', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body:JSON.stringify({key:SCORE_KEY, value:payload})
+      });
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok || !data.ok) throw new Error(data.message || '티어 점수 저장 실패');
+    }catch(e){
+      console.error('PKL tier score config save failed', e);
+      if(typeof window.pklAlert === 'function') window.pklAlert('티어 점수 저장에 실패했습니다. 새로고침 전 다시 확인해주세요.', '저장 실패');
+    }
   }
   function applyConfig(){
     const config = readConfig();
@@ -2981,21 +3054,18 @@ document.addEventListener("DOMContentLoaded", function(){
     });
   }
   function bind(){
-    applyConfig();
-    collectConfig();
     document.querySelectorAll(".pkl-lane-score input").forEach(input => {
       if(input.dataset.pklTierScoreSync === "1") return;
       input.dataset.pklTierScoreSync = "1";
       input.addEventListener("input", collectConfig);
       input.addEventListener("change", collectConfig);
     });
+    loadConfig().then(() => { if(!Object.keys(readConfig()).length) collectConfig(); });
   }
-  if(document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", bind);
-  }else{
-    bind();
-  }
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
+  else bind();
   window.pklTierCollectScoreConfig = collectConfig;
+  window.pklTierLoadScoreConfig = loadConfig;
 })();
 </script>
 
@@ -3546,7 +3616,10 @@ document.addEventListener("DOMContentLoaded", function(){
 
   window.renderPklTierMembers = function(){ renderTier(false); };
   window.PKLTierReloadSupabaseUsers = function(){ renderTier(true); };
-  window.pklTierSetUserRole = function(userKey, targetLane){ setUserTier(userKey, targetLane); return true; };
+  window.pklTierSetUserRole = function(userKey, targetLane){
+    setUserTier(userKey, targetLane);
+    return true;
+  };
 
   document.addEventListener('DOMContentLoaded', function(){
     requestAnimationFrame(function(){

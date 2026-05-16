@@ -6853,30 +6853,48 @@ function pklTierScoreDefaults(){
     "짐승":{target:0,death:-1}
   };
 }
-function pklReadTierScoreConfig(){
-  const base=pklTierScoreDefaults();
-  try{
-    const saved=JSON.parse(localStorage.getItem("pklTierScoreConfig")||"null");
-    if(saved && typeof saved==="object"){
-      Object.keys(saved).forEach(key=>{
-        const value=saved[key];
-        if(!value || typeof value!=="object") return;
-        const target=Number(value.target);
-        const death=Number(value.death);
-        const lane=pklTierScoreLaneFromRole(key) || key;
-        base[lane]={
-          target:Number.isFinite(target)?target:Number(base[lane]?.target||0),
-          death:Number.isFinite(death)?death:Number(base[lane]?.death||0)
-        };
-      });
-    }
-  }catch(e){}
+function pklMergeTierScoreConfig(base, saved){
+  if(saved && typeof saved === "object"){
+    Object.keys(saved).forEach(key=>{
+      const value=saved[key];
+      if(!value || typeof value!=="object") return;
+      const target=Number(value.target);
+      const death=Number(value.death);
+      const lane=pklTierScoreLaneFromRole(key) || key;
+      if(!base[lane]) return;
+      base[lane]={
+        target:Number.isFinite(target)?target:Number(base[lane]?.target||0),
+        death:Number.isFinite(death)?death:Number(base[lane]?.death||0)
+      };
+    });
+  }
   Object.keys(base).forEach(lane=>{
     const role=pklTierScoreRoleFromText(lane);
     if(role) base[role]={...base[lane], lane};
   });
   return base;
 }
+function pklReadTierScoreConfig(){
+  return pklMergeTierScoreConfig(pklTierScoreDefaults(), window.__PKL_TIER_SCORE_CONFIG || {});
+}
+async function pklLoadTierScoreConfig(){
+  try{
+    const res=await fetch('/api/pkl-shared?key=' + encodeURIComponent('pklTierScoreConfig'), {cache:'no-store', headers:{Accept:'application/json'}});
+    const data=await res.json().catch(()=>({}));
+    const value=data && data.item ? data.item.value : null;
+    window.__PKL_TIER_SCORE_CONFIG = value && typeof value === 'object' ? value : {};
+    try{ renderBoard(); renderSheet(); }catch(e){}
+    window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:window.__PKL_TIER_SCORE_CONFIG}}));
+  }catch(e){
+    console.error('PKL sheet tier score config load failed', e);
+  }
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pklLoadTierScoreConfig);
+else pklLoadTierScoreConfig();
+window.addEventListener('pkl-tier-score-config-updated', function(e){
+  if(e && e.detail && e.detail.config) window.__PKL_TIER_SCORE_CONFIG = e.detail.config;
+  try{ renderBoard(); renderSheet(); }catch(_e){}
+});
 let pklSheetSupabaseUsersCache = [];
 let pklSheetSupabaseUsersPromise = null;
 function pklNormalizeSheetUsersPayload(data){
