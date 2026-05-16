@@ -3,9 +3,18 @@
 const PKL_LOGIN_STORAGE_KEYS = ["discordUser", "pklLoginUser", "pklCurrentUser", "pklUser", "pklLoggedInUser", "pkl_current_user"];
 const PKL_MANUAL_LOGOUT_KEY = "pklManualLogout";
 
+function pklNormalizeDiscordId(value){
+  return String(value == null ? "" : value).trim().toLowerCase().replace(/^discord-/, "");
+}
 function pklStrongLoginId(user){
   if(!user || typeof user !== "object") return "";
-  return String(user.discordId || user.uid || user.id || user.userId || "").trim().toLowerCase();
+  const direct=pklNormalizeDiscordId(user.discordId || user.discord_id);
+  if(direct) return direct;
+  for(const key of ["uid","id","userId","key"]){
+    const raw=String(user[key] || "").trim();
+    if(/^discord-/i.test(raw)) return pklNormalizeDiscordId(raw);
+  }
+  return pklNormalizeDiscordId(user.uid || user.id || user.userId || "");
 }
 
 function getCurrentUser() {
@@ -326,25 +335,13 @@ if(node.nodeType===Node.TEXT_NODE){
   }
 
   function findStoredPklUser(user){
-    const keys=getUserIdentityKeys(user).map(v=>v.toLowerCase());
-    if(!keys.length) return user;
-    const lists=[];
-    try{
-      const adminState=JSON.parse(localStorage.getItem("pklAdminState_v3") || "{}");
-      if(Array.isArray(adminState && adminState.users)) lists.push(adminState.users);
-    }catch(e){}
-    try{
-      const users=JSON.parse(localStorage.getItem("pklUsers") || "[]");
-      if(Array.isArray(users)) lists.push(users);
-    }catch(e){}
-    for(const list of lists){
-      const matched=list.find(function(u){
-        return getUserIdentityKeys(u).some(function(v){ return keys.includes(String(v).toLowerCase()); });
-      });
-      if(matched) return matched;
-    }
+    // Supabase users 테이블이 단일 기준이다.
+    // 예전 localStorage(pklUsers / pklAdminState_v3)에 남은 일반 권한값이
+    // 현재 Supabase admin/operator 값을 덮어써서 관리자 버튼이 사라지는 문제가 있어
+    // 헤더 권한/배지는 더 이상 로컬 유저목록으로 보정하지 않는다.
     return user;
   }
+
 
   function getHeaderUserName(user){
     const stored=findStoredPklUser(user);
@@ -415,16 +412,20 @@ if(node.nodeType===Node.TEXT_NODE){
     }
   }
 
+  function pklHeaderDiscordId(user){ return pklStrongLoginId(user); }
+
   function pklHeaderIdentityQuery(user){
     if(!user) return "";
-    return String(user.discordId || user.discord_id || user.uid || user.id || user.userId || user.pubgId || user.pubg_id || user.nickname || user.name || "").trim();
+    return pklHeaderDiscordId(user) || String(user.pubgId || user.pubg_id || user.nickname || user.name || "").trim();
   }
 
   function pklHeaderSameUser(a,b){
     if(!a || !b) return false;
+    const ad=pklHeaderDiscordId(a), bd=pklHeaderDiscordId(b);
+    if(ad && bd) return ad===bd;
     const norm=function(v){ return String(v || "").trim().toLowerCase(); };
-    const av=[a.discordId,a.discord_id,a.uid,a.id,a.userId,a.pubgId,a.pubg_id,a.nickname,a.name,a.username].map(norm).filter(Boolean);
-    const bv=[b.discordId,b.discord_id,b.uid,b.id,b.userId,b.pubgId,b.pubg_id,b.nickname,b.name,b.username].map(norm).filter(Boolean);
+    const av=[a.pubgId,a.pubg_id,a.nickname,a.name,a.username].map(norm).filter(Boolean);
+    const bv=[b.pubgId,b.pubg_id,b.nickname,b.name,b.username].map(norm).filter(Boolean);
     return av.length && bv.length && av.some(function(v){ return bv.includes(v); });
   }
 
@@ -440,7 +441,9 @@ if(node.nodeType===Node.TEXT_NODE){
     pklHeaderUserHydrateAt=now;
     pklHeaderUserHydratePromise=(async function(){
       try{
-        const res=await fetch('/api/pkl-users?limit=20&q='+encodeURIComponent(q),{cache:'no-store',headers:{Accept:'application/json'}});
+        const did=pklHeaderDiscordId(local);
+        const url=did ? ('/api/pkl-users?limit=5&discordId='+encodeURIComponent(did)) : ('/api/pkl-users?limit=20&q='+encodeURIComponent(q));
+        const res=await fetch(url,{cache:'no-store',headers:{Accept:'application/json'}});
         const data=await res.json().catch(function(){return null;});
         const users=Array.isArray(data && data.users)?data.users:[];
         const matched=users.find(function(u){ return pklHeaderSameUser(local,u); }) || users[0];
@@ -456,6 +459,8 @@ if(node.nodeType===Node.TEXT_NODE){
         setHeaderMyButton(document.getElementById('loginBtn'), merged);
         const managerBtn=document.getElementById('managerBtn');
         if(managerBtn) managerBtn.style.display=isAdminUser(merged) ? 'flex' : 'none';
+        try{ window.dispatchEvent(new CustomEvent('pkl-current-user-updated',{detail:{user:merged}})); }catch(e){}
+        try{ window.dispatchEvent(new CustomEvent('pkl-role-data-updated',{detail:{user:merged}})); }catch(e){}
         return merged;
       }catch(e){
         return local;

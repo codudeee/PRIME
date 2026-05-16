@@ -21,8 +21,9 @@ module.exports = async function handler(req, res) {
       const limit = intParam(req.query && req.query.limit, tierOnly ? 500 : 20, 1, tierOnly ? 500 : 100);
       const offset = intParam(req.query && req.query.offset, 0, 0, 1000000);
       const q = String((req.query && req.query.q) || '').trim();
-      const result = await supabaseStore.readUserDocs({ limit, offset, q, tierOnly });
-      return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, tierOnly });
+      const discordId = String((req.query && (req.query.discordId || req.query.discord_id)) || '').trim();
+      const result = await supabaseStore.readUserDocs({ limit, offset, q, discordId, tierOnly });
+      return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, discordId, tierOnly });
     }
     if (req.method === 'PATCH') {
       const body = parseBody(req);

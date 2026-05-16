@@ -37,22 +37,6 @@
     for(var i=0;i<currents.length;i++){var direct=mapRoleText(roleText(currents[i])); if(direct) return direct;}
     function names(u){return ['uid','id','userId','memberId','loginId','email','nickname','nick','name','displayName','userName','pubgId','pubgID','pubgName','gameId','username','discordId','key','ref'].map(function(k){return norm(u&&u[k]);}).filter(Boolean);}
     var tokens=[]; currents.forEach(function(u){tokens=tokens.concat(names(u));});
-    var userKeys=['pklUsers','PKL_USERS','pklAdminUsers','PKL_ADMIN_USERS','pklUserList','pklAdminState_v3','pklAdminState','pkl_admin_state','PKL_USER_DB','pklMembers'];
-    var users=[];
-    function push(st){
-      if(!st) return;
-      if(Array.isArray(st)) st.forEach(function(u){if(u&&typeof u==='object')users.push(u);});
-      else if(st.users&&Array.isArray(st.users)) st.users.forEach(function(u){if(u&&typeof u==='object')users.push(u);});
-      else if(st.members&&Array.isArray(st.members)) st.members.forEach(function(u){if(u&&typeof u==='object')users.push(u);});
-      else if(typeof st==='object') Object.keys(st).forEach(function(k){var u=st[k]; if(u&&typeof u==='object')users.push(u);});
-    }
-    userKeys.forEach(function(k){push(parse(localStorage.getItem(k))); push(parse(sessionStorage.getItem(k)));});
-    for(var j=0;j<users.length;j++){
-      var mr=mapRoleText(roleText(users[j]));
-      if(!mr) continue;
-      var ns=names(users[j]);
-      for(var t=0;t<tokens.length;t++){if(ns.indexOf(tokens[t])>=0) return mr;}
-    }
     return 'guest';
   }
   function rank(r){return ROLE_RANK[r]||0;}

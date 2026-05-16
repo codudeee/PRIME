@@ -379,7 +379,22 @@ async function readUserDocs(options={}){
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
   const offset = Math.max(0, Number(options.offset || 0));
   const q = clean(options.q || '');
+  const discordId = cleanId(options.discordId || options.discord_id || '');
   const tierOnly = !!options.tierOnly;
+
+  if(discordId){
+    const rows = await findUserRowsByDiscordId(discordId);
+    const rawUsers = (Array.isArray(rows) ? rows : []).map(rowToUser).filter(u => !!u.discordId);
+    const seenDiscord = new Set();
+    const users = [];
+    for (const u of rawUsers) {
+      const did = cleanId(u.discordId || u.discord_id);
+      if (!did || seenDiscord.has(did)) continue;
+      seenDiscord.add(did);
+      users.push(u);
+    }
+    return { users, count: users.length, limit, offset, q, discordId };
+  }
 
   // 티어표 전용 요청은 화면에 필요한 컬럼만 가져오고 count=exact를 쓰지 않는다.
   // count=exact + select=* 는 유저가 늘수록 티어표 유저칸 표시를 늦춘다.
