@@ -8988,7 +8988,6 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     __pklAdminDuplicateCleanupDone=true;
     try{
       await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'cleanupDuplicateUsers',limit:2000})});
-      await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'cleanupGhostWarningUsers',limit:2000})});
     }catch(e){}
   }
   async function runDiscordGuildNicknameSyncOnce(){
