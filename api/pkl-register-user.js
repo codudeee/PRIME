@@ -36,10 +36,14 @@ function buildApprovedUser(discordUser,nickname,pubgId,old){
     nick:nick,
     name:nick,
     displayName:nick,
+    registeredNickname:nick,
+    pklNickname:nick,
 
     pubgId:game,
     gameId:game,
     ref:game,
+    registeredPubgId:game,
+    pklPubgId:game,
 
     provider:"discord",
     authType:"discord",

@@ -36,6 +36,14 @@ function normalizeTier(v){
   if(!raw || raw === '없음' || raw.toLowerCase() === 'none') return 'none';
   return raw;
 }
+function registeredNicknameFromRaw(raw){
+  raw = raw && typeof raw === 'object' ? raw : {};
+  return cleanNickname(raw.registeredNickname || raw.pklNickname || raw.pkl_nickname || raw.signupNickname || raw.signup_nickname || '');
+}
+function registeredPubgFromRaw(raw){
+  raw = raw && typeof raw === 'object' ? raw : {};
+  return clean(raw.registeredPubgId || raw.pklPubgId || raw.pkl_pubg_id || raw.signupPubgId || raw.signup_pubg_id || '');
+}
 
 function env(name){ return clean(process.env[name] || ''); }
 function envList(name){ return env(name).split(/[,:\s]+/).map(cleanId).filter(Boolean); }
@@ -290,8 +298,8 @@ async function cleanupDuplicateUsersByDiscordId(limit=2000){
     const latest = sorted[0].row;
     const mergedRaw = Object.assign({}, ...raws, latest.raw && typeof latest.raw === 'object' ? latest.raw : {});
     const did = canonicalDiscordIdFromRow(keep) || list.map(canonicalDiscordIdFromRow).find(Boolean) || '';
-    const pubgOriginal = clean(latest.pubg_id || keep.pubg_id || mergedRaw.pubgId || mergedRaw.pubg_id || mergedRaw.gameId || '');
-    const nicknameOriginal = cleanNickname(latest.nickname || keep.nickname || mergedRaw.nickname || mergedRaw.nick || mergedRaw.name || '');
+    const pubgOriginal = clean(registeredPubgFromRaw(mergedRaw) || keep.pubg_id || latest.pubg_id || mergedRaw.pubgId || mergedRaw.pubg_id || mergedRaw.gameId || '');
+    const nicknameOriginal = cleanNickname(registeredNicknameFromRaw(mergedRaw) || keep.nickname || latest.nickname || mergedRaw.nickname || mergedRaw.nick || mergedRaw.name || '');
     if(did){
       mergedRaw.discordId = did;
       mergedRaw.discord_id = did;
@@ -376,12 +384,10 @@ async function cleanupDuplicateUsersByDiscordId(limit=2000){
     }
   }
 
-  // 1차: 같은 Discord 계정 중복 row 병합.
+  // 같은 Discord 계정 중복 row만 병합한다.
+  // PUBG ID/닉네임은 여러 사람이 같거나 잘못 입력할 수 있어서 병합 기준으로 쓰면
+  // 가람/주희처럼 서로 다른 Discord 계정이 한 row로 섞인다.
   await runPass('discord');
-  // 병합 후 다시 읽어서 2차로 PUBG ID가 같은 실사용 중복 row를 병합한다.
-  const fresh = await supabaseFetch(`users?select=*&order=updated_at.desc.nullslast&limit=${Math.max(100, Math.min(5000, Number(limit)||2000))}`).catch(()=>({json:rows}));
-  rows = Array.isArray(fresh.json) ? fresh.json : rows;
-  await runPass('pubg');
 
   return { mergedCount, normalizedCount };
 }
@@ -578,11 +584,22 @@ async function writeUserDoc(user, forceAdmin=false){
     chicken: prime,
     warnings
   };
+  const incomingNickname = cleanNickname(u.nickname || u.nick || u.name || u.displayName);
+  const incomingPubg = clean(u.pubgId || u.gameId || u.ref);
+  const savedNickname = cleanNickname(existingRow && (registeredNicknameFromRaw(existingRaw) || existingRow.nickname || existingUser?.nickname));
+  const savedPubg = clean(existingRow && (registeredPubgFromRaw(existingRaw) || existingRow.pubg_id || existingUser?.pubgId));
+  const finalNickname = existingRow ? (savedNickname || incomingNickname) : incomingNickname;
+  const finalPubg = existingRow ? (savedPubg || incomingPubg) : incomingPubg;
+  raw.registeredNickname = raw.registeredNickname || finalNickname;
+  raw.pklNickname = raw.pklNickname || finalNickname;
+  raw.registeredPubgId = raw.registeredPubgId || finalPubg;
+  raw.pklPubgId = raw.pklPubgId || finalPubg;
+
   const body = {
     discord_id: discordId,
     discord_username: clean(u.discordGlobalName || u.global_name || u.displayName || u.discordUsername || u.discord_username || u.username || u.nickname),
-    nickname: cleanNickname(u.nickname || u.nick || u.name || u.displayName),
-    pubg_id: clean(u.pubgId || u.gameId || u.ref),
+    nickname: finalNickname,
+    pubg_id: finalPubg,
     tier,
     prime,
     warnings,
@@ -936,8 +953,8 @@ async function cleanupDiscordUser(user){
   const body = {
     discord_id: did,
     discord_username: clean(base.discordUsername || base.discord_username),
-    nickname: cleanNickname(base.nickname || base.name),
-    pubg_id: clean(base.pubgId || base.gameId || base.ref),
+    nickname: cleanNickname(registeredNicknameFromRaw(base.raw || base) || base.nickname || base.name),
+    pubg_id: clean(registeredPubgFromRaw(base.raw || base) || base.pubgId || base.gameId || base.ref),
     tier: normalizeTier(base.memberTier || base.gradeRole || base.tierRole || base.tier),
     prime: Number(base.prime || base.points || base.dia || 0) || 0,
     warnings: Number(base.warnings || 0) || 0,
