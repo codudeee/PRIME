@@ -54,6 +54,8 @@ function normalizeUser(raw){
     userId: did ? `discord-${did}` : clean(src.userId || src.uid || src.id || ''),
     key: did ? `discord-${did}` : clean(src.key || src.uid || src.id || ''),
     discordUsername: clean(src.discordUsername || src.discord_username || src.username || ''),
+    discordDisplayName: clean(src.discordDisplayName || src.discordGlobalName || src.global_name || src.displayName || src.discord_username || src.discordUsername || ''),
+    discordGlobalName: clean(src.discordGlobalName || src.global_name || src.discordDisplayName || ''),
     nickname: nick || (did ? `회원-${did.slice(-4)}` : ''),
     nick: nick || (did ? `회원-${did.slice(-4)}` : ''),
     name: nick || (did ? `회원-${did.slice(-4)}` : ''),
@@ -383,8 +385,8 @@ async function writeUserDoc(user, forceAdmin=false){
   };
   const body = {
     discord_id: discordId,
-    discord_username: clean(u.discordUsername || u.username || u.displayName || u.nickname),
-    nickname: cleanNickname(u.nickname || u.displayName || u.nick || u.name),
+    discord_username: clean(u.discordGlobalName || u.global_name || u.displayName || u.discordUsername || u.discord_username || u.username || u.nickname),
+    nickname: cleanNickname(u.nickname || u.nick || u.name || u.displayName),
     pubg_id: clean(u.pubgId || u.gameId || u.ref),
     tier,
     prime,
@@ -418,7 +420,7 @@ function clientRowFromUser(src={}){
   return {
     id: clean(src.supabase_id || src.row_id || src.db_id || ''),
     discord_id: did,
-    discord_username: clean(src.discordUsername || src.discord_username || raw.discordUsername || raw.discord_username || src.username || ''),
+    discord_username: clean(src.discordGlobalName || src.global_name || src.displayName || src.discordUsername || src.discord_username || raw.discordGlobalName || raw.global_name || raw.displayName || raw.discordUsername || raw.discord_username || src.username || ''),
     nickname: clean(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name),
     pubg_id: clean(src.pubgId || src.pubg_id || src.gameId || src.ref || raw.pubgId || raw.pubg_id || raw.gameId || raw.ref),
     tier: normalizeTier(src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : raw.tier)))),
@@ -662,6 +664,34 @@ async function deleteBanRecord(ban={}, actor='ADMIN'){
   return { deleted:true };
 }
 
+
+async function syncDiscordProfile(user){
+  const did = explicitDiscordId(user || {});
+  if(!did) return null;
+  const display = clean(user.discordGlobalName || user.global_name || user.displayName || user.globalName || user.nick || user.name || user.nickname || user.discordUsername || user.discord_username || user.username || '');
+  const username = clean(user.discordUsername || user.discord_username || user.username || '');
+  if(!display && !username) return null;
+  const rows = await findUserRowsByDiscordId(did);
+  if(!rows.length) return null;
+  const keep = rows[0];
+  const raw = keep.raw && typeof keep.raw === 'object' ? {...keep.raw} : {};
+  raw.discordId = did;
+  raw.discord_id = did;
+  raw.discordUsername = username || raw.discordUsername || raw.discord_username || '';
+  raw.discord_username = username || raw.discord_username || raw.discordUsername || '';
+  raw.discordGlobalName = display || raw.discordGlobalName || raw.global_name || '';
+  raw.global_name = display || raw.global_name || raw.discordGlobalName || '';
+  raw.discordDisplayName = display || raw.discordDisplayName || '';
+  raw.lastDiscordProfileSyncAt = new Date().toISOString();
+  const body = {
+    discord_username: display || username || keep.discord_username || '',
+    raw,
+    updated_at: raw.lastDiscordProfileSyncAt
+  };
+  const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(keep.id)}`, {method:'PATCH', headers:{Prefer:'return=representation'}, body:JSON.stringify(body)});
+  return Array.isArray(json) && json[0] ? rowToUser(json[0]) : rowToUser(Object.assign({}, keep, body));
+}
+
 async function readLegacyUsers(options={}){
   const limit = Math.max(1, Math.min(500, Number(options.limit || 200)));
   const { json } = await supabaseFetch(`users?select=*&or=(discord_id.is.null,discord_id.eq.)&order=nickname.asc.nullslast&limit=${limit}`);
@@ -703,4 +733,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, explicitDiscordId, hasDiscordIdentity };

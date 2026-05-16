@@ -11,7 +11,7 @@ function normalizeUser(u){
   const nickname = clean(u.nickname || u.nick || u.name || u.displayName || u.global_name || u.username || '참가자').replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u, '');
   const pubgId = clean(u.pubg_id || u.pubgId || u.pubg || u.gameId || u.ref || nickname);
   const key = discordId || clean(u.key || u.uid || u.userId || nickname || pubgId);
-  return { key, uid:key, userId:key, id: discordId ? `discord-${discordId}` : key, discord_id:discordId, discordId, name:nickname, nickname, pubgId, joinedAt:new Date().toISOString() };
+  return { key, uid:key, userId:key, id: discordId ? `discord-${discordId}` : key, discord_id:discordId, discordId, discordUsername:clean(u.discordUsername || u.discord_username || u.username || ''), discordGlobalName:clean(u.discordGlobalName || u.global_name || u.displayName || u.nick || u.name || u.nickname || ''), name:nickname, nickname, pubgId, joinedAt:new Date().toISOString() };
 }
 function same(a,b){ const ak=keyOf(a), bk=keyOf(b); return !!(ak && bk && ak === bk); }
 function unique(arr){ const out=[]; (Array.isArray(arr)?arr:[]).forEach(x=>{ if(x && typeof x==='object' && !out.some(p=>same(p,x))) out.push(x); }); return out; }
@@ -62,6 +62,37 @@ async function readJoinState(){
     : live.recruitState;
   return {version:2, waitList, cancelList, recruitState:recruitState || {state:'waiting'}, updatedAt:new Date(Math.max(ms(live.updatedAt), sharedUpdated, Date.now())).toISOString()};
 }
+
+async function syncDiscordProfile(user){
+  const discordId = did(user || {});
+  if(!discordId) return;
+  const display = clean(user.discordGlobalName || user.global_name || user.displayName || user.name || user.nickname || user.discordUsername || user.username || '');
+  const username = clean(user.discordUsername || user.discord_username || user.username || '');
+  if(!display && !username) return;
+  const prefixed = `discord-${discordId}`;
+  const filters = [
+    `discord_id.eq.${encodeURIComponent(discordId)}`,
+    `discord_id.eq.${encodeURIComponent(prefixed)}`,
+    `raw->>discordId.eq.${encodeURIComponent(discordId)}`,
+    `raw->>discord_id.eq.${encodeURIComponent(discordId)}`,
+    `raw->>uid.eq.${encodeURIComponent(prefixed)}`,
+    `raw->>id.eq.${encodeURIComponent(prefixed)}`
+  ].join(',');
+  const rows = await sb(`users?select=*&or=(${filters})&limit=5`, {method:'GET'}).catch(()=>[]);
+  const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+  if(!row || !row.id) return;
+  const raw = row.raw && typeof row.raw === 'object' ? Object.assign({}, row.raw) : {};
+  raw.discordId = discordId;
+  raw.discord_id = discordId;
+  raw.discordUsername = username || raw.discordUsername || raw.discord_username || '';
+  raw.discord_username = username || raw.discord_username || raw.discordUsername || '';
+  raw.discordGlobalName = display || raw.discordGlobalName || raw.global_name || '';
+  raw.global_name = display || raw.global_name || raw.discordGlobalName || '';
+  raw.discordDisplayName = display || raw.discordDisplayName || '';
+  raw.lastDiscordProfileSyncAt = new Date().toISOString();
+  await sb(`users?id=eq.${encodeURIComponent(row.id)}`, {method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({discord_username:display || username || row.discord_username || '', raw, updated_at:raw.lastDiscordProfileSyncAt})}).catch(()=>null);
+}
+
 async function writeShared(key, value){
   return await sb('pkl_shared_data?on_conflict=key', {method:'POST', body:JSON.stringify({key, value:value == null ? null : value, updated_at:new Date().toISOString()})}).catch(()=>null);
 }
@@ -141,6 +172,7 @@ async function handler(req,res){
 
     // 아래부터는 이모지 참가/취소 처리라 실제 Discord user가 반드시 필요하다.
     if(!keyOf(user)) return json(res,400,{ok:false,message:'discord user required'});
+    await syncDiscordProfile(user).catch(()=>{});
     st.waitList = unique(st.waitList);
     st.cancelList = unique(st.cancelList);
     if(/^(cancel|remove|leave|reactionremove|참가취소|취소|나가기)$/.test(action)){
