@@ -6711,9 +6711,12 @@ function safeJson(key, fallback){
   });
   document.addEventListener("click", function(e){
     if(e.target.closest("#openRecruitBtn,#closeRecruitBtn,#joinResetBtn")){
-      setTimeout(apply, 0);
-      setTimeout(apply, 80);
-      setTimeout(apply, 220);
+      /* 버튼 클릭 직후에는 방금 저장한 local 상태가 기준이다.
+         서버에 저장되기 전 오래된 remote 상태를 즉시 다시 읽으면 모집열기/마감/초기화 화면이 번쩍인다. */
+      setTimeout(function(){
+        const localState = readLocalRecruitState({allowStale:true});
+        if(localState) applyState(localState, {allowWaiting:true});
+      }, 0);
     }
   }, true);
   setTimeout(refreshRemoteThenApply, 0);
@@ -7628,6 +7631,46 @@ body.pkl-recruit-waiting #joinCancelBtn,
     if(t&&t.closest&&t.closest('#joinOpenConfirmYes')) setTimeout(function(){writeBotMessage('open','confirm-click');},260);
     if(t&&t.closest&&t.closest('#joinCloseConfirmYes')) setTimeout(function(){writeBotMessage('closed','confirm-click');},260);
   },true);
+})();
+</script>
+
+
+
+<script id="pklJoinRecruitActionStablePatch20260516">
+(function(){
+  if(window.__PKL_JOIN_RECRUIT_ACTION_STABLE_PATCH__) return;
+  window.__PKL_JOIN_RECRUIT_ACTION_STABLE_PATCH__ = true;
+  var busyUntil = 0;
+  var busyButtons = [];
+  function setBusy(btn){
+    if(!btn) return;
+    busyUntil = Date.now() + 900;
+    busyButtons = [btn];
+    btn.dataset.pklBusy = "1";
+    btn.disabled = true;
+    btn.setAttribute("aria-disabled","true");
+    setTimeout(function(){
+      if(Date.now() < busyUntil) return;
+      busyButtons.forEach(function(b){
+        if(!b) return;
+        delete b.dataset.pklBusy;
+        b.disabled = false;
+        b.setAttribute("aria-disabled","false");
+      });
+      busyButtons = [];
+      if(window.PKLJoinSyncActionButtons) window.PKLJoinSyncActionButtons();
+    }, 920);
+  }
+  document.addEventListener("click", function(e){
+    var btn = e.target && e.target.closest && e.target.closest("#openRecruitBtn,#closeRecruitBtn,#joinResetConfirmYes");
+    if(!btn) return;
+    if(Date.now() < busyUntil && btn.dataset.pklBusy === "1"){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return false;
+    }
+    setBusy(btn);
+  }, true);
 })();
 </script>
 

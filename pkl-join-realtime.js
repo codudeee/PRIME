@@ -7,6 +7,7 @@
   var originalSet=Storage.prototype.setItem, originalRemove=Storage.prototype.removeItem;
   var saveTimer=null, pollTimer=null, applying=false;
   var lastText='', lastRemoteMs=0, lastSaveAt=0, lastLocalEditAt=0;
+  var CONTROL_HOLD_MS = 8000;
   var remoteReady=false, localChanged=false, currentState=null;
   var pendingWait=[], pendingCancel=[], PENDING_MS=12000;
   var cfg=window.PKL_SUPABASE_CONFIG||{};
@@ -85,9 +86,13 @@
     var normalized=normalizeState(st);
     normalized=applyPending(normalized);
 
-    if(nowMs-lastLocalEditAt<8000){
+    if(nowMs-lastLocalEditAt<CONTROL_HOLD_MS){
       var localWait=arr(read(WAIT_KEY,[]));
       var localCancel=arr(read(CANCEL_KEY,[]));
+      var localRecruit=read(RECRUIT_KEY,null);
+      if(localRecruit && localRecruit.state){
+        normalized.recruitState=localRecruit;
+      }
       if(!isResetState(normalized)){
         normalized.waitList=withoutMembers(mergeByIdentity(normalized.waitList, localWait), localCancel);
         normalized.cancelList=withoutMembers(mergeByIdentity(normalized.cancelList, localCancel), localWait);
@@ -96,7 +101,7 @@
     }
 
     normalized=applyPending(normalized);
-    if(lastSaveAt&&ms&&ms<lastSaveAt-50 && nowMs-lastLocalEditAt>=8000 && !pendingWait.length && !pendingCancel.length) return;
+    if(lastSaveAt&&ms&&ms<lastSaveAt-50 && nowMs-lastLocalEditAt>=CONTROL_HOLD_MS && !pendingWait.length && !pendingCancel.length) return;
     lastRemoteMs=ms||nowMs;
     currentState=normalized;
     setLocal(WAIT_KEY,normalized.waitList);
@@ -148,20 +153,20 @@
     };
     return apiRead().then(doSave).catch(function(){return doSave(null);});
   }
-  function queueSave(d){if(applying)return;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,d==null?120:d);}
-  function poll(){return apiRead().then(function(st){if(st){applyState(st);return st;} if(configured())return sb('live_scores?id=eq.join_state&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){var r=rows&&rows[0]; if(r&&r.payload){var next=Object.assign({},r.payload,{updatedAt:r.payload.updatedAt||r.updated_at});applyState(next);return next;} return null;}); return null;});}
+  function queueSave(d){if(applying)return;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,d==null?180:d);}
+  function poll(){if(localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS){return Promise.resolve(currentState||stateFromLocal());}return apiRead().then(function(st){if(st){applyState(st);return st;} if(configured())return sb('live_scores?id=eq.join_state&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){var r=rows&&rows[0]; if(r&&r.payload){var next=Object.assign({},r.payload,{updatedAt:r.payload.updatedAt||r.updated_at});applyState(next);return next;} return null;}); return null;});}
   function start(){
     apiRead().then(function(st){
       if(st){applyState(st);}else{emit({version:2,waitList:arr(read(WAIT_KEY,[])),cancelList:arr(read(CANCEL_KEY,[])),recruitState:{state:'loading'},updatedAt:now()});}
     }).catch(function(){emit({version:2,waitList:arr(read(WAIT_KEY,[])),cancelList:arr(read(CANCEL_KEY,[])),recruitState:{state:'loading'},updatedAt:now()});});
     if(pollTimer) clearInterval(pollTimer);
-    pollTimer=setInterval(function(){poll();},1500);
+    pollTimer=setInterval(function(){poll();},3000);
   }
   if(!Storage.prototype.__pklJoinRealtimePatched){
-    Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(String(k)===RECRUIT_KEY?80:80);emit(stateFromLocal());}}catch(e){}return ret;};
+    Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(String(k)===RECRUIT_KEY?220:120);emit(stateFromLocal());}}catch(e){}return ret;};
     Storage.prototype.__pklJoinRealtimePatched=true;
   }
-  try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(80);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
-  window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=currentState||stateFromLocal();return applyPending(normalizeState(st));},apply:applyState,fetchNow:poll,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
+  try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(180);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
+  window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=(localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS)?stateFromLocal():(currentState||stateFromLocal());return applyPending(normalizeState(st));},apply:applyState,fetchNow:poll,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
   start();
 })();
