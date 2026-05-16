@@ -8843,11 +8843,11 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   function normalize(u){
     u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var did=didOf(u)||didOf(raw); if(!did) return null;
     var serverNick=discordServerNickname(raw.discordGuildNick||raw.guildNick||raw.discordServerNickname||u.discordGuildNick||u.guildNick||u.discordServerNickname||'');
-    var discordDisplay=discordServerNickname(u.discordDisplayName||u.discordGlobalName||u.global_name||u.discord_username||u.discordUsername||raw.discordDisplayName||raw.discordGlobalName||raw.global_name||raw.discord_username||raw.discordUsername||'');
     var currentNick=stripLeadingNicknameDecorations(u.nickname||u.name||u.nick||raw.nickname||raw.name||raw.nick||'');
     var registeredNick=stripLeadingNicknameDecorations(raw.registeredNickname||raw.pklNickname||raw.pkl_nickname||raw.signupNickname||raw.signup_nickname||u.registeredNickname||u.pklNickname||u.signupNickname||'');
     // 모든 유저 표시명은 디스코드 서버 프로필 닉네임의 '/' 앞 한글닉을 최우선으로 사용한다.
-    var nick=serverNick || discordDisplay || registeredNick || currentNick || ('회원-'+did.slice(-4));
+    // username/global_name/discord_id는 닉네임 fallback으로 쓰지 않는다.
+    var nick=serverNick || registeredNick || currentNick || ('회원-'+did.slice(-4));
     var pubg=clean(u.pubgId||u.pubg_id||u.gameId||u.pubgName||raw.pubgId||raw.pubg_id||raw.gameId);
     var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||raw.memberTier||raw.gradeRole||raw.tierRole||raw.tier||'none');
     var role=clean(u.memberRole||u.role||u.userRole||u.authRole||raw.memberRole||raw.role||(u.is_admin?'admin':'user'))||'user';
@@ -8994,8 +8994,12 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     if(__pklAdminGuildNicknameSyncDone) return;
     __pklAdminGuildNicknameSyncDone=true;
     try{
-      await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'syncDiscordGuildNicknames',limit:2000})});
-    }catch(e){}
+      var res=await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'syncDiscordGuildNicknames',limit:Math.max(20,(__pklAdminUsersPageSize||20))})});
+      var data=await res.json().catch(function(){return {};});
+      window.__PKL_LAST_GUILD_NICK_SYNC_RESULT=data;
+      if(data && data.ok && Number(data.updated||0)>0 && typeof window.PKLAdminInvalidateUsersRenderCache==='function') window.PKLAdminInvalidateUsersRenderCache();
+      if(data && data.missingConfig) console.warn('Discord 서버닉 동기화 환경변수 누락: DISCORD_BOT_TOKEN / DISCORD_GUILD_ID');
+    }catch(e){ console.warn('Discord 서버닉 동기화 실패', e); }
   }
   async function fetchAdminUsersPage(offset){
     if(!offset){ await runDuplicateCleanupOnce(); await runDiscordGuildNicknameSyncOnce(); }

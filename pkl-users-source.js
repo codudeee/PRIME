@@ -19,7 +19,7 @@
     }
     return '';
   }
-  function nick(u){ u = u || {}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var sn=clean(raw.discordServerNickname||raw.discordGuildNick||raw.guildNick||u.discordServerNickname||u.discordGuildNick||u.guildNick); if(sn.indexOf('/')>=0) sn=sn.split('/')[0]; sn=sn.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); return clean(sn || u.nickname || u.nick || u.name || u.displayName); }
+  function nick(u){ u = u || {}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var sn=clean(raw.discordServerNickname||raw.discordGuildNick||raw.guildNick||u.discordServerNickname||u.discordGuildNick||u.guildNick); if(sn.indexOf('/')>=0) sn=sn.split('/')[0]; sn=sn.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); return clean(sn || raw.registeredNickname || raw.pklNickname || u.registeredNickname || u.pklNickname || u.nickname || u.nick || u.name); }
   function pubg(u){ u = u || {}; return clean(u.pubgId || u.pubg_id || u.pubgID || u.gameId || u.pubgName || u.ref || u.pubg); }
   function role(v){
     var raw = clean(v), l = raw.toLowerCase();

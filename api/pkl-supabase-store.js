@@ -63,7 +63,9 @@ function discordDisplayFromRaw(raw){
 function safeDisplayNickname(src){
   src = src && typeof src === 'object' ? src : {};
   const raw = src.raw && typeof src.raw === 'object' ? src.raw : src;
-  // 표시 닉네임은 디스코드 서버 프로필 닉네임의 '/' 앞 한글닉을 최우선으로 사용한다.
+  // 표시 닉네임은 Discord 서버 프로필 닉네임의 '/' 앞 한글닉만 최우선으로 사용한다.
+  // 서버닉이 없을 때만 가입 당시 PKL 닉네임/현재 저장 닉네임을 유지하고,
+  // username/global_name/discord_id는 절대 닉네임 fallback으로 쓰지 않는다.
   const guildNick = discordDisplayFromRaw(Object.assign({}, raw, src));
   if(guildNick) return guildNick;
   const registered = registeredNicknameFromRaw(raw);
@@ -72,7 +74,7 @@ function safeDisplayNickname(src){
   if(pkl) return pkl;
   const current = cleanNickname(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name || '');
   if(current) return current;
-  return discordDisplayFromRaw(Object.assign({}, raw, src));
+  return '';
 }
 
 function env(name){ return clean(process.env[name] || ''); }
@@ -663,14 +665,24 @@ async function writeUserDoc(user, forceAdmin=false){
     chicken: prime,
     warnings
   };
-  const incomingNickname = discordServerNickname(u.discordGuildNick || u.guildNick || raw.discordGuildNick || raw.guildNick || '') || cleanNickname(u.nickname || u.nick || u.name || u.pklNickname || u.signupNickname);
+  const incomingServerNickname = discordServerNickname(u.discordGuildNick || u.guildNick || u.serverNick || u.discordServerNickname || raw.discordGuildNick || raw.guildNick || raw.serverNick || raw.discordServerNickname || '');
+  const incomingPklNickname = cleanNickname(u.registeredNickname || u.pklNickname || u.pkl_nickname || u.signupNickname || u.signup_nickname || u.nickname || u.nick || u.name || '');
   const incomingPubg = clean(u.pubgId || u.gameId || u.ref);
   const savedNickname = cleanNickname(existingRow && (registeredNicknameFromRaw(existingRaw) || existingRow.nickname || existingUser?.nickname));
   const savedPubg = clean(existingRow && (registeredPubgFromRaw(existingRaw) || existingRow.pubg_id || existingUser?.pubgId));
-  const finalNickname = existingRow ? (savedNickname || incomingNickname) : incomingNickname;
+  // 서버 프로필 닉네임이 실제로 확인되면 항상 최신 서버닉으로 갱신한다.
+  // 서버닉이 없을 때만 기존 PKL 가입 닉네임/관리자가 저장한 닉네임을 보존한다.
+  const finalNickname = incomingServerNickname || (existingRow ? (savedNickname || incomingPklNickname) : incomingPklNickname);
   const finalPubg = existingRow ? (savedPubg || incomingPubg) : incomingPubg;
-  raw.registeredNickname = raw.registeredNickname || finalNickname;
-  raw.pklNickname = raw.pklNickname || finalNickname;
+  if(incomingServerNickname){
+    raw.discordServerNickname = incomingServerNickname;
+    raw.nickname = incomingServerNickname;
+    raw.nick = incomingServerNickname;
+    raw.name = incomingServerNickname;
+    raw.displayName = incomingServerNickname;
+  }
+  raw.registeredNickname = raw.registeredNickname || (incomingPklNickname || finalNickname);
+  raw.pklNickname = raw.pklNickname || (incomingPklNickname || finalNickname);
   raw.registeredPubgId = raw.registeredPubgId || finalPubg;
   raw.pklPubgId = raw.pklPubgId || finalPubg;
 
@@ -818,6 +830,12 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
   const beforeUser = rowToUser(row);
   const explicitAccessRoleChange = hasExplicitAccessRoleInput(identity || {}) && !/^tier_change$/i.test(clean(log.type || log.action));
   const nextInput = normalizeUser({...beforeUser, ...(identity || {})});
+  const manualNickname = cleanNickname(identity && (identity.nickname || identity.nick || identity.name));
+  const manualPubgId = clean(identity && (identity.pubgId || identity.pubg_id || identity.gameId || identity.ref));
+  // 관리홈에서 직접 수정한 닉네임/PUBG ID는 raw.registeredNickname 우선순위 때문에
+  // normalizeUser() 안에서 예전 값으로 되돌아가지 않게 여기서 다시 고정한다.
+  if(manualNickname){ nextInput.nickname = manualNickname; nextInput.nick = manualNickname; nextInput.name = manualNickname; nextInput.displayName = manualNickname; }
+  if(manualPubgId){ nextInput.pubgId = manualPubgId; nextInput.gameId = manualPubgId; nextInput.pubgName = manualPubgId; nextInput.ref = manualPubgId; }
   if(!explicitAccessRoleChange){
     const keepRole = normalizeRole(row.role || beforeUser.role || beforeUser.memberRole);
     nextInput.role = keepRole;
@@ -848,6 +866,22 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
     memoList:Array.isArray(nextInput.memoList)?nextInput.memoList:(Array.isArray(raw.memoList)?raw.memoList:[]),
     mailbox:Array.isArray(nextInput.mailbox)?nextInput.mailbox:(Array.isArray(raw.mailbox)?raw.mailbox:[])
   };
+  if(manualNickname){
+    mergedRaw.nickname = manualNickname;
+    mergedRaw.nick = manualNickname;
+    mergedRaw.name = manualNickname;
+    mergedRaw.displayName = manualNickname;
+    mergedRaw.registeredNickname = manualNickname;
+    mergedRaw.pklNickname = manualNickname;
+  }
+  if(manualPubgId){
+    mergedRaw.pubgId = manualPubgId;
+    mergedRaw.gameId = manualPubgId;
+    mergedRaw.pubgName = manualPubgId;
+    mergedRaw.ref = manualPubgId;
+    mergedRaw.registeredPubgId = manualPubgId;
+    mergedRaw.pklPubgId = manualPubgId;
+  }
   if(!explicitAccessRoleChange){
     const keepRole = normalizeRole(row.role || beforeUser.role || beforeUser.memberRole);
     mergedRaw.role = keepRole;
