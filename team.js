@@ -882,18 +882,21 @@ const teamIndex = Number(slot.dataset.teamIndex);
   function bindUserSyncEvents() {
     /* storage 이벤트 기반 팀구성 전체 재렌더 금지. */
     // join 대기자 정보는 페이지 진입 시 1회 fetch, 또는 Supabase join_state 도착 이벤트 1회만 반영한다.
-    let joinStateAppliedOnce = false;
+    let lastJoinStateSignature = '';
     window.addEventListener('pkl-join-state-updated', event => {
-      if (joinStateAppliedOnce) return;
       const list = event && event.detail && Array.isArray(event.detail.waitList) ? event.detail.waitList : [];
+      const sig = JSON.stringify(list.map(getJoinWaitItemKey).filter(Boolean).sort());
+      if (sig === lastJoinStateSignature) return;
       if (!list.length && getWaitingPlayerIds().length) return;
-      joinStateAppliedOnce = true;
-      syncJoinWaitListIntoTeamBoard(true);
-      syncPlayersWithUserSources();
-      renderTierPools();
-      renderTeams();
-      renderSummary();
-      saveState();
+      lastJoinStateSignature = sig;
+      loadSupabaseUsersForJoinWaitListOnce(false).finally(() => {
+        syncJoinWaitListIntoTeamBoard(true);
+        syncPlayersWithUserSources();
+        renderTierPools();
+        renderTeams();
+        renderSummary();
+        saveState();
+      });
     });
     window.addEventListener('pkl-role-data-updated', () => {
       hydratePlayersForDisplayOnly();
@@ -954,9 +957,33 @@ const teamIndex = Number(slot.dataset.teamIndex);
     }
   }
 
+  function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function forceFetchJoinStateForTeam() {
+    if (window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === 'function') {
+      return Promise.resolve(window.PKLJoinRealtime.fetchNow()).then(st => {
+        if (st && Array.isArray(st.waitList)) return st;
+        return wait(250).then(() => window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === 'function' ? window.PKLJoinRealtime.getState() : st);
+      }).catch(() => null);
+    }
+    return fetch('/api/pkl-data-store?type=live_scores&id=join_state&_=' + Date.now(), {
+      method: 'GET',
+      headers: { 'Cache-Control': 'no-store' }
+    }).then(response => response.ok ? response.json() : null)
+      .then(data => {
+        const row = data && data.rows && data.rows[0];
+        const st = row && row.payload ? Object.assign({}, row.payload, { updatedAt: row.payload.updatedAt || row.updated_at }) : null;
+        if (st && window.PKLJoinRealtime && typeof window.PKLJoinRealtime.apply === 'function') window.PKLJoinRealtime.apply(st);
+        return st;
+      })
+      .catch(() => null);
+  }
+
   function getJoinWaitItemKey(item) {
     if (!item) return '';
-    return String(item.userId || item.uid || item.key || item.accountId || item.id || item.pubgId || item.name || item.nickname || '').trim();
+    return String(item.discord_id || item.discordId || item.discordID || item.userDiscordId || item.userId || item.uid || item.key || item.accountId || item.id || item.pubgId || item.pubg_id || item.gameId || item.name || item.nickname || '').trim();
   }
 
   function findAdminUserForJoinItem(item) {
@@ -991,13 +1018,27 @@ const teamIndex = Number(slot.dataset.teamIndex);
       confirmText: '예',
       cancelText: '아니오',
       onConfirm: () => {
-        syncJoinWaitListIntoTeamBoard(true);
-        syncPlayersWithUserSources();
-        renderTierPools();
-        renderTeams();
-        renderSummary();
-        saveState();
-        setStatus('현재 등록되어있는 대기자 명단을 팀구성 대기칸으로 불러왔습니다.');
+        setStatus('Supabase 모집 대기자를 불러오는 중입니다...');
+        Promise.all([
+          forceFetchJoinStateForTeam(),
+          loadSupabaseUsersForJoinWaitListOnce(true)
+        ]).then(() => {
+          syncJoinWaitListIntoTeamBoard(true);
+          syncPlayersWithUserSources();
+          renderTierPools();
+          renderTeams();
+          renderSummary();
+          saveState();
+          setStatus('현재 Supabase 모집 대기자를 팀구성 대기칸으로 불러왔습니다.');
+        }).catch(() => {
+          syncJoinWaitListIntoTeamBoard(true);
+          syncPlayersWithUserSources();
+          renderTierPools();
+          renderTeams();
+          renderSummary();
+          saveState();
+          setStatus('대기자 명단을 불러왔습니다. 일부 사용자 정보는 다음 새로고침 후 보정됩니다.');
+        });
       }
     });
   }
