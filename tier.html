@@ -2342,7 +2342,57 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
     if(!done) button.insertBefore(document.createTextNode(text), button.firstChild);
   }
 
+  function getTierHeaderName(user){
+    return String((user && (user.nickname || user.nick || user.displayName || user.name || user.username || user.loginId || user.pubgId || user.pubg_id)) || "MY").trim();
+  }
+
+  function getTierHeaderRole(user){
+    const raw = String((user && (user.memberRole || user.role || user.roleName || user.adminRole || user.permission || user.type)) || "").trim();
+    const lower = raw.toLowerCase();
+    if(raw === "관리자" || raw === "총관리자" || lower === "admin" || lower === "manager" || lower === "superadmin" || lower === "owner") return "admin";
+    if(raw === "운영자" || raw === "운영진" || lower === "operator" || lower === "staff" || lower === "moderator") return "operator";
+    return lower || "user";
+  }
+
+  function renderTierHeaderUserButton(button, user){
+    if(!button) return;
+    const name = escapeHtml(getTierHeaderName(user));
+    const role = getTierHeaderRole(user);
+    let badge = "";
+    if(role === "admin" || role === "operator"){
+      badge = (window.PKLRoleBadge && typeof window.PKLRoleBadge.render === "function")
+        ? window.PKLRoleBadge.render(role, {extraClass:"pkl-header-role-badge"})
+        : "";
+    }else{
+      badge = (window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === "function")
+        ? window.PKLTierBadge.renderForUser(user, {extraClass:"pkl-header-tier-badge"})
+        : "";
+    }
+    const oldBadge = button.querySelector("#mailBadge");
+    button.innerHTML = '<span class="pkl-header-user-name">' + name + '</span>' + (badge ? '<span class="pkl-header-badge-stack">' + badge + '</span>' : '');
+    if(oldBadge){
+      const stack = button.querySelector(".pkl-header-badge-stack");
+      if(stack) stack.appendChild(oldBadge);
+      else button.appendChild(oldBadge);
+    }else{
+      button.insertAdjacentHTML("beforeend", '<span class="mail-badge" id="mailBadge" style="display:none"></span>');
+    }
+  }
+
   function syncTop(){
+    /* pkl-common-header.js가 단일 헤더 렌더러다. 티어 페이지의 구버전 MY 고정 렌더는
+       공통 헤더가 로드되기 전 우편함 호환용 fallback에서만 동작시킨다. */
+    if(window.syncLoginState && window.syncLoginState !== syncTop){
+      window.syncLoginState();
+      const modalCount = document.getElementById("mailboxUnreadCount");
+      if(modalCount){
+        const count = unreadCount();
+        modalCount.textContent = String(count);
+        modalCount.style.display = count > 0 ? "inline-flex" : "none";
+      }
+      return;
+    }
+
     const user = getLoginUser();
     const loginBtn = document.getElementById("loginBtn");
     const managerBtn = document.getElementById("managerBtn");
@@ -2352,24 +2402,28 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
     const mailboxMenuCount = document.getElementById("mailboxMenuCount");
 
     if(user){
-      setButtonText(loginBtn, "MY");
+      renderTierHeaderUserButton(loginBtn, user);
       if(accountWrap) accountWrap.classList.add("is-logged-in");
       if(accountMenu){
         accountMenu.classList.remove("logged-out");
         accountMenu.style.display = "";
       }
       if(managerBtn){
-        managerBtn.style.display = (user.role === "manager" || user.role === "operator") ? "flex" : "none";
+        const role = getTierHeaderRole(user);
+        managerBtn.style.display = (role === "admin" || role === "operator") ? "flex" : "none";
       }
 
       const count = unreadCount();
-      if(mailBadge){
+      const activeMailBadge = document.getElementById("mailBadge") || mailBadge;
+      if(activeMailBadge){
         if(count > 0){
-          mailBadge.textContent = String(count);
-          mailBadge.classList.add("show");
+          activeMailBadge.textContent = String(count);
+          activeMailBadge.classList.add("show");
+          activeMailBadge.style.display = "inline-flex";
         }else{
-          mailBadge.textContent = "";
-          mailBadge.classList.remove("show");
+          activeMailBadge.textContent = "";
+          activeMailBadge.classList.remove("show");
+          activeMailBadge.style.display = "none";
         }
       }
       if(mailboxMenuCount){
@@ -2395,9 +2449,10 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
         accountMenu.classList.remove("open");
         accountMenu.style.display = "none";
       }
-      if(mailBadge){
-        mailBadge.textContent = "";
-        mailBadge.classList.remove("show");
+      const activeMailBadge = document.getElementById("mailBadge") || mailBadge;
+      if(activeMailBadge){
+        activeMailBadge.textContent = "";
+        activeMailBadge.classList.remove("show");
       }
       if(mailboxMenuCount){
         mailboxMenuCount.textContent = "";

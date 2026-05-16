@@ -415,6 +415,57 @@ if(node.nodeType===Node.TEXT_NODE){
     }
   }
 
+  function pklHeaderIdentityQuery(user){
+    if(!user) return "";
+    return String(user.discordId || user.discord_id || user.uid || user.id || user.userId || user.pubgId || user.pubg_id || user.nickname || user.name || "").trim();
+  }
+
+  function pklHeaderSameUser(a,b){
+    if(!a || !b) return false;
+    const norm=function(v){ return String(v || "").trim().toLowerCase(); };
+    const av=[a.discordId,a.discord_id,a.uid,a.id,a.userId,a.pubgId,a.pubg_id,a.nickname,a.name,a.username].map(norm).filter(Boolean);
+    const bv=[b.discordId,b.discord_id,b.uid,b.id,b.userId,b.pubgId,b.pubg_id,b.nickname,b.name,b.username].map(norm).filter(Boolean);
+    return av.length && bv.length && av.some(function(v){ return bv.includes(v); });
+  }
+
+  let pklHeaderUserHydrateAt=0;
+  let pklHeaderUserHydratePromise=null;
+  async function hydrateHeaderUserFromSupabase(force){
+    const local=getLoginUser();
+    const q=pklHeaderIdentityQuery(local);
+    if(!local || !q) return local;
+    const now=Date.now();
+    if(!force && pklHeaderUserHydratePromise) return pklHeaderUserHydratePromise;
+    if(!force && now-pklHeaderUserHydrateAt<15000) return local;
+    pklHeaderUserHydrateAt=now;
+    pklHeaderUserHydratePromise=(async function(){
+      try{
+        const res=await fetch('/api/pkl-users?limit=20&q='+encodeURIComponent(q),{cache:'no-store',headers:{Accept:'application/json'}});
+        const data=await res.json().catch(function(){return null;});
+        const users=Array.isArray(data && data.users)?data.users:[];
+        const matched=users.find(function(u){ return pklHeaderSameUser(local,u); }) || users[0];
+        if(!matched) return local;
+        const merged=Object.assign({}, local, matched, {
+          discordId: matched.discordId || matched.discord_id || local.discordId || local.discord_id,
+          discord_id: matched.discord_id || matched.discordId || local.discord_id || local.discordId
+        });
+        PKL_LOGIN_STORAGE_KEYS.forEach(function(key){
+          try{ if(localStorage.getItem(key) || key==='pklLoginUser') localStorage.setItem(key, JSON.stringify(merged)); }catch(e){}
+          try{ if(sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify(merged)); }catch(e){}
+        });
+        setHeaderMyButton(document.getElementById('loginBtn'), merged);
+        const managerBtn=document.getElementById('managerBtn');
+        if(managerBtn) managerBtn.style.display=isAdminUser(merged) ? 'flex' : 'none';
+        return merged;
+      }catch(e){
+        return local;
+      }finally{
+        pklHeaderUserHydratePromise=null;
+      }
+    })();
+    return pklHeaderUserHydratePromise;
+  }
+
   function escapeHtml(v){
     return String(v ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
   }
@@ -706,6 +757,15 @@ if(node.nodeType===Node.TEXT_NODE){
         localStorage.setItem("pklLoginUser", JSON.stringify(current));
       }
     } catch (e) {}
+
+    hydrateHeaderUserFromSupabase(false).then(function(fresh){
+      if(fresh){
+        setHeaderMyButton(document.getElementById("loginBtn"), fresh);
+        const managerBtn=document.getElementById("managerBtn");
+        if(managerBtn) managerBtn.style.display=isAdminUser(fresh) ? "flex" : "none";
+        updateMailboxBadge();
+      }
+    }).catch(function(){});
 
     const user=getLoginUser();
     const loginBtn=document.getElementById("loginBtn");
