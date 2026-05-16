@@ -47,11 +47,6 @@ module.exports = async function handler(req, res) {
         const result = await supabaseStore.cleanupDuplicateUsersByDiscordId(Number(body.limit || 2000));
         return res.status(200).json({ ok: true, ...result });
       }
-      if (body.action === 'cleanupGhostWarningUsers') {
-        if (typeof supabaseStore.cleanupGhostWarningUsers !== 'function') throw new Error('Supabase ghost user cleanup function missing');
-        const result = await supabaseStore.cleanupGhostWarningUsers(Number(body.limit || 2000));
-        return res.status(200).json({ ok: true, ...result });
-      }
       if (body.action === 'adjustPrime') {
         if (typeof supabaseStore.adjustUserPrime !== 'function') throw new Error('Supabase prime adjustment function missing');
         const result = await supabaseStore.adjustUserPrime(body.user || body.identity || {}, Number(body.amount || 0), String(body.reason || ''), String(body.actor || 'ADMIN'));

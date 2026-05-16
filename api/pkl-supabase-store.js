@@ -524,29 +524,6 @@ async function canonicalizeDuplicateDiscordRows(discordId, keepBody){
   }
   return saved || Object.assign({}, keep, merged);
 }
-
-function isRealRegisteredUserRow(row){
-  row = row || {};
-  const raw = row.raw && typeof row.raw === 'object' ? row.raw : {};
-  const did = canonicalDiscordIdFromRow(row) || cleanId(row.discord_id || raw.discordId || raw.discord_id || '');
-  if(!did) return false;
-
-  // /경고 등 제재 명령에서 생긴 임시 row는 discord_id/username만 있고 가입 정보가 없다.
-  // admin 유저목록/티어표는 실제 사이트 가입 또는 기존 정상 회원만 보여야 하므로
-  // users 테이블 row 중에서도 PKL 가입 흔적이나 배그ID가 있는 row만 회원으로 인정한다.
-  const marker = raw.registered === true || raw.registered === 'true'
-    || raw.loginCreated === true || raw.loginCreated === 'true'
-    || raw.discordLogin === true || raw.discordLogin === 'true'
-    || raw.signupCompleted === true || raw.signupCompleted === 'true'
-    || raw.pklRegistered === true || raw.pklRegistered === 'true';
-  const pubg = clean(row.pubg_id || raw.registeredPubgId || raw.pklPubgId || raw.signupPubgId || raw.pubgId || raw.pubg_id || raw.gameId || raw.ref || '');
-  const nick = cleanNickname(row.nickname || raw.registeredNickname || raw.pklNickname || raw.signupNickname || raw.nickname || raw.nick || raw.name || '');
-  const role = normalizeRole(row.role || raw.role || raw.memberRole || 'user');
-  // 관리자/운영자는 수동 복구 row일 수 있으므로 표시 유지.
-  if(role === 'admin' || role === 'operator') return true;
-  return !!(marker || (pubg && nick));
-}
-
 function rowToUser(r){
   r = r || {};
   const raw = r.raw && typeof r.raw === 'object' ? r.raw : {};
@@ -599,7 +576,7 @@ async function readUserDocs(options={}){
 
   if(discordId){
     const rows = await findUserRowsByDiscordId(discordId);
-    const rawUsers = (Array.isArray(rows) ? rows : []).filter(isRealRegisteredUserRow).map(rowToUser).filter(u => !!u.discordId);
+    const rawUsers = (Array.isArray(rows) ? rows : []).map(rowToUser).filter(u => !!u.discordId);
     const seenDiscord = new Set();
     const users = [];
     for (const u of rawUsers) {
@@ -631,7 +608,7 @@ async function readUserDocs(options={}){
     const pageLength = Array.isArray(json) ? json.length : 0;
     count = offset + pageLength + (pageLength >= limit ? 1 : 0);
   }
-  const rawUsers = (Array.isArray(json) ? json : []).filter(isRealRegisteredUserRow).map(rowToUser).filter(u => !!u.discordId);
+  const rawUsers = (Array.isArray(json) ? json : []).map(rowToUser).filter(u => !!u.discordId);
   // Supabase users is the only source, but the API also normalizes the page result once here.
   // This prevents the client pages from each doing their own cache/nickname merge and creating duplicate visible users.
   const seenDiscord = new Set();
@@ -1084,19 +1061,6 @@ async function readLegacyUsers(options={}){
   return Array.isArray(json) ? json.map(rowToUser) : [];
 }
 
-
-async function cleanupGhostWarningUsers(limit=2000){
-  const max = Math.max(100, Math.min(5000, Number(limit)||2000));
-  const { json } = await supabaseFetch(`users?select=*&order=created_at.desc.nullslast&limit=${max}`);
-  const rows = Array.isArray(json) ? json : [];
-  const ghosts = rows.filter(row => !isRealRegisteredUserRow(row));
-  const ids = ghosts.map(r => clean(r.id)).filter(Boolean);
-  if(ids.length){
-    await supabaseFetch(`users?id=in.(${ids.map(encodeURIComponent).join(',')})`, { method:'DELETE', headers:{Prefer:'return=minimal'} });
-  }
-  return { deleted: ids.length, checked: rows.length };
-}
-
 async function readUsers(options={}){
   const result = await readUserDocs({ limit: options.limit || 100, offset: options.offset || 0, q: options.q || "" });
   return result.users;
@@ -1132,4 +1096,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, updateUserTier, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, syncDiscordGuildRoles, syncDiscordGuildNicknames, discordRolePatchForUser, explicitDiscordId, hasDiscordIdentity, cleanupGhostWarningUsers };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, updateUserTier, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, syncDiscordGuildRoles, syncDiscordGuildNicknames, discordRolePatchForUser, explicitDiscordId, hasDiscordIdentity };

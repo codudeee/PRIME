@@ -123,7 +123,7 @@ async function readServerUsers(searchUser){
   return [];
 }
 async function writeServerUser(user){
-  if (supabaseStore && typeof supabaseStore.writeUserDoc === "function") return await supabaseStore.writeUserDoc(Object.assign({}, user, {__allowCreateUser:true, __source:"discord-callback"}), {allowCreate:true});
+  if (supabaseStore && typeof supabaseStore.writeUserDoc === "function") return await supabaseStore.writeUserDoc(user);
   if (supabaseStore && typeof supabaseStore.writeUsers === "function") return await supabaseStore.writeUsers([user]);
   return user;
 }
