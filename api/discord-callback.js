@@ -198,7 +198,7 @@ function normalizeNickname(v){return String(v==null?"":v).normalize("NFKC").repl
 function isKoreanNickname(v){return /^[가-힣]{1,4}$/.test(normalizeNickname(v));}
 function normalizePubgId(v){return String(v==null?"":v).normalize("NFKC").trim();}
 function isValidPubgId(v){return /^[A-Za-z0-9_-]{1,32}$/.test(normalizePubgId(v));}
-function syncLocal(user){try{localStorage.removeItem("pklManualLogout");localStorage.removeItem("pklUsers");localStorage.removeItem("PKL_USERS");localStorage.removeItem("pklAdminState_v3");}catch(e){}LOGIN_KEYS.forEach(function(k){writeJson(k,user);try{sessionStorage.removeItem(k);}catch(e){}});}
+function syncLocal(user){try{localStorage.removeItem("pklManualLogout");localStorage.removeItem("pklUsers");localStorage.removeItem("PKL_USERS");localStorage.removeItem("pklAdminState_v3");}catch(e){}LOGIN_KEYS.concat(["discordUser"]).forEach(function(k){try{localStorage.removeItem(k);}catch(e){}try{sessionStorage.removeItem(k);}catch(e){}});LOGIN_KEYS.concat(["discordUser"]).forEach(function(k){try{localStorage.setItem(k,JSON.stringify(user));}catch(e){}try{sessionStorage.setItem(k,JSON.stringify(user));}catch(e){}});}
 function goHome(){var to=payload.returnTo||"/index.html";location.replace(to);}
 if(payload.existingUser){syncLocal(payload.existingUser);goHome();return;}
 var loading=document.getElementById("pklLoading"),form=document.getElementById("pklNickForm"),input=document.getElementById("pklNickname"),pubgInput=document.getElementById("pklPubgId"),error=document.getElementById("pklNickError");

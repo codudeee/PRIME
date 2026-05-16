@@ -34,10 +34,13 @@ function getCurrentUser() {
   }
   if (!candidates.length) return null;
 
-  // 여러 계정 값이 섞여 있으면 첫 번째 값을 전부 덮어쓰지 않는다.
-  // discordUser/pklLoginUser처럼 실제 로그인 흐름에서 갱신되는 키를 우선 사용한다.
-  const preferred = candidates.find(c => c.key === "discordUser" && c.id) ||
-                    candidates.find(c => c.key === "pklLoginUser" && c.id) ||
+  // 여러 계정 값이 섞여 있으면 discordUser 같은 보조키를 먼저 믿지 않는다.
+  // 실제 PKL 로그인 완료 시점에 갱신하는 pklLoginUser를 최우선으로 사용한다.
+  // 이전 접속자 discordUser가 남아 있으면 가람이가 주희로 보이는 문제가 생긴다.
+  const preferred = candidates.find(c => c.key === "pklLoginUser" && c.id) ||
+                    candidates.find(c => c.key === "pklCurrentUser" && c.id) ||
+                    candidates.find(c => c.key === "pklLoggedInUser" && c.id) ||
+                    candidates.find(c => c.key === "discordUser" && c.id) ||
                     candidates.find(c => c.id) ||
                     candidates[0];
   return preferred.user;
@@ -430,11 +433,10 @@ if(node.nodeType===Node.TEXT_NODE){
   function pklHeaderSameUser(a,b){
     if(!a || !b) return false;
     const ad=pklHeaderDiscordId(a), bd=pklHeaderDiscordId(b);
-    if(ad && bd) return ad===bd;
-    const norm=function(v){ return String(v || "").trim().toLowerCase(); };
-    const av=[a.pubgId,a.pubg_id,a.nickname,a.name,a.username].map(norm).filter(Boolean);
-    const bv=[b.pubgId,b.pubg_id,b.nickname,b.name,b.username].map(norm).filter(Boolean);
-    return av.length && bv.length && av.some(function(v){ return bv.includes(v); });
+    // 로그인 유저 매칭은 Discord ID가 있으면 오직 Discord ID만 사용한다.
+    // 닉네임/PUBG ID fallback은 서로 다른 사람이 같은 브라우저를 쓰거나 ID가 바뀐 경우 다른 계정으로 붙는 원인이었다.
+    if(ad || bd) return !!(ad && bd && ad===bd);
+    return false;
   }
 
   let pklHeaderUserHydrateAt=0;
@@ -462,8 +464,8 @@ if(node.nodeType===Node.TEXT_NODE){
         });
         window.__PKL_CURRENT_SUPABASE_USER = merged;
         PKL_LOGIN_STORAGE_KEYS.forEach(function(key){
-          try{ if(localStorage.getItem(key) || key==='pklLoginUser') localStorage.setItem(key, JSON.stringify(merged)); }catch(e){}
-          try{ if(sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify(merged)); }catch(e){}
+          try{ localStorage.setItem(key, JSON.stringify(merged)); }catch(e){}
+          try{ sessionStorage.setItem(key, JSON.stringify(merged)); }catch(e){}
         });
         setHeaderMyButton(document.getElementById('loginBtn'), merged);
         const managerBtn=document.getElementById('managerBtn');
@@ -765,9 +767,9 @@ if(node.nodeType===Node.TEXT_NODE){
           current = Object.assign({}, current, window.__PKL_CURRENT_SUPABASE_USER);
         }
         PKL_LOGIN_STORAGE_KEYS.forEach(function(key){
-          try{ if(localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(current)); }catch(e){}
+          try{ localStorage.setItem(key, JSON.stringify(current)); }catch(e){}
+          try{ sessionStorage.setItem(key, JSON.stringify(current)); }catch(e){}
         });
-        localStorage.setItem("pklLoginUser", JSON.stringify(current));
       }
     } catch (e) {}
 

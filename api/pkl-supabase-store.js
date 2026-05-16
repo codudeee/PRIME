@@ -887,6 +887,36 @@ async function syncDiscordProfile(user){
   return Array.isArray(json) && json[0] ? rowToUser(json[0]) : rowToUser(Object.assign({}, keep, body));
 }
 
+async function updateUserTier(identity={}, tierValue='', actor='TIER'){
+  const discordId = explicitDiscordId(identity || {});
+  if(!discordId) throw new Error('Discord ID가 없는 회원은 티어를 변경할 수 없습니다.');
+  const row = await readUserRowByIdentity({ discordId });
+  const nextTier = normalizeTier(tierValue || identity.memberTier || identity.gradeRole || identity.tierRole || identity.tier);
+  if(!nextTier || nextTier === 'none') throw new Error('변경할 티어 값이 없습니다.');
+  const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
+  const beforeTier = normalizeTier(row.tier || raw.memberTier || raw.gradeRole || raw.tierRole || raw.tier || 'none');
+  raw.tier = nextTier === 'none' ? '없음' : nextTier;
+  raw.memberTier = nextTier;
+  raw.gradeRole = nextTier;
+  raw.tierRole = nextTier;
+  raw.baseRole = nextTier;
+  raw.memberTierName = nextTier;
+  const body = { tier: nextTier, raw, updated_at: new Date().toISOString() };
+  const { json } = await supabaseFetch(`users?discord_id=eq.${encodeURIComponent(discordId)}`, {
+    method:'PATCH',
+    headers:{ Prefer:'return=representation' },
+    body:JSON.stringify(body)
+  });
+  const saved = Array.isArray(json) && json[0] ? json[0] : {...row, ...body};
+  Promise.resolve().then(()=>insertAdminLogSafe({
+    action:'tier_change',
+    actor:clean(actor || 'TIER'),
+    target:row.nickname || row.pubg_id || row.discord_id || '',
+    detail:{ discord_id:row.discord_id, before:beforeTier, after:nextTier, source:'tier_board' }
+  })).catch(()=>{});
+  return rowToUser(saved);
+}
+
 async function readLegacyUsers(options={}){
   const limit = Math.max(1, Math.min(500, Number(options.limit || 200)));
   const { json } = await supabaseFetch(`users?select=*&or=(discord_id.is.null,discord_id.eq.)&order=nickname.asc.nullslast&limit=${limit}`);
@@ -928,4 +958,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, syncDiscordGuildRoles, discordRolePatchForUser, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, updateUserTier, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, syncDiscordGuildRoles, discordRolePatchForUser, explicitDiscordId, hasDiscordIdentity };

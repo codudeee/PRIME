@@ -2732,13 +2732,13 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
   }
 
   function pklTierCurrentUserForEdit(){
-    const keys = ["discordUser", "pklLoginUser", "pklCurrentUser", "pklUser", "pklLoggedInUser", "pkl_current_user", "PKL_로그인_USER", "currentUser"];
+    const keys = ["pklLoginUser", "pklCurrentUser", "pklLoggedInUser", "pkl_current_user", "discordUser", "pklUser", "PKL_로그인_USER", "currentUser"];
     for(const key of keys){
       try{
         const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
         if(!raw) continue;
         const user = JSON.parse(raw);
-        if(user && typeof user === "object") return user;
+        if(user && typeof user === "object" && (user.discordId || user.discord_id || /^discord-/i.test(String(user.uid||user.id||user.userId||user.key||'')))) return user;
       }catch(e){}
     }
     return null;
@@ -2798,14 +2798,14 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
         window.__PKL_TIER_CAN_EDIT_SERVER = pklTierIsAdminUser(found);
         try{
           const merged = {...current, ...found};
-          sessionStorage.setItem('pklLoginUser', JSON.stringify(merged));
-          localStorage.setItem('pklLoginUser', JSON.stringify(merged));
+          ['pklLoginUser','pklCurrentUser','pklLoggedInUser','pkl_current_user','discordUser'].forEach(function(k){ try{ sessionStorage.setItem(k, JSON.stringify(merged)); }catch(e){} try{ localStorage.setItem(k, JSON.stringify(merged)); }catch(e){} });
         }catch(e){}
         document.querySelectorAll('.pkl-tier-member').forEach(node => {
           node.setAttribute('draggable', window.__PKL_TIER_CAN_EDIT_SERVER ? 'true' : 'false');
           node.dataset.canDrag = window.__PKL_TIER_CAN_EDIT_SERVER ? '1' : '0';
         });
         if(typeof window.renderPklTierMembers === 'function') window.renderPklTierMembers();
+        try{ window.dispatchEvent(new CustomEvent('pkl-tier-permission-updated',{detail:{canEdit:window.__PKL_TIER_CAN_EDIT_SERVER,user:found}})); }catch(e){}
       }
     }catch(e){
       console.error('PKL tier permission refresh failed', e);
@@ -3651,10 +3651,10 @@ document.addEventListener("DOMContentLoaded", function(){
         method:'PATCH',
         headers:{'Content-Type':'application/json','Accept':'application/json'},
         body:JSON.stringify({
-          action:'updateUserWithLog',
-          originalIdentity:{discordId:didOf(target), nickname:target.nickname, pubgId:target.pubgId},
-          user:target,
-          log:{type:'tier_change', reason:'티어표 이동: ' + labelOf(before) + ' → ' + labelOf(role), actor:'TIER'}
+          action:'updateTier',
+          identity:{discordId:didOf(target)},
+          tier:role,
+          actor:'TIER'
         })
       });
       var data = await res.json().catch(function(){ return {}; });
@@ -3675,6 +3675,13 @@ document.addEventListener("DOMContentLoaded", function(){
     setUserTier(userKey, targetLane);
     return true;
   };
+
+  window.addEventListener('pkl-tier-permission-updated', function(){
+    try{ schedulePaint(cache.length ? cache.slice() : (window.__PKL_TIER_PREFETCH_DATA || []), true); }catch(e){}
+  });
+  window.addEventListener('pkl-current-user-updated', function(){
+    try{ schedulePaint(cache.length ? cache.slice() : (window.__PKL_TIER_PREFETCH_DATA || []), true); }catch(e){}
+  });
 
   document.addEventListener('DOMContentLoaded', function(){
     requestAnimationFrame(function(){

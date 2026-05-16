@@ -22,18 +22,8 @@ module.exports = async function handler(req, res) {
       const offset = intParam(req.query && req.query.offset, 0, 0, 1000000);
       const q = String((req.query && req.query.q) || '').trim();
       const discordId = String((req.query && (req.query.discordId || req.query.discord_id)) || '').trim();
-      let result = await supabaseStore.readUserDocs({ limit, offset, q, discordId, tierOnly });
-      const syncDiscord = String((req.query && (req.query.syncDiscord || req.query.sync_discord || req.query.discordSync || req.query.discord_sync)) || '').trim() === '1';
-      if (syncDiscord && !tierOnly && typeof supabaseStore.syncDiscordGuildRoles === 'function') {
-        const maxSync = Math.min(Array.isArray(result.users) ? result.users.length : 0, 30);
-        const synced = [];
-        for (let i = 0; i < maxSync; i += 1) {
-          const u = result.users[i];
-          try { synced.push(await supabaseStore.syncDiscordGuildRoles(u) || u); } catch (_) { synced.push(u); }
-        }
-        result = Object.assign({}, result, { users: synced.concat((result.users || []).slice(maxSync)) });
-      }
-      return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, discordId, tierOnly, syncDiscord });
+      const result = await supabaseStore.readUserDocs({ limit, offset, q, discordId, tierOnly });
+      return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, discordId, tierOnly });
     }
     if (req.method === 'PATCH') {
       const body = parseBody(req);
@@ -46,6 +36,11 @@ module.exports = async function handler(req, res) {
         if (typeof supabaseStore.adjustUserPrime !== 'function') throw new Error('Supabase prime adjustment function missing');
         const result = await supabaseStore.adjustUserPrime(body.user || body.identity || {}, Number(body.amount || 0), String(body.reason || ''), String(body.actor || 'ADMIN'));
         return res.status(200).json({ ok: true, ...result });
+      }
+      if (body.action === 'updateTier') {
+        if (typeof supabaseStore.updateUserTier !== 'function') throw new Error('Supabase tier update function missing');
+        const user = await supabaseStore.updateUserTier(body.identity || body.user || {}, body.tier || body.memberTier || body.role || '', body.actor || 'TIER');
+        return res.status(200).json({ ok: true, user });
       }
       if (body.action === 'updateUserWithLog') {
         if (typeof supabaseStore.updateUserWithLog !== 'function') throw new Error('Supabase user log function missing');
