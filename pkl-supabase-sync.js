@@ -156,6 +156,10 @@
   }
   function queueSave(key,value){
     key=String(key||""); if(!isKey(key) || BLOCKED_LOCAL_KEYS[key]) return;
+    /* 시트 점수 입력은 sheet.html의 명시적 저장/scoreboard live publish가 담당한다.
+       localStorage 가로채기 저장까지 같이 돌리면 입력마다 shared 저장이 중복되어 지연된다.
+       메모리 캐시는 유지하되 자동 네트워크 저장만 막는다. */
+    if(key===SHEET_LIVE_KEY) return;
     clearTimeout(saving[key]);
     saving[key]=setTimeout(function(){
       if(USER_KEYS[key]) saveUsers(parse(value,[]));

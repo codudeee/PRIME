@@ -6782,7 +6782,7 @@ function save(){
   localStorage.setItem(STORAGE_KEY,sheetJson);
   /* 결과저장/초기화 전까지 현재 경기 시트는 Supabase 공유값에도 유지한다.
      단, 빈 기본 시트는 메인 이동/재진입 렌더 때 원격 시트를 덮어쓰지 않는다. */
-  pklScheduleSheetPersist(180);
+  pklScheduleSheetPersist(900);
   try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(120); }catch(e){}
 }
 function makeRound(no){return {no,map:'',teams:{}}}
@@ -8877,7 +8877,8 @@ function pklCommitScoreInput(target, options){
     if(pklScoreInputSaveTimer){clearTimeout(pklScoreInputSaveTimer);pklScoreInputSaveTimer=null;}
     checkColdStates();
     renderBoard();
-    if(target.type==='checkbox' || field==='chicken' || field==='stop') renderSheet();
+    /* 점수/체크 입력은 현재 행과 보드/피드만 갱신한다.
+       전체 renderSheet()를 호출하면 입력마다 tbody 전체가 다시 그려져 10초 지연처럼 보일 수 있다. */
     renderFeeds();
     try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(target.type==='checkbox'?20:180);}catch(e){}
     save();
@@ -8954,13 +8955,18 @@ window.PKLSheetLiveBridge={
           r.teams[k]=d;
         });
       });
-      state=next;
-      selectedTeamId=state.selectedTeamId||selectedTeamId||(state.teams[0]&&state.teams[0].id)||'team1';
-      const sheetJson=JSON.stringify(state);
-      try{ sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
-      localStorage.setItem(STORAGE_KEY, sheetJson);
-      render();
-      updateTopBetJackpot();
+      pklApplyingRemoteSheetState=true;
+      try{
+        state=next;
+        selectedTeamId=state.selectedTeamId||selectedTeamId||(state.teams[0]&&state.teams[0].id)||'team1';
+        const sheetJson=JSON.stringify(state);
+        try{ sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
+        localStorage.setItem(STORAGE_KEY, sheetJson);
+        render();
+        updateTopBetJackpot();
+      }finally{
+        pklApplyingRemoteSheetState=false;
+      }
       return true;
     }catch(e){return false;}
   },

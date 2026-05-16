@@ -20,19 +20,20 @@
     return fetch(SUPABASE_URL+'/rest/v1/'+path,opt).then(function(r){return r.ok?r.json().catch(function(){return null;}):null;}).catch(function(){return null;});
   }
   function postLiveScoreboardPayload(payload, updatedAt){
-    var body={id:'live_scoreboard',payload:payload,updated_at:updatedAt||new Date().toISOString()};
-    var apiPost=function(){
-      return fetch('/api/pkl-data-store',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        cache:'no-store',
-        body:JSON.stringify({type:'live_scores',id:'live_scoreboard',payload:payload})
-      }).then(function(res){return res.ok?res.json().catch(function(){return null;}):null;}).catch(function(){return null;});
-    };
-    if(configured()){
-      return sb('live_scores',{method:'POST',body:JSON.stringify(body)}).then(function(res){return res||apiPost();}).catch(apiPost);
-    }
-    return apiPost();
+    /* 시트 입력은 서버 API 한 경로만 사용한다.
+       브라우저에서 Supabase REST 직접 POST 후 실패 시 API fallback을 타면 요청이 겹치거나 오래 붙잡혀
+       다음 입력 publish가 10초 이상 밀릴 수 있다. */
+    var controller=null, timeout=null;
+    try{ controller=new AbortController(); timeout=setTimeout(function(){try{controller.abort();}catch(_e){}}, 2500); }catch(_e){}
+    return fetch('/api/pkl-data-store',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      cache:'no-store',
+      signal:controller&&controller.signal,
+      body:JSON.stringify({type:'live_scores',id:'live_scoreboard',payload:payload})
+    }).then(function(res){return res.ok?res.json().catch(function(){return null;}):null;})
+      .catch(function(){return null;})
+      .finally(function(){if(timeout)clearTimeout(timeout);});
   }
   function rowToDoc(row){return row&&row.payload?{fields:{payload:{stringValue:JSON.stringify(row.payload.payload||row.payload)},live:{stringValue:JSON.stringify(row.payload.live||null)}}}:null;}
 
@@ -385,7 +386,7 @@
     fallbackPollTimer=setInterval(function(){
       if(document.hidden) return;
       tick();
-    }, 450);
+    }, 700);
     document.addEventListener('visibilitychange', function(){
       if(!document.hidden) setTimeout(tick, 120);
     });
@@ -395,7 +396,7 @@
     if(!bridge || typeof bridge.applyState!=='function') return;
     try{
       if(bridge.isTyping && bridge.isTyping()) return;
-      if(bridge.getLastLocalEditAt && Date.now()-Number(bridge.getLastLocalEditAt()||0)<250) return;
+      if(bridge.getLastLocalEditAt && Date.now()-Number(bridge.getLastLocalEditAt()||0)<900) return;
     }catch(e){}
     var st=mergeLiveIntoState(readRemoteLive(doc));
     if(st) bridge.applyState(normalizeLiveState(st));
