@@ -46,7 +46,13 @@
   function id(u){u=u||{};return low(u.discordId||u.uid||u.id||u.userId||u.memberId||u.key);}
   function nick(u){u=u||{};return stripLeadingNicknameDecorations(u.nickname||u.nick||u.name||u.displayName||u.discordGlobalName||u.discordUsername||u.username);}
   function pubg(u){u=u||{};return clean(u.pubgId||u.pubgID||u.gameId||u.pubgName||u.pubg||u.ref);}
-  function same(a,b){var ai=id(a),bi=id(b); if(ai&&bi)return ai===bi; if(ai||bi)return false; var ap=low(pubg(a)),bp=low(pubg(b)); return !!(ap&&bp&&ap===bp);}
+  function same(a,b){
+    var ai=id(a),bi=id(b);
+    // 운영 회원 식별은 Discord ID 단일 기준이다.
+    // PUBG ID/닉네임 fallback으로 매칭하면 가람/주희처럼 서로 다른 유저가 섞이거나,
+    // users 테이블에 없는 경고 임시 객체가 화면 캐시에 남을 수 있다.
+    return !!(ai && bi && ai===bi);
+  }
   function stamp(u){u=u||{};var s=clean(u.pklProfileUpdatedAt||u.profileUpdatedAt||u.updatedAt||u.modifiedAt||u.savedAt);var t=Date.parse(s);return isNaN(t)?0:t;}
 
   function normalize(u){

@@ -8956,9 +8956,12 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return merged.sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});});
   }
   function setAdminUsers(users){
+    var nextUsers=Array.isArray(users)?users:[];
     if(typeof state!=='undefined'){
       state=Object.assign({},state||{}, {
-        users:Array.isArray(users)?users:[],
+        // 회원목록은 매번 /api/pkl-users 응답으로 완전 교체한다.
+        // 경고/제재/로컬 캐시에 남은 객체가 users 테이블에 없는데 화면에만 남는 현상 차단.
+        users:nextUsers,
         pending:Array.isArray(state&&state.pending)?state.pending:[],
         bans:Array.isArray(state&&state.bans)?state.bans:[],
         warningRecords:Array.isArray(state&&state.warningRecords)?state.warningRecords:[]
@@ -8969,6 +8972,23 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     bumpUsersCacheVersion();
     window.render();
     updateAdminUsersLoadHint();
+  }
+  function clearAdminUsersBeforeFreshLoad(){
+    if(typeof state!=='undefined'){
+      state=Object.assign({},state||{}, {
+        users:[],
+        pending:Array.isArray(state&&state.pending)?state.pending:[],
+        bans:Array.isArray(state&&state.bans)?state.bans:[],
+        warningRecords:Array.isArray(state&&state.warningRecords)?state.warningRecords:[]
+      });
+      window.state=state;
+    }
+    current=0;
+    bumpUsersCacheVersion();
+    try{ if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers([],false); }catch(e){}
+    var wrap=document.getElementById('userList');
+    if(wrap) wrap.innerHTML='<div class="pkl-users-loading-card">Supabase users 테이블 기준으로 다시 불러오는 중입니다.</div>';
+    var uc=document.getElementById('userCount'); if(uc) uc.textContent='불러오는 중...';
   }
   function updateAdminUsersLoadHint(){
     var wrap=document.getElementById('userList'); if(!wrap) return;
@@ -9014,7 +9034,15 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     if(append && !__pklAdminUsersHasMore) return;
     __pklAdminUsersLoadInFlight=true;
     var wrap=document.getElementById('userList');
-    if(wrap && !append && !wrap.children.length) wrap.innerHTML='<div class="pkl-users-loading-card">Supabase 유저 목록을 불러오는 중입니다.</div>';
+    if(!append){
+      // 새로고침/관리홈 진입 때 이전 화면 메모리 목록을 먼저 비우고 API 결과만 다시 꽂는다.
+      clearAdminUsersBeforeFreshLoad();
+      __pklAdminUsersOffset=0;
+      __pklAdminUsersTotal=null;
+      __pklAdminUsersHasMore=true;
+    }else if(wrap && !wrap.children.length){
+      wrap.innerHTML='<div class="pkl-users-loading-card">Supabase 유저 목록을 불러오는 중입니다.</div>';
+    }
     updateAdminUsersLoadHint();
     try{
       var offset=append ? __pklAdminUsersOffset : 0;
