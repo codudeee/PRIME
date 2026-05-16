@@ -11,6 +11,12 @@ function stripLeadingNicknameDecorations(v){
     .trim();
 }
 function cleanNickname(v){ return stripLeadingNicknameDecorations(v); }
+function discordServerNickname(v){
+  const first = stripLeadingNicknameDecorations(String(v == null ? '' : v).split('/')[0] || '');
+  if(!first) return '';
+  const m = first.match(/[가-힣][가-힣0-9A-Za-z_\-\s]{0,18}/u);
+  return cleanNickname(m ? m[0] : first);
+}
 function cleanId(v){ return clean(v).toLowerCase().replace(/^discord-/, ''); }
 function explicitDiscordId(src={}){
   const direct = cleanId(src.discordId || src.discord_id);
@@ -50,12 +56,14 @@ function isKoreanNameText(v){
 }
 function discordDisplayFromRaw(raw){
   raw = raw && typeof raw === 'object' ? raw : {};
-  return cleanNickname(raw.discordGuildNick || raw.guildNick || raw.discordDisplayName || raw.discordGlobalName || raw.global_name || raw.discord_name || raw.discord_username || raw.discordUsername || raw.username || '');
+  return discordServerNickname(raw.discordGuildNick || raw.guildNick || raw.serverNick || raw.discordServerNickname || raw.discordDisplayName || raw.discordGlobalName || raw.global_name || raw.discord_name || raw.discord_username || raw.discordUsername || raw.username || '');
 }
 function safeDisplayNickname(src){
   src = src && typeof src === 'object' ? src : {};
   const raw = src.raw && typeof src.raw === 'object' ? src.raw : src;
-  // PKL 닉네임은 가입자가 입력한 값이 단일 원본이다. Discord 서버별 별명/표시명은 참고 표시만 하고 닉네임을 덮지 않는다.
+  // 표시 닉네임은 디스코드 서버 프로필 닉네임의 '/' 앞 한글닉을 최우선으로 사용한다.
+  const guildNick = discordDisplayFromRaw(Object.assign({}, raw, src));
+  if(guildNick) return guildNick;
   const registered = registeredNicknameFromRaw(raw);
   if(registered) return registered;
   const pkl = cleanNickname(src.pklNickname || src.pkl_nickname || src.signupNickname || src.signup_nickname || raw.pklNickname || raw.pkl_nickname || raw.signupNickname || raw.signup_nickname || '');
@@ -120,8 +128,12 @@ async function discordRolePatchForUser(user){
   if(configuredAdminDiscordIds().includes(did)) accessRole = 'admin';
   if(accessRole){ patch.role = accessRole; patch.memberRole = accessRole; patch.userRole = accessRole; patch.authRole = accessRole; }
   if(member){
+    const guildNickRaw = clean(member.nick || '');
+    const guildNick = discordServerNickname(guildNickRaw);
     patch.discordGuildRoleIds = roleIds;
-    patch.discordGuildNick = clean(member.nick || '');
+    patch.discordGuildNick = guildNickRaw;
+    patch.discordServerNickname = guildNick;
+    if(guildNick){ patch.nickname = guildNick; patch.nick = guildNick; patch.name = guildNick; patch.displayName = guildNick; }
     patch.lastDiscordGuildSyncAt = new Date().toISOString();
   }
   return patch;
@@ -137,8 +149,11 @@ async function syncDiscordGuildRoles(user, options={}){
   const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
   const nextRole = patch.role ? normalizeRole(patch.role) : normalizeRole(row.role || raw.role || 'user');
   const nextTier = patch.memberTier ? normalizeTier(patch.memberTier) : normalizeTier(row.tier || raw.memberTier || raw.tier || 'none');
+  const serverNick = discordServerNickname(patch.discordGuildNick || patch.discordServerNickname || raw.discordGuildNick || raw.discordServerNickname || '');
   const mergedRaw = {...raw, ...patch, role:nextRole, memberRole:nextRole, userRole:nextRole, authRole:nextRole, adminRole:nextRole==='admin'?'관리자':(nextRole==='operator'?'운영자':(nextRole==='prisoner'?'수감자':'일반')), memberRoleName:nextRole==='admin'?'관리자':(nextRole==='operator'?'운영자':(nextRole==='prisoner'?'수감자':'일반')), tier:nextTier==='none'?'없음':nextTier, memberTier:nextTier, gradeRole:nextTier, tierRole:nextTier};
+  if(serverNick){ mergedRaw.nickname = serverNick; mergedRaw.nick = serverNick; mergedRaw.name = serverNick; mergedRaw.displayName = serverNick; mergedRaw.discordServerNickname = serverNick; }
   const body = { role: nextRole, tier: nextTier, raw: mergedRaw, updated_at: new Date().toISOString() };
+  if(serverNick) body.nickname = serverNick;
   const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, { method:'PATCH', headers:{Prefer:'return=representation'}, body:JSON.stringify(body) });
   return Array.isArray(json) && json[0] ? rowToUser(json[0]) : rowToUser({...row, ...body});
 }
@@ -604,7 +619,7 @@ async function writeUserDoc(user, forceAdmin=false){
     chicken: prime,
     warnings
   };
-  const incomingNickname = cleanNickname(u.nickname || u.nick || u.name || u.pklNickname || u.signupNickname); // Discord displayName은 PKL 닉네임으로 저장하지 않음
+  const incomingNickname = discordServerNickname(u.discordGuildNick || u.guildNick || raw.discordGuildNick || raw.guildNick || '') || cleanNickname(u.nickname || u.nick || u.name || u.pklNickname || u.signupNickname);
   const incomingPubg = clean(u.pubgId || u.gameId || u.ref);
   const savedNickname = cleanNickname(existingRow && (registeredNicknameFromRaw(existingRaw) || existingRow.nickname || existingUser?.nickname));
   const savedPubg = clean(existingRow && (registeredPubgFromRaw(existingRaw) || existingRow.pubg_id || existingUser?.pubgId));

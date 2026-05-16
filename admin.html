@@ -8834,13 +8834,20 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return list;
   }
   window.PKLAdminInvalidateUsersRenderCache=bumpUsersCacheVersion;
+  function discordServerNickname(v){
+    v=String(v==null?'':v).split('/')[0]||'';
+    v=stripLeadingNicknameDecorations(v);
+    var m=v.match(/[가-힣][가-힣0-9A-Za-z_\-\s]{0,18}/);
+    return stripLeadingNicknameDecorations(m?m[0]:v);
+  }
   function normalize(u){
     u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var did=didOf(u)||didOf(raw); if(!did) return null;
-    var discordDisplay=stripLeadingNicknameDecorations(u.discordDisplayName||u.discordGlobalName||u.global_name||u.discord_username||u.discordUsername||raw.discordGuildNick||raw.discordDisplayName||raw.discordGlobalName||raw.global_name||raw.discord_username||raw.discordUsername||'');
+    var serverNick=discordServerNickname(raw.discordGuildNick||raw.guildNick||raw.discordServerNickname||u.discordGuildNick||u.guildNick||u.discordServerNickname||'');
+    var discordDisplay=discordServerNickname(u.discordDisplayName||u.discordGlobalName||u.global_name||u.discord_username||u.discordUsername||raw.discordDisplayName||raw.discordGlobalName||raw.global_name||raw.discord_username||raw.discordUsername||'');
     var currentNick=stripLeadingNicknameDecorations(u.nickname||u.name||u.nick||raw.nickname||raw.name||raw.nick||'');
     var registeredNick=stripLeadingNicknameDecorations(raw.registeredNickname||raw.pklNickname||raw.pkl_nickname||raw.signupNickname||raw.signup_nickname||u.registeredNickname||u.pklNickname||u.signupNickname||'');
-    // PKL 닉네임은 가입 입력값/current nickname 우선. Discord 표시명(예: 이모지 제거 후 윤가람)은 닉네임을 덮지 않고 아래 보조줄에만 표시한다.
-    var nick=registeredNick || currentNick || discordDisplay || ('회원-'+did.slice(-4));
+    // 모든 유저 표시명은 디스코드 서버 프로필 닉네임의 '/' 앞 한글닉을 최우선으로 사용한다.
+    var nick=serverNick || discordDisplay || registeredNick || currentNick || ('회원-'+did.slice(-4));
     var pubg=clean(u.pubgId||u.pubg_id||u.gameId||u.pubgName||raw.pubgId||raw.pubg_id||raw.gameId);
     var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||raw.memberTier||raw.gradeRole||raw.tierRole||raw.tier||'none');
     var role=clean(u.memberRole||u.role||u.userRole||u.authRole||raw.memberRole||raw.role||(u.is_admin?'admin':'user'))||'user';
