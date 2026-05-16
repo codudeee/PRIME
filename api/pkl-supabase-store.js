@@ -44,6 +44,26 @@ function registeredPubgFromRaw(raw){
   raw = raw && typeof raw === 'object' ? raw : {};
   return clean(raw.registeredPubgId || raw.pklPubgId || raw.pkl_pubg_id || raw.signupPubgId || raw.signup_pubg_id || '');
 }
+function isKoreanNameText(v){
+  const t = cleanNickname(v);
+  return !!t && /[가-힣]/.test(t);
+}
+function discordDisplayFromRaw(raw){
+  raw = raw && typeof raw === 'object' ? raw : {};
+  return cleanNickname(raw.discordGuildNick || raw.guildNick || raw.discordDisplayName || raw.discordGlobalName || raw.global_name || raw.discord_name || raw.discord_username || raw.discordUsername || raw.username || '');
+}
+function safeDisplayNickname(src){
+  src = src && typeof src === 'object' ? src : {};
+  const raw = src.raw && typeof src.raw === 'object' ? src.raw : src;
+  // PKL 닉네임은 가입자가 입력한 값이 단일 원본이다. Discord 서버별 별명/표시명은 참고 표시만 하고 닉네임을 덮지 않는다.
+  const registered = registeredNicknameFromRaw(raw);
+  if(registered) return registered;
+  const pkl = cleanNickname(src.pklNickname || src.pkl_nickname || src.signupNickname || src.signup_nickname || raw.pklNickname || raw.pkl_nickname || raw.signupNickname || raw.signup_nickname || '');
+  if(pkl) return pkl;
+  const current = cleanNickname(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name || '');
+  if(current) return current;
+  return discordDisplayFromRaw(Object.assign({}, raw, src));
+}
 
 function env(name){ return clean(process.env[name] || ''); }
 function envList(name){ return env(name).split(/[,:\s]+/).map(cleanId).filter(Boolean); }
@@ -126,7 +146,7 @@ async function syncDiscordGuildRoles(user, options={}){
 function normalizeUser(raw){
   const src = raw && raw.raw && typeof raw.raw === 'object' ? {...raw.raw, ...raw} : {...(raw || {})};
   const did = explicitDiscordId(src);
-  const nick = cleanNickname(src.nickname || src.nick || src.name || src.displayName || src.discord_username || src.discordUsername || src.username || src.discordGlobalName);
+  const nick = safeDisplayNickname(src);
   const pubg = clean(src.pubgId || src.pubg_id || src.pubgID || src.gameId || src.pubgName || src.ref || src.pubg);
   const role = normalizeRole(src.memberRole || src.role || src.userRole || src.authRole || src.adminRole || (src.is_admin ? 'admin' : 'user'));
   const tierInput = (src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : (src.baseRole != null ? src.baseRole : (src.memberTierName || src.tierName))))));
@@ -584,7 +604,7 @@ async function writeUserDoc(user, forceAdmin=false){
     chicken: prime,
     warnings
   };
-  const incomingNickname = cleanNickname(u.nickname || u.nick || u.name || u.displayName);
+  const incomingNickname = cleanNickname(u.nickname || u.nick || u.name || u.pklNickname || u.signupNickname); // Discord displayName은 PKL 닉네임으로 저장하지 않음
   const incomingPubg = clean(u.pubgId || u.gameId || u.ref);
   const savedNickname = cleanNickname(existingRow && (registeredNicknameFromRaw(existingRaw) || existingRow.nickname || existingUser?.nickname));
   const savedPubg = clean(existingRow && (registeredPubgFromRaw(existingRaw) || existingRow.pubg_id || existingUser?.pubgId));
