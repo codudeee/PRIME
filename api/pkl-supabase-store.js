@@ -107,6 +107,74 @@ function mergeUsers(){
   return out;
 }
 function escapeLike(value){ return clean(value).replace(/[%_]/g, m => '\\' + m); }
+function postgrestValue(v){ return clean(v).replace(/"/g, '\\"'); }
+async function findUserRowsByDiscordId(discordId){
+  const did = cleanId(discordId);
+  if(!did) return [];
+  const prefixed = `discord-${did}`;
+  const filters = [
+    `discord_id.eq.${postgrestValue(did)}`,
+    `discord_id.eq.${postgrestValue(prefixed)}`,
+    `raw->>discordId.eq.${postgrestValue(did)}`,
+    `raw->>discord_id.eq.${postgrestValue(did)}`,
+    `raw->>uid.eq.${postgrestValue(prefixed)}`,
+    `raw->>id.eq.${postgrestValue(prefixed)}`,
+    `raw->>userId.eq.${postgrestValue(prefixed)}`
+  ];
+  const path = `users?select=*&or=(${filters.map(encodeURIComponent).join(',')})&order=updated_at.desc.nullslast&limit=20`;
+  try{
+    const { json } = await supabaseFetch(path);
+    return Array.isArray(json) ? json : [];
+  }catch(e){
+    try{
+      const { json } = await supabaseFetch(`users?select=*&discord_id=eq.${encodeURIComponent(did)}&limit=20`);
+      return Array.isArray(json) ? json : [];
+    }catch(_){ return []; }
+  }
+}
+async function canonicalizeDuplicateDiscordRows(discordId, keepBody){
+  const did = cleanId(discordId);
+  if(!did) return null;
+  const rows = await findUserRowsByDiscordId(did);
+  if(!rows.length) return null;
+  const scored = rows.map((row, idx) => {
+    const exact = cleanId(row.discord_id) === did ? 100 : 0;
+    const hasDbId = clean(row.id) ? 10 : 0;
+    const updated = Date.parse(row.updated_at || row.created_at || '') || 0;
+    return { row, idx, score: exact + hasDbId, updated };
+  }).sort((a,b)=> (b.score-a.score) || (b.updated-a.updated) || (a.idx-b.idx));
+  const keep = scored[0].row;
+  const mergedRaw = Object.assign({}, ...(rows.map(r => (r.raw && typeof r.raw === 'object') ? r.raw : {})), keep.raw && typeof keep.raw === 'object' ? keep.raw : {}, keepBody.raw || {});
+  const merged = Object.assign({}, keepBody, {
+    discord_id: did,
+    discord_username: keepBody.discord_username || keep.discord_username || '',
+    nickname: keepBody.nickname || keep.nickname || '',
+    pubg_id: keepBody.pubg_id || keep.pubg_id || '',
+    tier: keepBody.tier || keep.tier || 'none',
+    role: keepBody.role || keep.role || 'user',
+    prime: Number(keepBody.prime ?? keep.prime ?? keep.points ?? 0) || 0,
+    warnings: Number(keepBody.warnings ?? keep.warnings ?? 0) || 0,
+    raw: mergedRaw,
+    updated_at: new Date().toISOString()
+  });
+  let saved = null;
+  if(clean(keep.id)){
+    const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(clean(keep.id))}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(merged)
+    });
+    saved = Array.isArray(json) && json[0] ? json[0] : Object.assign({}, keep, merged);
+  }
+  const deleteIds = rows.map(r => clean(r.id)).filter(id => id && id !== clean(keep.id));
+  if(deleteIds.length){
+    await supabaseFetch(`users?id=in.(${deleteIds.map(encodeURIComponent).join(',')})`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' }
+    }).catch(()=>{});
+  }
+  return saved || Object.assign({}, keep, merged);
+}
 function rowToUser(r){
   r = r || {};
   const raw = r.raw && typeof r.raw === 'object' ? r.raw : {};
@@ -198,8 +266,8 @@ async function writeUserDoc(user, forceAdmin=false){
   // 기존 회원 권한 변경은 updateUserWithLog / 관리자 PATCH 흐름에서만 처리한다.
   let existingRow = null;
   try{
-    const { json } = await supabaseFetch(`users?select=*&discord_id=eq.${encodeURIComponent(discordId)}&limit=1`);
-    existingRow = Array.isArray(json) && json[0] ? json[0] : null;
+    const rows = await findUserRowsByDiscordId(discordId);
+    existingRow = Array.isArray(rows) && rows[0] ? rows[0] : null;
   }catch(e){ existingRow = null; }
 
   const existingRaw = existingRow && existingRow.raw && typeof existingRow.raw === 'object' ? existingRow.raw : {};
@@ -248,6 +316,8 @@ async function writeUserDoc(user, forceAdmin=false){
   };
 
   async function upsert(obj){
+    const canonicalRow = await canonicalizeDuplicateDiscordRows(discordId, obj);
+    if(canonicalRow) return rowToUser(canonicalRow);
     const { json } = await supabaseFetch('users?on_conflict=discord_id', {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
@@ -523,6 +593,27 @@ async function readUsers(options={}){
   const result = await readUserDocs({ limit: options.limit || 100, offset: options.offset || 0, q: options.q || "" });
   return result.users;
 }
+async function cleanupDiscordUser(user){
+  const did = explicitDiscordId(user || {});
+  if(!did) throw new Error('discord_id가 없어 정리할 수 없습니다.');
+  const rows = await findUserRowsByDiscordId(did);
+  if(!rows.length) return null;
+  const base = rowToUser(rows[0]);
+  const body = {
+    discord_id: did,
+    discord_username: clean(base.discordUsername || base.discord_username),
+    nickname: cleanNickname(base.nickname || base.name),
+    pubg_id: clean(base.pubgId || base.gameId || base.ref),
+    tier: normalizeTier(base.memberTier || base.gradeRole || base.tierRole || base.tier),
+    prime: Number(base.prime || base.points || base.dia || 0) || 0,
+    warnings: Number(base.warnings || 0) || 0,
+    role: normalizeRole(base.memberRole || base.role),
+    raw: base,
+    updated_at: new Date().toISOString()
+  };
+  const row = await canonicalizeDuplicateDiscordRows(did, body);
+  return row ? rowToUser(row) : base;
+}
 async function writeUsers(users){
   const list = Array.isArray(users) ? users : [];
   const saved = [];
@@ -533,4 +624,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, explicitDiscordId, hasDiscordIdentity };

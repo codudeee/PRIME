@@ -22,25 +22,12 @@ function explicitDiscordId(src={}){
   return '';
 }
 function hasDiscordIdentity(u){ return !!explicitDiscordId(u || {}); }
-function isGradeLikeRole(v){
-  const raw = clean(v);
-  const low = raw.toLowerCase().replace(/[\s_-]+/g, '');
-  if(!raw) return false;
-  if(/^tier[0-4](high|mid|low)?$/.test(low)) return true;
-  if(['beast'].includes(low)) return true;
-  return /^[0-4]티어(상|중|하)?$/.test(raw) || raw === '짐승' || raw === '없음' || low === 'none';
-}
-function isProtectedOwner(src={}){
-  // DB role only. No nickname/email/handle-based owner bypass.
-  return false;
-}
 function normalizeRole(v){
   const raw = clean(v); const low = raw.toLowerCase();
   if(['admin','administrator','owner','master','superadmin','manager'].includes(low) || ['관리자','총관리자','마스터','총괄'].includes(raw)) return 'admin';
   if(['operator','staff','moderator','mod'].includes(low) || ['운영자','운영진','스태프'].includes(raw)) return 'operator';
   if(['prisoner','jail','banned','blocked'].includes(low) || ['수감자','차단','정지'].includes(raw)) return 'prisoner';
-  if(['guest','temporary'].includes(low) || ['준회원'].includes(raw)) return 'guest';
-  if(isGradeLikeRole(raw) || ['none','temp'].includes(low) || ['임시'].includes(raw)) return 'user';
+  if(['guest','temp','temporary'].includes(low) || ['임시','준회원'].includes(raw)) return 'guest';
   return raw || 'user';
 }
 
@@ -54,7 +41,7 @@ function normalizeUser(raw){
   const did = explicitDiscordId(src);
   const nick = cleanNickname(src.nickname || src.nick || src.name || src.displayName || src.discord_username || src.discordUsername || src.username || src.discordGlobalName);
   const pubg = clean(src.pubgId || src.pubg_id || src.pubgID || src.gameId || src.pubgName || src.ref || src.pubg);
-  const role = isProtectedOwner(src) ? 'admin' : normalizeRole(src.memberRole || src.userRole || src.authRole || src.adminRole || src.role || (src.is_admin ? 'admin' : 'user'));
+  const role = normalizeRole(src.memberRole || src.role || src.userRole || src.authRole || src.adminRole || (src.is_admin ? 'admin' : 'user'));
   const tierInput = (src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : (src.baseRole != null ? src.baseRole : (src.memberTierName || src.tierName))))));
   const tier = normalizeTier(tierInput);
   const prime = Number(src.prime ?? src.points ?? src.dia ?? src.chicken ?? 0) || 0;
@@ -120,6 +107,74 @@ function mergeUsers(){
   return out;
 }
 function escapeLike(value){ return clean(value).replace(/[%_]/g, m => '\\' + m); }
+function postgrestValue(v){ return clean(v).replace(/"/g, '\\"'); }
+async function findUserRowsByDiscordId(discordId){
+  const did = cleanId(discordId);
+  if(!did) return [];
+  const prefixed = `discord-${did}`;
+  const filters = [
+    `discord_id.eq.${postgrestValue(did)}`,
+    `discord_id.eq.${postgrestValue(prefixed)}`,
+    `raw->>discordId.eq.${postgrestValue(did)}`,
+    `raw->>discord_id.eq.${postgrestValue(did)}`,
+    `raw->>uid.eq.${postgrestValue(prefixed)}`,
+    `raw->>id.eq.${postgrestValue(prefixed)}`,
+    `raw->>userId.eq.${postgrestValue(prefixed)}`
+  ];
+  const path = `users?select=*&or=(${filters.map(encodeURIComponent).join(',')})&order=updated_at.desc.nullslast&limit=20`;
+  try{
+    const { json } = await supabaseFetch(path);
+    return Array.isArray(json) ? json : [];
+  }catch(e){
+    try{
+      const { json } = await supabaseFetch(`users?select=*&discord_id=eq.${encodeURIComponent(did)}&limit=20`);
+      return Array.isArray(json) ? json : [];
+    }catch(_){ return []; }
+  }
+}
+async function canonicalizeDuplicateDiscordRows(discordId, keepBody){
+  const did = cleanId(discordId);
+  if(!did) return null;
+  const rows = await findUserRowsByDiscordId(did);
+  if(!rows.length) return null;
+  const scored = rows.map((row, idx) => {
+    const exact = cleanId(row.discord_id) === did ? 100 : 0;
+    const hasDbId = clean(row.id) ? 10 : 0;
+    const updated = Date.parse(row.updated_at || row.created_at || '') || 0;
+    return { row, idx, score: exact + hasDbId, updated };
+  }).sort((a,b)=> (b.score-a.score) || (b.updated-a.updated) || (a.idx-b.idx));
+  const keep = scored[0].row;
+  const mergedRaw = Object.assign({}, ...(rows.map(r => (r.raw && typeof r.raw === 'object') ? r.raw : {})), keep.raw && typeof keep.raw === 'object' ? keep.raw : {}, keepBody.raw || {});
+  const merged = Object.assign({}, keepBody, {
+    discord_id: did,
+    discord_username: keepBody.discord_username || keep.discord_username || '',
+    nickname: keepBody.nickname || keep.nickname || '',
+    pubg_id: keepBody.pubg_id || keep.pubg_id || '',
+    tier: keepBody.tier || keep.tier || 'none',
+    role: keepBody.role || keep.role || 'user',
+    prime: Number(keepBody.prime ?? keep.prime ?? keep.points ?? 0) || 0,
+    warnings: Number(keepBody.warnings ?? keep.warnings ?? 0) || 0,
+    raw: mergedRaw,
+    updated_at: new Date().toISOString()
+  });
+  let saved = null;
+  if(clean(keep.id)){
+    const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(clean(keep.id))}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(merged)
+    });
+    saved = Array.isArray(json) && json[0] ? json[0] : Object.assign({}, keep, merged);
+  }
+  const deleteIds = rows.map(r => clean(r.id)).filter(id => id && id !== clean(keep.id));
+  if(deleteIds.length){
+    await supabaseFetch(`users?id=in.(${deleteIds.map(encodeURIComponent).join(',')})`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' }
+    }).catch(()=>{});
+  }
+  return saved || Object.assign({}, keep, merged);
+}
 function rowToUser(r){
   r = r || {};
   const raw = r.raw && typeof r.raw === 'object' ? r.raw : {};
@@ -164,14 +219,28 @@ async function readUserDocs(options={}){
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
   const offset = Math.max(0, Number(options.offset || 0));
   const q = clean(options.q || '');
-  let path = `users?select=*&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
+  const tierOnly = !!options.tierOnly;
+
+  // 티어표 전용 요청은 화면에 필요한 컬럼만 가져오고 count=exact를 쓰지 않는다.
+  // count=exact + select=* 는 유저가 늘수록 티어표 유저칸 표시를 늦춘다.
+  const select = tierOnly
+    ? 'discord_id,discord_username,nickname,pubg_id,tier,role,created_at,updated_at'
+    : '*';
+  let path = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
+  if(tierOnly){
+    path += `&tier=not.is.null&tier=neq.%EC%97%86%EC%9D%8C&tier=neq.none`;
+  }
   if(q){
     const term = encodeURIComponent(`*${escapeLike(q)}*`);
     path += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
   }
-  const { json, headers } = await supabaseFetch(path, { headers: { Prefer: 'count=exact' } });
+  const { json, headers } = await supabaseFetch(path, tierOnly ? {} : { headers: { Prefer: 'count=exact' } });
   const range = headers.get('content-range') || '';
-  const count = Number((range.split('/')[1] || '').replace('*',''));
+  let count = Number((range.split('/')[1] || '').replace('*',''));
+  if(tierOnly && !Number.isFinite(count)){
+    const pageLength = Array.isArray(json) ? json.length : 0;
+    count = offset + pageLength + (pageLength >= limit ? 1 : 0);
+  }
   const rawUsers = (Array.isArray(json) ? json : []).map(rowToUser).filter(u => !!u.discordId);
   // Supabase users is the only source, but the API also normalizes the page result once here.
   // This prevents the client pages from each doing their own cache/nickname merge and creating duplicate visible users.
@@ -184,7 +253,7 @@ async function readUserDocs(options={}){
     seenDiscord.add(did);
     users.push(u);
   }
-  return { users, count: users.length, limit, offset, q };
+  return { users, count: Number.isFinite(count) ? count : users.length, limit, offset, q };
 }
 async function writeUserDoc(user, forceAdmin=false){
   const input = (user && typeof user === 'object') ? user : {};
@@ -197,8 +266,8 @@ async function writeUserDoc(user, forceAdmin=false){
   // 기존 회원 권한 변경은 updateUserWithLog / 관리자 PATCH 흐름에서만 처리한다.
   let existingRow = null;
   try{
-    const { json } = await supabaseFetch(`users?select=*&discord_id=eq.${encodeURIComponent(discordId)}&limit=1`);
-    existingRow = Array.isArray(json) && json[0] ? json[0] : null;
+    const rows = await findUserRowsByDiscordId(discordId);
+    existingRow = Array.isArray(rows) && rows[0] ? rows[0] : null;
   }catch(e){ existingRow = null; }
 
   const existingRaw = existingRow && existingRow.raw && typeof existingRow.raw === 'object' ? existingRow.raw : {};
@@ -247,6 +316,8 @@ async function writeUserDoc(user, forceAdmin=false){
   };
 
   async function upsert(obj){
+    const canonicalRow = await canonicalizeDuplicateDiscordRows(discordId, obj);
+    if(canonicalRow) return rowToUser(canonicalRow);
     const { json } = await supabaseFetch('users?on_conflict=discord_id', {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
@@ -257,6 +328,10 @@ async function writeUserDoc(user, forceAdmin=false){
   return await upsert(body);
 }
 
+function hasExplicitAccessRoleInput(src={}){
+  if(!src || typeof src !== 'object') return false;
+  return ['memberRole','role','userRole','authRole','adminRole','member_role'].some(k => Object.prototype.hasOwnProperty.call(src,k) && clean(src[k]) !== '');
+}
 function clientRowFromUser(src={}){
   const did = explicitDiscordId(src || {});
   if(!did) return null;
@@ -268,7 +343,7 @@ function clientRowFromUser(src={}){
     nickname: clean(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name),
     pubg_id: clean(src.pubgId || src.pubg_id || src.gameId || src.ref || raw.pubgId || raw.pubg_id || raw.gameId || raw.ref),
     tier: normalizeTier(src.memberTier != null ? src.memberTier : (src.gradeRole != null ? src.gradeRole : (src.tierRole != null ? src.tierRole : (src.tier != null ? src.tier : raw.tier)))),
-    role: isProtectedOwner(src) || isProtectedOwner(raw) ? 'admin' : normalizeRole(src.memberRole || src.userRole || src.authRole || raw.memberRole || raw.userRole || raw.authRole || src.role || raw.role || 'user'),
+    role: normalizeRole(src.memberRole || src.role || src.userRole || raw.memberRole || raw.role || (src.is_admin ? 'admin' : 'user')),
     prime: Number(src.prime ?? src.points ?? src.dia ?? src.chicken ?? raw.prime ?? raw.points ?? raw.dia ?? raw.chicken ?? 0) || 0,
     points: Number(src.points ?? src.prime ?? src.dia ?? src.chicken ?? raw.points ?? raw.prime ?? 0) || 0,
     warnings: Number(src.warnings ?? raw.warnings ?? 0) || 0,
@@ -369,7 +444,17 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
   const sourceBefore = hasClientSnapshot(beforeSnapshot) ? beforeSnapshot : (hasClientSnapshot(originalIdentity) ? originalIdentity : null);
   const row = sourceBefore ? clientRowFromUser(sourceBefore) : await readUserRowByIdentity(originalIdentity && explicitDiscordId(originalIdentity) ? originalIdentity : identity);
   const beforeUser = rowToUser(row);
+  const explicitAccessRoleChange = hasExplicitAccessRoleInput(identity || {}) && !/^tier_change$/i.test(clean(log.type || log.action));
   const nextInput = normalizeUser({...beforeUser, ...(identity || {})});
+  if(!explicitAccessRoleChange){
+    const keepRole = normalizeRole(row.role || beforeUser.role || beforeUser.memberRole);
+    nextInput.role = keepRole;
+    nextInput.memberRole = keepRole;
+    nextInput.userRole = keepRole;
+    nextInput.authRole = keepRole;
+    nextInput.adminRole = keepRole === 'admin' ? '관리자' : (keepRole === 'operator' ? '운영자' : (keepRole === 'prisoner' ? '수감자' : '일반'));
+    nextInput.memberRoleName = nextInput.adminRole;
+  }
   const now = new Date().toISOString();
   const raw = row.raw && typeof row.raw === 'object' ? {...row.raw} : {};
   const before = normalizeUser({...raw, discordId: row.discord_id, nickname: row.nickname, pubgId: row.pubg_id, tier: row.tier, role: row.role, prime: row.prime, warnings: row.warnings});
@@ -384,23 +469,22 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
   const action = clean(log.type || log.action || (changes.some(c=>c.field==='회원 티어') ? 'tier_change' : 'profile_edit')) || 'profile_edit';
   const reason = clean(log.reason || (changes.length ? changes.map(c=>`${c.field}: ${c.before || '-'} → ${c.after || '-'}`).join(' / ') : '회원 정보 수정'));
   const actor = clean(log.actor || log.admin || 'ADMIN');
-  const protectedOwner = isProtectedOwner(raw) || isProtectedOwner(beforeUser) || isProtectedOwner(nextInput);
-  const safeMemberRole = protectedOwner ? 'admin' : normalizeRole(nextInput.memberRole || nextInput.userRole || nextInput.authRole || before.memberRole || before.userRole || before.authRole || row.role || 'user');
   const mergedRaw = {
     ...raw,
     ...nextInput,
-    memberRole:safeMemberRole,
-    userRole:safeMemberRole,
-    authRole:safeMemberRole,
-    role:safeMemberRole,
-    adminRole:safeMemberRole === 'admin' ? '관리자' : (safeMemberRole === 'operator' ? '운영자' : (safeMemberRole === 'prisoner' ? '수감자' : '일반')),
-    memberRoleName:safeMemberRole === 'admin' ? '관리자' : (safeMemberRole === 'operator' ? '운영자' : (safeMemberRole === 'prisoner' ? '수감자' : '일반')),
-    isAdmin:safeMemberRole === 'admin',
-    admin:safeMemberRole === 'admin',
     history:Array.isArray(nextInput.history)?nextInput.history:(Array.isArray(raw.history)?raw.history:[]),
     memoList:Array.isArray(nextInput.memoList)?nextInput.memoList:(Array.isArray(raw.memoList)?raw.memoList:[]),
     mailbox:Array.isArray(nextInput.mailbox)?nextInput.mailbox:(Array.isArray(raw.mailbox)?raw.mailbox:[])
   };
+  if(!explicitAccessRoleChange){
+    const keepRole = normalizeRole(row.role || beforeUser.role || beforeUser.memberRole);
+    mergedRaw.role = keepRole;
+    mergedRaw.memberRole = keepRole;
+    mergedRaw.userRole = keepRole;
+    mergedRaw.authRole = keepRole;
+    mergedRaw.adminRole = keepRole === 'admin' ? '관리자' : (keepRole === 'operator' ? '운영자' : (keepRole === 'prisoner' ? '수감자' : '일반'));
+    mergedRaw.memberRoleName = mergedRaw.adminRole;
+  }
   mergedRaw.history.unshift({type:action, reason, date:now, admin:actor, changes});
   const body = {
     discord_id: row.discord_id,
@@ -408,7 +492,7 @@ async function updateUserWithLog(identity={}, log={}, originalIdentity={}, befor
     nickname: clean(nextInput.nickname || row.nickname),
     pubg_id: clean(nextInput.pubgId || row.pubg_id),
     tier: normalizeTier(nextInput.memberTier != null ? nextInput.memberTier : (nextInput.gradeRole != null ? nextInput.gradeRole : (nextInput.tierRole != null ? nextInput.tierRole : (nextInput.tier != null ? nextInput.tier : (row.tier || 'none'))))),
-    role: safeMemberRole,
+    role: explicitAccessRoleChange ? normalizeRole(nextInput.memberRole || nextInput.role || row.role || 'user') : normalizeRole(row.role || beforeUser.role || beforeUser.memberRole),
     prime: Number(nextInput.prime ?? nextInput.points ?? row.prime ?? 0) || 0,
     warnings: Number(nextInput.warnings ?? row.warnings ?? 0) || 0,
     raw: mergedRaw,
@@ -509,6 +593,27 @@ async function readUsers(options={}){
   const result = await readUserDocs({ limit: options.limit || 100, offset: options.offset || 0, q: options.q || "" });
   return result.users;
 }
+async function cleanupDiscordUser(user){
+  const did = explicitDiscordId(user || {});
+  if(!did) throw new Error('discord_id가 없어 정리할 수 없습니다.');
+  const rows = await findUserRowsByDiscordId(did);
+  if(!rows.length) return null;
+  const base = rowToUser(rows[0]);
+  const body = {
+    discord_id: did,
+    discord_username: clean(base.discordUsername || base.discord_username),
+    nickname: cleanNickname(base.nickname || base.name),
+    pubg_id: clean(base.pubgId || base.gameId || base.ref),
+    tier: normalizeTier(base.memberTier || base.gradeRole || base.tierRole || base.tier),
+    prime: Number(base.prime || base.points || base.dia || 0) || 0,
+    warnings: Number(base.warnings || 0) || 0,
+    role: normalizeRole(base.memberRole || base.role),
+    raw: base,
+    updated_at: new Date().toISOString()
+  };
+  const row = await canonicalizeDuplicateDiscordRows(did, body);
+  return row ? rowToUser(row) : base;
+}
 async function writeUsers(users){
   const list = Array.isArray(users) ? users : [];
   const saved = [];
@@ -519,4 +624,4 @@ async function readAdminState(){
   return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, explicitDiscordId, hasDiscordIdentity };
