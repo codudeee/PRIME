@@ -30,10 +30,19 @@ async function readJoinState(){
   const payload = row && row.payload && typeof row.payload === 'object' ? row.payload : {};
   return Object.assign({version:2, waitList:[], cancelList:[], recruitState:{state:'waiting'}}, payload, {updatedAt: payload.updatedAt || (row && row.updated_at) || new Date().toISOString()});
 }
+async function writeShared(key, value){
+  return await sb('pkl_shared_data?on_conflict=key', {method:'POST', body:JSON.stringify({key, value:value == null ? null : value, updated_at:new Date().toISOString()})}).catch(()=>null);
+}
 async function writeJoinState(st){
   st.updatedAt = new Date().toISOString();
   st.version = 2;
-  return await sb('live_scores?on_conflict=id', {method:'POST', body:JSON.stringify({id:'join_state', payload:st, updated_at:st.updatedAt})});
+  await sb('live_scores?on_conflict=id', {method:'POST', body:JSON.stringify({id:'join_state', payload:st, updated_at:st.updatedAt})});
+  await Promise.all([
+    writeShared('pklJoinWaitList', st.waitList || []),
+    writeShared('pklJoinCancelList', st.cancelList || []),
+    writeShared('pklJoinRecruitState', st.recruitState || {state:'waiting'})
+  ]);
+  return st;
 }
 async function handler(req,res){
   try{
@@ -57,8 +66,8 @@ async function handler(req,res){
       st.cancelList = st.cancelList.filter(x=>!same(x,user));
       if(!st.waitList.some(x=>same(x,user))) st.waitList.push(user);
     }
-    await writeJoinState(st);
-    return json(res,200,{ok:true,state:st});
+    const saved = await writeJoinState(st);
+    return json(res,200,{ok:true,state:saved,waitCount:(saved.waitList||[]).length,cancelCount:(saved.cancelList||[]).length});
   }catch(error){ return json(res,500,{ok:false,message:error && error.message ? error.message : String(error)}); }
 }
 module.exports = handler;

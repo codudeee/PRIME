@@ -37,7 +37,17 @@ async function readRows(type, id){
   return await sb(`${table}${q}`, { method:'GET' }) || [];
 }
 async function writeLive(id, payload){
-  return await sb('live_scores?on_conflict=id', { method:'POST', body: JSON.stringify({ id: safeId(id), payload: payload == null ? {} : payload, updated_at: new Date().toISOString() }) });
+  const rowId = safeId(id);
+  const body = payload == null ? {} : payload;
+  const saved = await sb('live_scores?on_conflict=id', { method:'POST', body: JSON.stringify({ id: rowId, payload: body, updated_at: new Date().toISOString() }) });
+  if(rowId === 'join_state' && body && typeof body === 'object'){
+    await Promise.all([
+      writeShared('pklJoinWaitList', Array.isArray(body.waitList) ? body.waitList : []),
+      writeShared('pklJoinCancelList', Array.isArray(body.cancelList) ? body.cancelList : []),
+      writeShared('pklJoinRecruitState', body.recruitState || {state:'waiting'})
+    ]).catch(()=>null);
+  }
+  return saved;
 }
 async function writeMatch(id, payload){
   const obj = payload && typeof payload === 'object' ? payload : { value: payload };
