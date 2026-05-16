@@ -8150,7 +8150,7 @@ function getVisibleAdminScreenId(){
   };
 
   window.toggleEditMemberRoleCustom=function(e){
- if(!pklCanChangeRole(JSON.parse(localStorage.getItem("pklUser") || "null"))){ pklAlert("관리자만 역할 변경 가능","권한 제한"); return; }
+ if(!pklCanChangeRole()){ pklAlert("관리자만 역할 변경 가능","권한 제한"); return; }
 
     if(e) e.stopPropagation();
     if((typeof canEditMemberRole==="function") && !canEditMemberRole()) return;
@@ -8355,11 +8355,39 @@ function getVisibleAdminScreenId(){
 (function(){
   function sys(){return window.PKLRoleSystem||{};}
   function readUserKey(key){try{var raw=localStorage.getItem(key);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+  function adminDiscordIdOf(user){
+    user=user||{};
+    return String(user.discord_id||user.discordId||user.discordID||user.discord||user.userDiscordId||user.uid||user.id||user.userId||"").replace(/^discord-/i,"").trim();
+  }
+  function mergeCurrentAdminUser(user){
+    if(!user||typeof user!=="object") return null;
+    var merged=Object.assign({}, window.__PKL_CURRENT_SUPABASE_USER||{}, user);
+    window.__PKL_CURRENT_SUPABASE_USER=merged;
+    ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"].forEach(function(k){
+      try{ if(localStorage.getItem(k) || k==="pklLoginUser") localStorage.setItem(k,JSON.stringify(Object.assign({}, readUserKey(k)||{}, merged))); }catch(e){}
+    });
+    try{ if(window.PKLRoleSystem&&typeof window.PKLRoleSystem.setCurrentUser==="function") window.PKLRoleSystem.setCurrentUser(merged); }catch(e){}
+    return merged;
+  }
   window.pklGetCurrentAdminUser=function(){
+    if(window.__PKL_CURRENT_SUPABASE_USER&&typeof window.__PKL_CURRENT_SUPABASE_USER==="object")return window.__PKL_CURRENT_SUPABASE_USER;
     var keys=["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"];
     for(var i=0;i<keys.length;i++){var user=readUserKey(keys[i]);if(user&&typeof user==="object")return user;}
     return null;
   };
+  async function refreshCurrentAdminFromSupabase(){
+    var seed=window.pklGetCurrentAdminUser&&window.pklGetCurrentAdminUser();
+    var did=adminDiscordIdOf(seed);
+    if(!did) return null;
+    try{
+      var res=await fetch('/api/pkl-users?limit=5&discordId='+encodeURIComponent(did),{cache:'no-store',headers:{Accept:'application/json'}});
+      var data=await res.json().catch(function(){return{};});
+      var list=Array.isArray(data.users)?data.users:[];
+      var fresh=list.find(function(u){return adminDiscordIdOf(u)===did;})||list[0];
+      if(fresh) return mergeCurrentAdminUser(fresh);
+    }catch(e){console.warn('[PKL] admin role refresh failed',e);}
+    return null;
+  }
   function fallbackRoleFromLogin(){
     var u=window.pklGetCurrentAdminUser()||{};
     var ownerText=[u.email,u.mail,u.handle,u.username,u.discordUsername,u.discord_username,u.nickname,u.nick,u.name,u.displayName,u.loginId].map(function(v){return String(v==null?'':v).trim().toLowerCase();}).join('|');
@@ -8418,7 +8446,7 @@ function getVisibleAdminScreenId(){
       applyAccess();
     },60);
   }
-  document.addEventListener("DOMContentLoaded",function(){scheduleApplyAccess();});
+  document.addEventListener("DOMContentLoaded",function(){scheduleApplyAccess(); refreshCurrentAdminFromSupabase().then(function(fresh){ if(fresh) scheduleApplyAccess(); });});
   window.addEventListener("storage",scheduleApplyAccess);
   window.addEventListener("pkl-role-data-updated",scheduleApplyAccess);
   window.pklApplyAdminAccess=applyAccess;
@@ -8477,7 +8505,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return Object.assign({},raw,u,{nickname:nick,name:nick,nick:nick,displayName:nick,pubgId:pubg,gameId:pubg,uid:did?'discord-'+did:'',id:did?'discord-'+did:'',userId:did?'discord-'+did:'',discordId:did,discord_id:did,memberRole:memberRole,role:u.role||memberRole,gradeRole:tier,tierRole:tier,memberTier:tier,baseRole:tier,join:fmtDate(u.join||u.joinDate||u.joined_at||u.created_at||u.createdAt),last:fmtDate(u.last||u.lastLogin||u.updated_at||u.updatedAt),warnings:Number(u.warnings||u.warning_count||0),dia:Number(u.prime||u.points||u.dia||u.money||u.point||0),prime:Number(u.prime||u.points||u.dia||0),points:Number(u.points||u.prime||u.dia||0),history:Array.isArray(u.history)?u.history:(Array.isArray(raw.history)?raw.history:[]),memoList:Array.isArray(u.memoList)?u.memoList:(Array.isArray(raw.memoList)?raw.memoList:[]),mailbox:Array.isArray(u.mailbox)?u.mailbox:(Array.isArray(raw.mailbox)?raw.mailbox:[])});
   }
   async function fetchUsers(){
-    var res=await fetch('/api/pkl-users?limit=20&offset=0&syncDiscord=1',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
+    var res=await fetch('/api/pkl-users?limit=20&offset=0',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok || !data.ok || !Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
     return data.users;
@@ -8952,7 +8980,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   }
   async function fetchAdminUsersPage(offset){
     if(!offset) await runDuplicateCleanupOnce();
-    var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset)+'&syncDiscord=1',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
+    var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
     if(typeof data.count==='number' && isFinite(data.count)) __pklAdminUsersTotal=data.count;
