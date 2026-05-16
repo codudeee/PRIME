@@ -7228,9 +7228,30 @@ function pklColdPercentOfView(view){
   const rawPercent=target>0 ? Math.round(score / target * 100) : (score<0 ? -100 : (score>0 ? 100 : 0));
   return Number.isFinite(rawPercent) ? rawPercent : 0;
 }
+function pklIsCurrentUserInView(view){
+  const myTokens=(typeof pklCurrentUserTokens === 'function') ? pklCurrentUserTokens() : [];
+  if(!view || !Array.isArray(view.members) || !myTokens.length) return false;
+  return view.members.some(m=>{
+    const mt=(typeof pklMemberTokens === 'function') ? pklMemberTokens(m) : [];
+    return myTokens.some(t=>mt.includes(t));
+  });
+}
+function pklShouldShowColdEntryModal(view){
+  /*
+    콜드 상태 자체는 모든 화면에 동기화하되,
+    콜드 진입 알림/선택 모달은 해당 팀원에게만 띄운다.
+    게스트/다른 팀 관전자는 스코어보드 상태만 보고 모달은 받지 않는다.
+  */
+  return pklIsCurrentUserInView(view);
+}
 function openColdEntryModal(view){
   const modal=document.getElementById('pklColdEntryModal');
   if(!modal || !view || !view.viewId) return;
+  if(!pklShouldShowColdEntryModal(view)){
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden','true');
+    return;
+  }
   const name=document.getElementById('pklColdEntryTeamName');
   if(name) name.textContent=teamFeedName(view.viewName);
   modal.dataset.viewId=view.viewId;
