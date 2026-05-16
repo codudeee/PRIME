@@ -9,6 +9,11 @@ function normalizeNickname(value){
     .trim();
 }
 function normalizePubgId(value){return String(value==null?"":value).normalize("NFKC").trim();}
+function serverNicknameFromDiscordUser(u){
+  u=u||{};
+  const raw=String(u.discordGuildNick||u.guildNick||u.serverNick||u.discordServerNickname||'').split('/')[0]||'';
+  return normalizeNickname(raw);
+}
 function isKoreanNickname(value){return /^[가-힣]{1,4}$/.test(normalizeNickname(value));}
 function isValidPubgId(value){return /^[A-Za-z0-9_-]{2,32}$/.test(normalizePubgId(value));}
 function cleanId(v){return String(v==null?"":v).trim().toLowerCase().replace(/^discord-/,"");}
@@ -24,7 +29,8 @@ function resetReleasedUserBase(old){const out=Object.assign({},old||{});out.bann
 
 
 function buildApprovedUser(discordUser,nickname,pubgId,old){
-  const nick=normalizeNickname(nickname||old?.nickname||discordUser?.discordGlobalName||discordUser?.discordUsername||"유저");
+  const serverNick=serverNicknameFromDiscordUser(discordUser);
+  const nick=normalizeNickname(serverNick||nickname||old?.registeredNickname||old?.pklNickname||old?.nickname||"유저");
   const game=normalizePubgId(pubgId||old?.pubgId||old?.gameId||old?.ref||nick);
   const now=new Date().toLocaleString("ko-KR");
 
@@ -82,7 +88,8 @@ async function handler(req,res){
 
     let discordUser=body.discordUser||{};
     try{ if(supabaseStore && typeof supabaseStore.discordRolePatchForUser === "function") discordUser = Object.assign({}, discordUser, await supabaseStore.discordRolePatchForUser(discordUser)); }catch(_e){}
-    const nickname=normalizeNickname(body.nickname || body.nick || body.name || body.displayName);
+    const inputNickname=normalizeNickname(body.nickname || body.nick || body.name || body.displayName);
+    const nickname=serverNicknameFromDiscordUser(discordUser)||inputNickname;
     const pubgId=normalizePubgId(body.pubgId || body.pubg_id || body.gameId || body.ref);
     const recommender=normalizeNickname(body.recommender || body.referrer || body.recommend || "");
 
