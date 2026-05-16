@@ -305,12 +305,18 @@ input,textarea,[contenteditable="true"],[contenteditable="true"] *{
 
   function isAdminUser(user){
     if(!user) return false;
-    if(window.PKLRoleSystem && typeof window.PKLRoleSystem.hasRole === "function") return window.PKLRoleSystem.hasRole(user,"operator");
-    const role=String(user.memberRole || user.role || user.roleName || user.adminRole || user.permission || user.type || "").trim();
+    /* Supabase에서 방금 받아온 user.role/memberRole을 최우선으로 본다.
+       PKLRoleSystem.hasRole()은 일부 페이지에서 예전 localStorage 권한을 섞어
+       Supabase admin을 다시 user처럼 판단하는 경로가 있어서 fallback으로만 사용한다. */
+    const role=String(user.memberRole || user.role || user.userRole || user.authRole || user.roleName || user.adminRole || user.permission || user.type || "").trim();
     const roleLower=role.toLowerCase();
     const isManager=role==="admin" || role==="manager" || role==="관리자" || role==="총관리자" || roleLower==="admin" || roleLower==="manager" || roleLower==="superadmin" || roleLower==="owner";
-    const isOperator=role==="operator" || role==="운영자" || role==="운영진" || roleLower==="operator" || roleLower==="staff";
-    return isManager || isOperator;
+    const isOperator=role==="operator" || role==="운영자" || role==="운영진" || roleLower==="operator" || roleLower==="staff" || roleLower==="moderator";
+    if(isManager || isOperator || user.isAdmin === true || user.admin === true || user.isOperator === true || user.operator === true) return true;
+    try{
+      if(window.PKLRoleSystem && typeof window.PKLRoleSystem.hasRole === "function") return window.PKLRoleSystem.hasRole(user,"operator");
+    }catch(e){}
+    return false;
   }
 
   function setButtonText(button,text){
@@ -354,22 +360,24 @@ if(node.nodeType===Node.TEXT_NODE){
 
   function getHeaderHydratedUser(user){
     const stored=findStoredPklUser(user);
-    let target=Object.assign({}, user || {}, stored || {});
-    if(window.PKLRoleSystem && typeof window.PKLRoleSystem.hydrateUser === "function"){
-      target=window.PKLRoleSystem.hydrateUser(target);
-    }
-    return target;
+    /* 헤더/권한은 Supabase user 객체 그대로 사용한다.
+       여기서 PKLRoleSystem.hydrateUser()를 호출하면 오래된 pklUsers/localStorage가
+       role=admin 값을 role=user로 되돌리는 문제가 생긴다. */
+    return Object.assign({}, user || {}, stored || {});
   }
 
   function getHeaderAccessRole(user){
     const target=getHeaderHydratedUser(user);
-    if(window.PKLRoleSystem && typeof window.PKLRoleSystem.accessRoleFromUser === "function"){
-      return window.PKLRoleSystem.accessRoleFromUser(target);
-    }
-    const role=String((target && (target.memberRole || target.role || target.roleName || target.adminRole || target.permission || target.type)) || "").trim();
+    const role=String((target && (target.memberRole || target.role || target.userRole || target.authRole || target.roleName || target.adminRole || target.permission || target.type)) || "").trim();
     const roleLower=role.toLowerCase();
-    if(role==="관리자" || role==="총관리자" || roleLower==="admin" || roleLower==="manager" || roleLower==="superadmin" || roleLower==="owner") return "admin";
-    if(role==="운영자" || role==="운영진" || roleLower==="operator" || roleLower==="staff" || roleLower==="moderator") return "operator";
+    if(role==="관리자" || role==="총관리자" || roleLower==="admin" || roleLower==="manager" || roleLower==="superadmin" || roleLower==="owner" || target.isAdmin===true || target.admin===true) return "admin";
+    if(role==="운영자" || role==="운영진" || roleLower==="operator" || roleLower==="staff" || roleLower==="moderator" || target.isOperator===true || target.operator===true) return "operator";
+    try{
+      if(window.PKLRoleSystem && typeof window.PKLRoleSystem.accessRoleFromUser === "function"){
+        const fallback=String(window.PKLRoleSystem.accessRoleFromUser(target)||"").trim().toLowerCase();
+        if(fallback) return fallback;
+      }
+    }catch(e){}
     return roleLower || "user";
   }
 
@@ -452,6 +460,7 @@ if(node.nodeType===Node.TEXT_NODE){
           discordId: matched.discordId || matched.discord_id || local.discordId || local.discord_id,
           discord_id: matched.discord_id || matched.discordId || local.discord_id || local.discordId
         });
+        window.__PKL_CURRENT_SUPABASE_USER = merged;
         PKL_LOGIN_STORAGE_KEYS.forEach(function(key){
           try{ if(localStorage.getItem(key) || key==='pklLoginUser') localStorage.setItem(key, JSON.stringify(merged)); }catch(e){}
           try{ if(sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify(merged)); }catch(e){}
@@ -750,11 +759,10 @@ if(node.nodeType===Node.TEXT_NODE){
     try {
       var current = getCurrentUser && getCurrentUser();
       if (current) {
-        if (window.PKLRoleSystem && typeof window.PKLRoleSystem.hydrateUser === "function") {
-          current = window.PKLRoleSystem.hydrateUser(current);
-          if (typeof window.PKLRoleSystem.roleSnapshotForUser === "function") {
-            current = Object.assign({}, current, window.PKLRoleSystem.roleSnapshotForUser(current));
-          }
+        /* localStorage 보정 시 PKLRoleSystem.hydrateUser()를 타지 않는다.
+           Supabase admin 값을 받기 전/후에 구버전 로컬 권한이 섞이는 문제 차단. */
+        if(window.__PKL_CURRENT_SUPABASE_USER){
+          current = Object.assign({}, current, window.__PKL_CURRENT_SUPABASE_USER);
         }
         PKL_LOGIN_STORAGE_KEYS.forEach(function(key){
           try{ if(localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(current)); }catch(e){}

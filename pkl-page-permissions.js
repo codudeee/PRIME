@@ -23,18 +23,21 @@
       if(/일반|member|normal|general|user/.test(txt)) return 'user';
       return '';
     }
+    var currentKeys=['pklLoginUser','discordUser','pklCurrentUser','pklUser','PKL_로그인_USER','PKL_CURRENT_USER','pklLoggedInUser','currentUser','PKL_USER','pklAuthUser'];
+    var currents=[];
+    if(window.__PKL_CURRENT_SUPABASE_USER && typeof window.__PKL_CURRENT_SUPABASE_USER==='object') currents.push(window.__PKL_CURRENT_SUPABASE_USER);
+    currentKeys.forEach(function(k){var u=parse(localStorage.getItem(k))||parse(sessionStorage.getItem(k)); if(u&&typeof u==='object') currents.push(u);});
+    function isProtectedOwner(u){ return false; }
+    /* Supabase에서 받은 현재 유저 role을 먼저 본다. PKLRoleSystem은 구버전 로컬 state를
+       섞을 수 있어서 직접 role 판정 실패 시에만 fallback으로 사용한다. */
+    for(var i=0;i<currents.length;i++){var direct=mapRoleText(roleText(currents[i])); if(direct) return direct;}
     try{
       if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentAccessRole==='function'){
         var rr=mapRoleText(norm(window.PKLRoleSystem.currentAccessRole()));
         if(rr) return rr;
       }
+      if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentUser==='function'){var u=window.PKLRoleSystem.currentUser(); var ur=mapRoleText(roleText(u)); if(ur) return ur;}
     }catch(e){}
-    var currentKeys=['pklLoginUser','pklCurrentUser','pklUser','PKL_로그인_USER','PKL_CURRENT_USER','pklLoggedInUser','currentUser','PKL_USER','pklAuthUser'];
-    var currents=[];
-    currentKeys.forEach(function(k){var u=parse(localStorage.getItem(k))||parse(sessionStorage.getItem(k)); if(u&&typeof u==='object') currents.push(u);});
-    try{ if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentUser==='function'){var u=window.PKLRoleSystem.currentUser(); if(u) currents.push(u);} }catch(e){}
-    function isProtectedOwner(u){ return false; }
-    for(var i=0;i<currents.length;i++){var direct=mapRoleText(roleText(currents[i])); if(direct) return direct;}
     function names(u){return ['uid','id','userId','memberId','loginId','email','nickname','nick','name','displayName','userName','pubgId','pubgID','pubgName','gameId','username','discordId','key','ref'].map(function(k){return norm(u&&u[k]);}).filter(Boolean);}
     var tokens=[]; currents.forEach(function(u){tokens=tokens.concat(names(u));});
     return 'guest';
@@ -208,8 +211,9 @@
       }
     });
     mo.observe(document.body||document.documentElement,{childList:true,subtree:true,attributes:false});
-    /* 2차 청소: storage/supabase 이벤트마다 권한 UI 전체 재검사 금지.
-       DOM 변경 시 MutationObserver와 명시적 PKLPagePermissions.schedule()만 사용한다. */
+    window.addEventListener('pkl-current-user-updated',scheduleApply);
+    window.addEventListener('pkl-role-data-updated',scheduleApply);
+    window.addEventListener('storage',scheduleApply);
     window.PKLPagePermissions={apply:applyAll,schedule:scheduleApply,isAdmin:isAdmin,isOperatorUp:isOperatorUp,currentRole:role};
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
