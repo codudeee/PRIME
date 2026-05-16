@@ -226,6 +226,44 @@ function canonicalDiscordIdFromRow(row){
     key: raw.key || row.key
   });
 }
+function normalizeIdentityText(v){
+  return clean(v).normalize('NFKC').toLowerCase().replace(/[\s\u00a0\u200b\u200c\u200d\ufeff]+/g, '');
+}
+function canonicalPubgIdFromRow(row){
+  row = row || {};
+  const raw = row.raw && typeof row.raw === 'object' ? row.raw : {};
+  return normalizeIdentityText(row.pubg_id || raw.pubgId || raw.pubg_id || raw.gameId || raw.pubgName || raw.ref || raw.pubg);
+}
+function canonicalNicknameFromRow(row){
+  row = row || {};
+  const raw = row.raw && typeof row.raw === 'object' ? row.raw : {};
+  return normalizeIdentityText(row.nickname || raw.nickname || raw.nick || raw.name || raw.displayName);
+}
+function accessRoleRank(v){
+  const r = normalizeRole(v);
+  if(r === 'admin') return 4;
+  if(r === 'operator') return 3;
+  if(r === 'prisoner') return 2;
+  if(r === 'guest') return 1;
+  return 0;
+}
+function highestRoleFromRows(rows){
+  let best = 'user', rank = 0;
+  (Array.isArray(rows)?rows:[]).forEach(row => {
+    const raw = row && row.raw && typeof row.raw === 'object' ? row.raw : {};
+    const candidates = [row && row.role, raw.memberRole, raw.role, raw.userRole, raw.authRole, raw.adminRole];
+    candidates.forEach(v => { const r = normalizeRole(v); const n = accessRoleRank(r); if(n > rank){ rank = n; best = r; } });
+  });
+  return best;
+}
+function bestTierFromRows(rows, fallback){
+  for(const row of (Array.isArray(rows)?rows:[])){
+    const raw = row && row.raw && typeof row.raw === 'object' ? row.raw : {};
+    const t = normalizeTier(row.tier || raw.memberTier || raw.gradeRole || raw.tierRole || raw.tier || raw.baseRole);
+    if(t && t !== 'none') return t;
+  }
+  return normalizeTier(fallback || 'none');
+}
 function scoreUserRowForKeep(row){
   const r = row || {};
   let score = 0;
@@ -239,39 +277,58 @@ function scoreUserRowForKeep(row){
 }
 async function cleanupDuplicateUsersByDiscordId(limit=2000){
   const { json } = await supabaseFetch(`users?select=*&order=updated_at.desc.nullslast&limit=${Math.max(100, Math.min(5000, Number(limit)||2000))}`);
-  const rows = Array.isArray(json) ? json : [];
-  const groups = new Map();
-  rows.forEach(row => {
-    const did = canonicalDiscordIdFromRow(row);
-    if(!did) return;
-    if(!groups.has(did)) groups.set(did, []);
-    groups.get(did).push(row);
-  });
+  let rows = Array.isArray(json) ? json : [];
   let mergedCount = 0, normalizedCount = 0;
-  for (const [did, list] of groups.entries()) {
-    if(!list.length) continue;
-    const needsNormalize = list.some(r => cleanId(r.discord_id) !== did || clean(r.discord_id) !== did);
-    if(list.length < 2 && !needsNormalize) continue;
+
+  async function mergeGroup(list, reason){
+    list = (Array.isArray(list)?list:[]).filter(Boolean);
+    if(list.length < 1) return null;
     const sorted = list.map((row, idx) => ({ row, idx, score: scoreUserRowForKeep(row), updated: Date.parse(row.updated_at || row.created_at || '') || 0 }))
       .sort((a,b)=> (b.score-a.score) || (b.updated-a.updated) || (a.idx-b.idx));
     const keep = sorted[0].row;
     const raws = list.map(r => (r.raw && typeof r.raw === 'object') ? r.raw : {});
     const latest = sorted[0].row;
     const mergedRaw = Object.assign({}, ...raws, latest.raw && typeof latest.raw === 'object' ? latest.raw : {});
-    mergedRaw.discordId = did;
-    mergedRaw.discord_id = did;
-    mergedRaw.uid = `discord-${did}`;
-    mergedRaw.id = `discord-${did}`;
-    mergedRaw.userId = `discord-${did}`;
+    const did = canonicalDiscordIdFromRow(keep) || list.map(canonicalDiscordIdFromRow).find(Boolean) || '';
+    const pubgOriginal = clean(latest.pubg_id || keep.pubg_id || mergedRaw.pubgId || mergedRaw.pubg_id || mergedRaw.gameId || '');
+    const nicknameOriginal = cleanNickname(latest.nickname || keep.nickname || mergedRaw.nickname || mergedRaw.nick || mergedRaw.name || '');
+    if(did){
+      mergedRaw.discordId = did;
+      mergedRaw.discord_id = did;
+      mergedRaw.uid = `discord-${did}`;
+      mergedRaw.id = `discord-${did}`;
+      mergedRaw.userId = `discord-${did}`;
+    }
+    const role = highestRoleFromRows(list);
+    const tier = bestTierFromRows(sorted.map(x=>x.row), latest.tier || keep.tier || mergedRaw.memberTier || mergedRaw.gradeRole || mergedRaw.tier || 'none');
+    Object.assign(mergedRaw, {
+      nickname: nicknameOriginal || mergedRaw.nickname || mergedRaw.nick || mergedRaw.name || '',
+      nick: nicknameOriginal || mergedRaw.nick || mergedRaw.nickname || mergedRaw.name || '',
+      name: nicknameOriginal || mergedRaw.name || mergedRaw.nickname || mergedRaw.nick || '',
+      pubgId: pubgOriginal || mergedRaw.pubgId || mergedRaw.pubg_id || mergedRaw.gameId || '',
+      gameId: pubgOriginal || mergedRaw.gameId || mergedRaw.pubgId || mergedRaw.pubg_id || '',
+      role,
+      memberRole: role,
+      userRole: role,
+      authRole: role,
+      adminRole: role === 'admin' ? '관리자' : (role === 'operator' ? '운영자' : (role === 'prisoner' ? '수감자' : '일반')),
+      memberRoleName: role === 'admin' ? '관리자' : (role === 'operator' ? '운영자' : (role === 'prisoner' ? '수감자' : '일반')),
+      tier: tier === 'none' ? '없음' : tier,
+      memberTier: tier,
+      gradeRole: tier,
+      tierRole: tier,
+      duplicateCleanupReason: reason || 'identity',
+      duplicateCleanupAt: new Date().toISOString()
+    });
     const body = {
-      discord_id: did,
+      discord_id: did || cleanId(keep.discord_id || ''),
       discord_username: clean(latest.discord_username || keep.discord_username || mergedRaw.discordUsername || mergedRaw.discord_username || ''),
-      nickname: cleanNickname(latest.nickname || keep.nickname || mergedRaw.nickname || mergedRaw.nick || mergedRaw.name || ''),
-      pubg_id: clean(latest.pubg_id || keep.pubg_id || mergedRaw.pubgId || mergedRaw.pubg_id || mergedRaw.gameId || ''),
-      tier: normalizeTier(latest.tier || keep.tier || mergedRaw.memberTier || mergedRaw.gradeRole || mergedRaw.tier || 'none'),
-      role: normalizeRole(latest.role || keep.role || mergedRaw.memberRole || mergedRaw.role || 'user'),
-      prime: Number(latest.prime ?? latest.points ?? keep.prime ?? keep.points ?? mergedRaw.prime ?? mergedRaw.points ?? 0) || 0,
-      warnings: Number(latest.warnings ?? keep.warnings ?? mergedRaw.warnings ?? 0) || 0,
+      nickname: nicknameOriginal,
+      pubg_id: pubgOriginal,
+      tier,
+      role,
+      prime: Math.max(...list.map(r => Number(r.prime ?? r.points ?? ((r.raw&&r.raw.prime) || 0)) || 0), 0),
+      warnings: Math.max(...list.map(r => Number(r.warnings ?? ((r.raw&&r.raw.warnings) || 0)) || 0), 0),
       raw: mergedRaw,
       updated_at: new Date().toISOString()
     };
@@ -285,7 +342,47 @@ async function cleanupDuplicateUsersByDiscordId(limit=2000){
       await supabaseFetch(`users?id=eq.${encodeURIComponent(keepId)}`, { method:'PATCH', headers:{Prefer:'return=minimal'}, body: JSON.stringify(body) }).catch(()=>{});
       normalizedCount += 1;
     }
+    return keepId;
   }
+
+  async function runPass(kind){
+    const groups = new Map();
+    rows.forEach(row => {
+      let key = '';
+      if(kind === 'discord'){
+        const did = canonicalDiscordIdFromRow(row);
+        if(!did) return;
+        key = `discord:${did}`;
+      } else if(kind === 'pubg'){
+        const pubg = canonicalPubgIdFromRow(row);
+        if(!pubg) return;
+        key = `pubg:${pubg}`;
+      } else if(kind === 'nicknamePubg'){
+        const nick = canonicalNicknameFromRow(row);
+        const pubg = canonicalPubgIdFromRow(row);
+        if(!nick || !pubg) return;
+        key = `nickpubg:${nick}|${pubg}`;
+      }
+      if(!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    });
+    for (const [key, list] of groups.entries()) {
+      const needsNormalize = kind === 'discord' && list.some(r => {
+        const did = canonicalDiscordIdFromRow(r);
+        return did && (cleanId(r.discord_id) !== did || clean(r.discord_id) !== did);
+      });
+      if(list.length < 2 && !needsNormalize) continue;
+      await mergeGroup(list, key);
+    }
+  }
+
+  // 1차: 같은 Discord 계정 중복 row 병합.
+  await runPass('discord');
+  // 병합 후 다시 읽어서 2차로 PUBG ID가 같은 실사용 중복 row를 병합한다.
+  const fresh = await supabaseFetch(`users?select=*&order=updated_at.desc.nullslast&limit=${Math.max(100, Math.min(5000, Number(limit)||2000))}`).catch(()=>({json:rows}));
+  rows = Array.isArray(fresh.json) ? fresh.json : rows;
+  await runPass('pubg');
+
   return { mergedCount, normalizedCount };
 }
 
