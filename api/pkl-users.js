@@ -26,11 +26,11 @@ module.exports = async function handler(req, res) {
       // admin/user list and current-user checks should reflect the Discord server profile nickname/roles from Supabase.
       // Do not do this on tierOnly bulk calls because that can fetch hundreds of Discord members and cause lag.
       if (!tierOnly && supabaseStore.syncDiscordGuildRoles && Array.isArray(result.users) && result.users.length) {
-        const pageUsers = result.users.slice(0, limit);
-        const synced = await Promise.all(pageUsers.map(async (u) => {
-          try { return await supabaseStore.syncDiscordGuildRoles(u) || u; }
-          catch (_) { return u; }
-        }));
+        const synced = [];
+        for (const u of result.users) {
+          try { synced.push(await supabaseStore.syncDiscordGuildRoles(u) || u); }
+          catch (_) { synced.push(u); }
+        }
         result = Object.assign({}, result, { users: synced });
       }
       return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, discordId, tierOnly });
@@ -51,6 +51,12 @@ module.exports = async function handler(req, res) {
         if (typeof supabaseStore.adjustUserPrime !== 'function') throw new Error('Supabase prime adjustment function missing');
         const result = await supabaseStore.adjustUserPrime(body.user || body.identity || {}, Number(body.amount || 0), String(body.reason || ''), String(body.actor || 'ADMIN'));
         return res.status(200).json({ ok: true, ...result });
+      }
+      if (body.action === 'updateTier') {
+        if (typeof supabaseStore.updateUserTier !== 'function') throw new Error('Supabase tier update function missing');
+        const actor = String(body.actor || 'TIER').trim() || 'TIER';
+        const user = await supabaseStore.updateUserTier(body.user || body.identity || {}, body.tier || body.memberTier || body.gradeRole || body.tierRole || '', actor);
+        return res.status(200).json({ ok: true, user, users: [user] });
       }
       if (body.action === 'updateUserWithLog') {
         if (typeof supabaseStore.updateUserWithLog !== 'function') throw new Error('Supabase user log function missing');
