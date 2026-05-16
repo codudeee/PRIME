@@ -64,6 +64,19 @@ function normalizeNickname(value){
     .replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u, '')
     .trim();
 }
+
+function koreanNicknameFromDiscordGuildNick(value){
+  const raw = String(value == null ? '' : value).normalize('NFKC').trim();
+  if (!raw) return '';
+  const beforeSlash = raw.split('/')[0] || raw;
+  const cleaned = beforeSlash
+    .replace(/^[^가-힣A-Za-z0-9]+/g, '')
+    .replace(/[\s ​‌‍﻿]/g, '')
+    .trim();
+  const m = cleaned.match(/[가-힣]{1,4}/);
+  return m ? m[0] : '';
+}
+
 function isKoreanNickname(value){ return /^[가-힣]{1,4}$/.test(normalizeNickname(value)); }
 function normalizePubgId(value){ return String(value == null ? "" : value).normalize("NFKC").trim(); }
 function cleanId(v){ return String(v == null ? "" : v).trim().toLowerCase().replace(/^discord-/, ""); }
