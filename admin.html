@@ -9002,7 +9002,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     }catch(e){ console.warn('Discord 서버닉 동기화 실패', e); }
   }
   async function fetchAdminUsersPage(offset){
-    if(!offset){ await runDuplicateCleanupOnce(); await runDiscordGuildNicknameSyncOnce(); }
+    if(!offset){ /* 회원목록 조회 중 자동 cleanup/동기화 금지: 조회는 users 테이블만 즉시 표시 */ }
     var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
@@ -9023,6 +9023,11 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       __pklAdminUsersOffset=offset+page.length;
       __pklAdminUsersHasMore=page.length>=__pklAdminUsersPageSize && (__pklAdminUsersTotal==null || __pklAdminUsersOffset<__pklAdminUsersTotal);
       setAdminUsers(merged);
+      if(!append && !__pklAdminGuildNicknameSyncDone){
+        setTimeout(function(){ runDiscordGuildNicknameSyncOnce().then(function(){
+          if(typeof window.PKLAdminInvalidateUsersRenderCache==='function') window.PKLAdminInvalidateUsersRenderCache();
+        }).catch(function(){}); }, 250);
+      }
     }catch(err){
       console.error('PKL admin canonical users load failed',err);
       var list=document.getElementById('userList'); if(list && !append) list.innerHTML='<div class="pending-empty">Supabase 유저를 불러오지 못했습니다.<br>users SELECT 정책/API 응답을 확인해주세요.</div>';
