@@ -1,16 +1,17 @@
 /* =========================================================
-   PKL horizontal page scrollbar only
-   - UI/카드/칸/그리드 크기 변경 없음
-   - 내부 컨테이너가 아니라 브라우저 하단 가로 스크롤 1개만 생성
-   - 오른쪽 세로 스크롤바는 숨기고 휠 세로 스크롤은 유지
+   PKL horizontal page scrollbar only when needed
+   - 창 폭이 데스크톱 기준보다 작을 때만 브라우저 하단 가로 스크롤 생성
+   - 전체화면/충분한 폭에서는 하단 검은 스크롤바가 보이지 않게 함
+   - UI/카드/칸/그리드 크기는 변경하지 않음
    ========================================================= */
 :root{
-  --pkl-page-scroll-width:1600px;
-  --pkl-sheet-scroll-width:1720px;
+  --pkl-page-scroll-width:1440px;
+  --pkl-sheet-scroll-width:1560px;
 }
 
 html{
-  overflow-x:scroll !important;
+  min-width:var(--pkl-page-scroll-width) !important;
+  overflow-x:auto !important;
   overflow-y:auto !important;
   scrollbar-gutter:auto !important;
   -webkit-text-size-adjust:100% !important;
@@ -18,30 +19,31 @@ html{
 }
 
 body{
+  min-width:var(--pkl-page-scroll-width) !important;
   overflow-x:visible !important;
   overflow-y:auto !important;
   transform:none !important;
   zoom:1 !important;
 }
 
-/* 실제 UI 폭을 건드리지 않고, 스크롤 범위만 만드는 투명 스페이서 */
-body::after{
-  content:"";
-  display:block;
-  width:var(--pkl-page-scroll-width);
-  max-width:none !important;
-  height:1px;
-  min-height:1px;
-  pointer-events:none;
-  visibility:hidden;
-  clear:both;
+/* sheet류는 기존보다 넓은 기준 폭 유지 */
+html:has(body .sheet),
+html:has(body .app .sheet),
+html:has(body .sheet-wrap),
+html:has(body .sheet-panel){
+  min-width:var(--pkl-sheet-scroll-width) !important;
+}
+html:has(body .sheet) body,
+html:has(body .app .sheet) body,
+html:has(body .sheet-wrap) body,
+html:has(body .sheet-panel) body{
+  min-width:var(--pkl-sheet-scroll-width) !important;
 }
 
-body:has(.sheet)::after,
-body:has(.app .sheet)::after,
-body:has(.sheet-wrap)::after,
-body:has(.sheet-panel)::after{
-  width:var(--pkl-sheet-scroll-width);
+/* 이전 버전의 투명 스페이서가 항상 하단 스크롤바를 만들던 문제 제거 */
+body::after{
+  content:none !important;
+  display:none !important;
 }
 
 /* team/sheet 등 내부에서 만든 가로 스크롤은 보이지 않게 하고, 페이지 전체 스크롤만 사용 */
@@ -54,7 +56,7 @@ body:has(.sheet-panel)::after{
   overflow-x:visible !important;
 }
 
-/* 오른쪽 세로 스크롤바 숨김 / 하단 가로 스크롤바는 admin 스타일 계열 */
+/* 오른쪽 세로 스크롤바 숨김 / 하단 가로 스크롤바는 필요할 때만 표시 */
 html::-webkit-scrollbar,
 body::-webkit-scrollbar{
   width:0 !important;
@@ -85,4 +87,23 @@ body::-webkit-scrollbar-thumb:horizontal{
 html::-webkit-scrollbar-thumb:horizontal:hover,
 body::-webkit-scrollbar-thumb:horizontal:hover{
   background:linear-gradient(90deg,rgba(233,213,255,.95),rgba(139,92,246,.82)) !important;
+}
+
+/* 충분히 넓은 전체화면에서는 혹시 남는 가로 스크롤 여백을 강제로 제거 */
+@media (min-width:1600px){
+  html,
+  body{
+    min-width:0 !important;
+    overflow-x:hidden !important;
+  }
+  html:has(body .sheet),
+  html:has(body .app .sheet),
+  html:has(body .sheet-wrap),
+  html:has(body .sheet-panel),
+  html:has(body .sheet) body,
+  html:has(body .app .sheet) body,
+  html:has(body .sheet-wrap) body,
+  html:has(body .sheet-panel) body{
+    min-width:0 !important;
+  }
 }
