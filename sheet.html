@@ -6563,6 +6563,33 @@ body.pkl-team-compose-edit-mode .member-row.pkl-team-compose-edit-row{
   font-weight:1000;
   cursor:pointer;
 }
+
+body.pkl-team-compose-edit-mode .record-table th.pkl-team-compose-edit-head{
+  position:sticky !important;
+  top:0 !important;
+  overflow:visible !important;
+  z-index:220 !important;
+}
+.pkl-team-header-edit-wrap{
+  position:relative !important;
+  width:calc(100% - 8px) !important;
+  margin:0 auto !important;
+  display:block !important;
+}
+.pkl-team-header-edit-input{
+  height:28px !important;
+  font-size:13px !important;
+  text-align:center !important;
+}
+.pkl-team-header-edit-wrap .pkl-team-edit-suggest{
+  left:50% !important;
+  transform:translateX(-50%) !important;
+  top:calc(100% + 7px) !important;
+  text-align:left !important;
+}
+body.pkl-team-compose-edit-mode #teamGrid .member-row{
+  cursor:default !important;
+}
 </style>
 </head>
 <body>
@@ -7988,12 +8015,8 @@ function renderBoard(){
           const memberScore=killScore-deathScore;
           const canDrag=pklIsSheetStaff();
           const dragAttrs=canDrag ? ` draggable="true" data-pkl-member-drag="1" data-real-team="${realTeamId(view.viewId)}" data-member-index="${(view.memberOffset||0)+i}" title="관리자/운영자 드래그 이동"` : '';
-          const teamEdit=!!(window.__PKL_TEAM_COMPOSE_EDIT_MODE && pklIsSheetStaff());
-          const editAttrs=teamEdit ? ` data-pkl-team-edit-row="1" data-real-team="${realTeamId(view.viewId)}" data-member-index="${(view.memberOffset||0)+i}"` : '';
-          const nameHtml=teamEdit
-            ? `<input class="pkl-team-member-edit-input" type="text" value="${escape(m.name||'')}" placeholder="선수 검색" data-pkl-team-edit-input="1" data-real-team="${realTeamId(view.viewId)}" data-member-index="${(view.memberOffset||0)+i}" autocomplete="off"><div class="pkl-team-edit-suggest" data-pkl-team-edit-suggest="1"></div>`
-            : `<span class="member-name">${m.name ? escape(m.name) : '&nbsp;'}</span>`;
-          return `<div class="member-row ${canDrag && !teamEdit?'pkl-member-draggable':''} ${teamEdit?'pkl-team-compose-edit-row':''}"${teamEdit?'':dragAttrs}${editAttrs}>${nameHtml}<span class="member-kd">${memberScore} (${killScore}/${deathScore})</span></div>`;
+          const nameHtml=`<span class="member-name">${m.name ? escape(m.name) : '&nbsp;'}</span>`;
+          return `<div class="member-row ${canDrag?'pkl-member-draggable':''}"${dragAttrs}>${nameHtml}<span class="member-kd">${memberScore} (${killScore}/${deathScore})</span></div>`;
         }).join('')}
         <div class="member-row team-extra-row"><span class="member-name">🍗 ${st.chicken}</span><span class="member-kd">⛔ ${st.stop}</span></div>
       </div>
@@ -8125,10 +8148,16 @@ function renderSheet(){
     sheetBox.classList.toggle('is-readonly-sheet', !canEditSheet);
   }
   if(sheetTitle) sheetTitle.innerHTML='<span>MATCH</span> RECORD';
+  const teamEditMode=!!(window.__PKL_TEAM_COMPOSE_EDIT_MODE && pklIsSheetStaff());
   for(let i=0;i<4;i++){
     const h=document.getElementById('h'+i);
     const m=view.members[i];
-    h.innerHTML = m && m.name ? pklSheetHeaderNameHtml(m) : '';
+    h.classList.toggle('pkl-team-compose-edit-head', !!(teamEditMode && m && m.name));
+    if(teamEditMode && m && m.name){
+      h.innerHTML = `<div class="pkl-team-header-edit-wrap" data-pkl-team-edit-row="1" data-real-team="${realId}" data-member-index="${offset+i}"><input class="pkl-team-member-edit-input pkl-team-header-edit-input" type="text" value="${escape(m.name||'')}" placeholder="교체 선수 검색" data-pkl-team-edit-input="1" data-real-team="${realId}" data-member-index="${offset+i}" autocomplete="off"><div class="pkl-team-edit-suggest" data-pkl-team-edit-suggest="1"></div></div>`;
+    }else{
+      h.innerHTML = m && m.name ? pklSheetHeaderNameHtml(m) : '';
+    }
     h.style.opacity='1';
   }
   const body=document.getElementById('recordBody');
@@ -14235,7 +14264,8 @@ window.addEventListener('DOMContentLoaded',()=>{
     while(team.members.length<=index) team.members.push({name:'',tier:''});
     var name=userName(user);
     var tier=userTier(user);
-    team.members[index]={
+    var oldMember=team.members[index] ? Object.assign({},team.members[index]) : {name:'',tier:''};
+    var newMember={
       name:name,
       nickname:name,
       nick:user.nick||'',
@@ -14255,6 +14285,21 @@ window.addEventListener('DOMContentLoaded',()=>{
       role:user.role||'',
       title:user.title||''
     };
+    var nk=userKey(newMember);
+    try{
+      (state.teams||[]).some(function(t){
+        if(!t || !Array.isArray(t.members)) return false;
+        for(var mi=0; mi<t.members.length; mi++){
+          if(String(t.id)===String(team.id) && mi===index) continue;
+          if(nk && userKey(t.members[mi])===nk){
+            t.members[mi]=oldMember;
+            return true;
+          }
+        }
+        return false;
+      });
+    }catch(e){}
+    team.members[index]=newMember;
     try{ if(typeof pklMarkLocalSheetEdit==='function') pklMarkLocalSheetEdit(); }catch(e){}
     try{ if(typeof save==='function') save(); }catch(e){}
     try{ if(typeof render==='function') render(); }catch(e){}
@@ -14265,7 +14310,8 @@ window.addEventListener('DOMContentLoaded',()=>{
   }
   async function showSuggest(input){
     if(!input) return;
-    var box=input.parentElement && input.parentElement.querySelector('[data-pkl-team-edit-suggest]');
+    var host=input.closest && input.closest('[data-pkl-team-edit-row]');
+    var box=host && host.querySelector('[data-pkl-team-edit-suggest]');
     if(!box) return;
     var q=input.value;
     var users=await loadAllUsers();
@@ -14290,7 +14336,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     toast=document.createElement('div');
     toast.id='pklTeamComposeToast';
     toast.className='pkl-team-compose-toast';
-    toast.innerHTML='<span>팀 구성 수정 모드입니다. 선수칸을 검색해서 교체 후 완료를 누르세요.</span><button type="button" id="pklTeamComposeDone">완료</button>';
+    toast.innerHTML='<span>팀 구성 수정 모드입니다. MATCH RECORD 상단 선수 이름칸에서 교체할 선수를 검색한 뒤 선택하고 완료를 누르세요.</span><button type="button" id="pklTeamComposeDone">완료</button>';
     document.body.appendChild(toast);
     return toast;
   }
@@ -14303,10 +14349,10 @@ window.addEventListener('DOMContentLoaded',()=>{
     var toast=ensureToast();
     toast.classList.toggle('show',!!on);
     closeSuggest();
-    try{ if(typeof renderBoard==='function') renderBoard(); }catch(e){ try{ if(typeof render==='function') render(); }catch(_e){} }
+    try{ if(typeof renderSheet==='function') renderSheet(); }catch(e){ try{ if(typeof render==='function') render(); }catch(_e){} }
     if(on){
       loadAllUsers();
-      try{ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast('팀 구성 수정 모드가 켜졌습니다.'); }catch(e){}
+      try{ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast('팀 구성 수정 모드가 켜졌습니다. 점수 시트지 상단 선수 이름칸에서 교체하세요.'); }catch(e){}
     }
   }
 
@@ -14329,13 +14375,13 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(opt){
       e.preventDefault(); e.stopPropagation();
       var box=opt.closest('[data-pkl-team-edit-suggest]');
-      var row=opt.closest('.pkl-team-compose-edit-row');
+      var row=opt.closest('[data-pkl-team-edit-row]');
       var input=row && row.querySelector('[data-pkl-team-edit-input]');
       var users=box && box.__pklUsers || [];
       applyUserToSlot(input, users[Number(opt.dataset.pklTeamUserIndex)]);
       return;
     }
-    if(!(e.target && e.target.closest && e.target.closest('.pkl-team-compose-edit-row'))) closeSuggest();
+    if(!(e.target && e.target.closest && e.target.closest('[data-pkl-team-edit-row]'))) closeSuggest();
   },true);
   document.addEventListener('focusin',function(e){
     var input=e.target && e.target.matches && e.target.matches('[data-pkl-team-edit-input]') ? e.target : null;
@@ -14350,7 +14396,8 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(!input) return;
     if(e.key==='Escape'){ closeSuggest(); return; }
     if(e.key==='Enter'){
-      var box=input.parentElement && input.parentElement.querySelector('[data-pkl-team-edit-suggest]');
+      var host=input.closest && input.closest('[data-pkl-team-edit-row]');
+    var box=host && host.querySelector('[data-pkl-team-edit-suggest]');
       var users=box && box.__pklUsers || [];
       if(users[0]){ e.preventDefault(); applyUserToSlot(input,users[0]); }
     }
