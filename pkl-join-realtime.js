@@ -6,6 +6,7 @@
   var KEYS={}; KEYS[WAIT_KEY]=1; KEYS[CANCEL_KEY]=1; KEYS[RECRUIT_KEY]=1;
   var originalSet=Storage.prototype.setItem, originalRemove=Storage.prototype.removeItem;
   var saveTimer=null, realtimeSocket=null, realtimeRef=1, realtimeJoined=false, applying=false;
+  var realtimeHeartbeatTimer=null, realtimeReconnectTimer=null, realtimeReconnectTry=0;
   var lastText='', lastRemoteMs=0, lastSaveAt=0, lastLocalEditAt=0;
   var CONTROL_HOLD_MS = 8000;
   var remoteReady=false, localChanged=false, currentState=null;
@@ -261,13 +262,41 @@
     if(!realtimeSocket || realtimeSocket.readyState!==1) return;
     realtimeSocket.send(JSON.stringify({topic:topic,event:event,payload:payload||{},ref:String(realtimeRef++)}));
   }
+  function stopRealtimeHeartbeat(){
+    if(realtimeHeartbeatTimer){clearInterval(realtimeHeartbeatTimer); realtimeHeartbeatTimer=null;}
+  }
+  function startRealtimeHeartbeat(){
+    stopRealtimeHeartbeat();
+    realtimeHeartbeatTimer=setInterval(function(){
+      try{
+        if(realtimeSocket && realtimeSocket.readyState===1){
+          realtimeSend('phoenix','heartbeat',{});
+        }
+      }catch(e){}
+    },25000);
+  }
+  function scheduleRealtimeReconnect(){
+    if(realtimeReconnectTimer) return;
+    var delay=Math.min(1000*Math.pow(1.6, realtimeReconnectTry++), 12000);
+    realtimeReconnectTimer=setTimeout(function(){
+      realtimeReconnectTimer=null;
+      startRealtime();
+    },delay);
+  }
+  function closeRealtimeSocket(){
+    stopRealtimeHeartbeat();
+    if(realtimeSocket){try{realtimeSocket.onclose=null; realtimeSocket.onerror=null; realtimeSocket.close();}catch(e){}}
+    realtimeSocket=null; realtimeJoined=false;
+  }
   function startRealtime(){
     if(!configured() || realtimeSocket) return;
     try{
       var wsUrl=URL.replace(/^http/i,'ws')+'/realtime/v1/websocket?apikey='+encodeURIComponent(KEY)+'&vsn=1.0.0';
       realtimeSocket=new WebSocket(wsUrl);
       realtimeSocket.onopen=function(){
+        realtimeReconnectTry=0;
         realtimeJoined=false;
+        startRealtimeHeartbeat();
         realtimeSend('realtime:public:pkl_join_state','phx_join',{
           config:{
             broadcast:{self:false},
@@ -281,7 +310,11 @@
       };
       realtimeSocket.onmessage=function(ev){
         var msg=null; try{msg=JSON.parse(ev.data);}catch(e){return;}
-        if(msg.event==='phx_reply' && msg.payload && msg.payload.status==='ok') realtimeJoined=true;
+        if(msg.event==='phx_reply' && msg.payload && msg.payload.status==='ok'){
+          realtimeJoined=true;
+          /* 재연결 직후 놓친 A화면 참가/취소 이벤트는 1회만 서버 기준으로 맞춘다. polling 아님. */
+          fetchNow();
+        }
         if(msg.event==='postgres_changes'){
           var data=msg.payload && msg.payload.data;
           var row=(data && (data.record || data.new || data.old)) || null;
@@ -297,9 +330,18 @@
           }
         }
       };
-      realtimeSocket.onclose=function(){realtimeSocket=null; realtimeJoined=false;};
-      realtimeSocket.onerror=function(){try{realtimeSocket.close();}catch(e){}};
-    }catch(e){realtimeSocket=null; realtimeJoined=false;}
+      realtimeSocket.onclose=function(){
+        stopRealtimeHeartbeat();
+        realtimeSocket=null; realtimeJoined=false;
+        scheduleRealtimeReconnect();
+      };
+      realtimeSocket.onerror=function(){
+        try{realtimeSocket.close();}catch(e){}
+      };
+    }catch(e){
+      closeRealtimeSocket();
+      scheduleRealtimeReconnect();
+    }
   }
   function start(){
     apiRead().then(function(st){

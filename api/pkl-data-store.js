@@ -135,13 +135,18 @@ async function writeLive(id, payload){
   if(rowId === 'join_state' && body && typeof body === 'object' && !isJoinReset(body)){
     const current = await readCanonicalJoinState().catch(()=>null);
     if(current && current.payload){
+      const incomingWait = uniqueUsers(body.waitList);
+      const incomingCancel = uniqueUsers(body.cancelList);
+      const baseWait = removeUsers(current.payload.waitList, incomingCancel);
+      const baseCancel = removeUsers(current.payload.cancelList, incomingWait);
+      const resolved = resolveJoinLists(mergeUsersList(baseWait, incomingWait), mergeUsersList(baseCancel, incomingCancel));
       body = Object.assign({}, body, {
         version:2,
         // body는 버튼 클릭 후 브라우저/봇이 보낸 '최종 의도'다.
-        // body.waitList에 있으면 과거 cancelList에서 반드시 제거하고,
-        // body.cancelList에 있으면 과거 waitList에서 반드시 제거한다.
-        waitList: resolveJoinLists(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)).waitList,
-        cancelList: resolveJoinLists(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)).cancelList,
+        // 방금 참가한 유저는 과거 cancelList에서 제거하고,
+        // 방금 대기취소한 유저는 과거 waitList에서 먼저 제거한 뒤 병합한다.
+        waitList: resolved.waitList,
+        cancelList: resolved.cancelList,
         recruitState: body.recruitState && body.recruitState.state ? body.recruitState : current.payload.recruitState,
         updatedAt: new Date().toISOString()
       });
