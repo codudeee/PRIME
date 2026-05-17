@@ -35,42 +35,50 @@ function did(u){ return clean(u && (u.discord_id || u.discordId || u.discord || 
 function keyOfUser(u){ return did(u) || clean(u && (u.pubg_id || u.pubgId || u.gameId || u.ref || u.nickname || u.name)).toLowerCase(); }
 function sameUser(a,b){ const ak=keyOfUser(a), bk=keyOfUser(b); return !!(ak && bk && ak === bk); }
 function parseMs(v){ const n=Date.parse(v || ''); return Number.isFinite(n) ? n : 0; }
-function waitMs(u){ return parseMs(u && (u.rejoinedAt || u.joinedAt || u.waitedAt || u.updatedAt || u.createdAt)); }
-function cancelMs(u){ return parseMs(u && (u.canceledAt || u.cancelledAt || u.cancelAt || u.cancelled_at || u.canceled_at || u.updatedAt || u.createdAt)); }
-function newestMs(u){ return Math.max(waitMs(u), cancelMs(u), parseMs(u && (u.updatedAt || u.createdAt))); }
-function preferNewerByKind(a,b,kind){
-  const am = kind === 'cancel' ? cancelMs(a) : kind === 'wait' ? waitMs(a) : newestMs(a);
-  const bm = kind === 'cancel' ? cancelMs(b) : kind === 'wait' ? waitMs(b) : newestMs(b);
-  return bm >= am ? Object.assign({}, a || {}, b || {}) : Object.assign({}, b || {}, a || {});
-}
-function uniqueUsers(list, kind){
+function waitMs(u){ return parseMs(u && (u.rejoinedAt || u.joinedAt || u.updatedAt || u.createdAt)); }
+function cancelMs(u){ return parseMs(u && (u.canceledAt || u.cancelledAt || u.cancelAt || u.updatedAt || u.createdAt)); }
+function latestBy(list, timeFn){
   const out=[];
   (Array.isArray(list)?list:[]).forEach(function(x){
     if(!x || typeof x !== 'object') return;
-    const idx = out.findIndex(function(p){return sameUser(p,x);});
-    if(idx < 0) out.push(x);
-    else out[idx] = preferNewerByKind(out[idx], x, kind || 'any');
+    const idx = out.findIndex(function(p){ return sameUser(p, x); });
+    if(idx < 0){ out.push(x); return; }
+    const prevTime = timeFn(out[idx]);
+    const nextTime = timeFn(x);
+    if(nextTime && (!prevTime || nextTime >= prevTime)) out[idx] = Object.assign({}, out[idx], x);
   });
   return out;
 }
-function mergeUsersList(a,b,kind){ return uniqueUsers([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[]), kind); }
+function uniqueUsers(list){ return latestBy(list, function(u){ return Math.max(waitMs(u), cancelMs(u)); }); }
+function mergeUsersList(a,b){ return uniqueUsers([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[])); }
 function removeUsers(list, remove){ const rem=uniqueUsers(remove); return uniqueUsers(list).filter(function(x){ return !rem.some(function(r){return sameUser(r,x);}); }); }
-function resolveJoinLists(waitInput, cancelInput){
-  let waitList = uniqueUsers(waitInput, 'wait');
-  let cancelList = uniqueUsers(cancelInput, 'cancel');
+function resolveJoinLists(waitList, cancelList){
+  const waits = latestBy(waitList, waitMs);
+  const cancels = latestBy(cancelList, cancelMs);
   const finalWait=[];
   const finalCancel=[];
-  waitList.forEach(function(w){
-    const c = cancelList.find(function(x){return sameUser(w,x);});
+
+  waits.forEach(function(w){
+    const c = cancels.find(function(x){ return sameUser(w, x); });
     if(!c){ finalWait.push(w); return; }
-    const wt = waitMs(w), ct = cancelMs(c);
-    if(ct && (!wt || ct >= wt)) finalCancel.push(c);
-    else finalWait.push(w);
+    const wt = waitMs(w);
+    const ct = cancelMs(c);
+    if(wt && ct){
+      if(ct >= wt) finalCancel.push(c);
+      else finalWait.push(w);
+      return;
+    }
+    if(ct && !wt) finalCancel.push(c);
+    else if(wt && !ct) finalWait.push(w);
+    else finalCancel.push(c);
   });
-  cancelList.forEach(function(c){
-    if(!waitList.some(function(w){return sameUser(w,c);})){ finalCancel.push(c); }
+
+  cancels.forEach(function(c){
+    if(!waits.some(function(w){ return sameUser(w, c); }) && !finalCancel.some(function(x){ return sameUser(x, c); })){
+      finalCancel.push(c);
+    }
   });
-  return { waitList: uniqueUsers(finalWait, 'wait'), cancelList: uniqueUsers(finalCancel, 'cancel') };
+  return { waitList: finalWait, cancelList: finalCancel };
 }
 function normalizeJoinPayload(payload, updatedAt){
   payload = payload && typeof payload === 'object' ? payload : {};
@@ -85,11 +93,11 @@ async function readCanonicalJoinState(){
   const sharedCancel = await readShared('pklJoinCancelList').catch(()=>({value:null,updated_at:null}));
   const sharedRecruit = await readShared('pklJoinRecruitState').catch(()=>({value:null,updated_at:null}));
   const sharedUpdated = Math.max(parseMs(sharedWait.updated_at), parseMs(sharedCancel.updated_at), parseMs(sharedRecruit.updated_at));
-  let liveWait = uniqueUsers(live.waitList, 'wait');
-  let liveCancel = uniqueUsers(live.cancelList, 'cancel');
-  let sharedWaitList = uniqueUsers(sharedWait.value, 'wait');
-  let sharedCancelList = uniqueUsers(sharedCancel.value, 'cancel');
-  const resolvedLists = resolveJoinLists(mergeUsersList(liveWait, sharedWaitList, 'wait'), mergeUsersList(liveCancel, sharedCancelList, 'cancel'));
+  let liveWait = latestBy(live.waitList, waitMs);
+  let liveCancel = latestBy(live.cancelList, cancelMs);
+  let sharedWaitList = latestBy(sharedWait.value, waitMs);
+  let sharedCancelList = latestBy(sharedCancel.value, cancelMs);
+  let resolvedLists = resolveJoinLists(mergeUsersList(liveWait, sharedWaitList), mergeUsersList(liveCancel, sharedCancelList));
   let waitList = resolvedLists.waitList;
   let cancelList = resolvedLists.cancelList;
   const recruitState = sharedUpdated > parseMs(live.updatedAt) && sharedRecruit.value && typeof sharedRecruit.value === 'object' ? sharedRecruit.value : live.recruitState;
@@ -118,12 +126,13 @@ async function writeLive(id, payload){
     const current = await readCanonicalJoinState().catch(()=>null);
     if(current && current.payload){
       const resolvedLists = resolveJoinLists(
-        mergeUsersList(current.payload.waitList, body.waitList, 'wait'),
-        mergeUsersList(current.payload.cancelList, body.cancelList, 'cancel')
+        mergeUsersList(current.payload.waitList, body.waitList),
+        mergeUsersList(current.payload.cancelList, body.cancelList)
       );
       body = Object.assign({}, body, {
         version:2,
-        // 대기/취소 양쪽에 같은 유저가 남아도 joinedAt/rejoinedAt/canceledAt 중 최신 액션만 최종 상태로 인정한다.
+        // 서버에 wait/cancel이 동시에 남아도 대기자 우선으로 덮지 않는다.
+        // joinedAt/rejoinedAt 과 canceledAt 중 더 최신 액션만 최종 상태로 저장한다.
         waitList: resolvedLists.waitList,
         cancelList: resolvedLists.cancelList,
         recruitState: body.recruitState && body.recruitState.state ? body.recruitState : current.payload.recruitState,
