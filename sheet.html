@@ -7905,6 +7905,8 @@ function pklSheetHeaderNameHtml(member){
   return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
 }
 
+let pklRoundResetInlineMode=false;
+
 function renderSheet(){
   const view=currentView(), realId=realTeamId(view.viewId), offset=view.memberOffset||0;
   pklEnsureSheetHeaderTierUsers(view);
@@ -7914,12 +7916,14 @@ function renderSheet(){
   const canEditSheet=pklCanEditViewSheet(view) && !cold;
   const sheetBox=document.querySelector('.sheet');
   const sheetTitle=document.querySelector('.sheet-title-wrap .panel-title');
+  const canRoundResetManage = !!(pklRoundResetInlineMode && pklCanViewAdminPanel && pklCanViewAdminPanel());
   if(sheetBox){
     sheetBox.classList.toggle('is-surrendered-sheet', surrendered);
     sheetBox.classList.toggle('has-fire-used-sheet', fireRound >= 0);
     sheetBox.classList.toggle('is-surrendered-sheet', surrendered);
     sheetBox.classList.toggle('is-cold-sheet', cold);
     sheetBox.classList.toggle('is-readonly-sheet', !canEditSheet);
+    sheetBox.classList.toggle('is-round-reset-manage', canRoundResetManage);
   }
   if(sheetTitle) sheetTitle.innerHTML='<span>MATCH</span> RECORD';
   for(let i=0;i<4;i++){
@@ -7950,7 +7954,7 @@ function renderSheet(){
       <td><div class="pkl-map-field">
         <button type="button" class="pkl-map-trigger pkl-stop-trigger" data-stop-round="${ri}" ${disabledAttr}>${Number(d.stop||0) ? Number(d.stop||0) : ''}</button>
       </div></td>
-      <td class="total-cell">${total}</td>
+      <td class="total-cell"><span class="pkl-round-total-value">${total}</span>${canRoundResetManage ? `<button type="button" class="pkl-round-reset-x" data-round-reset-index="${ri}" title="해당 라운드 초기화">×</button>` : ``}</td>
     </tr>`;
   }).join('');
 }
@@ -12193,8 +12197,88 @@ function normalizeTime(v){var raw=String(v||'').trim();if(!raw)return '';var m=r
 function displayTime(v){var raw=String(v||'').trim();var m=raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);if(!m)return raw;var h=Number(m[1]);return (h>=12?'PM':'AM')+' '+String((h%12)||12).padStart(2,'0')+':'+m[2]+':'+String(m[3]||'00').padStart(2,'0');}
 function openTime(){var st=readState();var a=document.getElementById('pklAdminStartTimeValue'),b=document.getElementById('pklAdminEndTimeValue');if(a)a.value=displayTime(st.startTime||'');if(b)b.value=displayTime(st.endTime||'');openModal('pklTimeEditModal');}
 function saveTime(){var st=readState();var start=normalizeTime((document.getElementById('pklAdminStartTimeValue')||{}).value);var end=normalizeTime((document.getElementById('pklAdminEndTimeValue')||{}).value);st.startTime=start;st.endTime=end;writeState(st);try{var si=document.getElementById('startTimeInput');if(si){si.value=displayTime(start);si.dispatchEvent(new Event('change',{bubbles:true}));}var ei=document.getElementById('endTimeInput');if(ei){ei.value=displayTime(end);ei.dispatchEvent(new Event('change',{bubbles:true}));}if(typeof updateTopTimes==='function')updateTopTimes();}catch(e){}try{if(window.PKLScoreboardRealtime&&typeof window.PKLScoreboardRealtime.publish==='function')window.PKLScoreboardRealtime.publish();else if(window.PKLScoreboardRealtime&&typeof window.PKLScoreboardRealtime.schedulePublish==='function')window.PKLScoreboardRealtime.schedulePublish(20);}catch(e){}closeAll();toast('경기 시간이 수정되었습니다.');setTimeout(function(){location.reload();},520);}
-function openRoundReset(){var st=readState();var team=document.getElementById('pklRoundResetTeam'),round=document.getElementById('pklRoundResetRound');var views=viewList(st);if(team)team.innerHTML=views.map(function(v){return '<option value="'+esc(v.viewId)+'">'+esc(v.name)+'</option>';}).join('');var rounds=Array.isArray(st.rounds)?st.rounds:[];if(round)round.innerHTML=rounds.map(function(r,i){return '<option value="'+i+'">'+(i+1)+'라운드</option>';}).join('');openModal('pklRoundResetModal');}
-function resetRound(){var st=readState();var teamKey=(document.getElementById('pklRoundResetTeam')||{}).value;var ri=Number((document.getElementById('pklRoundResetRound')||{}).value);var view=viewList(st).find(function(v){return String(v.viewId)===String(teamKey);});if(!view||!Array.isArray(st.rounds)||!st.rounds[ri])return;var r=st.rounds[ri];if(!r.teams)r.teams={};var d=r.teams[view.realId]||{kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};d.kills=Array.isArray(d.kills)?d.kills:[0,0,0,0];d.deaths=Array.isArray(d.deaths)?d.deaths:[0,0,0,0];for(var i=view.offset;i<view.offset+view.len;i++){d.kills[i]=0;d.deaths[i]=0;}d.chicken=0;d.stop=0;r.teams[view.realId]=d;if(Array.isArray(st.feeds)){var rt=(ri+1)+'라운드';var tn=String(view.name).replace(/팀$/,'');st.feeds=st.feeds.filter(function(f){var text=String(f&&f.text||'');return !(text.indexOf(rt)>-1&&text.indexOf(tn)>-1);});}writeState(st);closeAll();toast('선택 라운드 점수가 초기화되었습니다.');setTimeout(function(){location.reload();},260);}
+function openRoundReset(){
+  if(!pklCanViewAdminPanel || !pklCanViewAdminPanel()){toast('관리자/운영자만 사용할 수 있습니다.');return;}
+  pklRoundResetInlineMode=!pklRoundResetInlineMode;
+  closeAll();
+  try{renderSheet();}catch(e){}
+  toast(pklRoundResetInlineMode ? '라운드 초기화 모드: 오른쪽 X를 눌러 해당 라운드를 정리하세요.' : '라운드 초기화 모드가 종료되었습니다.');
+}
+function pklRoundResetTeamLabel(view){
+  return String((view && (view.viewName || view.name)) || '').replace(/팀$/,'').trim();
+}
+function pklRemoveRoundRelatedLogs(st, view, ri){
+  var rt=(Number(ri)+1)+'라운드';
+  var tn=pklRoundResetTeamLabel(view);
+  var viewId=String(view && view.viewId || '');
+  var realId=String(view && view.realId || '');
+  if(Array.isArray(st.feeds)){
+    st.feeds=st.feeds.filter(function(f){
+      var text=String(f&&f.text||'');
+      var key=String(f&&f.key||'');
+      var sameTeam=(viewId && key.indexOf(':'+viewId+':')>-1) || (realId && key.indexOf(':'+realId+':')>-1) || (tn && text.indexOf(tn)>-1);
+      var sameRound=text.indexOf(rt)>-1 || key.indexOf(':'+String(ri)+':')>-1;
+      if((f&&f.type==='불판') && sameTeam && sameRound) return false;
+      if((f&&f.type==='서렌') && sameTeam) return false;
+      if((f&&f.type==='콜드') && sameTeam) return false;
+      return true;
+    });
+  }
+  if(Array.isArray(st.itemHistory)){
+    st.itemHistory=st.itemHistory.filter(function(h){
+      if(!h || (h.type!=='불판' && h.type!=='서렌')) return true;
+      var team=String(h.team||'');
+      var sameTeam=!tn || team.indexOf(tn)>-1 || tn.indexOf(team.replace(/팀$/,''))>-1;
+      if(h.type==='불판'){
+        var hri=Number(h.roundIndex);
+        return !(sameTeam && Number.isFinite(hri) && hri===Number(ri));
+      }
+      return !(h.type==='서렌' && sameTeam);
+    });
+  }
+}
+function pklClearRoundForView(view, ri){
+  var st=state;
+  if(!view || !Array.isArray(st.rounds) || !st.rounds[ri]) return false;
+  var r=st.rounds[ri];
+  if(!r.teams || typeof r.teams!=='object') r.teams={};
+  var d=r.teams[view.id] || r.teams[view.realId] || {kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};
+  d.kills=Array.isArray(d.kills)?d.kills:[0,0,0,0];
+  d.deaths=Array.isArray(d.deaths)?d.deaths:[0,0,0,0];
+  var start=Number(view.memberOffset||view.offset||0);
+  var len=Array.isArray(view.members)?view.members.length:4;
+  for(var i=start;i<start+len;i++){d.kills[i]=0;d.deaths[i]=0;}
+  d.chicken=0;
+  d.stop=0;
+  r.teams[view.realId||view.id]=d;
+
+  if(!st.fireCancels || typeof st.fireCancels!=='object') st.fireCancels={};
+  var keys=[String(view.viewId||''),String(view.realId||''),String(view.id||'')].filter(Boolean);
+  keys.forEach(function(k){
+    if(!st.fireCancels[k] || typeof st.fireCancels[k]!=='object') st.fireCancels[k]={};
+    st.fireCancels[k][String(ri)]=true;
+  });
+  if(st.surrenders && typeof st.surrenders==='object'){
+    keys.forEach(function(k){delete st.surrenders[k];});
+  }
+  if(st.colds && typeof st.colds==='object'){
+    keys.forEach(function(k){delete st.colds[k];});
+  }
+  pklRemoveRoundRelatedLogs(st, view, ri);
+  save();
+  try{renderBoard();renderSheet();renderFeeds();renderSideBets();updateTopTimes();}catch(e){}
+  try{ if(typeof window.pklRenderItemHistoryTable==='function') window.pklRenderItemHistoryTable(); }catch(e){}
+  try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(20);}catch(e){}
+  return true;
+}
+function resetRound(){
+  var view=currentView();
+  var ri=Number((document.getElementById('pklRoundResetRound')||{}).value);
+  if(!Number.isFinite(ri)) ri=0;
+  if(!pklClearRoundForView(view,ri)) return;
+  closeAll();
+  toast('선택 라운드가 초기화되었습니다.');
+}
 
 function pklNormKey(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}
 function pklBuildMatchUserStats(matchId,title,st){
@@ -12540,6 +12624,7 @@ document.addEventListener('click',function(e){
   if(btn&&btn.id==='pklAdminTimeEditOpen'){e.preventDefault();openTime();return;}
   if(btn&&btn.id==='pklAdminTimeSave'){e.preventDefault();saveTime();return;}
   if(btn&&btn.id==='pklAdminRoundResetOpen'){e.preventDefault();openRoundReset();return;}
+  if(btn&&btn.classList&&btn.classList.contains('pkl-round-reset-x')){e.preventDefault();e.stopPropagation();var ri=Number(btn.getAttribute('data-round-reset-index'));if(pklClearRoundForView(currentView(),ri)){toast((ri+1)+'라운드가 초기화되었습니다.');}return;}
   if(btn&&btn.id==='pklAdminRoundResetRun'){e.preventDefault();resetRound();return;}
   if(btn&&btn.id==='pklAdminMatchSave'){e.preventDefault();openMatchSaveConfirm('league');return;}
   if(btn&&btn.id==='pklAdminNormalMatchSave'){e.preventDefault();openMatchSaveConfirm('normal');return;}
@@ -13693,6 +13778,35 @@ window.addEventListener('DOMContentLoaded',()=>{
   applyMode({});
 })();
 </script>
+
+
+<style id="pklRoundResetInlineManageStyle">
+.sheet.is-round-reset-manage .record-table tr{position:relative;}
+.sheet.is-round-reset-manage .total-cell{position:relative !important; overflow:visible !important; padding-right:34px !important;}
+.pkl-round-total-value{display:inline-block; min-width:24px;}
+.pkl-round-reset-x{
+  position:absolute;
+  right:4px;
+  top:50%;
+  transform:translateY(-50%);
+  width:24px;
+  height:24px;
+  border-radius:999px;
+  border:1px solid rgba(34,255,93,.78);
+  background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.18),transparent 34%),linear-gradient(180deg,rgba(9,48,22,.92),rgba(2,18,9,.98));
+  color:#7dff94;
+  font-size:17px;
+  font-weight:1000;
+  line-height:20px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:0 0 12px rgba(34,255,93,.45), inset 0 1px 0 rgba(255,255,255,.16);
+  z-index:12;
+}
+.pkl-round-reset-x:hover{filter:brightness(1.16);transform:translateY(-50%) scale(1.06);box-shadow:0 0 18px rgba(34,255,93,.66), inset 0 1px 0 rgba(255,255,255,.20);}
+</style>
 
 </body>
 </html>
