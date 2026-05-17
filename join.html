@@ -5090,17 +5090,27 @@ function safeJson(key, fallback){
   }
 
   function readAdminUsers(){
-    // Supabase 단일 원본: 예전 pklAdminState_v3 로컬 캐시는 권한/티어 판정에 사용하지 않는다.
+    const state = safeJson("pklAdminState_v3", null);
+    if(state && Array.isArray(state.users) && state.users.length) return state.users;
     return [];
   }
 
   function readPklUsers(){
-    // /api/pkl-users에서 방금 받은 Supabase users 캐시만 사용한다.
-    return Array.isArray(joinSupabaseUsers) ? joinSupabaseUsers : [];
+    const data = safeJson("pklUsers", []);
+    return Array.isArray(data) ? data : [];
   }
 
   function readUsers(){
-    return readPklUsers();
+    const adminUsers = readAdminUsers();
+    if(adminUsers.length) return adminUsers;
+    const pklUsers = readPklUsers();
+    if(pklUsers.length) return pklUsers;
+    const keys = ["pklMembers","pklUserList","pklApprovedUsers","pklMemberList"];
+    for(const key of keys){
+      const data = safeJson(key, []);
+      if(Array.isArray(data) && data.length) return data;
+    }
+    return [];
   }
 
   function getUserNickname(user){
@@ -5136,7 +5146,8 @@ function safeJson(key, fallback){
 
     return (seedDiscord && targetDiscord && String(seedDiscord) === String(targetDiscord)) ||
            (seedId && targetId && String(seedId) === String(targetId)) ||
-           (seedPubg && targetPubg && String(seedPubg) === String(targetPubg));
+           (seedPubg && targetPubg && String(seedPubg) === String(targetPubg)) ||
+           (seedNick && targetNick && String(seedNick) === String(targetNick));
   }
 
   function findAdminUser(seed){
@@ -5238,13 +5249,6 @@ function safeJson(key, fallback){
   }
 
   function readList(key){
-    try{
-      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === 'function'){
-        const st = window.PKLJoinRealtime.getState();
-        if(st && key === STORAGE_KEY && Array.isArray(st.waitList)) return st.waitList;
-        if(st && key === CANCEL_KEY && Array.isArray(st.cancelList)) return st.cancelList;
-      }
-    }catch(e){}
     const data = safeJson(key, []);
     return Array.isArray(data) ? data : [];
   }
@@ -5257,33 +5261,11 @@ function safeJson(key, fallback){
     return true;
   }
 
-  function getWaitActionTime(item){
-    item = item || {};
-    return Date.parse(item.rejoinedAt || item.joinedAt || item.updatedAt || item.createdAt || '') || 0;
-  }
-
-  function getCancelActionTime(item){
-    item = item || {};
-    return Date.parse(item.canceledAt || item.cancelledAt || item.cancelAt || item.updatedAt || item.createdAt || '') || 0;
-  }
-
-  function isCanceledAfterWait(waitItem, cancelItem){
-    if(!identityMatches(waitItem, cancelItem)) return false;
-    const waitTime = getWaitActionTime(waitItem);
-    const cancelTime = getCancelActionTime(cancelItem);
-    if(waitTime && cancelTime) return cancelTime >= waitTime;
-    return true;
-  }
-
   function readActiveWaitList(){
-    const cancelList = readList(CANCEL_KEY);
-    return readList(STORAGE_KEY).filter(isActiveWaitItem).filter(function(item){
-      return !cancelList.some(function(cancelItem){ return isCanceledAfterWait(item, cancelItem); });
-    });
+    return readList(STORAGE_KEY).filter(isActiveWaitItem);
   }
 
 
-  let joinSupabaseUsers = [];
   let joinTierMap = new Map();
   let joinTierFetchStarted = false;
 
@@ -5329,8 +5311,8 @@ function safeJson(key, fallback){
       let changed = false;
       list.forEach(function(item){
         const sameDiscord = getUserDiscordId(sync) && getUserDiscordId(item) && getUserDiscordId(sync) === getUserDiscordId(item);
-        const samePubg = getUserPubgId(sync) && getUserPubgId(item) && getUserPubgId(sync) === getUserPubgId(item);
-        if(sameDiscord || samePubg){
+        const sameNick = getUserNickname(sync) && getUserNickname(item) && getUserNickname(sync) === getUserNickname(item);
+        if(sameDiscord || sameNick){
           item.gradeRole = tier;
           item.memberTier = tier;
           item.tierRole = tier;
@@ -5354,8 +5336,7 @@ function safeJson(key, fallback){
       if(!res.ok) return;
       const data = await res.json();
       const users = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
-      joinSupabaseUsers = users.filter(function(u){ return u && typeof u === "object"; });
-      joinSupabaseUsers.forEach(rememberTierUser);
+      users.forEach(rememberTierUser);
       if(window.__PKL_JOIN_INITIAL_READY){
         renderAll();
       }
@@ -5667,18 +5648,8 @@ function safeJson(key, fallback){
     let sig = "";
     try{
       sig = JSON.stringify({
-        wait: readActiveWaitList().map(function(v){return {
-          id:v.discord_id||v.discordId||v.uid||v.id||v.userId||v.key||v.name||v.nickname||v.pubgId||'',
-          state:v.state||v.status||'',
-          joinedAt:v.joinedAt||'',
-          rejoinedAt:v.rejoinedAt||'',
-          canceledAt:v.canceledAt||v.cancelledAt||v.cancelAt||''
-        };}),
-        cancel: readList(CANCEL_KEY).map(function(v){return {
-          id:v.discord_id||v.discordId||v.uid||v.id||v.userId||v.key||v.name||v.nickname||v.pubgId||'',
-          reason:v.reason||'',
-          canceledAt:v.canceledAt||v.cancelledAt||v.cancelAt||''
-        };}),
+        wait: readActiveWaitList().map(function(v){return v.discordId||v.id||v.key||v.name||v.nickname||v.pubgId||"";}),
+        cancel: readList(CANCEL_KEY).map(function(v){return v.discordId||v.id||v.key||v.name||v.nickname||v.pubgId||"";}),
         state: getRecruitStateForAction()
       });
     }catch(e){}
@@ -5699,8 +5670,6 @@ function safeJson(key, fallback){
     if(document.body.classList.contains("pkl-recruit-loading") && remoteState === "waiting") return;
     renderAllIfChanged(false);
   });
-
-
   seedJoinTierMap();
   fetchJoinTierMapOnce();
 
@@ -6014,17 +5983,16 @@ function safeJson(key, fallback){
 
     if(cancelIndex >= 0){
       const restored = cancelList.splice(cancelIndex,1)[0];
-      const rejoinRecord = {
+      list.push({
         ...restored,
         ...userData,
         reason:undefined,
         canceledAt:undefined,
         rejoinedAt:new Date().toISOString()
-      };
-      list.push(rejoinRecord);
+      });
       saveList(CANCEL_KEY,cancelList);
       saveList(STORAGE_KEY,list);
-      try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markJoin === 'function') window.PKLJoinRealtime.markJoin(rejoinRecord); }catch(e){}
+      try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markJoin === 'function') window.PKLJoinRealtime.markJoin(userData); }catch(e){}
       renderAll();
       if(isPaidRecruit()) openDepositModal();
       return;
@@ -6086,16 +6054,15 @@ function safeJson(key, fallback){
     const removed = hydrateItem(list.splice(index,1)[0]);
     const cancelList = readList(CANCEL_KEY);
 
-    const cancelRecord = {
+    cancelList.push({
       ...removed,
       reason:reason,
       canceledAt:new Date().toISOString()
-    };
-    cancelList.push(cancelRecord);
+    });
 
     saveList(STORAGE_KEY,list);
     saveList(CANCEL_KEY,cancelList);
-    try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markCancel === 'function') window.PKLJoinRealtime.markCancel(cancelRecord); }catch(e){}
+    try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markCancel === 'function') window.PKLJoinRealtime.markCancel(removed); }catch(e){}
     closeReasonModal();
     renderAll();
   }
@@ -6230,7 +6197,10 @@ function safeJson(key, fallback){
   }
 
   function readUsers(){
-    return Array.isArray(joinSupabaseUsers) ? joinSupabaseUsers : [];
+    try{
+      const data = JSON.parse(localStorage.getItem("pklUsers") || "[]");
+      return Array.isArray(data) ? data : [];
+    }catch(e){ return []; }
   }
 
   function getUserNickname(user){
@@ -6408,7 +6378,7 @@ function safeJson(key, fallback){
   }
 
   function setState(state){
-    document.body.classList.remove("pkl-recruit-open","pkl-recruit-closed","pkl-recruit-waiting","pkl-recruit-loading");
+    document.body.classList.remove("pkl-recruit-open","pkl-recruit-closed","pkl-recruit-waiting");
     document.body.classList.add(state === "open" ? "pkl-recruit-open" : (state === "closed" ? "pkl-recruit-closed" : "pkl-recruit-waiting"));
     if(deadlineText){
       if(state === "waiting"){
@@ -6486,11 +6456,10 @@ function safeJson(key, fallback){
     };
   }
 
-  function openRecruit(options){
-    options = options || {};
+  function openRecruit(){
 
     const currentState = readRecruitState();
-    if(!options.force && currentState && currentState.state === "open"){
+    if(currentState && currentState.state === "open"){
       const tooltip = document.getElementById("joinOpenTooltip");
       if(tooltip){
         tooltip.classList.add("show");
@@ -6506,55 +6475,16 @@ function safeJson(key, fallback){
     const deadline = getDeadlineDisplayText();
     if(deadlineText) deadlineText.textContent = deadline;
 
-    const nextRecruitState = {
+    saveRecruitState({
       state:"open",
       hostHtml:openData.hostHtml,
       openTime:openData.openTime,
       deadlineText:deadline,
       feeText:deadline,
       feeInput:deadline,
-      deadlineConfigured:deadlineConfigured,
-      updatedAt:new Date().toISOString(),
-      actionNonce:"open-" + Date.now()
-    };
-
-    saveRecruitState(nextRecruitState);
-
-    try{
-      window.__PKL_JOIN_REMOTE_CONFIRMED = true;
-      window.dispatchEvent(new CustomEvent("pkl-join-state-updated", {
-        detail:{
-          version:2,
-          waitList:JSON.parse(localStorage.getItem("pklJoinWaitList") || "[]"),
-          cancelList:JSON.parse(localStorage.getItem("pklJoinCancelList") || "[]"),
-          recruitState:nextRecruitState,
-          updatedAt:nextRecruitState.updatedAt
-        }
-      }));
-    }catch(e){}
-
-    try{
-      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.apply === "function"){
-        window.PKLJoinRealtime.apply({
-          version:2,
-          waitList:JSON.parse(localStorage.getItem("pklJoinWaitList") || "[]"),
-          cancelList:JSON.parse(localStorage.getItem("pklJoinCancelList") || "[]"),
-          recruitState:nextRecruitState,
-          updatedAt:nextRecruitState.updatedAt
-        });
-      }
-      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.queueSave === "function"){
-        window.PKLJoinRealtime.queueSave(0);
-      }
-      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.flush === "function"){
-        window.PKLJoinRealtime.flush();
-      }
-    }catch(e){}
+      deadlineConfigured:deadlineConfigured
+    });
   }
-
-  window.PKLJoinOpenRecruit = function(){
-    openRecruit({force:true});
-  };
 
   function registerFeeInfo(){
     const fee = pendingFee || (feeInput ? feeInput.value.trim() : "");
@@ -6844,7 +6774,12 @@ function safeJson(key, fallback){
   }
   document.addEventListener('DOMContentLoaded', guard);
   window.addEventListener('pkl-join-state-updated', function(){ setTimeout(guard, 0); });
-  setTimeout(guard, 0);
+  var n=0;
+  var timer=setInterval(function(){
+    guard();
+    n += 1;
+    if(window.__PKL_JOIN_REMOTE_CONFIRMED || n > 40) clearInterval(timer);
+  }, 50);
 })();
 </script>
 
@@ -6892,17 +6827,10 @@ function safeJson(key, fallback){
 
     if(e.target.id === "joinOpenConfirmYes"){
       e.preventDefault();
-      e.stopImmediatePropagation();
       closeOpenConfirm();
-      allowOpenRecruit = false;
-      if(window.PKLJoinOpenRecruit && typeof window.PKLJoinOpenRecruit === "function"){
-        window.PKLJoinOpenRecruit();
-      }else{
-        allowOpenRecruit = true;
-        const openBtn = document.getElementById("openRecruitBtn");
-        if(openBtn) openBtn.click();
-      }
-      return false;
+      allowOpenRecruit = true;
+      const openBtn = document.getElementById("openRecruitBtn");
+      if(openBtn) openBtn.click();
     }
   }, true);
 
