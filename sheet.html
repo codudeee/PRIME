@@ -11714,12 +11714,12 @@ document.addEventListener("DOMContentLoaded", function(){
     if(seen[canonicalKey] || seen[rawKey]) return;
     seen[canonicalKey]=true;
     seen[rawKey]=true;
-    const verb=type==="불판" ? "불판을 사용" : "서렌";
+    const actionText=type==="불판" ? "불판사용" : "서렌";
     rows.push({
       type:type,
       time:time,
       key:rawKey,
-      html:'<tr class="pkl-item-history-log-row pkl-item-history-log-'+esc(type)+'"><td><div class="pkl-item-history-log"><span class="pkl-item-history-log-type">'+esc(type)+'</span><span class="pkl-item-history-log-text">'+esc(team)+' '+esc(formatHistoryTime(time))+' '+esc(verb)+'</span></div></td></tr>'
+      html:'<tr class="pkl-item-history-log-row pkl-item-history-log-'+esc(type)+'"><td><div class="pkl-item-history-log"><span class="pkl-item-history-log-type">'+esc(type)+'</span><span class="pkl-item-history-log-text">'+esc(team)+' '+esc(formatHistoryTime(time))+' '+esc(actionText)+'</span></div></td></tr>'
     });
   }
 
