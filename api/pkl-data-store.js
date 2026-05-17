@@ -34,38 +34,43 @@ function tableFor(type){
 function did(u){ return clean(u && (u.discord_id || u.discordId || u.discord || u.user_id || u.userId || u.id || '')).replace(/^discord-/i, '').toLowerCase(); }
 function keyOfUser(u){ return did(u) || clean(u && (u.pubg_id || u.pubgId || u.gameId || u.ref || u.nickname || u.name)).toLowerCase(); }
 function sameUser(a,b){ const ak=keyOfUser(a), bk=keyOfUser(b); return !!(ak && bk && ak === bk); }
-function uniqueUsers(list){ const out=[]; (Array.isArray(list)?list:[]).forEach(function(x){ if(x && typeof x === 'object' && !out.some(function(p){return sameUser(p,x);})){ out.push(x); } }); return out; }
-function mergeUsersList(a,b){ return uniqueUsers([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[])); }
-function removeUsers(list, remove){ const rem=uniqueUsers(remove); return uniqueUsers(list).filter(function(x){ return !rem.some(function(r){return sameUser(r,x);}); }); }
 function parseMs(v){ const n=Date.parse(v || ''); return Number.isFinite(n) ? n : 0; }
-function waitActionMs(item){
-  item = item || {};
-  return parseMs(item.rejoinedAt || item.joinedAt || item.updatedAt || item.createdAt);
+function waitMs(u){ return parseMs(u && (u.rejoinedAt || u.joinedAt || u.waitedAt || u.updatedAt || u.createdAt)); }
+function cancelMs(u){ return parseMs(u && (u.canceledAt || u.cancelledAt || u.cancelAt || u.cancelled_at || u.canceled_at || u.updatedAt || u.createdAt)); }
+function newestMs(u){ return Math.max(waitMs(u), cancelMs(u), parseMs(u && (u.updatedAt || u.createdAt))); }
+function preferNewerByKind(a,b,kind){
+  const am = kind === 'cancel' ? cancelMs(a) : kind === 'wait' ? waitMs(a) : newestMs(a);
+  const bm = kind === 'cancel' ? cancelMs(b) : kind === 'wait' ? waitMs(b) : newestMs(b);
+  return bm >= am ? Object.assign({}, a || {}, b || {}) : Object.assign({}, b || {}, a || {});
 }
-function cancelActionMs(item){
-  item = item || {};
-  return parseMs(item.canceledAt || item.cancelledAt || item.cancelAt || item.updatedAt || item.createdAt);
+function uniqueUsers(list, kind){
+  const out=[];
+  (Array.isArray(list)?list:[]).forEach(function(x){
+    if(!x || typeof x !== 'object') return;
+    const idx = out.findIndex(function(p){return sameUser(p,x);});
+    if(idx < 0) out.push(x);
+    else out[idx] = preferNewerByKind(out[idx], x, kind || 'any');
+  });
+  return out;
 }
-function cancelWinsWait(waitItem, cancelItem){
-  if(!sameUser(waitItem, cancelItem)) return false;
-  const wt = waitActionMs(waitItem);
-  const ct = cancelActionMs(cancelItem);
-  if(wt && ct) return ct >= wt;
-  return true;
-}
-function waitWinsCancel(waitItem, cancelItem){
-  if(!sameUser(waitItem, cancelItem)) return false;
-  const wt = waitActionMs(waitItem);
-  const ct = cancelActionMs(cancelItem);
-  return !!(wt && ct && wt > ct);
-}
-function resolveJoinLists(waitList, cancelList){
-  const wait = uniqueUsers(waitList);
-  const cancel = uniqueUsers(cancelList);
-  return {
-    waitList: wait.filter(w => !cancel.some(c => cancelWinsWait(w, c))),
-    cancelList: cancel.filter(c => !wait.some(w => waitWinsCancel(w, c)))
-  };
+function mergeUsersList(a,b,kind){ return uniqueUsers([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[]), kind); }
+function removeUsers(list, remove){ const rem=uniqueUsers(remove); return uniqueUsers(list).filter(function(x){ return !rem.some(function(r){return sameUser(r,x);}); }); }
+function resolveJoinLists(waitInput, cancelInput){
+  let waitList = uniqueUsers(waitInput, 'wait');
+  let cancelList = uniqueUsers(cancelInput, 'cancel');
+  const finalWait=[];
+  const finalCancel=[];
+  waitList.forEach(function(w){
+    const c = cancelList.find(function(x){return sameUser(w,x);});
+    if(!c){ finalWait.push(w); return; }
+    const wt = waitMs(w), ct = cancelMs(c);
+    if(ct && (!wt || ct >= wt)) finalCancel.push(c);
+    else finalWait.push(w);
+  });
+  cancelList.forEach(function(c){
+    if(!waitList.some(function(w){return sameUser(w,c);})){ finalCancel.push(c); }
+  });
+  return { waitList: uniqueUsers(finalWait, 'wait'), cancelList: uniqueUsers(finalCancel, 'cancel') };
 }
 function normalizeJoinPayload(payload, updatedAt){
   payload = payload && typeof payload === 'object' ? payload : {};
@@ -80,13 +85,13 @@ async function readCanonicalJoinState(){
   const sharedCancel = await readShared('pklJoinCancelList').catch(()=>({value:null,updated_at:null}));
   const sharedRecruit = await readShared('pklJoinRecruitState').catch(()=>({value:null,updated_at:null}));
   const sharedUpdated = Math.max(parseMs(sharedWait.updated_at), parseMs(sharedCancel.updated_at), parseMs(sharedRecruit.updated_at));
-  let liveWait = uniqueUsers(live.waitList);
-  let liveCancel = uniqueUsers(live.cancelList);
-  let sharedWaitList = uniqueUsers(sharedWait.value);
-  let sharedCancelList = uniqueUsers(sharedCancel.value);
-  const resolved = resolveJoinLists(mergeUsersList(liveWait, sharedWaitList), mergeUsersList(liveCancel, sharedCancelList));
-  let waitList = resolved.waitList;
-  let cancelList = resolved.cancelList;
+  let liveWait = uniqueUsers(live.waitList, 'wait');
+  let liveCancel = uniqueUsers(live.cancelList, 'cancel');
+  let sharedWaitList = uniqueUsers(sharedWait.value, 'wait');
+  let sharedCancelList = uniqueUsers(sharedCancel.value, 'cancel');
+  const resolvedLists = resolveJoinLists(mergeUsersList(liveWait, sharedWaitList, 'wait'), mergeUsersList(liveCancel, sharedCancelList, 'cancel'));
+  let waitList = resolvedLists.waitList;
+  let cancelList = resolvedLists.cancelList;
   const recruitState = sharedUpdated > parseMs(live.updatedAt) && sharedRecruit.value && typeof sharedRecruit.value === 'object' ? sharedRecruit.value : live.recruitState;
   const updatedAt = new Date(Math.max(parseMs(live.updatedAt), sharedUpdated, Date.now())).toISOString();
   const payload = { version:2, waitList, cancelList, recruitState: recruitState || {state:'waiting'}, updatedAt };
@@ -112,13 +117,15 @@ async function writeLive(id, payload){
   if(rowId === 'join_state' && body && typeof body === 'object' && !isJoinReset(body)){
     const current = await readCanonicalJoinState().catch(()=>null);
     if(current && current.payload){
+      const resolvedLists = resolveJoinLists(
+        mergeUsersList(current.payload.waitList, body.waitList, 'wait'),
+        mergeUsersList(current.payload.cancelList, body.cancelList, 'cancel')
+      );
       body = Object.assign({}, body, {
         version:2,
-        // body는 버튼 클릭 후 브라우저/봇이 보낸 '최종 의도'다.
-        // body.waitList에 있으면 과거 cancelList에서 반드시 제거하고,
-        // body.cancelList에 있으면 과거 waitList에서 반드시 제거한다.
-        waitList: resolveJoinLists(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)).waitList,
-        cancelList: resolveJoinLists(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)).cancelList,
+        // 대기/취소 양쪽에 같은 유저가 남아도 joinedAt/rejoinedAt/canceledAt 중 최신 액션만 최종 상태로 인정한다.
+        waitList: resolvedLists.waitList,
+        cancelList: resolvedLists.cancelList,
         recruitState: body.recruitState && body.recruitState.state ? body.recruitState : current.payload.recruitState,
         updatedAt: new Date().toISOString()
       });
