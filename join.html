@@ -6408,7 +6408,7 @@ function safeJson(key, fallback){
   }
 
   function setState(state){
-    document.body.classList.remove("pkl-recruit-open","pkl-recruit-closed","pkl-recruit-waiting");
+    document.body.classList.remove("pkl-recruit-open","pkl-recruit-closed","pkl-recruit-waiting","pkl-recruit-loading");
     document.body.classList.add(state === "open" ? "pkl-recruit-open" : (state === "closed" ? "pkl-recruit-closed" : "pkl-recruit-waiting"));
     if(deadlineText){
       if(state === "waiting"){
@@ -6521,6 +6521,28 @@ function safeJson(key, fallback){
     saveRecruitState(nextRecruitState);
 
     try{
+      window.__PKL_JOIN_REMOTE_CONFIRMED = true;
+      window.dispatchEvent(new CustomEvent("pkl-join-state-updated", {
+        detail:{
+          version:2,
+          waitList:JSON.parse(localStorage.getItem("pklJoinWaitList") || "[]"),
+          cancelList:JSON.parse(localStorage.getItem("pklJoinCancelList") || "[]"),
+          recruitState:nextRecruitState,
+          updatedAt:nextRecruitState.updatedAt
+        }
+      }));
+    }catch(e){}
+
+    try{
+      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.apply === "function"){
+        window.PKLJoinRealtime.apply({
+          version:2,
+          waitList:JSON.parse(localStorage.getItem("pklJoinWaitList") || "[]"),
+          cancelList:JSON.parse(localStorage.getItem("pklJoinCancelList") || "[]"),
+          recruitState:nextRecruitState,
+          updatedAt:nextRecruitState.updatedAt
+        });
+      }
       if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.queueSave === "function"){
         window.PKLJoinRealtime.queueSave(0);
       }
