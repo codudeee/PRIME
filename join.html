@@ -5090,27 +5090,17 @@ function safeJson(key, fallback){
   }
 
   function readAdminUsers(){
-    const state = safeJson("pklAdminState_v3", null);
-    if(state && Array.isArray(state.users) && state.users.length) return state.users;
+    // Supabase 단일 원본: 예전 pklAdminState_v3 로컬 캐시는 권한/티어 판정에 사용하지 않는다.
     return [];
   }
 
   function readPklUsers(){
-    const data = safeJson("pklUsers", []);
-    return Array.isArray(data) ? data : [];
+    // /api/pkl-users에서 방금 받은 Supabase users 캐시만 사용한다.
+    return Array.isArray(joinSupabaseUsers) ? joinSupabaseUsers : [];
   }
 
   function readUsers(){
-    const adminUsers = readAdminUsers();
-    if(adminUsers.length) return adminUsers;
-    const pklUsers = readPklUsers();
-    if(pklUsers.length) return pklUsers;
-    const keys = ["pklMembers","pklUserList","pklApprovedUsers","pklMemberList"];
-    for(const key of keys){
-      const data = safeJson(key, []);
-      if(Array.isArray(data) && data.length) return data;
-    }
-    return [];
+    return readPklUsers();
   }
 
   function getUserNickname(user){
@@ -5146,8 +5136,7 @@ function safeJson(key, fallback){
 
     return (seedDiscord && targetDiscord && String(seedDiscord) === String(targetDiscord)) ||
            (seedId && targetId && String(seedId) === String(targetId)) ||
-           (seedPubg && targetPubg && String(seedPubg) === String(targetPubg)) ||
-           (seedNick && targetNick && String(seedNick) === String(targetNick));
+           (seedPubg && targetPubg && String(seedPubg) === String(targetPubg));
   }
 
   function findAdminUser(seed){
@@ -5266,6 +5255,7 @@ function safeJson(key, fallback){
   }
 
 
+  let joinSupabaseUsers = [];
   let joinTierMap = new Map();
   let joinTierFetchStarted = false;
 
@@ -5311,8 +5301,8 @@ function safeJson(key, fallback){
       let changed = false;
       list.forEach(function(item){
         const sameDiscord = getUserDiscordId(sync) && getUserDiscordId(item) && getUserDiscordId(sync) === getUserDiscordId(item);
-        const sameNick = getUserNickname(sync) && getUserNickname(item) && getUserNickname(sync) === getUserNickname(item);
-        if(sameDiscord || sameNick){
+        const samePubg = getUserPubgId(sync) && getUserPubgId(item) && getUserPubgId(sync) === getUserPubgId(item);
+        if(sameDiscord || samePubg){
           item.gradeRole = tier;
           item.memberTier = tier;
           item.tierRole = tier;
@@ -5336,7 +5326,8 @@ function safeJson(key, fallback){
       if(!res.ok) return;
       const data = await res.json();
       const users = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
-      users.forEach(rememberTierUser);
+      joinSupabaseUsers = users.filter(function(u){ return u && typeof u === "object"; });
+      joinSupabaseUsers.forEach(rememberTierUser);
       if(window.__PKL_JOIN_INITIAL_READY){
         renderAll();
       }
@@ -6197,10 +6188,7 @@ function safeJson(key, fallback){
   }
 
   function readUsers(){
-    try{
-      const data = JSON.parse(localStorage.getItem("pklUsers") || "[]");
-      return Array.isArray(data) ? data : [];
-    }catch(e){ return []; }
+    return Array.isArray(joinSupabaseUsers) ? joinSupabaseUsers : [];
   }
 
   function getUserNickname(user){

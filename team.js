@@ -507,8 +507,12 @@ if (rerollListModal) {
 
   function findFullUserForViewer(loginUser) {
     if (!loginUser) return null;
-    const users = readSupabaseUsers().concat(readAccountUsers(), readAdminUsers());
-    return users.find(user => isSameUserIdentity(loginUser, user)) || users.find(user => sameName(user, loginUser.nickname || loginUser.nick || loginUser.name || loginUser.discord_username || loginUser.discordUsername)) || null;
+    const users = readSupabaseUsers();
+    const byIdentity = users.find(user => isSameUserIdentity(loginUser, user));
+    if (byIdentity) return byIdentity;
+    const hasStrongId = !!(loginUser.discord_id || loginUser.discordId || loginUser.discordID || loginUser.uid || loginUser.id || loginUser.userId);
+    if (hasStrongId) return null;
+    return users.find(user => sameName(user, loginUser.nickname || loginUser.nick || loginUser.name || loginUser.discord_username || loginUser.discordUsername)) || null;
   }
 
   function isTeamControlManager() {
@@ -1474,41 +1478,30 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function resolvePlayerAdminUser(player) {
-    const users = readAdminUsers();
-    return users.find(user => isSameUserIdentity(player, user)) || users.find(user => sameName(user, player.name)) || null;
+    return readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || null;
   }
 
   function resolvePlayerAccountUser(player, displayName) {
-    const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || readSupabaseUsers().find(user => sameName(user, displayName || player.name));
-    if (supabaseUser) return supabaseUser;
-    const users = readAccountUsers();
+    const users = readSupabaseUsers();
     return users.find(user => isSameUserIdentity(player, user)) || users.find(user => sameName(user, displayName || player.name)) || null;
   }
 
   function findAdminUserByNickname(name) {
-    return readAdminUsers().find(user => sameName(user, name)) || null;
+    return findSupabaseUserByLooseName(name) || null;
   }
 
   function findAccountUserByName(name) {
-    return readAccountUsers().find(user => sameName(user, name)) || null;
+    return findSupabaseUserByLooseName(name) || null;
   }
 
   function readAdminUsers() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(ADMIN_STORAGE_KEY) || 'null');
-      return saved && Array.isArray(saved.users) ? saved.users : [];
-    } catch (error) {
-      return [];
-    }
+    // Supabase 단일 원본: 예전 admin localStorage 캐시는 팀구성 권한/배지 판정에 사용하지 않는다.
+    return [];
   }
 
   function readAccountUsers() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(ACCOUNT_STORAGE_KEY) || '[]');
-      return Array.isArray(saved) ? saved : [];
-    } catch (error) {
-      return [];
-    }
+    // Supabase 단일 원본: 예전 pklUsers localStorage 캐시는 팀구성 권한/배지 판정에 사용하지 않는다.
+    return [];
   }
 
   function isSameUserIdentity(a, b) {

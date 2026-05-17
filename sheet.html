@@ -7011,11 +7011,8 @@ function pklReadTierUsers(){
     else if(state && Array.isArray(state.users)) state.users.forEach(u=>u&&typeof u==="object"&&users.push(u));
     else if(state && Array.isArray(state.rows)) state.rows.forEach(u=>u&&typeof u==="object"&&users.push(u));
   };
+  // Supabase 단일 원본: 시트지 배지/티어는 API로 받은 캐시만 사용한다.
   pushState(pklSheetSupabaseUsersCache);
-  /* Supabase 단일 원본 보조: 디스크 차단 키는 읽히지 않지만, 구버전/테스트 환경에 남은 값은 마지막 fallback으로만 사용한다. */
-  ["pklUsers","PKL_USERS","pklAdminUsers","PKL_ADMIN_USERS","pklUserList","pklAdminState_v3","pklAdminState","pkl_admin_state"].forEach(key=>{
-    try{ pushState(JSON.parse(localStorage.getItem(key)||"null")); }catch(e){}
-  });
   return users;
 }
 
@@ -12674,17 +12671,8 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
     return arr;
   }
   function adminCandidates(){
-    var keys=['pklUsers','PKL_USERS','pklAdminUsers','PKL_ADMIN_USERS','pklUserList','pklAdminState_v3','pklAdminState','pkl_admin_state','PKL_USER_DB','pklMembers'];
-    var arr=[];
-    function pushState(st){
-      if(!st) return;
-      if(Array.isArray(st)) st.forEach(function(u){if(u&&typeof u==='object') arr.push(u);});
-      else if(st.users && Array.isArray(st.users)) st.users.forEach(function(u){if(u&&typeof u==='object') arr.push(u);});
-      else if(st.members && Array.isArray(st.members)) st.members.forEach(function(u){if(u&&typeof u==='object') arr.push(u);});
-      else if(typeof st==='object') Object.keys(st).forEach(function(k){var u=st[k]; if(u&&typeof u==='object') arr.push(u);});
-    }
-    keys.forEach(function(k){pushState(parse(localStorage.getItem(k))); pushState(parse(sessionStorage.getItem(k)));});
-    return arr;
+    // Supabase 단일 원본: 관리자/운영자 판정은 PKLRoleSystem의 현재 Supabase 사용자만 사용한다.
+    return [];
   }
   function isCurrentStaff(){
     try{ if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentAccessRole==='function'){ var rr=norm(window.PKLRoleSystem.currentAccessRole()); if(/admin|manager|operator|staff|관리자|운영자/.test(rr)) return true; } }catch(e){}
@@ -12919,11 +12907,8 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAll();}
     return arr;
   }
   function allUsers(){
-    var out=[];
-    ['pklUsers','PKL_USERS','pklAdminUsers','PKL_ADMIN_USERS','pklUserList','pklAdminState_v3','pklAdminState','pkl_admin_state','PKL_USER_DB','pklMembers'].forEach(function(k){
-      collect(parse(localStorage.getItem(k)),out); collect(parse(sessionStorage.getItem(k)),out);
-    });
-    return out;
+    // Supabase 단일 원본: 로컬 유저목록으로 운영자 권한을 보정하지 않는다.
+    return [];
   }
   function isStaff(){
     try{ if(typeof window.pklIsSheetStaff==='function' && window.pklIsSheetStaff()) return true; }catch(e){}
