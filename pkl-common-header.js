@@ -301,7 +301,14 @@ input,textarea,[contenteditable="true"],[contenteditable="true"] *{
 
 
   function getLoginUser(){
-    return getCurrentUser();
+    const local=getCurrentUser();
+    const fresh=window.__PKL_CURRENT_SUPABASE_USER;
+    if(fresh && typeof fresh === "object"){
+      const fid=pklStrongLoginId(fresh);
+      const lid=pklStrongLoginId(local);
+      if(fid && (!lid || fid===lid)) return fresh;
+    }
+    return local;
   }
 
 
@@ -463,10 +470,11 @@ if(node.nodeType===Node.TEXT_NODE){
           discord_id: matched.discord_id || matched.discordId || local.discord_id || local.discordId
         });
         window.__PKL_CURRENT_SUPABASE_USER = merged;
-        PKL_LOGIN_STORAGE_KEYS.forEach(function(key){
+        ["pklLoginUser","pklCurrentUser","pklLoggedInUser","pkl_current_user"].forEach(function(key){
           try{ localStorage.setItem(key, JSON.stringify(merged)); }catch(e){}
           try{ sessionStorage.setItem(key, JSON.stringify(merged)); }catch(e){}
         });
+        try{ localStorage.removeItem("discordUser"); sessionStorage.removeItem("discordUser"); }catch(e){}
         setHeaderMyButton(document.getElementById('loginBtn'), merged);
         const managerBtn=document.getElementById('managerBtn');
         if(managerBtn) managerBtn.style.display=isAdminUser(merged) ? 'flex' : 'none';
@@ -758,22 +766,10 @@ if(node.nodeType===Node.TEXT_NODE){
 
   function syncLoginState(){
 
-    try {
-      var current = getCurrentUser && getCurrentUser();
-      if (current) {
-        /* localStorage 보정 시 PKLRoleSystem.hydrateUser()를 타지 않는다.
-           Supabase admin 값을 받기 전/후에 구버전 로컬 권한이 섞이는 문제 차단. */
-        if(window.__PKL_CURRENT_SUPABASE_USER){
-          current = Object.assign({}, current, window.__PKL_CURRENT_SUPABASE_USER);
-        }
-        PKL_LOGIN_STORAGE_KEYS.forEach(function(key){
-          try{ localStorage.setItem(key, JSON.stringify(current)); }catch(e){}
-          try{ sessionStorage.setItem(key, JSON.stringify(current)); }catch(e){}
-        });
-      }
-    } catch (e) {}
+    const rawLocal=getCurrentUser && getCurrentUser();
+    const needsSupabaseHydrate=!!(rawLocal && pklHeaderIdentityQuery(rawLocal));
 
-    hydrateHeaderUserFromSupabase(false).then(function(fresh){
+    hydrateHeaderUserFromSupabase(true).then(function(fresh){
       if(fresh){
         setHeaderMyButton(document.getElementById("loginBtn"), fresh);
         const managerBtn=document.getElementById("managerBtn");
@@ -795,7 +791,11 @@ if(node.nodeType===Node.TEXT_NODE){
     }
 
     if(user){
-      setHeaderMyButton(loginBtn,user);
+      if(window.__PKL_CURRENT_SUPABASE_USER || !needsSupabaseHydrate){
+        setHeaderMyButton(loginBtn,user);
+      }else{
+        setButtonText(loginBtn,"불러오는중");
+      }
       if(accountWrap){
         accountWrap.classList.add("is-logged-in");
         accountWrap.classList.remove("is-logged-out");
