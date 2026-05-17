@@ -11562,6 +11562,7 @@ document.addEventListener("DOMContentLoaded", function(){
         <thead>
           <tr>
             <th class="pkl-item-history-content-head">내용</th>
+            <th class="pkl-item-history-check-head">확인완료</th>
           </tr>
         </thead>
         <tbody id="pklItemHistoryBody"></tbody>
@@ -11596,6 +11597,42 @@ document.addEventListener("DOMContentLoaded", function(){
       const data=JSON.parse(localStorage.getItem(STATE_KEY)||"{}");
       return data && typeof data==="object" ? data : {};
     }catch(e){return {}}
+  }
+
+  function writeSheetState(st){
+    try{
+      if(!st || typeof st!=="object") st={};
+      st.savedAt=new Date().toISOString();
+      const json=JSON.stringify(st);
+      localStorage.setItem(STATE_KEY,json);
+      try{ sessionStorage.setItem(STATE_KEY,json); }catch(e){}
+      try{
+        if(typeof state==="object" && state){
+          state.itemHistoryChecks=st.itemHistoryChecks && typeof st.itemHistoryChecks==="object" ? st.itemHistoryChecks : {};
+          state.savedAt=st.savedAt;
+        }
+      }catch(e){}
+      try{
+        if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==="function") window.PKLScoreboardRealtime.schedulePublish(20);
+        else if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.publish==="function") window.PKLScoreboardRealtime.publish();
+      }catch(e){}
+    }catch(e){}
+  }
+
+  function canManageItemHistoryCheck(){
+    try{ return !!(typeof pklIsSheetStaff==="function" && pklIsSheetStaff()); }catch(e){ return false; }
+  }
+
+  function itemHistoryChecked(st,key){
+    const map=st && st.itemHistoryChecks && typeof st.itemHistoryChecks==="object" ? st.itemHistoryChecks : {};
+    return !!map[String(key||"")];
+  }
+
+  function setItemHistoryChecked(key,checked){
+    const st=readSheetState();
+    if(!st.itemHistoryChecks || typeof st.itemHistoryChecks!=="object") st.itemHistoryChecks={};
+    st.itemHistoryChecks[String(key||"")]=!!checked;
+    writeSheetState(st);
   }
 
   function getItemViews(){
@@ -11671,9 +11708,11 @@ document.addEventListener("DOMContentLoaded", function(){
     const t=Number(ms||0);
     if(!t) return "시간 미상";
     const d=new Date(t);
-    const hh=String(d.getHours()).padStart(2,"0");
+    const h24=d.getHours();
+    const period=h24<12 ? "오전" : "오후";
+    const h12=(h24%12)||12;
     const mm=String(d.getMinutes()).padStart(2,"0");
-    return hh+"시 "+mm+"분";
+    return period+" "+h12+"시 "+mm+"분";
   }
 
   function normalizeTeamText(name){
@@ -11719,7 +11758,8 @@ document.addEventListener("DOMContentLoaded", function(){
       type:type,
       time:time,
       key:rawKey,
-      html:'<tr class="pkl-item-history-log-row pkl-item-history-log-'+esc(type)+'"><td><div class="pkl-item-history-log"><span class="pkl-item-history-log-type">'+esc(type)+'</span><span class="pkl-item-history-log-text">'+esc(team)+' '+esc(formatHistoryTime(time))+' '+esc(actionText)+'</span></div></td></tr>'
+      text:team+' '+formatHistoryTime(time)+' '+actionText,
+      html:''
     });
   }
 
@@ -11778,6 +11818,11 @@ document.addEventListener("DOMContentLoaded", function(){
       visibleSeen[key]=true;
       visibleRows.push(row);
     });
+    const canCheck=canManageItemHistoryCheck();
+    visibleRows.forEach(function(row){
+      const checked=itemHistoryChecked(st,row.key);
+      row.html='<tr class="pkl-item-history-log-row pkl-item-history-log-'+esc(row.type)+'"><td><div class="pkl-item-history-log"><span class="pkl-item-history-log-type">'+esc(row.type)+'</span><span class="pkl-item-history-log-text">'+esc(row.text||'')+'</span></div></td><td class="pkl-item-history-check-cell"><label class="pkl-item-history-check-wrap"><input type="checkbox" class="pkl-item-history-check" data-history-key="'+esc(row.key)+'" '+(checked?'checked ':'')+(canCheck?'':'disabled ')+'/><span></span></label></td></tr>';
+    });
     return visibleRows;
   }
 
@@ -11790,13 +11835,13 @@ document.addEventListener("DOMContentLoaded", function(){
       return name && teamKey(view);
     });
     if(!views.length){
-      body.innerHTML='<tr><td class="pkl-item-empty-row">팀 정보를 찾을 수 없습니다.</td></tr>';
+      body.innerHTML='<tr><td class="pkl-item-empty-row" colspan="2">팀 정보를 찾을 수 없습니다.</td></tr>';
       return;
     }
 
     const st=readSheetState();
     const rows=collectHistoryLogs(views, st);
-    body.innerHTML=rows.length ? rows.map(function(row){return row.html;}).join("") : '<tr><td class="pkl-item-empty-row">아직 사용된 이용내역이 없습니다.</td></tr>';
+    body.innerHTML=rows.length ? rows.map(function(row){return row.html;}).join("") : '<tr><td class="pkl-item-empty-row" colspan="2">아직 사용된 이용내역이 없습니다.</td></tr>';
   }
 
   function pklCanOpenItemHistory(){
@@ -11831,6 +11876,16 @@ document.addEventListener("DOMContentLoaded", function(){
 
 
   document.addEventListener("click", function(e){
+    const check=e.target && e.target.closest ? e.target.closest(".pkl-item-history-check") : null;
+    if(check){
+      if(!canManageItemHistoryCheck()){
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      setItemHistoryChecked(check.getAttribute("data-history-key")||"", check.checked);
+      return;
+    }
     if(e.target.closest && e.target.closest("#adminPanelBtn")){
       e.preventDefault();
       e.stopPropagation();
@@ -11847,21 +11902,37 @@ document.addEventListener("DOMContentLoaded", function(){
   }, true);
 
 
+  window.addEventListener("storage",function(e){
+    if(e && e.key===STATE_KEY){
+      const modal=document.getElementById("pklItemHistoryModal");
+      if(modal && modal.classList.contains("show")) renderItemHistoryTable();
+    }
+  });
+
   window.pklRenderItemHistoryTable=renderItemHistoryTable;
 })();
 </script>
 
 <style id="pklItemHistoryContentOnlyFix">
-.pkl-item-history-table{table-layout:auto !important;}
-.pkl-item-history-table th,.pkl-item-history-table td{width:100% !important;text-align:center !important;}
-.pkl-item-history-table th:first-child,.pkl-item-history-table td:first-child{width:100% !important;text-align:center !important;}
-.pkl-item-history-content-head{font-size:14px !important;letter-spacing:.14em !important;color:#fff4bf !important;}
-.pkl-item-history-log{display:flex;align-items:center;justify-content:center;gap:10px;min-height:42px;padding:4px 8px;white-space:normal;word-break:keep-all;}
-.pkl-item-history-log-type{display:inline-flex;align-items:center;justify-content:center;min-width:54px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:1000;letter-spacing:.08em;background:rgba(255,216,92,.14);border:1px solid rgba(255,216,92,.46);color:#ffd85c;box-shadow:0 0 12px rgba(255,216,92,.16);}
+.pkl-item-history-table{table-layout:fixed !important;}
+.pkl-item-history-table th,.pkl-item-history-table td{text-align:left !important;}
+.pkl-item-history-table th:first-child,.pkl-item-history-table td:first-child{width:auto !important;text-align:left !important;padding-left:22px !important;padding-right:12px !important;}
+.pkl-item-history-table th:last-child,.pkl-item-history-table td:last-child{width:104px !important;text-align:center !important;padding-left:8px !important;padding-right:8px !important;}
+.pkl-item-history-content-head{font-size:14px !important;letter-spacing:.14em !important;color:#fff4bf !important;text-align:left !important;}
+.pkl-item-history-check-head{font-size:12px !important;letter-spacing:-.05em !important;color:#e9d5ff !important;text-align:center !important;white-space:nowrap !important;}
+.pkl-item-history-log{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-height:42px;padding:4px 0;white-space:normal;word-break:keep-all;text-align:left;}
+.pkl-item-history-log-type{display:inline-flex;align-items:center;justify-content:center;min-width:54px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:1000;letter-spacing:.08em;background:rgba(255,216,92,.14);border:1px solid rgba(255,216,92,.46);color:#ffd85c;box-shadow:0 0 12px rgba(255,216,92,.16);flex:0 0 auto;}
 .pkl-item-history-log-서렌 .pkl-item-history-log-type{background:rgba(255,83,83,.14);border-color:rgba(255,83,83,.5);color:#ff7777;box-shadow:0 0 12px rgba(255,83,83,.14);}
-.pkl-item-history-log-text{font-size:14px;font-weight:900;color:#fff;line-height:1.45;}
+.pkl-item-history-log-text{font-size:14px;font-weight:900;color:#fff;line-height:1.45;text-align:left;}
+.pkl-item-history-check-cell{text-align:center !important;}
+.pkl-item-history-check-wrap{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;margin:0 auto;cursor:pointer;}
+.pkl-item-history-check-wrap input{position:absolute;opacity:0;pointer-events:none;}
+.pkl-item-history-check-wrap span{width:20px;height:20px;border-radius:6px;border:1px solid rgba(216,180,254,.44);background:rgba(255,255,255,.04);box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 0 12px rgba(168,85,247,.10);position:relative;}
+.pkl-item-history-check-wrap input:checked+span{border-color:rgba(74,222,128,.72);background:rgba(34,197,94,.18);box-shadow:0 0 14px rgba(34,197,94,.24),inset 0 1px 0 rgba(255,255,255,.12);}
+.pkl-item-history-check-wrap input:checked+span::after{content:"";position:absolute;left:5px;top:2px;width:7px;height:12px;border:solid #bbf7d0;border-width:0 2px 2px 0;transform:rotate(45deg);}
+.pkl-item-history-check-wrap input:disabled+span{opacity:.54;cursor:not-allowed;filter:grayscale(.2);}
 .pkl-item-empty-row{height:72px !important;text-align:center !important;color:rgba(255,255,255,.68) !important;font-weight:900 !important;}
-@media(max-width:720px){.pkl-item-history-log{flex-direction:column;gap:6px}.pkl-item-history-log-text{font-size:13px}}
+@media(max-width:720px){.pkl-item-history-log{gap:7px}.pkl-item-history-log-text{font-size:13px}.pkl-item-history-table th:last-child,.pkl-item-history-table td:last-child{width:86px !important;}}
 </style>
 
 <script id="pkl-sheet-ui-polish-script">
