@@ -11758,7 +11758,22 @@ document.addEventListener("DOMContentLoaded", function(){
     });
 
     rows.sort(function(a,b){return Number(b.time||0)-Number(a.time||0);});
-    return rows;
+
+    // 이용내역 표시 전용 중복 제거
+    // 저장 데이터/불판 사용 로직은 건드리지 않고, 화면에 같은 문구가 두 번 보이는 것만 막는다.
+    const visibleSeen={};
+    const visibleRows=[];
+    rows.forEach(function(row){
+      const text=String(row && row.html || "")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const key=[String(row && row.type || ""), text].join(":");
+      if(!text || visibleSeen[key]) return;
+      visibleSeen[key]=true;
+      visibleRows.push(row);
+    });
+    return visibleRows;
   }
 
   function renderItemHistoryTable(){
