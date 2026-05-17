@@ -7284,6 +7284,40 @@ function pklShouldShowColdEntryModal(view){
   */
   return pklIsCurrentUserInView(view);
 }
+const PKL_COLD_ENTRY_SEEN_KEY='PKL_COLD_TEAM_MODAL_SEEN_V2';
+function pklColdEntrySeenMap(){
+  try{ return JSON.parse(sessionStorage.getItem(PKL_COLD_ENTRY_SEEN_KEY)||'{}')||{}; }catch(e){ return {}; }
+}
+function pklColdEntrySeenId(viewId, rec){
+  rec=rec&&typeof rec==='object'?rec:{};
+  return String(viewId||'')+':'+String(rec.seq||rec.time||rec.percent||'active');
+}
+function pklHasSeenColdEntry(viewId, rec){
+  const id=pklColdEntrySeenId(viewId, rec);
+  const map=pklColdEntrySeenMap();
+  return !!map[id];
+}
+function pklMarkColdEntrySeen(viewId, rec){
+  if(!viewId) return;
+  const id=pklColdEntrySeenId(viewId, rec);
+  const map=pklColdEntrySeenMap();
+  map[id]=Date.now();
+  try{ sessionStorage.setItem(PKL_COLD_ENTRY_SEEN_KEY, JSON.stringify(map)); }catch(e){}
+}
+function pklTryOpenColdEntryModalForMyActiveCold(){
+  const modal=document.getElementById('pklColdEntryModal');
+  if(modal && modal.classList.contains('is-open')) return;
+  const store=ensureColdStore();
+  visibleTeams().some(view=>{
+    if(!view || !view.viewId) return false;
+    const rec=store[String(view.viewId)];
+    if(!rec || !rec.active) return false;
+    if(!pklShouldShowColdEntryModal(view)) return false;
+    if(pklHasSeenColdEntry(view.viewId, rec)) return false;
+    openColdEntryModal(view);
+    return true;
+  });
+}
 function openColdEntryModal(view){
   const modal=document.getElementById('pklColdEntryModal');
   if(!modal || !view || !view.viewId) return;
@@ -7292,6 +7326,8 @@ function openColdEntryModal(view){
     modal.setAttribute('aria-hidden','true');
     return;
   }
+  const store=ensureColdStore();
+  pklMarkColdEntrySeen(view.viewId, store[String(view.viewId)]);
   const name=document.getElementById('pklColdEntryTeamName');
   if(name) name.textContent=teamFeedName(view.viewName);
   modal.dataset.viewId=view.viewId;
@@ -9039,6 +9075,7 @@ window.PKLSheetLiveBridge={
       try{
         render();
         updateTopBetJackpot();
+        pklTryOpenColdEntryModalForMyActiveCold();
       }finally{
         pklApplyingRemoteSheetState=false;
       }
