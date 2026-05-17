@@ -343,8 +343,10 @@
     if(!st || !Array.isArray(st.teams) || !Array.isArray(st.rounds)) st={mode:live.mode||'squad',selectedTeamId:'team1',teams:[],rounds:[],feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''};
     st.mode=live.mode||st.mode||'squad';
     st.selectedTeamId=st.selectedTeamId||'team1';
-    if(live.startTime !== undefined) st.startTime = clean(live.startTime);
-    if(live.endTime !== undefined) st.endTime = clean(live.endTime);
+    var remoteStartTime = (live.startTime !== undefined) ? clean(live.startTime) : '';
+    var remoteEndTime = (live.endTime !== undefined) ? clean(live.endTime) : '';
+    if(remoteStartTime) st.startTime = remoteStartTime;
+    if(remoteEndTime) st.endTime = remoteEndTime;
     if(live.teamImportNonce) st.teamImportNonce = Number(live.teamImportNonce)||st.teamImportNonce||0;
     if(Array.isArray(live.teams) && live.teams.length){
       st.teams=live.teams.map(function(t,i){var old=(st.teams||[]).find(function(x){return String(x&&x.id)===String(t&&t.id);})||(st.teams||[])[i]||{};return Object.assign({},old,{id:t.id||old.id||('team'+(i+1)),members:Array.isArray(t.members)?t.members:(old.members||[])});});
