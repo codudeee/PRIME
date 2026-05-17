@@ -903,12 +903,16 @@ const teamIndex = Number(slot.dataset.teamIndex);
       });
     });
     window.addEventListener('pkl-role-data-updated', () => {
-      hydratePlayersForDisplayOnly();
-      applyTeamControlAccess();
-      renderTierPools();
-      renderTeams();
-      renderSummary();
-      saveState();
+      loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
+        syncJoinWaitListIntoTeamBoard(true);
+        syncPlayersWithUserSources();
+        hydratePlayersForDisplayOnly();
+        applyTeamControlAccess();
+        renderTierPools();
+        renderTeams();
+        renderSummary();
+        saveState();
+      });
     });
   }
 
@@ -1072,7 +1076,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
     }
 
     const select = [
-      'id','discord_id','discord_username','nickname','tier','title','role','prime','warnings','banned','prison_until','created_at'
+      'id','discord_id','discord_username','nickname','pubg_id','tier','title','role','prime','warnings','banned','prison_until','created_at'
     ].join(',');
 
     return fetch(`${config.url}/rest/v1/users?select=${encodeURIComponent(select)}&order=created_at.asc&limit=1000`, {
@@ -1170,7 +1174,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
         player.userUid = player.userUid || (supabaseUser && (supabaseUser.discord_id || supabaseUser.uid || supabaseUser.id)) || (adminUser && (adminUser.uid || adminUser.id)) || (accountUser && (accountUser.uid || accountUser.id)) || item.discord_id || item.userId || item.uid || item.key || '';
         player.discordId = player.discordId || (supabaseUser && supabaseUser.discord_id) || item.discord_id || item.discordId || '';
         player.accountId = player.accountId || (supabaseUser && (supabaseUser.id || supabaseUser.discord_id)) || (accountUser && (accountUser.id || accountUser.uid)) || (adminUser && (adminUser.id || adminUser.uid)) || item.userId || item.uid || item.key || '';
-        player.pubgId = player.pubgId || (adminUser && (adminUser.pubgId || adminUser.gameId)) || item.pubgId || (accountUser && (accountUser.pubgId || accountUser.gameId)) || '';
+        player.pubgId = player.pubgId || (supabaseUser && (supabaseUser.pubgId || supabaseUser.pubg_id || supabaseUser.gameId)) || (adminUser && (adminUser.pubgId || adminUser.pubg_id || adminUser.gameId)) || item.pubgId || item.pubg_id || (accountUser && (accountUser.pubgId || accountUser.pubg_id || accountUser.gameId)) || '';
         player.name = displayName;
         player.tier = TIERS.some(t => t.id === tier) ? tier : player.tier;
         if (resolvedTierBadge) player.memberTier = resolvedTierBadge;
@@ -1192,7 +1196,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
         userUid: (supabaseUser && (supabaseUser.discord_id || supabaseUser.uid || supabaseUser.id)) || (adminUser && (adminUser.uid || adminUser.id)) || (accountUser && (accountUser.uid || accountUser.id)) || item.discord_id || item.userId || item.uid || item.key || '',
         discordId: (supabaseUser && supabaseUser.discord_id) || item.discord_id || item.discordId || '',
         accountId: (supabaseUser && (supabaseUser.id || supabaseUser.discord_id)) || (accountUser && (accountUser.id || accountUser.uid)) || (adminUser && (adminUser.id || adminUser.uid)) || item.userId || item.uid || item.key || '',
-        pubgId: (adminUser && (adminUser.pubgId || adminUser.gameId)) || item.pubgId || (accountUser && (accountUser.pubgId || accountUser.gameId)) || ''
+        pubgId: (supabaseUser && (supabaseUser.pubgId || supabaseUser.pubg_id || supabaseUser.gameId)) || (adminUser && (adminUser.pubgId || adminUser.pubg_id || adminUser.gameId)) || item.pubgId || item.pubg_id || (accountUser && (accountUser.pubgId || accountUser.pubg_id || accountUser.gameId)) || ''
       };
       state.players.push(nextPlayer);
       insertPlayerIntoWaitingTier(nextPlayer.id, nextPlayer.tier);
@@ -1512,9 +1516,9 @@ const teamIndex = Number(slot.dataset.teamIndex);
     const uidA = a.userUid || a.uid || a.userId || a.accountId || a.key || a.id || a.discord_id || a.discordId || '';
     const uidB = b.uid || b.userUid || b.userId || b.accountId || b.key || b.id || b.discord_id || b.discordId || '';
     if (uidA && uidB && String(uidA) === String(uidB)) return true;
-    const pubgA = a.pubgId || a.gameId || '';
-    const pubgB = b.pubgId || b.gameId || '';
-    return !!(pubgA && pubgB && pubgA === pubgB);
+    const pubgA = a.pubgId || a.pubg_id || a.gameId || '';
+    const pubgB = b.pubgId || b.pubg_id || b.gameId || '';
+    return !!(pubgA && pubgB && String(pubgA).trim().toLowerCase() === String(pubgB).trim().toLowerCase());
   }
 
   function sameName(user, name) {
