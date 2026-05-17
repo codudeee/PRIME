@@ -75,8 +75,8 @@
   function memberName(m){return clean(m&&(m.name||m.nickname||m.nick||m.displayName||m.pubgId||m.gameId||m.username));}
   function memberTier(m){var r=tierRole(m&&(m.memberTier||m.tierRole||m.gradeRole||m.tier||m.grade||m.memberGrade));var c=config();return c[lane(r)]||{target:0,death:0};}
   function realTeamId(viewId){return String(viewId||'').replace(/[ab]$/,'');}
-  function teamData(round,id){return (round&&round.teams&&round.teams[id])||{kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};}
-  function chickenScore(round,d){if(!d||!num(d.chicken))return 0;return clean(round&&round.map)==='사'?5:8;}
+  function teamData(round,id){return (round&&round.teams&&round.teams[id])||{kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0,map:''};}
+  function chickenScore(round,d){if(!d||!num(d.chicken))return 0;return clean(d&&d.map)==='사'?5:8;}
   function visibleTeams(state){
     var teams=Array.isArray(state.teams)?state.teams:[];
     if(state.mode==='duo'){
@@ -147,6 +147,7 @@
     d.deaths=d.deaths.map(num);
     d.chicken=!!Number(d.chicken||0);
     d.stop=num(d.stop);
+    d.map=clean(d.map);
     return d;
   }
   function cellLivePayload(){
@@ -155,7 +156,7 @@
     var live={version:4,seq:Date.now(),updatedAt:new Date().toISOString(),resetNonce:st.resetNonce||0,teamImportNonce:st.teamImportNonce||0,mode:st.mode||'squad',selectedTeamId:'',startTime:clean(st.startTime),endTime:clean(st.endTime),teams:[],rounds:[],feeds:[],eventKeys:{},colds:(st.colds&&typeof st.colds==='object')?st.colds:{},fires:(st.fires&&typeof st.fires==='object')?st.fires:{},surrenders:(st.surrenders&&typeof st.surrenders==='object')?st.surrenders:{}};
     try{
       live.teams=(st.teams||[]).map(function(t,i){return {id:t.id||('team'+(i+1)),members:(Array.isArray(t.members)?t.members:[]).map(function(m){return {name:memberName(m),nickname:clean(m&&(m.nickname||m.nick||m.displayName)),pubgId:clean(m&&(m.pubgId||m.pubgID||m.gameId||m.pubgName)),memberTier:clean(m&&(m.memberTier||m.tierRole||m.gradeRole||m.tier||m.grade||m.memberGrade))};})};});
-      live.rounds=(st.rounds||[]).map(function(r,ri){var round={no:r.no||ri+1,map:clean(r.map),teams:{}};Object.keys((r&&r.teams)||{}).forEach(function(teamId){round.teams[teamId]=normalizeTeamData(r.teams[teamId]);});return round;});
+      live.rounds=(st.rounds||[]).map(function(r,ri){var round={no:r.no||ri+1,map:'',teams:{}};Object.keys((r&&r.teams)||{}).forEach(function(teamId){round.teams[teamId]=normalizeTeamData(r.teams[teamId]);});return round;});
       live.feeds=normalizeFeeds(st.feeds);
       live.eventKeys=(st.eventKeys&&typeof st.eventKeys==='object')?st.eventKeys:{};
       return JSON.stringify(live);
@@ -244,9 +245,9 @@
       if(Array.isArray(st&&st.feeds)) count+=st.feeds.length;
       ['fires','surrenders','colds'].forEach(function(k){if(st&&st[k]&&typeof st[k]==='object') count+=Object.keys(st[k]).length;});
       (Array.isArray(st&&st.rounds)?st.rounds:[]).forEach(function(r){
-        if(clean(r&&r.map)) count+=1;
         Object.keys((r&&r.teams)||{}).forEach(function(teamId){
           var d=r.teams[teamId]||{};
+          if(clean(d&&d.map)) count+=1;
           if(num(d.chicken)) count+=1;
           if(num(d.stop)) count+=1;
           if(Array.isArray(d.kills)) d.kills.forEach(function(v){if(num(v)) count+=1;});
@@ -351,7 +352,7 @@
     live.rounds.forEach(function(r,ri){
       if(!st.rounds[ri]) st.rounds[ri]={no:r.no||ri+1,map:'',teams:{}};
       st.rounds[ri].no=r.no||st.rounds[ri].no||ri+1;
-      if(r.map!==undefined) st.rounds[ri].map=r.map;
+      if(r.map!==undefined) st.rounds[ri].map='';
       if(!st.rounds[ri].teams) st.rounds[ri].teams={};
       Object.keys((r&&r.teams)||{}).forEach(function(teamId){st.rounds[ri].teams[teamId]=normalizeTeamData(r.teams[teamId]);});
     });

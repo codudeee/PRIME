@@ -6614,11 +6614,10 @@ function pklSheetHasMeaningfulState(st){
   if(st.colds && typeof st.colds==='object' && Object.keys(st.colds).length) return true;
   if(Array.isArray(st.teams) && st.teams.some(t=>Array.isArray(t && t.members) && t.members.some(m=>String((m&&(m.name||m.nickname||m.nick||m.pubgId||m.pubgName||m.gameId))||'').trim()))) return true;
   if(Array.isArray(st.rounds) && st.rounds.some(r=>{
-    if(String((r&&r.map)||'').trim()) return true;
     const teams=(r&&r.teams&&typeof r.teams==='object') ? r.teams : {};
     return Object.keys(teams).some(k=>{
       const d=teams[k]||{};
-      return Number(d.chicken||0)!==0 || Number(d.stop||0)!==0 ||
+      return String((d&&d.map)||'').trim() || Number(d.chicken||0)!==0 || Number(d.stop||0)!==0 ||
         (Array.isArray(d.kills)&&d.kills.some(v=>Number(v||0)!==0)) ||
         (Array.isArray(d.deaths)&&d.deaths.some(v=>Number(v||0)!==0));
     });
@@ -6642,10 +6641,10 @@ function pklSheetScoreActivityCount(st){
     if(st && st.surrenders && typeof st.surrenders==='object') count+=Object.keys(st.surrenders).length;
     if(st && st.colds && typeof st.colds==='object') count+=Object.keys(st.colds).length;
     (Array.isArray(st && st.rounds)?st.rounds:[]).forEach(r=>{
-      if(String((r&&r.map)||'').trim()) count+=1;
       const teams=(r&&r.teams&&typeof r.teams==='object') ? r.teams : {};
       Object.keys(teams).forEach(k=>{
         const d=teams[k]||{};
+        if(String((d&&d.map)||'').trim()) count+=1;
         if(Number(d.chicken||0)!==0) count+=1;
         if(Number(d.stop||0)!==0) count+=1;
         if(Array.isArray(d.kills)) count+=d.kills.filter(v=>Number(v||0)!==0).length;
@@ -6830,7 +6829,16 @@ function visibleTeams(){
 function realTeamId(viewId){return String(viewId).replace(/[ab]$/,'')}
 function currentView(){return visibleTeams().find(t=>t.viewId===selectedTeamId)||visibleTeams()[0]}
 function getViewById(viewId){return visibleTeams().find(t=>t.viewId===viewId)}
-function teamData(round,teamId){if(!round.teams[teamId])round.teams[teamId]={kills:[0,0,0,0],deaths:[0,0,0,0],chicken:false,stop:0}; if(round.teams[teamId].chicken===undefined||round.teams[teamId].chicken===null) round.teams[teamId].chicken=false; return round.teams[teamId]}
+function teamData(round,teamId){if(!round.teams[teamId])round.teams[teamId]={kills:[0,0,0,0],deaths:[0,0,0,0],chicken:false,stop:0,map:''}; if(round.teams[teamId].chicken===undefined||round.teams[teamId].chicken===null) round.teams[teamId].chicken=false; if(round.teams[teamId].map===undefined||round.teams[teamId].map===null) round.teams[teamId].map=''; return round.teams[teamId]}
+function pklTeamRoundMap(round,teamId){
+  const d=teamData(round,teamId);
+  return String((d&&d.map)||'').trim();
+}
+function pklSetTeamRoundMap(round,teamId,value){
+  const d=teamData(round,teamId);
+  d.map=String(value||'').trim();
+  return d.map;
+}
 
 function pklTierScoreRoleFromText(text){
   const raw=String(text||"").trim();
@@ -7114,7 +7122,7 @@ function pklViewTargetScore(view){
 
 function pklChickenScore(round,data){
   if(!data || !Number(data.chicken||0)) return 0;
-  const map=String(round && round.map || '').trim();
+  const map=String((data&&data.map)||'').trim();
   if(!map) return 0;
   return map === '사' ? 5 : 8;
 }
@@ -7894,7 +7902,7 @@ function renderSheet(){
     return `<tr class="${fireUsedRow?'is-fire-used-row':''} ${fireMarkerRow?'is-fire-marker-row':''} ${!canEditRound?'is-locked-row':''}">
       <td><b>${r.no}</b></td>
       <td><div class="pkl-map-field">
-        <button type="button" class="pkl-map-trigger" data-map-round="${ri}" ${disabledAttr}>${r.map || ''}</button>
+        <button type="button" class="pkl-map-trigger" data-map-round="${ri}" ${disabledAttr}>${pklTeamRoundMap(r,realId)}</button>
       </div></td>
       ${[0,1,2,3].map(i=>`<td><div class="kill-box"><input type="number" min="0" ${(view.members[i]&&canEditRound)?'':'disabled'} value="${localKills[i] ? Number(localKills[i]) : ''}" data-field="kill" data-round="${ri}" data-member="${offset+i}"><label class="death-toggle"><input type="checkbox" ${Number(localDeaths[i]||0)>0?'checked':''} ${(view.members[i]&&canEditRound)?'':'disabled'} data-field="death" data-round="${ri}" data-member="${offset+i}"><i></i></label></div></td>`).join('')}
       <td><label class="check-wrap chicken-check"><input type="checkbox" ${Number(d.chicken||0)>0?'checked':''} ${disabledAttr} data-field="chicken" data-round="${ri}"><i></i></label></td>
@@ -8479,7 +8487,7 @@ function latestPlayedRoundIndex(view){
     const hasKills=d.kills.slice(offset,offset+len).some(v=>Number(v||0)!==0);
     const hasDeaths=d.deaths.slice(offset,offset+len).some(v=>Number(v||0)!==0);
     const hasScore=Number(d.chicken||0)!==0 || Number(d.stop||0)!==0;
-    const hasMap=String(r.map||'').trim()!=='';
+    const hasMap=String(pklTeamRoundMap(r,realTeamId(currentView().viewId))||'').trim()!=='';
     if(hasKills || hasDeaths || hasScore || hasMap) return ri;
   }
   return -1;
@@ -8575,7 +8583,7 @@ function isCurrentViewSurrendered(){
 }
 
 function checkAutoEvents(roundIndex, realId){
-  const round=state.rounds[roundIndex], d=teamData(round,realId), map=round.map||`${round.no}라운드`;
+  const round=state.rounds[roundIndex], d=teamData(round,realId), map=pklTeamRoundMap(round,realId)||`${round.no}라운드`;
   visibleTeams().filter(v=>v.id===realId).forEach(view=>{
     const offset=view.memberOffset||0, len=view.members.length;
     const localDeaths=d.deaths.slice(offset,offset+len).map(Number);
@@ -8619,7 +8627,9 @@ function openPklMapPopup(button){
   const round=Number(button.dataset.mapRound);
   if(Number.isNaN(round) || !state.rounds[round]) return;
 
-  const current=state.rounds[round].map || '';
+  const view=currentView();
+  const realId=realTeamId(view.viewId);
+  const current=pklTeamRoundMap(state.rounds[round],realId);
   popup.innerHTML=MAPS.filter(Boolean).map(m=>`<button type="button" class="pkl-map-circle ${current===m?'active':''}" data-map-pick="${m}">${m}</button>`).join('');
   popup.classList.remove('is-stop-popup');
 
@@ -8735,7 +8745,11 @@ render();
       const editView=currentView();
       if(!pklCanEditRound(editView, pklMapPopupRound)){ closePklMapPopup(); return; }
       const value=mapPick.dataset.mapPick || '';
-      state.rounds[pklMapPopupRound].map = (state.rounds[pklMapPopupRound].map === value) ? '' : value;
+      const view=currentView();
+      const realId=realTeamId(view.viewId);
+      const current=pklTeamRoundMap(state.rounds[pklMapPopupRound],realId);
+      pklSetTeamRoundMap(state.rounds[pklMapPopupRound],realId,current === value ? '' : value);
+      checkAutoEvents(pklMapPopupRound, realId);
       closePklMapPopup();
       render();
     }
@@ -8903,7 +8917,8 @@ document.addEventListener('change',e=>{
       const roundIndex=Number(e.target.dataset.round);
       const view=currentView();
       if(!pklCanEditRound(view, roundIndex)){ render(); return; }
-      state.rounds[roundIndex].map=e.target.value;
+      pklSetTeamRoundMap(state.rounds[roundIndex], realTeamId(view.viewId), e.target.value);
+      checkAutoEvents(roundIndex, realTeamId(view.viewId));
       render();
       return;
     }
