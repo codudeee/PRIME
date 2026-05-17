@@ -6484,6 +6484,15 @@ function safeJson(key, fallback){
       feeInput:deadline,
       deadlineConfigured:deadlineConfigured
     });
+
+    /* 모집열기 직후 remote/loading 보정이 한 프레임 끼어들며 화면이 깜빡이는 것 방지 */
+    window.__PKL_JOIN_LOCAL_RECRUIT_ACTION__ = { state:"open", until:Date.now() + 1400 };
+    window.__PKL_JOIN_REMOTE_CONFIRMED = true;
+    try{
+      window.dispatchEvent(new CustomEvent("pkl-join-state-updated", {
+        detail:{ recruitState:{ state:"open" }, localAction:true }
+      }));
+    }catch(e){}
   }
 
   function registerFeeInfo(){
@@ -6616,6 +6625,17 @@ function safeJson(key, fallback){
     const panel = document.querySelector(".join-modal-panel");
     let normalized = normalizeState(rawState);
 
+    const localAction = window.__PKL_JOIN_LOCAL_RECRUIT_ACTION__;
+    if(localAction && localAction.until && Date.now() < localAction.until){
+      const localActionState = normalizeState(localAction.state);
+      /* 사용자가 방금 모집열기를 누른 직후에는 서버의 이전 waiting/loading 응답으로 되돌리지 않는다. */
+      if(localActionState === "open" && (normalized === "waiting" || normalized === "loading")){
+        normalized = "open";
+        joinRemoteStateConfirmed = true;
+        window.__PKL_JOIN_REMOTE_CONFIRMED = true;
+      }
+    }
+
     /* 첫 진입 때 서버/로컬의 오래된 waiting 값이 먼저 보였다가 open으로 바뀌는 깜빡임 방지.
        waiting은 짧게 보류하고, open/closed가 안 오면 그때만 표시한다. */
     if(normalized === "waiting" && joinStateBooting && !options.allowWaiting){
@@ -6681,7 +6701,12 @@ function safeJson(key, fallback){
   }
 
   function refreshRemoteThenApply(){
-    applyState("loading");
+    const localAction = window.__PKL_JOIN_LOCAL_RECRUIT_ACTION__;
+    if(localAction && localAction.until && Date.now() < localAction.until){
+      applyState(localAction.state, {allowWaiting:true});
+    }else{
+      applyState("loading");
+    }
     try{
       if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.fetchNow === "function"){
         window.PKLJoinRealtime.fetchNow().then(function(st){
@@ -6737,10 +6762,19 @@ function safeJson(key, fallback){
     applyState(readRealtimeRecruitState() || readLocalRecruitState({allowStale:joinRemoteStateConfirmed}) || "loading");
   });
   document.addEventListener("click", function(e){
+    const openActionBtn = e.target.closest("#openRecruitBtn");
+    if(openActionBtn){
+      window.__PKL_JOIN_LOCAL_RECRUIT_ACTION__ = { state:"open", until:Date.now() + 1400 };
+    }
     if(e.target.closest("#openRecruitBtn,#closeRecruitBtn,#joinResetBtn")){
       /* 버튼 클릭 직후에는 방금 저장한 local 상태가 기준이다.
          서버에 저장되기 전 오래된 remote 상태를 즉시 다시 읽으면 모집열기/마감/초기화 화면이 번쩍인다. */
       setTimeout(function(){
+        const localAction = window.__PKL_JOIN_LOCAL_RECRUIT_ACTION__;
+        if(localAction && localAction.until && Date.now() < localAction.until){
+          applyState(localAction.state, {allowWaiting:true});
+          return;
+        }
         const localState = readLocalRecruitState({allowStale:true});
         if(localState) applyState(localState, {allowWaiting:true});
       }, 0);
