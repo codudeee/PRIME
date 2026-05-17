@@ -6506,7 +6506,7 @@ function safeJson(key, fallback){
     const deadline = getDeadlineDisplayText();
     if(deadlineText) deadlineText.textContent = deadline;
 
-    const nextState = {
+    const nextRecruitState = {
       state:"open",
       hostHtml:openData.hostHtml,
       openTime:openData.openTime,
@@ -6514,33 +6514,23 @@ function safeJson(key, fallback){
       feeText:deadline,
       feeInput:deadline,
       deadlineConfigured:deadlineConfigured,
-      openedAt:new Date().toISOString(),
+      updatedAt:new Date().toISOString(),
       actionNonce:"open-" + Date.now()
     };
 
-    saveRecruitState(nextState);
+    saveRecruitState(nextRecruitState);
 
     try{
-      window.__PKL_JOIN_REMOTE_CONFIRMED = true;
-      window.dispatchEvent(new CustomEvent("pkl-join-state-updated", {
-        detail:{
-          version:2,
-          waitList:JSON.parse(localStorage.getItem("pklJoinWaitList") || "[]"),
-          cancelList:JSON.parse(localStorage.getItem("pklJoinCancelList") || "[]"),
-          recruitState:nextState,
-          updatedAt:new Date().toISOString()
-        }
-      }));
-    }catch(e){}
-
-    try{
+      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.queueSave === "function"){
+        window.PKLJoinRealtime.queueSave(0);
+      }
       if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.flush === "function"){
         window.PKLJoinRealtime.flush();
       }
     }catch(e){}
   }
 
-  window.PKLJoinOpenRecruitDirect = function(){
+  window.PKLJoinOpenRecruit = function(){
     openRecruit({force:true});
   };
 
@@ -6883,8 +6873,8 @@ function safeJson(key, fallback){
       e.stopImmediatePropagation();
       closeOpenConfirm();
       allowOpenRecruit = false;
-      if(window.PKLJoinOpenRecruitDirect && typeof window.PKLJoinOpenRecruitDirect === "function"){
-        window.PKLJoinOpenRecruitDirect();
+      if(window.PKLJoinOpenRecruit && typeof window.PKLJoinOpenRecruit === "function"){
+        window.PKLJoinOpenRecruit();
       }else{
         allowOpenRecruit = true;
         const openBtn = document.getElementById("openRecruitBtn");
