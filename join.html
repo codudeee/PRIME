@@ -5714,9 +5714,7 @@ function safeJson(key, fallback){
       deadlineText:"모집대기중",
       feeText:"",
       feeInput:"",
-      deadlineConfigured:false,
-      resetAt:new Date().toISOString(),
-      resetNonce:Date.now()
+      deadlineConfigured:false
     }));
     localStorage.removeItem("pklJoinFeeInfo");
     Object.keys(localStorage).forEach(function(key){ if(key.indexOf("pklJoinDepositRequested_") === 0) localStorage.removeItem(key); });
@@ -6488,10 +6486,11 @@ function safeJson(key, fallback){
     };
   }
 
-  function openRecruit(){
+  function openRecruit(options){
+    options = options || {};
 
     const currentState = readRecruitState();
-    if(currentState && currentState.state === "open"){
+    if(!options.force && currentState && currentState.state === "open"){
       const tooltip = document.getElementById("joinOpenTooltip");
       if(tooltip){
         tooltip.classList.add("show");
@@ -6507,9 +6506,7 @@ function safeJson(key, fallback){
     const deadline = getDeadlineDisplayText();
     if(deadlineText) deadlineText.textContent = deadline;
 
-    const prevResetState = readRecruitState() || {};
-    const keepResetMarker = (prevResetState.resetAt || prevResetState.resetNonce) && !readList(STORAGE_KEY).length && !readList(CANCEL_KEY).length;
-    saveRecruitState({
+    const nextState = {
       state:"open",
       hostHtml:openData.hostHtml,
       openTime:openData.openTime,
@@ -6517,10 +6514,35 @@ function safeJson(key, fallback){
       feeText:deadline,
       feeInput:deadline,
       deadlineConfigured:deadlineConfigured,
-      resetAt:keepResetMarker ? (prevResetState.resetAt || new Date().toISOString()) : undefined,
-      resetNonce:keepResetMarker ? (prevResetState.resetNonce || Date.now()) : undefined
-    });
+      openedAt:new Date().toISOString(),
+      actionNonce:"open-" + Date.now()
+    };
+
+    saveRecruitState(nextState);
+
+    try{
+      window.__PKL_JOIN_REMOTE_CONFIRMED = true;
+      window.dispatchEvent(new CustomEvent("pkl-join-state-updated", {
+        detail:{
+          version:2,
+          waitList:JSON.parse(localStorage.getItem("pklJoinWaitList") || "[]"),
+          cancelList:JSON.parse(localStorage.getItem("pklJoinCancelList") || "[]"),
+          recruitState:nextState,
+          updatedAt:new Date().toISOString()
+        }
+      }));
+    }catch(e){}
+
+    try{
+      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.flush === "function"){
+        window.PKLJoinRealtime.flush();
+      }
+    }catch(e){}
   }
+
+  window.PKLJoinOpenRecruitDirect = function(){
+    openRecruit({force:true});
+  };
 
   function registerFeeInfo(){
     const fee = pendingFee || (feeInput ? feeInput.value.trim() : "");
@@ -6858,10 +6880,17 @@ function safeJson(key, fallback){
 
     if(e.target.id === "joinOpenConfirmYes"){
       e.preventDefault();
+      e.stopImmediatePropagation();
       closeOpenConfirm();
-      allowOpenRecruit = true;
-      const openBtn = document.getElementById("openRecruitBtn");
-      if(openBtn) openBtn.click();
+      allowOpenRecruit = false;
+      if(window.PKLJoinOpenRecruitDirect && typeof window.PKLJoinOpenRecruitDirect === "function"){
+        window.PKLJoinOpenRecruitDirect();
+      }else{
+        allowOpenRecruit = true;
+        const openBtn = document.getElementById("openRecruitBtn");
+        if(openBtn) openBtn.click();
+      }
+      return false;
     }
   }, true);
 
@@ -7245,7 +7274,7 @@ document.addEventListener("click",function(e){
     }else{
       localStorage.setItem("pklJoinWaitList", "[]");
       localStorage.setItem("pklJoinCancelList", "[]");
-      localStorage.setItem("pklJoinRecruitState", JSON.stringify({state:"waiting",hostHtml:"",openTime:"",deadlineText:"모집대기중",feeText:"",feeInput:"",deadlineConfigured:false,resetAt:new Date().toISOString(),resetNonce:Date.now()}));
+      localStorage.setItem("pklJoinRecruitState", JSON.stringify({state:"waiting",hostHtml:"",openTime:"",deadlineText:"모집대기중",feeText:"",feeInput:"",deadlineConfigured:false}));
       localStorage.removeItem("pklJoinFeeInfo");
       localStorage.removeItem("pklJoinDepositRequests");
       Object.keys(localStorage).forEach(function(key){
