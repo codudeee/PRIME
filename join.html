@@ -4509,6 +4509,7 @@ body.pkl-recruit-closed #joinCancelBtn:hover{
 <script src="pkl-common-role-badge.js?v=20260513b"></script>
 <script src="pkl-common-tier-badge.js?v=20260513b"></script>
 <script src="pkl-single-user-tier-sync.js?v=20260514a"></script>
+<script src="pkl-users-realtime.js?v=20260518a"></script>
 <script id="pklJoinAuthBackGuard">
 (function(){
   "use strict";
@@ -5089,13 +5090,27 @@ function safeJson(key, fallback){
     }catch(e){ return null; }
   }
 
+  function readRealtimeUsers(){
+    try{
+      if(window.PKLUsersRealtime && typeof window.PKLUsersRealtime.getUsers === "function"){
+        const users = window.PKLUsersRealtime.getUsers();
+        return Array.isArray(users) ? users : [];
+      }
+    }catch(e){}
+    return [];
+  }
+
   function readAdminUsers(){
+    const realtime = readRealtimeUsers();
+    if(realtime.length) return realtime;
     const state = safeJson("pklAdminState_v3", null);
     if(state && Array.isArray(state.users) && state.users.length) return state.users;
     return [];
   }
 
   function readPklUsers(){
+    const realtime = readRealtimeUsers();
+    if(realtime.length) return realtime;
     const data = safeJson("pklUsers", []);
     return Array.isArray(data) ? data : [];
   }
@@ -5221,7 +5236,8 @@ function safeJson(key, fallback){
 
   function hydrateItem(item){
     item = item || {};
-    const adminUser = findAdminUser(item);
+    const realtimeUser = (window.PKLUsersRealtime && typeof window.PKLUsersRealtime.findUser === "function") ? window.PKLUsersRealtime.findUser(item) : null;
+    const adminUser = realtimeUser || findAdminUser(item);
     const pklUser = findPklUser(adminUser || item);
     const merged = Object.assign({}, item);
     const identity = getUserIdentity(adminUser) || getUserIdentity(pklUser) || getUserIdentity(item) || item.key || "";
@@ -5240,8 +5256,9 @@ function safeJson(key, fallback){
     merged.name = getUserNickname(adminUser) || item.name || item.nickname || getUserNickname(pklUser) || "참가자";
     merged.nickname = merged.name;
     merged.pubgId = getUserPubgId(adminUser) || item.pubgId || getUserPubgId(pklUser) || "";
-    merged.memberRole = getMemberRole(adminUser) || item.memberRole || item.role || "";
-    merged.gradeRole = getGradeRole(pklUser) || getGradeRole(adminUser) || item.gradeRole || item.tier || "";
+    merged.memberRole = getMemberRole(adminUser) || getMemberRole(pklUser) || item.memberRole || item.role || "";
+    // Supabase users가 Discord 봇/admin의 단일 원본이다. 기존 join 대기 item의 오래된 티어가 최신 users 티어를 덮지 않게 한다.
+    merged.gradeRole = getGradeRole(adminUser) || getGradeRole(pklUser) || item.gradeRole || item.tier || "";
     merged.tier = merged.gradeRole || item.tier || "";
     merged.wins = adminUser?.wins || adminUser?.winCount || item.wins || item.winCount || pklUser?.wins || pklUser?.winCount || 0;
     merged.avgKills = adminUser?.avgKills || adminUser?.averageKills || adminUser?.killAvg || adminUser?.avgKill || item.avgKills || item.averageKills || pklUser?.avgKills || pklUser?.averageKills || pklUser?.killAvg || pklUser?.avgKill || 0;
@@ -5286,6 +5303,20 @@ function safeJson(key, fallback){
 
   function enrichItemTier(item){
     if(!item) return item;
+    const liveUser = (window.PKLUsersRealtime && typeof window.PKLUsersRealtime.findUser === "function") ? window.PKLUsersRealtime.findUser(item) : null;
+    if(liveUser){
+      const liveTier = getGradeRole(liveUser);
+      if(liveTier){ item.gradeRole = liveTier; item.memberTier = liveTier; item.tierRole = liveTier; item.tier = liveTier; }
+      const liveRole = getMemberRole(liveUser);
+      if(liveRole){ item.memberRole = liveRole; item.role = liveRole; }
+      const liveName = getUserNickname(liveUser);
+      if(liveName){ item.name = liveName; item.nickname = liveName; }
+      const livePubg = getUserPubgId(liveUser);
+      if(livePubg){ item.pubgId = livePubg; }
+      const liveDiscord = getUserDiscordId(liveUser);
+      if(liveDiscord){ item.discord_id = liveDiscord; item.discordId = liveDiscord; }
+      return item;
+    }
     if(item.gradeRole || item.tier || item.memberTier || item.tierRole || item.grade) return item;
     const keys = [getUserDiscordId(item), getUserIdentity(item), item.key, item.userId, item.uid, getUserPubgId(item), getUserNickname(item), item.name]
       .map(function(v){ return String(v || '').trim(); })
@@ -5326,6 +5357,14 @@ function safeJson(key, fallback){
     });
     if(window.__PKL_JOIN_INITIAL_READY) renderAll();
   };
+
+
+
+  window.addEventListener('pkl-role-data-updated', function(event){
+    const changed = event && event.detail && Array.isArray(event.detail.changedUsers) ? event.detail.changedUsers : [];
+    changed.forEach(function(user){ try{ window.PKLJoinApplySingleTierSync(user); }catch(e){} });
+    if(window.__PKL_JOIN_INITIAL_READY) renderAll();
+  });
 
   async function fetchJoinTierMapOnce(){
     if(joinTierFetchStarted) return;

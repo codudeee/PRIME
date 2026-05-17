@@ -960,8 +960,17 @@ const teamIndex = Number(slot.dataset.teamIndex);
         saveState();
       });
     });
-    window.addEventListener('pkl-role-data-updated', () => {
-      loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
+    window.addEventListener('pkl-role-data-updated', event => {
+      const changedUsers = event && event.detail && Array.isArray(event.detail.changedUsers) ? event.detail.changedUsers : [];
+      if(changedUsers.length){
+        changedUsers.forEach(user => {
+          const idx = supabaseUsersCache.findIndex(item => isSameUserIdentity(item, user));
+          if(idx >= 0) supabaseUsersCache[idx] = { ...supabaseUsersCache[idx], ...user };
+          else supabaseUsersCache.push(user);
+        });
+        supabaseUsersLoadedOnce = true;
+      }
+      loadSupabaseUsersForJoinWaitListOnce(!changedUsers.length).finally(() => {
         syncJoinWaitListIntoTeamBoard(true);
         syncPlayersWithUserSources();
         hydratePlayersForDisplayOnly();
@@ -1157,7 +1166,17 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function readSupabaseUsers() {
-    return Array.isArray(supabaseUsersCache) ? supabaseUsersCache : [];
+    const base = Array.isArray(supabaseUsersCache) ? supabaseUsersCache.slice() : [];
+    try{
+      if(window.PKLUsersRealtime && typeof window.PKLUsersRealtime.getUsers === 'function'){
+        window.PKLUsersRealtime.getUsers().forEach(user => {
+          const idx = base.findIndex(item => isSameUserIdentity(item, user));
+          if(idx >= 0) base[idx] = { ...base[idx], ...user };
+          else base.push(user);
+        });
+      }
+    }catch(error){}
+    return base;
   }
 
   function getUserDisplayNames(user) {

@@ -1997,6 +1997,7 @@ body.pkl-manual-dragging *{
 <script src="pkl-page-permissions.js?v=20260513b"></script>
 <script src="pkl-common-role-badge.js?v=20260513b"></script>
 <script src="pkl-common-tier-badge.js?v=20260513b"></script>
+<script src="pkl-users-realtime.js?v=20260518a"></script>
 
 <style id="pkl-tier-view-drag-final-fix">
 .pkl-tier-member{pointer-events:auto!important;user-select:none!important;-webkit-user-select:none!important;}
@@ -3671,6 +3672,8 @@ document.addEventListener("DOMContentLoaded", function(){
 
   window.renderPklTierMembers = function(){ renderTier(false); };
   window.PKLTierReloadSupabaseUsers = function(){ renderTier(true); };
+  window.addEventListener('pkl-users-updated', function(){ renderTier(true); });
+  window.addEventListener('pkl-role-data-updated', function(){ renderTier(true); });
   window.pklTierSetUserRole = function(userKey, targetLane){
     setUserTier(userKey, targetLane);
     return true;
