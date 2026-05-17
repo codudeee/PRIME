@@ -34,12 +34,32 @@ function tableFor(type){
 function did(u){ return clean(u && (u.discord_id || u.discordId || u.discord || u.user_id || u.userId || u.id || '')).replace(/^discord-/i, '').toLowerCase(); }
 function keyOfUser(u){ return did(u) || clean(u && (u.pubg_id || u.pubgId || u.gameId || u.ref || u.nickname || u.name)).toLowerCase(); }
 function sameUser(a,b){ const ak=keyOfUser(a), bk=keyOfUser(b); return !!(ak && bk && ak === bk); }
-function uniqueUsers(list){ const out=[]; (Array.isArray(list)?list:[]).forEach(function(x){ if(x && typeof x === 'object' && !out.some(function(p){return sameUser(p,x);})){ out.push(x); } }); return out; }
-function mergeUsersList(a,b){ return uniqueUsers([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[])); }
-function removeUsers(list, remove){ const rem=uniqueUsers(remove); return uniqueUsers(list).filter(function(x){ return !rem.some(function(r){return sameUser(r,x);}); }); }
 function parseMs(v){ const n=Date.parse(v || ''); return Number.isFinite(n) ? n : 0; }
 function waitActionMs(item){ return parseMs(item && (item.rejoinedAt || item.joinedAt || item.updatedAt || item.createdAt)); }
 function cancelActionMs(item){ return parseMs(item && (item.canceledAt || item.cancelledAt || item.cancelAt || item.updatedAt || item.createdAt)); }
+function actionMs(item){
+  return Math.max(waitActionMs(item), cancelActionMs(item), parseMs(item && item.updatedAt), parseMs(item && item.createdAt));
+}
+function preferNewerUser(prev, next){
+  if(!prev) return next;
+  if(!next) return prev;
+  const pm = actionMs(prev);
+  const nm = actionMs(next);
+  if(nm && (!pm || nm >= pm)) return Object.assign({}, prev, next);
+  return prev;
+}
+function uniqueUsers(list){
+  const out=[];
+  (Array.isArray(list)?list:[]).forEach(function(x){
+    if(!x || typeof x !== 'object') return;
+    const idx = out.findIndex(function(p){ return sameUser(p,x); });
+    if(idx < 0) out.push(x);
+    else out[idx] = preferNewerUser(out[idx], x);
+  });
+  return out;
+}
+function mergeUsersList(a,b){ return uniqueUsers([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[])); }
+function removeUsers(list, remove){ const rem=uniqueUsers(remove); return uniqueUsers(list).filter(function(x){ return !rem.some(function(r){return sameUser(r,x);}); }); }
 function resolveJoinLists(waitList, cancelList){
   waitList = uniqueUsers(waitList);
   cancelList = uniqueUsers(cancelList);
@@ -117,13 +137,21 @@ async function writeLive(id, payload){
   if(rowId === 'join_state' && body && typeof body === 'object' && !isJoinReset(body)){
     const current = await readCanonicalJoinState().catch(()=>null);
     if(current && current.payload){
+      const incomingWait = uniqueUsers(body.waitList);
+      const incomingCancel = uniqueUsers(body.cancelList);
+      const baseWait = removeUsers(current.payload.waitList, incomingCancel);
+      const baseCancel = removeUsers(current.payload.cancelList, incomingWait);
+      const resolved = resolveJoinLists(
+        mergeUsersList(baseWait, incomingWait),
+        mergeUsersList(baseCancel, incomingCancel)
+      );
       body = Object.assign({}, body, {
         version:2,
-        // body는 버튼 클릭 후 브라우저/봇이 보낸 '최종 의도'다.
-        // body.waitList에 있으면 과거 cancelList에서 반드시 제거하고,
-        // body.cancelList에 있으면 과거 waitList에서 반드시 제거한다.
-        waitList: resolveJoinLists(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)).waitList,
-        cancelList: resolveJoinLists(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)).cancelList,
+        // body는 버튼 클릭 후 브라우저/봇이 보낸 최종 의도다.
+        // 새 wait는 과거 cancel을, 새 cancel은 과거 wait를 먼저 제거한 뒤 병합한다.
+        // 같은 유저의 기존/신규 기록은 최신 action timestamp 기준으로만 남긴다.
+        waitList: resolved.waitList,
+        cancelList: resolved.cancelList,
         recruitState: body.recruitState && body.recruitState.state ? body.recruitState : current.payload.recruitState,
         updatedAt: new Date().toISOString()
       });
