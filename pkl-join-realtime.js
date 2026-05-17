@@ -30,10 +30,44 @@
       .map(norm).filter(Boolean);
   }
   function same(a,b){var aa=tokens(a),bb=tokens(b);return aa.length&&bb.length&&aa.some(function(x){return bb.indexOf(x)>=0;});}
-  function arr(v){var out=[];(Array.isArray(v)?v:[]).forEach(function(i){if(i&&typeof i==='object'&&!out.some(function(p){return same(p,i);})){out.push(i);}});return out;}
-  function addUnique(list,item){list=arr(list);if(item&&typeof item==='object'&&!list.some(function(p){return same(p,item);})){list.push(item);}return list;}
+  function actionMs(item){
+    item=item||{};
+    return Date.parse(item.rejoinedAt||item.canceledAt||item.cancelledAt||item.cancelAt||item.joinedAt||item.updatedAt||item.createdAt||'')||0;
+  }
+  function preferNewer(prev,next){
+    if(!prev) return next;
+    if(!next) return prev;
+    var pm=actionMs(prev), nm=actionMs(next);
+    if(nm && (!pm || nm>=pm)) return Object.assign({},prev,next);
+    return prev;
+  }
+  function arr(v){
+    var out=[];
+    (Array.isArray(v)?v:[]).forEach(function(i){
+      if(!i||typeof i!=='object') return;
+      var idx=out.findIndex(function(p){return same(p,i);});
+      if(idx<0){out.push(i);}else{out[idx]=preferNewer(out[idx],i);}
+    });
+    return out;
+  }
+  function addUnique(list,item){
+    list=arr(list);
+    if(item&&typeof item==='object'){
+      var idx=list.findIndex(function(p){return same(p,item);});
+      if(idx<0) list.push(item); else list[idx]=preferNewer(list[idx],item);
+    }
+    return list;
+  }
   function removeMatching(list,item){return arr(list).filter(function(p){return !(item&&same(p,item));});}
-  function mergeByIdentity(a,b){var out=[];arr(a).concat(arr(b)).forEach(function(item){if(item&&typeof item==='object'&&!out.some(function(prev){return same(prev,item);})){out.push(item);}});return out;}
+  function mergeByIdentity(a,b){
+    var out=[];
+    arr(a).concat(arr(b)).forEach(function(item){
+      if(!item||typeof item!=='object') return;
+      var idx=out.findIndex(function(prev){return same(prev,item);});
+      if(idx<0){out.push(item);}else{out[idx]=preferNewer(out[idx],item);}
+    });
+    return out;
+  }
   function withoutMembers(list, remove){var rem=arr(remove);return arr(list).filter(function(item){return !rem.some(function(r){return same(r,item);});});}
   function waitTime(item){item=item||{};return Date.parse(item.rejoinedAt||item.joinedAt||item.updatedAt||item.createdAt||'')||0;}
   function cancelTime(item){item=item||{};return Date.parse(item.canceledAt||item.cancelledAt||item.cancelAt||item.updatedAt||item.createdAt||'')||0;}
