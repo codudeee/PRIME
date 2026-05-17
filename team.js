@@ -987,8 +987,6 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function findAdminUserForJoinItem(item) {
-    const supabaseUser = findSupabaseUserForJoinItem(item, null, null);
-    if (supabaseUser) return supabaseUser;
     const users = readAdminUsers();
     return users.find(user => isSameUserIdentity(item, user)) || users.find(user => sameName(user, item.name || item.nickname)) || null;
   }
@@ -1061,74 +1059,28 @@ const teamIndex = Number(slot.dataset.teamIndex);
     return { url, key };
   }
 
-  function normalizeSupabaseTeamUser(row) {
-    if (!row || typeof row !== 'object') return row;
-    const tierValue = row.tier || row.memberTier || row.member_tier || row.gradeRole || row.tierRole || '';
-    const roleValue = row.role || row.memberRole || row.member_role || row.userRole || row.authRole || '';
-    return {
-      ...row,
-      discord_id: row.discord_id || row.discordId || row.discordID || '',
-      discordId: row.discordId || row.discord_id || row.discordID || '',
-      discord_username: row.discord_username || row.discordUsername || '',
-      discordUsername: row.discordUsername || row.discord_username || '',
-      nickname: row.nickname || row.nick || row.name || row.discord_username || row.discordUsername || '',
-      name: row.name || row.nickname || row.nick || row.discord_username || row.discordUsername || '',
-      pubg_id: row.pubg_id || row.pubgId || row.gameId || row.pubgName || '',
-      pubgId: row.pubgId || row.pubg_id || row.gameId || row.pubgName || '',
-      gameId: row.gameId || row.pubg_id || row.pubgId || row.pubgName || '',
-      tier: tierValue,
-      memberTier: row.memberTier || row.member_tier || tierValue,
-      gradeRole: row.gradeRole || tierValue,
-      tierRole: row.tierRole || tierValue,
-      role: roleValue,
-      memberRole: row.memberRole || row.member_role || roleValue,
-      userRole: row.userRole || roleValue,
-      authRole: row.authRole || roleValue
-    };
-  }
+  function loadSupabaseUsersForJoinWaitListOnce(force) {
+    if (supabaseUsersLoadedOnce && !force) return Promise.resolve(supabaseUsersCache);
+    const config = getSupabaseRestConfig();
+    if (!config.url || !config.key || !window.fetch) {
+      supabaseUsersLoadedOnce = true;
+      return Promise.resolve(supabaseUsersCache);
+    }
 
-  function normalizeSupabaseTeamUsers(rows) {
-    return (Array.isArray(rows) ? rows : []).map(normalizeSupabaseTeamUser).filter(Boolean);
-  }
-
-  function loadSupabaseUsersViaApi(limit) {
-    return fetch('/api/pkl-users?limit=' + encodeURIComponent(limit || 1000) + '&_=' + Date.now(), {
-      method: 'GET',
-      headers: { Accept: 'application/json', 'Cache-Control': 'no-store' }
-    }).then(response => response.ok ? response.json() : Promise.reject(new Error('api users failed ' + response.status)))
-      .then(data => normalizeSupabaseTeamUsers(Array.isArray(data && data.users) ? data.users : []));
-  }
-
-  function loadSupabaseUsersViaRest(config, limit) {
     const select = [
-      'id','discord_id','discord_username','nickname','pubg_id','tier','title','role','prime','warnings','banned','prison_until','created_at','updated_at'
+      'id','discord_id','discord_username','nickname','tier','title','role','prime','warnings','banned','prison_until','created_at'
     ].join(',');
-    return fetch(`${config.url}/rest/v1/users?select=${encodeURIComponent(select)}&order=created_at.asc&limit=${encodeURIComponent(limit || 1000)}`, {
+
+    return fetch(`${config.url}/rest/v1/users?select=${encodeURIComponent(select)}&order=created_at.asc&limit=1000`, {
       method: 'GET',
       headers: {
         apikey: config.key,
         Authorization: `Bearer ${config.key}`,
         'Cache-Control': 'no-store'
       }
-    }).then(response => response.ok ? response.json() : Promise.reject(new Error('rest users failed ' + response.status)))
-      .then(rows => normalizeSupabaseTeamUsers(rows));
-  }
-
-  function loadSupabaseUsersForJoinWaitListOnce(force) {
-    if (supabaseUsersLoadedOnce && !force) return Promise.resolve(supabaseUsersCache);
-    if (!window.fetch) {
-      supabaseUsersLoadedOnce = true;
-      return Promise.resolve(supabaseUsersCache);
-    }
-
-    const config = getSupabaseRestConfig();
-    const load = loadSupabaseUsersViaApi(1000).catch(() => {
-      if (!config.url || !config.key) return [];
-      return loadSupabaseUsersViaRest(config, 1000);
-    });
-
-    return load.then(rows => {
-        supabaseUsersCache = normalizeSupabaseTeamUsers(rows);
+    }).then(response => response.ok ? response.json() : [])
+      .then(rows => {
+        supabaseUsersCache = Array.isArray(rows) ? rows : [];
         supabaseUsersLoadedOnce = true;
         return supabaseUsersCache;
       })
@@ -1144,7 +1096,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function getUserDisplayNames(user) {
     if (!user) return [];
-    return [user.nickname, user.nick, user.name, user.discord_username, user.discordUsername, user.displayName, user.pubg_id, user.pubgId, user.gameId, user.pubgName]
+    return [user.nickname, user.nick, user.name, user.discord_username, user.discordUsername, user.displayName]
       .map(value => normalizeName(value))
       .filter(Boolean);
   }
@@ -1437,15 +1389,11 @@ const teamIndex = Number(slot.dataset.teamIndex);
       user.tier,
       user.memberTier,
       user.member_tier,
-      user.gradeRole,
-      user.tierRole,
       user.pklTier,
       user.memberGrade,
       user.grade,
       user.dataTierRole,
-      user.dataTier,
-      user.tierName,
-      user.memberTierName
+      user.dataTier
     ];
   }
 
@@ -1472,8 +1420,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
     if (linkedUser) {
       player.userUid = linkedUser.uid || linkedUser.id || '';
       player.accountId = linkedUser.id || linkedUser.uid || '';
-      player.pubgId = linkedUser.pubg_id || linkedUser.pubgId || linkedUser.gameId || '';
-      player.pubg_id = linkedUser.pubg_id || linkedUser.pubgId || linkedUser.gameId || '';
+      player.pubgId = linkedUser.pubgId || linkedUser.gameId || '';
       player.name = linkedUser.nickname || linkedUser.nick || linkedUser.name || name;
       player.sourceName = name;
     }
@@ -1491,8 +1438,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
     player.userUid = player.userUid || linkedUser.discord_id || linkedUser.uid || linkedUser.id || '';
     player.discordId = player.discordId || linkedUser.discord_id || linkedUser.discordId || '';
     player.accountId = player.accountId || linkedUser.id || linkedUser.uid || linkedUser.discord_id || '';
-    player.pubgId = player.pubgId || linkedUser.pubg_id || linkedUser.pubgId || linkedUser.gameId || '';
-    player.pubg_id = player.pubg_id || linkedUser.pubg_id || linkedUser.pubgId || linkedUser.gameId || '';
+    player.pubgId = player.pubgId || linkedUser.pubgId || linkedUser.gameId || '';
     player.name = linkedUser.nickname || linkedUser.nick || linkedUser.name || linkedUser.discord_username || player.name;
     const tierKey = resolveUserTierKey(linkedUser);
     const tierBadgeValue = resolveUserTierBadgeValue(linkedUser);
@@ -1528,8 +1474,6 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function resolvePlayerAdminUser(player) {
-    const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || findSupabaseUserByLooseName(player && player.name);
-    if (supabaseUser) return supabaseUser;
     const users = readAdminUsers();
     return users.find(user => isSameUserIdentity(player, user)) || users.find(user => sameName(user, player.name)) || null;
   }
@@ -1542,11 +1486,11 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function findAdminUserByNickname(name) {
-    return findSupabaseUserByLooseName(name) || readAdminUsers().find(user => sameName(user, name)) || null;
+    return readAdminUsers().find(user => sameName(user, name)) || null;
   }
 
   function findAccountUserByName(name) {
-    return findSupabaseUserByLooseName(name) || readAccountUsers().find(user => sameName(user, name)) || null;
+    return readAccountUsers().find(user => sameName(user, name)) || null;
   }
 
   function readAdminUsers() {
@@ -1575,8 +1519,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
     const uidA = a.userUid || a.uid || a.userId || a.accountId || a.key || a.id || a.discord_id || a.discordId || '';
     const uidB = b.uid || b.userUid || b.userId || b.accountId || b.key || b.id || b.discord_id || b.discordId || '';
     if (uidA && uidB && String(uidA) === String(uidB)) return true;
-    const pubgA = a.pubg_id || a.pubgId || a.gameId || a.pubgName || '';
-    const pubgB = b.pubg_id || b.pubgId || b.gameId || b.pubgName || '';
+    const pubgA = a.pubgId || a.gameId || '';
+    const pubgB = b.pubgId || b.gameId || '';
     return !!(pubgA && pubgB && pubgA === pubgB);
   }
 
@@ -2233,13 +2177,43 @@ function completeTeams() {
       if (!res.ok) throw new Error(String(res.status));
       return res.json().catch(() => ({ ok: true }));
     });
+    const buildTeamExportLiveScoreboardPayload = () => {
+      const now = new Date().toISOString();
+      const live = {
+        version: 4,
+        seq: Date.now(),
+        updatedAt: now,
+        resetNonce: Number(sheetState.resetNonce || 0),
+        teamImportNonce: Number(sheetState.teamImportNonce || Date.now()),
+        mode: sheetState.mode || 'squad',
+        selectedTeamId: sheetState.selectedTeamId || 'team1',
+        startTime: sheetState.startTime || '',
+        endTime: sheetState.endTime || '',
+        teams: Array.isArray(sheetState.teams) ? sheetState.teams : [],
+        rounds: Array.isArray(sheetState.rounds) ? sheetState.rounds : [],
+        feeds: Array.isArray(sheetState.feeds) ? sheetState.feeds : [],
+        eventKeys: sheetState.eventKeys && typeof sheetState.eventKeys === 'object' ? sheetState.eventKeys : {},
+        colds: sheetState.colds && typeof sheetState.colds === 'object' ? sheetState.colds : {},
+        fires: sheetState.fires && typeof sheetState.fires === 'object' ? sheetState.fires : {},
+        fireCancels: sheetState.fireCancels && typeof sheetState.fireCancels === 'object' ? sheetState.fireCancels : {},
+        surrenders: sheetState.surrenders && typeof sheetState.surrenders === 'object' ? sheetState.surrenders : {}
+      };
+      return {
+        payload: { version: 1, updatedAt: now, teams: [] },
+        live
+      };
+    };
     const directSave = () => Promise.all([
       postDataStore({ type: 'shared', key: SHEET_STORAGE_KEY, value: sheetState }),
-      postDataStore({ type: 'live_scores', id: 'sheet_state', payload: sheetState })
+      postDataStore({ type: 'live_scores', id: 'sheet_state', payload: sheetState }),
+      postDataStore({ type: 'live_scores', id: 'live_scoreboard', payload: buildTeamExportLiveScoreboardPayload() })
     ]).then(results => results[0]);
     if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
       return window.PKLSupabaseDataSync.setShared(SHEET_STORAGE_KEY, sheetState)
-        .then(() => postDataStore({ type: 'live_scores', id: 'sheet_state', payload: sheetState }).catch(() => null))
+        .then(() => Promise.all([
+          postDataStore({ type: 'live_scores', id: 'sheet_state', payload: sheetState }).catch(() => null),
+          postDataStore({ type: 'live_scores', id: 'live_scoreboard', payload: buildTeamExportLiveScoreboardPayload() }).catch(() => null)
+        ]))
         .catch(directSave);
     }
     if (typeof window.saveSharedData === 'function') {
@@ -2986,8 +2960,7 @@ function saveMatchTimeSettings() {
   function findRerollAdminUserByInput(value) {
     const name = normalizeName(value);
     if (!name) return null;
-    return readSupabaseUsers().find(user => sameName(user, value) || normalizeName(user.pubg_id || user.pubgId || user.gameId || user.pubgName) === name) ||
-      readAdminUsers().find(user => sameName(user, value) || normalizeName(user.pubg_id || user.pubgId || user.gameId || user.pubgName) === name) || null;
+    return readAdminUsers().find(user => sameName(user, value) || normalizeName(user.pubgId || user.gameId) === name) || null;
   }
   
   function normalizeKoreanSearch(value) {
@@ -3004,17 +2977,14 @@ function saveMatchTimeSettings() {
   }
 
   function getAdminRerollUsers() {
-    const users = readSupabaseUsers().concat(readAdminUsers());
+    const users = readAdminUsers();
     return users
       .map(user => ({
         user,
-        name: String(user.nickname || user.nick || user.name || user.pubg_id || user.pubgId || user.gameId || '').trim()
+        name: String(user.nickname || user.nick || user.name || user.pubgId || '').trim()
       }))
       .filter(item => item.name)
-      .filter((item, index, arr) => {
-        const key = String((item.user && (item.user.discord_id || item.user.discordId || item.user.id || item.user.pubg_id || item.user.pubgId)) || item.name).trim().toLowerCase();
-        return arr.findIndex(other => String((other.user && (other.user.discord_id || other.user.discordId || other.user.id || other.user.pubg_id || other.user.pubgId)) || other.name).trim().toLowerCase() === key) === index;
-      })
+      .filter((item, index, arr) => arr.findIndex(other => other.name === item.name) === index)
       .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   }
 

@@ -152,7 +152,7 @@
   function cellLivePayload(){
     var st=readSheetState();
     if(!st || !Array.isArray(st.teams) || !Array.isArray(st.rounds)) return '';
-    var live={version:4,seq:Date.now(),updatedAt:new Date().toISOString(),resetNonce:st.resetNonce||0,mode:st.mode||'squad',selectedTeamId:st.selectedTeamId||'',teams:[],rounds:[],feeds:[],eventKeys:{},colds:(st.colds&&typeof st.colds==='object')?st.colds:{},fires:(st.fires&&typeof st.fires==='object')?st.fires:{},surrenders:(st.surrenders&&typeof st.surrenders==='object')?st.surrenders:{}};
+    var live={version:4,seq:Date.now(),updatedAt:new Date().toISOString(),resetNonce:st.resetNonce||0,teamImportNonce:st.teamImportNonce||0,mode:st.mode||'squad',selectedTeamId:'',startTime:clean(st.startTime),endTime:clean(st.endTime),teams:[],rounds:[],feeds:[],eventKeys:{},colds:(st.colds&&typeof st.colds==='object')?st.colds:{},fires:(st.fires&&typeof st.fires==='object')?st.fires:{},surrenders:(st.surrenders&&typeof st.surrenders==='object')?st.surrenders:{}};
     try{
       live.teams=(st.teams||[]).map(function(t,i){return {id:t.id||('team'+(i+1)),members:(Array.isArray(t.members)?t.members:[]).map(function(m){return {name:memberName(m),nickname:clean(m&&(m.nickname||m.nick||m.displayName)),pubgId:clean(m&&(m.pubgId||m.pubgID||m.gameId||m.pubgName)),memberTier:clean(m&&(m.memberTier||m.tierRole||m.gradeRole||m.tier||m.grade||m.memberGrade))};})};});
       live.rounds=(st.rounds||[]).map(function(r,ri){var round={no:r.no||ri+1,map:clean(r.map),teams:{}};Object.keys((r&&r.teams)||{}).forEach(function(teamId){round.teams[teamId]=normalizeTeamData(r.teams[teamId]);});return round;});
@@ -339,9 +339,12 @@
       if(localNonce && remoteNonce && remoteNonce<localNonce) return null;
     }catch(e){}
     if(live.seq) lastLiveSeq=Number(live.seq);
-    if(!st || !Array.isArray(st.teams) || !Array.isArray(st.rounds)) st={mode:live.mode||'squad',selectedTeamId:live.selectedTeamId||'team1',teams:[],rounds:[],feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''};
+    if(!st || !Array.isArray(st.teams) || !Array.isArray(st.rounds)) st={mode:live.mode||'squad',selectedTeamId:'team1',teams:[],rounds:[],feeds:[],sideBets:[],eventKeys:{},surrenders:{},fires:{},fireCancels:{},colds:{},startTime:'',endTime:''};
     st.mode=live.mode||st.mode||'squad';
-    st.selectedTeamId=live.selectedTeamId||st.selectedTeamId||'team1';
+    st.selectedTeamId=st.selectedTeamId||'team1';
+    if(live.startTime !== undefined) st.startTime = clean(live.startTime);
+    if(live.endTime !== undefined) st.endTime = clean(live.endTime);
+    if(live.teamImportNonce) st.teamImportNonce = Number(live.teamImportNonce)||st.teamImportNonce||0;
     if(Array.isArray(live.teams) && live.teams.length){
       st.teams=live.teams.map(function(t,i){var old=(st.teams||[]).find(function(x){return String(x&&x.id)===String(t&&t.id);})||(st.teams||[])[i]||{};return Object.assign({},old,{id:t.id||old.id||('team'+(i+1)),members:Array.isArray(t.members)?t.members:(old.members||[])});});
     }

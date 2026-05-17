@@ -6567,7 +6567,24 @@ const baseTeams=Array.from({length:10},(_,i)=>({
 }));
 
 let state=load();
-let selectedTeamId=state.selectedTeamId||state.teams[0].id;
+const PKL_PERSONAL_SELECTED_TEAM_PREFIX='PKL_SHEET_PERSONAL_SELECTED_TEAM_V1';
+function pklPersonalSheetUserKey(){
+  try{
+    const keys=['pklLoginUser','pklCurrentUser','PKL_CURRENT_USER','PKL_로그인_USER','pklUser','pklLoggedInUser','currentUser','PKL_USER','pklAuthUser'];
+    for(const k of keys){
+      const raw=localStorage.getItem(k)||sessionStorage.getItem(k);
+      if(!raw) continue;
+      const u=JSON.parse(raw);
+      const id=String((u&&(u.discord_id||u.discordId||u.uid||u.id||u.userId||u.memberId||u.pubg_id||u.pubgId||u.nickname||u.name))||'').trim();
+      if(id) return id.replace(/[^a-zA-Z0-9가-힣_.@-]/g,'_');
+    }
+  }catch(e){}
+  return 'browser';
+}
+function pklPersonalSelectedTeamKey(){return PKL_PERSONAL_SELECTED_TEAM_PREFIX+':'+pklPersonalSheetUserKey();}
+function pklLoadPersonalSelectedTeam(){try{return sessionStorage.getItem(pklPersonalSelectedTeamKey())||localStorage.getItem(pklPersonalSelectedTeamKey())||'';}catch(e){return '';}}
+function pklSavePersonalSelectedTeam(id){try{if(!id)return;sessionStorage.setItem(pklPersonalSelectedTeamKey(),id);localStorage.setItem(pklPersonalSelectedTeamKey(),id);}catch(e){}}
+let selectedTeamId=pklLoadPersonalSelectedTeam()||state.selectedTeamId||state.teams[0].id;
 let pklApplyingRemoteSheetState=false;
 let pklSheetRemoteSaveTimer=null;
 let pklLastLocalSheetEditAt=0;
@@ -6638,7 +6655,7 @@ function pklPersistSheetStateNow(){
   try{
     if(window.__PKL_SHEET_RESET_RUNNING || pklSheetResetLockActive()) return;
     if(!pklSheetCanPersistState(state)) return;
-    state.selectedTeamId=selectedTeamId;
+    pklSavePersonalSelectedTeam(selectedTeamId);
     state.savedAt=new Date().toISOString();
     try{ const sheetJson=JSON.stringify(state); sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
     const payload=JSON.stringify({type:'shared',key:STORAGE_KEY,value:state});
@@ -6769,7 +6786,7 @@ function load(){
 function save(){
   if(window.__PKL_SHEET_RESET_RUNNING || pklSheetResetLockActive()) return;
   if(pklApplyingRemoteSheetState) return;
-  state.selectedTeamId=selectedTeamId;
+  pklSavePersonalSelectedTeam(selectedTeamId);
   if(!pklSheetCanPersistState(state)){
     /* 빈 기본 시트는 Supabase/localStorage 동기화 큐에 올리지 않는다.
        이 분기에서 localStorage.setItem을 호출하면 메인 재진입 때 기존 경기 시트가 빈 값으로 덮인다. */
@@ -7593,7 +7610,7 @@ let pklOwnTeamAutoSelected=false;
 function pklAutoSelectOwnTeamOnce(){
   if(pklOwnTeamAutoSelected || pklIsSheetStaff()) return;
   const mine=pklFindViewByMemberName(pklCurrentUserName());
-  if(mine && mine.viewId && selectedTeamId!==mine.viewId){ selectedTeamId=mine.viewId; pklOwnTeamAutoSelected=true; }
+  if(mine && mine.viewId && selectedTeamId!==mine.viewId){ selectedTeamId=mine.viewId; pklSavePersonalSelectedTeam(selectedTeamId); pklOwnTeamAutoSelected=true; }
 }
 function render(){
   if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId=visibleTeams()[0].viewId;
@@ -8730,7 +8747,7 @@ render();
   const mode=e.target.dataset.mode;
   if(mode){state.mode=mode;render();return}
   const card=e.target.closest('.team-card');
-  if(card){selectedTeamId=card.dataset.team;render();return}
+  if(card){selectedTeamId=card.dataset.team;pklSavePersonalSelectedTeam(selectedTeamId);render();return}
   if(e.target.id==='addRoundsBtn'){
     if(!pklCanEditViewSheet(currentView())) return;
     const start=state.rounds.length+1;for(let i=0;i<30;i++)state.rounds.push(makeRound(start+i));render();return}
@@ -8864,7 +8881,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='startTimeInput'){state.startTime=e.target.value;updateTopTimes();save();return}
   if(e.target.id==='endTimeInput'){state.endTime=e.target.value;updateTopTimes();save();return}
 
-  if(e.target.id==='teamSelect'){selectedTeamId=e.target.value;render();return}
+  if(e.target.id==='teamSelect'){selectedTeamId=e.target.value;pklSavePersonalSelectedTeam(selectedTeamId);render();return}
   const field=e.target.dataset.field;
   if(field){
     if(field==='map'){
@@ -8983,7 +9000,7 @@ window.PKLSheetLiveBridge={
         });
       });
       state=next;
-      selectedTeamId=state.selectedTeamId||selectedTeamId||(state.teams[0]&&state.teams[0].id)||'team1';
+      selectedTeamId=pklLoadPersonalSelectedTeam()||selectedTeamId||state.selectedTeamId||(state.teams[0]&&state.teams[0].id)||'team1';
       const sheetJson=JSON.stringify(state);
       try{ sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
       // 원격 반영 중 localStorage 운영키를 다시 쓰면 pkl-supabase-sync가 shared 저장을 재발행해서
@@ -9036,7 +9053,7 @@ function pklApplySupabaseSheetStateOnce(){
       return false;
     }
     state = next;
-    selectedTeamId = state.selectedTeamId || selectedTeamId || (state.teams[0] && state.teams[0].id) || 'team1';
+    selectedTeamId = pklLoadPersonalSelectedTeam() || selectedTeamId || state.selectedTeamId || (state.teams[0] && state.teams[0].id) || 'team1';
     if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId = (visibleTeams()[0] && visibleTeams()[0].viewId) || 'team1';
     try{ const sheetJson=JSON.stringify(state); sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
     pklApplyingRemoteSheetState=true;
