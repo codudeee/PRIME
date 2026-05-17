@@ -38,14 +38,39 @@ function uniqueUsers(list){ const out=[]; (Array.isArray(list)?list:[]).forEach(
 function mergeUsersList(a,b){ return uniqueUsers([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[])); }
 function removeUsers(list, remove){ const rem=uniqueUsers(remove); return uniqueUsers(list).filter(function(x){ return !rem.some(function(r){return sameUser(r,x);}); }); }
 function parseMs(v){ const n=Date.parse(v || ''); return Number.isFinite(n) ? n : 0; }
+function waitActionMs(item){
+  item = item || {};
+  return parseMs(item.rejoinedAt || item.joinedAt || item.updatedAt || item.createdAt);
+}
+function cancelActionMs(item){
+  item = item || {};
+  return parseMs(item.canceledAt || item.cancelledAt || item.cancelAt || item.updatedAt || item.createdAt);
+}
+function cancelWinsWait(waitItem, cancelItem){
+  if(!sameUser(waitItem, cancelItem)) return false;
+  const wt = waitActionMs(waitItem);
+  const ct = cancelActionMs(cancelItem);
+  if(wt && ct) return ct >= wt;
+  return true;
+}
+function waitWinsCancel(waitItem, cancelItem){
+  if(!sameUser(waitItem, cancelItem)) return false;
+  const wt = waitActionMs(waitItem);
+  const ct = cancelActionMs(cancelItem);
+  return !!(wt && ct && wt > ct);
+}
+function resolveJoinLists(waitList, cancelList){
+  const wait = uniqueUsers(waitList);
+  const cancel = uniqueUsers(cancelList);
+  return {
+    waitList: wait.filter(w => !cancel.some(c => cancelWinsWait(w, c))),
+    cancelList: cancel.filter(c => !wait.some(w => waitWinsCancel(w, c)))
+  };
+}
 function normalizeJoinPayload(payload, updatedAt){
   payload = payload && typeof payload === 'object' ? payload : {};
-  let waitList = uniqueUsers(payload.waitList);
-  let cancelList = uniqueUsers(payload.cancelList);
-  // 같은 유저가 양쪽에 같이 남아 있으면 최종 상태가 깨진다.
-  // payload 안에서 대기자 목록을 우선으로 정리한다.
-  cancelList = removeUsers(cancelList, waitList);
-  return { version:2, waitList, cancelList, recruitState: payload.recruitState || {state:'waiting'}, updatedAt: payload.updatedAt || updatedAt || new Date().toISOString() };
+  const resolved = resolveJoinLists(payload.waitList, payload.cancelList);
+  return { version:2, waitList: resolved.waitList, cancelList: resolved.cancelList, recruitState: payload.recruitState || {state:'waiting'}, updatedAt: payload.updatedAt || updatedAt || new Date().toISOString() };
 }
 async function readCanonicalJoinState(){
   const liveRows = await sb('live_scores?id=eq.join_state&select=*&limit=1', { method:'GET' }).catch(()=>[]);
@@ -59,11 +84,9 @@ async function readCanonicalJoinState(){
   let liveCancel = uniqueUsers(live.cancelList);
   let sharedWaitList = uniqueUsers(sharedWait.value);
   let sharedCancelList = uniqueUsers(sharedCancel.value);
-  let waitList = mergeUsersList(liveWait, sharedWaitList);
-  let cancelList = mergeUsersList(liveCancel, sharedCancelList);
-  // 상태가 갈라졌을 때 최신/명시적 대기 목록을 우선한다.
-  // 대기취소 후 다시 참가한 유저가 과거 cancelList 때문에 계속 취소자로 남는 문제 방지.
-  cancelList = removeUsers(cancelList, waitList);
+  const resolved = resolveJoinLists(mergeUsersList(liveWait, sharedWaitList), mergeUsersList(liveCancel, sharedCancelList));
+  let waitList = resolved.waitList;
+  let cancelList = resolved.cancelList;
   const recruitState = sharedUpdated > parseMs(live.updatedAt) && sharedRecruit.value && typeof sharedRecruit.value === 'object' ? sharedRecruit.value : live.recruitState;
   const updatedAt = new Date(Math.max(parseMs(live.updatedAt), sharedUpdated, Date.now())).toISOString();
   const payload = { version:2, waitList, cancelList, recruitState: recruitState || {state:'waiting'}, updatedAt };
@@ -94,8 +117,8 @@ async function writeLive(id, payload){
         // body는 버튼 클릭 후 브라우저/봇이 보낸 '최종 의도'다.
         // body.waitList에 있으면 과거 cancelList에서 반드시 제거하고,
         // body.cancelList에 있으면 과거 waitList에서 반드시 제거한다.
-        waitList: removeUsers(mergeUsersList(current.payload.waitList, body.waitList), uniqueUsers(body.cancelList)),
-        cancelList: removeUsers(mergeUsersList(current.payload.cancelList, body.cancelList), uniqueUsers(body.waitList)),
+        waitList: resolveJoinLists(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)).waitList,
+        cancelList: resolveJoinLists(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)).cancelList,
         recruitState: body.recruitState && body.recruitState.state ? body.recruitState : current.payload.recruitState,
         updatedAt: new Date().toISOString()
       });
