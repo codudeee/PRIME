@@ -44,6 +44,8 @@
   let draggedPlayerId = null;
   let supabaseUsersCache = [];
   let supabaseUsersLoadedOnce = false;
+  let supabaseTierRefreshTimer = null;
+  let lastWaitingTierSignature = '';
 
   function pklTeamCanEdit(){
     if (window.PKLRoleSystem && typeof window.PKLRoleSystem.currentHasRole === "function") {
@@ -216,8 +218,59 @@
           applyTeamControlAccess();
           render();
           refreshJoinWaitListFromSupabaseOnce();
+          scheduleSupabaseWaitingTierRefresh();
         });
       });
+    });
+  }
+
+  function getWaitingTierSignature() {
+    const parts = [];
+    Object.entries(state.waiting || {}).forEach(([tierId, ids]) => {
+      if (!Array.isArray(ids)) return;
+      ids.forEach(playerId => {
+        const player = state.players.find(item => item && item.id === playerId);
+        if (!player) return;
+        parts.push([
+          playerId,
+          tierId,
+          player.tier || '',
+          player.discordId || player.discord_id || player.userUid || player.accountId || '',
+          player.pubgId || player.pubg_id || player.gameId || '',
+          normalizeName(player.name || '')
+        ].join(':'));
+      });
+    });
+    return parts.sort().join('|');
+  }
+
+  function refreshWaitingTiersFromSupabase() {
+    if (document.hidden) return Promise.resolve(false);
+    const before = getWaitingTierSignature();
+    return loadSupabaseUsersForJoinWaitListOnce(true).then(() => {
+      syncPlayersWithUserSources();
+      const after = getWaitingTierSignature();
+      if (before !== after) {
+        hydratePlayersForDisplayOnly();
+        renderTierPools();
+        renderTeams();
+        renderSummary();
+        saveState();
+        return true;
+      }
+      return false;
+    }).catch(() => false);
+  }
+
+  function scheduleSupabaseWaitingTierRefresh() {
+    if (supabaseTierRefreshTimer) return;
+    lastWaitingTierSignature = getWaitingTierSignature();
+    supabaseTierRefreshTimer = setInterval(() => {
+      refreshWaitingTiersFromSupabase();
+    }, 7000);
+    window.addEventListener('focus', () => refreshWaitingTiersFromSupabase());
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refreshWaitingTiersFromSupabase();
     });
   }
 
