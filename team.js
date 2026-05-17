@@ -942,10 +942,14 @@ const teamIndex = Number(slot.dataset.teamIndex);
     // join 대기자 정보는 페이지 진입 시 1회 fetch, 또는 Supabase join_state 도착 이벤트 1회만 반영한다.
     let lastJoinStateSignature = '';
     window.addEventListener('pkl-join-state-updated', event => {
-      const list = event && event.detail && Array.isArray(event.detail.waitList) ? event.detail.waitList : [];
-      const sig = JSON.stringify(list.map(getJoinWaitItemKey).filter(Boolean).sort());
+      const detail = event && event.detail ? event.detail : {};
+      const list = Array.isArray(detail.waitList) ? detail.waitList : [];
+      const cancelList = Array.isArray(detail.cancelList) ? detail.cancelList : [];
+      const sig = JSON.stringify({
+        wait: list.map(getJoinWaitItemKey).filter(Boolean).sort(),
+        cancel: cancelList.map(getJoinWaitItemKey).filter(Boolean).sort()
+      });
       if (sig === lastJoinStateSignature) return;
-      if (!list.length && getWaitingPlayerIds().length) return;
       lastJoinStateSignature = sig;
       loadSupabaseUsersForJoinWaitListOnce(false).finally(() => {
         syncJoinWaitListIntoTeamBoard(true);
