@@ -6,7 +6,7 @@
   var KEYS={}; KEYS[WAIT_KEY]=1; KEYS[CANCEL_KEY]=1; KEYS[RECRUIT_KEY]=1;
   var originalSet=Storage.prototype.setItem, originalRemove=Storage.prototype.removeItem;
   var saveTimer=null, realtimeSocket=null, realtimeRef=1, realtimeJoined=false, applying=false;
-  var realtimeHeartbeat=null, realtimeReconnectTimer=null, configPromise=null, realtimeIntent=false;
+  var realtimeHeartbeat=null, realtimeReconnectTimer=null, realtimeFetchTimer=null, configPromise=null;
   var lastText='', lastRemoteMs=0, lastSaveAt=0, lastLocalEditAt=0;
   var CONTROL_HOLD_MS = 8000;
   var remoteReady=false, localChanged=false, currentState=null;
@@ -22,27 +22,32 @@
     KEY=String(c.anonKey||localStorage.getItem('SUPABASE_ANON_KEY')||localStorage.getItem('PKL_SUPABASE_ANON_KEY')||KEY||'');
     return !!(URL&&KEY);
   }
+  function applySupabaseConfig(c){
+    c=c||{};
+    var u=String(c.url||c.supabaseUrl||c.SUPABASE_URL||'').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');
+    var k=String(c.anonKey||c.supabaseAnonKey||c.SUPABASE_ANON_KEY||'');
+    if(u&&k){
+      URL=u; KEY=k;
+      window.PKL_SUPABASE_CONFIG={url:u,anonKey:k,ready:true};
+      try{
+        originalSet.call(localStorage,'SUPABASE_URL',u);
+        originalSet.call(localStorage,'SUPABASE_ANON_KEY',k);
+        originalSet.call(localStorage,'PKL_SUPABASE_URL',u);
+        originalSet.call(localStorage,'PKL_SUPABASE_ANON_KEY',k);
+      }catch(e){}
+    }
+    return configured();
+  }
   function ensureConfig(){
     if(configured()) return Promise.resolve(true);
+    if(window.PKLGetSupabaseConfig){
+      try{return Promise.resolve(window.PKLGetSupabaseConfig()).then(applySupabaseConfig).catch(function(){return configured();});}catch(e){}
+    }
+    if(window.PKL_SUPABASE_READY){
+      try{return Promise.resolve(window.PKL_SUPABASE_READY).then(applySupabaseConfig).catch(function(){return configured();});}catch(e){}
+    }
     if(configPromise) return configPromise;
-    var fromHelper=null;
-    try{
-      if(typeof window.PKLGetSupabaseConfig==='function') fromHelper=Promise.resolve(window.PKLGetSupabaseConfig());
-      else if(window.PKL_SUPABASE_READY) fromHelper=Promise.resolve(window.PKL_SUPABASE_READY);
-    }catch(e){fromHelper=null;}
-    configPromise=(fromHelper||Promise.resolve(null)).then(function(cfg){
-      if(cfg && (cfg.url||cfg.anonKey)){
-        window.PKL_SUPABASE_CONFIG={url:String(cfg.url||'').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,''),anonKey:String(cfg.anonKey||''),ready:!!(cfg.url&&cfg.anonKey)};
-      }
-      if(configured()) return true;
-      return fetch('/api/supabase-config',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(c){
-        if(c && (c.url||c.anonKey)){
-          window.PKL_SUPABASE_CONFIG={url:String(c.url||'').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,''),anonKey:String(c.anonKey||''),ready:!!(c.url&&c.anonKey)};
-          try{localStorage.setItem('SUPABASE_URL',window.PKL_SUPABASE_CONFIG.url);localStorage.setItem('SUPABASE_ANON_KEY',window.PKL_SUPABASE_CONFIG.anonKey);localStorage.setItem('PKL_SUPABASE_URL',window.PKL_SUPABASE_CONFIG.url);localStorage.setItem('PKL_SUPABASE_ANON_KEY',window.PKL_SUPABASE_CONFIG.anonKey);}catch(e){}
-        }
-        return configured();
-      }).catch(function(){return configured();});
-    }).then(function(ok){configPromise=null;return ok;}).catch(function(){configPromise=null;return false;});
+    configPromise=fetch('/api/supabase-config',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(c){return applySupabaseConfig(c);}).catch(function(){return configured();});
     return configPromise;
   }
   function parse(v,fb){try{var x=JSON.parse(v);return x==null?fb:x;}catch(e){return fb;}}
@@ -246,7 +251,7 @@
       setLocal(CANCEL_KEY,st.cancelList);
       setLocal(RECRUIT_KEY,st.recruitState);
       emit(st);
-      broadcastState(st);
+      sendJoinBroadcast(st);
       var p=apiSave(st).then(function(ok){if(!ok){return sb('live_scores?on_conflict=id',{method:'POST',body:JSON.stringify({id:'join_state',payload:st,updated_at:st.updatedAt})});}return ok;});
       if(window.PKLSupabaseDataSync){try{
         Promise.resolve(window.PKLSupabaseDataSync.setShared(WAIT_KEY,st.waitList)).catch(function(){});
@@ -289,45 +294,65 @@
       return true;
     }catch(e){return false;}
   }
-  function broadcastState(st){
-    if(!st || typeof st!=='object') return;
-    var sent=realtimeSend('realtime:public:pkl_join_state','broadcast',{event:'join_state',payload:st});
-    if(!sent){
-      startRealtime();
-      setTimeout(function(){realtimeSend('realtime:public:pkl_join_state','broadcast',{event:'join_state',payload:st});},180);
-    }
-  }
-  function stopHeartbeat(){
+  function stopRealtimeTimers(){
     if(realtimeHeartbeat){clearInterval(realtimeHeartbeat);realtimeHeartbeat=null;}
+    if(realtimeReconnectTimer){clearTimeout(realtimeReconnectTimer);realtimeReconnectTimer=null;}
   }
-  function startHeartbeat(){
-    stopHeartbeat();
-    realtimeHeartbeat=setInterval(function(){
-      realtimeSend('phoenix','heartbeat',{});
-    },25000);
-  }
-  function scheduleRealtimeReconnect(){
-    if(!realtimeIntent) return;
+  function scheduleRealtimeReconnect(delay){
     if(realtimeReconnectTimer) return;
     realtimeReconnectTimer=setTimeout(function(){
       realtimeReconnectTimer=null;
-      startRealtime();
-    },1200);
+      startRealtime(true);
+    }, delay==null?1200:delay);
   }
-  function startRealtime(){
-    realtimeIntent=true;
-    if(realtimeSocket && (realtimeSocket.readyState===0 || realtimeSocket.readyState===1)) return;
+  function sendJoinBroadcast(st){
+    if(!st) st=currentState||stateFromLocal();
+    return realtimeSend('realtime:public:pkl_join_state','broadcast',{event:'pkl_join_state',payload:{state:normalizeState(st),updatedAt:now()}});
+  }
+  function handleRealtimeMessage(msg){
+    if(!msg||typeof msg!=='object') return;
+    if(msg.event==='phx_reply' && msg.payload && msg.payload.status==='ok'){
+      realtimeJoined=true;
+      // 연결이 열리면 즉시 1회만 서버 상태를 맞춘다. 반복 polling은 하지 않는다.
+      setTimeout(function(){fetchNow();},0);
+      return;
+    }
+    if(msg.event==='broadcast'){
+      var bp=msg.payload||{};
+      if(bp.event==='pkl_join_state'){
+        var body=bp.payload||{};
+        var st=body.state||body.payload||body;
+        if(st&&typeof st==='object') applyState(st);
+      }
+      return;
+    }
+    if(msg.event==='postgres_changes'){
+      var data=msg.payload && (msg.payload.data || msg.payload);
+      var row=(data && (data.record || data.new || data.old)) || (msg.payload && (msg.payload.record || msg.payload.new || msg.payload.old)) || null;
+      if(!row) return;
+      var payload=row && row.payload;
+      if(payload){
+        var next=Object.assign({},payload,{updatedAt:payload.updatedAt||row.updated_at});
+        applyState(next);
+        return;
+      }
+      if(row.key || row.id) applySharedRow(row);
+    }
+  }
+  function startRealtime(force){
+    if(realtimeSocket && !force) return;
     ensureConfig().then(function(ok){
-      if(!ok){scheduleRealtimeReconnect();return;}
+      if(!ok) return;
+      if(realtimeSocket){try{realtimeSocket.close();}catch(e){} realtimeSocket=null;}
+      stopRealtimeTimers();
       try{
         var wsUrl=URL.replace(/^http/i,'ws')+'/realtime/v1/websocket?apikey='+encodeURIComponent(KEY)+'&vsn=1.0.0';
         realtimeSocket=new WebSocket(wsUrl);
         realtimeSocket.onopen=function(){
           realtimeJoined=false;
-          startHeartbeat();
           realtimeSend('realtime:public:pkl_join_state','phx_join',{
             config:{
-              broadcast:{self:false},
+              broadcast:{self:false,ack:false},
               presence:{key:''},
               postgres_changes:[
                 {event:'*',schema:'public',table:'live_scores',filter:'id=eq.join_state'},
@@ -335,45 +360,19 @@
               ]
             }
           });
+          realtimeHeartbeat=setInterval(function(){
+            realtimeSend('phoenix','heartbeat',{});
+          },25000);
         };
         realtimeSocket.onmessage=function(ev){
           var msg=null; try{msg=JSON.parse(ev.data);}catch(e){return;}
-          if(msg.event==='phx_reply' && msg.payload && msg.payload.status==='ok'){
-            realtimeJoined=true;
-            fetchNow();
-            return;
-          }
-          if(msg.event==='broadcast' && msg.payload && msg.payload.event==='join_state'){
-            var b=msg.payload.payload;
-            if(b) applyState(b);
-            return;
-          }
-          if(msg.event==='postgres_changes'){
-            var data=msg.payload && (msg.payload.data || msg.payload);
-            var row=(data && (data.record || data.new || data.old)) || null;
-            if(!row) return;
-            var payload=row && row.payload;
-            if(payload){
-              var next=Object.assign({},payload,{updatedAt:payload.updatedAt||row.updated_at});
-              applyState(next);
-              return;
-            }
-            if(row.key || row.id){
-              applySharedRow(row);
-            }
-          }
+          handleRealtimeMessage(msg);
         };
         realtimeSocket.onclose=function(){
-          stopHeartbeat();
-          realtimeSocket=null; realtimeJoined=false;
-          scheduleRealtimeReconnect();
+          realtimeSocket=null; realtimeJoined=false; stopRealtimeTimers(); scheduleRealtimeReconnect(1200);
         };
         realtimeSocket.onerror=function(){try{realtimeSocket.close();}catch(e){}};
-      }catch(e){
-        stopHeartbeat();
-        realtimeSocket=null; realtimeJoined=false;
-        scheduleRealtimeReconnect();
-      }
+      }catch(e){realtimeSocket=null; realtimeJoined=false; scheduleRealtimeReconnect(2000);}
     });
   }
   function start(){
@@ -382,14 +381,11 @@
     }).catch(function(){emit({version:2,waitList:arr(read(WAIT_KEY,[])),cancelList:arr(read(CANCEL_KEY,[])),recruitState:{state:'loading'},updatedAt:now()});});
     ensureConfig().then(function(){startRealtime();});
   }
-  try{window.addEventListener('pkl-supabase-config-ready',function(){startRealtime();});}catch(e){}
-  try{document.addEventListener('visibilitychange',function(){if(!document.hidden){startRealtime();fetchNow();}});}catch(e){}
-
   if(!Storage.prototype.__pklJoinRealtimePatched){
     Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;localActionUntil=Date.now()+PENDING_MS;queueSave(String(k)===RECRUIT_KEY?220:120);emit(stateFromLocal());}}catch(e){}return ret;};
     Storage.prototype.__pklJoinRealtimePatched=true;
   }
   try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;localActionUntil=Date.now()+PENDING_MS;queueSave(180);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
-  window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=((pendingWait.length || pendingCancel.length) && localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS)?stateFromLocal():(currentState||stateFromLocal());return applyPending(normalizeState(st));},apply:applyState,fetchNow:fetchNow,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
+  window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=((pendingWait.length || pendingCancel.length) && localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS)?stateFromLocal():(currentState||stateFromLocal());return applyPending(normalizeState(st));},apply:applyState,fetchNow:fetchNow,broadcast:sendJoinBroadcast,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
   start();
 })();
