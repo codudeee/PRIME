@@ -6370,42 +6370,51 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 <style id="pklRoundInlineResetFixStyle">
 body.pkl-round-reset-inline-mode #recordBody tr{position:relative;}
 .total-cell{position:relative;}
+body.pkl-round-reset-inline-mode .total-cell{
+  padding-right:34px !important;
+  overflow:visible !important;
+}
 .pkl-round-reset-x{
-  width:28px !important;
-  height:28px !important;
-  min-width:28px !important;
-  min-height:28px !important;
+  width:22px !important;
+  height:22px !important;
+  min-width:22px !important;
+  min-height:22px !important;
   padding:0 !important;
   display:inline-grid !important;
   place-items:center !important;
   position:absolute !important;
-  right:-22px !important;
+  right:6px !important;
   top:50% !important;
   transform:translateY(-50%) !important;
-  z-index:30 !important;
+  z-index:80 !important;
   border-radius:999px !important;
-  border:1px solid rgba(74,222,128,.78) !important;
-  background:radial-gradient(circle at 35% 20%,rgba(255,255,255,.22),transparent 34%),linear-gradient(180deg,rgba(34,197,94,.92),rgba(21,128,61,.96)) !important;
+  border:1px solid rgba(74,222,128,.82) !important;
+  background:radial-gradient(circle at 35% 20%,rgba(255,255,255,.24),transparent 34%),linear-gradient(180deg,rgba(34,197,94,.94),rgba(21,128,61,.98)) !important;
   color:#fff !important;
-  font-size:18px !important;
+  font-size:15px !important;
   font-weight:1000 !important;
   line-height:1 !important;
   cursor:pointer !important;
-  box-shadow:0 0 18px rgba(34,197,94,.35), inset 0 1px 0 rgba(255,255,255,.18) !important;
+  box-shadow:0 0 16px rgba(34,197,94,.36), inset 0 1px 0 rgba(255,255,255,.18) !important;
   pointer-events:auto !important;
 }
 .pkl-round-reset-x:hover{
-  transform:translateY(-50%) translateY(-1px);
-  filter:brightness(1.08);
-  box-shadow:0 0 24px rgba(34,197,94,.48), inset 0 1px 0 rgba(255,255,255,.22) !important;
+  transform:translateY(-50%) scale(1.06) !important;
+  filter:brightness(1.10) !important;
+  box-shadow:0 0 22px rgba(34,197,94,.52), inset 0 1px 0 rgba(255,255,255,.22) !important;
 }
-.pkl-round-reset-x:active{transform:translateY(-50%) scale(.96);}
+.pkl-round-reset-x:active{transform:translateY(-50%) scale(.96) !important;}
 .record-table tr.is-fire-used-row .pkl-round-reset-x,
-.record-table tbody tr.is-fire-used-row .pkl-round-reset-x{
+.record-table tbody tr.is-fire-used-row .pkl-round-reset-x,
+.record-table tr.is-locked-row .pkl-round-reset-x,
+.record-table tbody tr.is-locked-row .pkl-round-reset-x{
   opacity:1 !important;
   filter:none !important;
   pointer-events:auto !important;
+  cursor:pointer !important;
 }
+.record-table tr.is-locked-row .pkl-round-reset-x *,
+.record-table tbody tr.is-locked-row .pkl-round-reset-x *{cursor:pointer !important;}
 body.pkl-round-reset-inline-mode .record-table{overflow:visible !important;}
 .pkl-round-reset-active-toast{
   position:fixed;
@@ -6413,7 +6422,11 @@ body.pkl-round-reset-inline-mode .record-table{overflow:visible !important;}
   bottom:28px;
   z-index:2147482000;
   transform:translateX(-50%);
-  padding:12px 16px;
+  min-height:42px;
+  padding:8px 10px 8px 15px;
+  display:none;
+  align-items:center;
+  gap:10px;
   border-radius:999px;
   border:1px solid rgba(74,222,128,.42);
   background:linear-gradient(180deg,rgba(12,36,24,.96),rgba(4,12,8,.98));
@@ -6421,8 +6434,20 @@ body.pkl-round-reset-inline-mode .record-table{overflow:visible !important;}
   font-size:13px;
   font-weight:1000;
   box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 24px rgba(34,197,94,.22);
-  pointer-events:none;
+  pointer-events:auto;
 }
+.pkl-round-reset-active-toast button{
+  height:28px;
+  padding:0 12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.22);
+  background:rgba(255,255,255,.10);
+  color:#fff;
+  font-size:12px;
+  font-weight:1000;
+  cursor:pointer;
+}
+.pkl-round-reset-active-toast button:hover{filter:brightness(1.12);}
 </style>
 </head>
 <body>
@@ -8803,9 +8828,17 @@ function pklSetRoundInlineResetMode(on){
   pklRoundInlineResetMode=!!on;
   try{document.body.classList.toggle('pkl-round-reset-inline-mode', pklRoundInlineResetMode);}catch(e){}
   renderSheet();
-  if(on) pklRoundInlineResetToast('라운드 초기화 모드입니다. 오른쪽 초록 X로 해당 라운드만 정리하세요.');
+  if(on){
+    pklRoundInlineResetToast('라운드 초기화 모드입니다. 초록 X로 해당 라운드를 정리한 뒤 완료를 누르세요.', true);
+  }else{
+    try{
+      clearTimeout(pklRoundInlineResetToastTimer);
+      const el=document.getElementById('pklRoundInlineResetActiveToast');
+      if(el) el.style.display='none';
+    }catch(e){}
+  }
 }
-function pklRoundInlineResetToast(msg){
+function pklRoundInlineResetToast(msg, keep){
   try{
     let el=document.getElementById('pklRoundInlineResetActiveToast');
     if(!el){
@@ -8814,10 +8847,16 @@ function pklRoundInlineResetToast(msg){
       el.className='pkl-round-reset-active-toast';
       document.body.appendChild(el);
     }
-    el.textContent=msg||'';
-    el.style.display='block';
-    clearTimeout(pklRoundInlineResetToastTimer);
-    pklRoundInlineResetToastTimer=setTimeout(()=>{try{el.style.display='none';}catch(e){}},2200);
+    if(keep){
+      el.innerHTML='<span>'+String(msg||'')+'</span><button type="button" data-pkl-round-reset-done>완료</button>';
+      el.style.display='flex';
+      clearTimeout(pklRoundInlineResetToastTimer);
+    }else{
+      el.textContent=msg||'';
+      el.style.display='flex';
+      clearTimeout(pklRoundInlineResetToastTimer);
+      pklRoundInlineResetToastTimer=setTimeout(()=>{try{if(!pklRoundInlineResetMode) el.style.display='none';}catch(e){}},1800);
+    }
   }catch(e){}
 }
 function pklRemoveRoundRelatedFeeds(view, roundIndex){
@@ -8979,6 +9018,14 @@ window.PKLEnableRoundInlineReset=function(){pklSetRoundInlineResetMode(true);};
 window.PKLDisableRoundInlineReset=function(){pklSetRoundInlineResetMode(false);};
 
 document.addEventListener('click',e=>{
+
+  const roundResetDone=e.target.closest && e.target.closest('[data-pkl-round-reset-done]');
+  if(roundResetDone){
+    e.preventDefault();
+    e.stopPropagation();
+    pklSetRoundInlineResetMode(false);
+    return;
+  }
 
   const inlineRoundReset=e.target.closest && e.target.closest('[data-pkl-round-reset-index]');
   if(inlineRoundReset){
