@@ -4727,6 +4727,30 @@ body.pkl-join-initializing #joinCancelCount{
   .join-mini-btn,.join-setting-btn,.join-wide-danger{height:42px !important;font-size:12px !important;}
 }
 </style>
+
+
+<style id="pklJoinWaitListInnerScrollOnlyFix">
+/* 대기자 리스트가 길어져도 참가/대기취소 버튼이 밀리지 않게 리스트 내부만 스크롤 */
+.join-wait-card{
+  min-height:0 !important;
+  overflow:hidden !important;
+}
+#joinWaitList{
+  flex:0 1 auto !important;
+  max-height:clamp(260px, 46vh, 520px) !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  overscroll-behavior:contain !important;
+  padding-right:8px !important;
+}
+#joinWaitList::-webkit-scrollbar{width:7px;}
+#joinWaitList::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:999px;}
+#joinWaitList::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(168,85,247,.55),rgba(124,58,237,.28));border-radius:999px;border:1px solid rgba(216,180,254,.12);}
+@media (max-width:768px){
+  #joinWaitList{max-height:320px !important;}
+}
+</style>
+
 </head>
 <body class="pkl-recruit-loading pkl-join-initializing">
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
