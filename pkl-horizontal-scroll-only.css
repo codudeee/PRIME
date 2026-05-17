@@ -1,12 +1,12 @@
 /* =========================================================
-   PKL horizontal page scrollbar only when needed
-   - 창 폭이 데스크톱 기준보다 작을 때만 브라우저 하단 가로 스크롤 생성
-   - 전체화면/충분한 폭에서는 하단 검은 스크롤바가 보이지 않게 함
-   - UI/카드/칸/그리드 크기는 변경하지 않음
+   PKL horizontal page scrollbar only
+   - 전체화면/충분한 폭에서는 하단 가로 스크롤바 숨김
+   - 창 폭이 기준 데스크톱 폭보다 줄어들면 브라우저 하단 가로 스크롤 생성
+   - 내부 컨테이너 스크롤이 아니라 페이지 전체 스크롤만 사용
    ========================================================= */
 :root{
-  --pkl-page-scroll-width:1440px;
-  --pkl-sheet-scroll-width:1560px;
+  --pkl-page-scroll-width:1920px;
+  --pkl-sheet-scroll-width:1920px;
 }
 
 html{
@@ -26,21 +26,14 @@ body{
   zoom:1 !important;
 }
 
-/* sheet류는 기존보다 넓은 기준 폭 유지 */
-html:has(body .sheet),
-html:has(body .app .sheet),
-html:has(body .sheet-wrap),
-html:has(body .sheet-panel){
-  min-width:var(--pkl-sheet-scroll-width) !important;
-}
-html:has(body .sheet) body,
-html:has(body .app .sheet) body,
-html:has(body .sheet-wrap) body,
-html:has(body .sheet-panel) body{
+body:has(.sheet),
+body:has(.app .sheet),
+body:has(.sheet-wrap),
+body:has(.sheet-panel){
   min-width:var(--pkl-sheet-scroll-width) !important;
 }
 
-/* 이전 버전의 투명 스페이서가 항상 하단 스크롤바를 만들던 문제 제거 */
+/* 이전 투명 스페이서 방식은 전체화면에서도 검은 하단 바를 만들 수 있어서 제거 */
 body::after{
   content:none !important;
   display:none !important;
@@ -87,23 +80,4 @@ body::-webkit-scrollbar-thumb:horizontal{
 html::-webkit-scrollbar-thumb:horizontal:hover,
 body::-webkit-scrollbar-thumb:horizontal:hover{
   background:linear-gradient(90deg,rgba(233,213,255,.95),rgba(139,92,246,.82)) !important;
-}
-
-/* 충분히 넓은 전체화면에서는 혹시 남는 가로 스크롤 여백을 강제로 제거 */
-@media (min-width:1600px){
-  html,
-  body{
-    min-width:0 !important;
-    overflow-x:hidden !important;
-  }
-  html:has(body .sheet),
-  html:has(body .app .sheet),
-  html:has(body .sheet-wrap),
-  html:has(body .sheet-panel),
-  html:has(body .sheet) body,
-  html:has(body .app .sheet) body,
-  html:has(body .sheet-wrap) body,
-  html:has(body .sheet-panel) body{
-    min-width:0 !important;
-  }
 }
