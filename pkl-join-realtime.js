@@ -35,6 +35,26 @@
   function removeMatching(list,item){return arr(list).filter(function(p){return !(item&&same(p,item));});}
   function mergeByIdentity(a,b){var out=[];arr(a).concat(arr(b)).forEach(function(item){if(item&&typeof item==='object'&&!out.some(function(prev){return same(prev,item);})){out.push(item);}});return out;}
   function withoutMembers(list, remove){var rem=arr(remove);return arr(list).filter(function(item){return !rem.some(function(r){return same(r,item);});});}
+  function waitTime(item){item=item||{};return Date.parse(item.rejoinedAt||item.joinedAt||item.updatedAt||item.createdAt||'')||0;}
+  function cancelTime(item){item=item||{};return Date.parse(item.canceledAt||item.cancelledAt||item.cancelAt||item.updatedAt||item.createdAt||'')||0;}
+  function cancelWins(waitItem,cancelItem){
+    if(!same(waitItem,cancelItem)) return false;
+    var wt=waitTime(waitItem), ct=cancelTime(cancelItem);
+    if(wt&&ct) return ct>=wt;
+    return true;
+  }
+  function waitWins(waitItem,cancelItem){
+    if(!same(waitItem,cancelItem)) return false;
+    var wt=waitTime(waitItem), ct=cancelTime(cancelItem);
+    return !!(wt&&ct&&wt>ct);
+  }
+  function resolveWaitCancel(st){
+    st=normalizeStateRaw(st);
+    var originalWait=arr(st.waitList), originalCancel=arr(st.cancelList);
+    st.waitList=originalWait.filter(function(w){return !originalCancel.some(function(c){return cancelWins(w,c);});});
+    st.cancelList=originalCancel.filter(function(c){return !originalWait.some(function(w){return waitWins(w,c);});});
+    return st;
+  }
   function isResetState(st){
     st=st||{};
     var rs=st.recruitState||{};
@@ -69,9 +89,12 @@
     if(localChanged){currentState=st;}
     return st;
   }
-  function normalizeState(st){
+  function normalizeStateRaw(st){
     st=st&&typeof st==='object'?st:{};
     return {version:2,waitList:arr(st.waitList),cancelList:arr(st.cancelList),recruitState:st.recruitState||{state:'loading'},updatedAt:st.updatedAt||now()};
+  }
+  function normalizeState(st){
+    return resolveWaitCancel(normalizeStateRaw(st));
   }
   function textOf(st){return JSON.stringify({waitList:arr(st.waitList),cancelList:arr(st.cancelList),recruitState:st.recruitState||{state:'loading'}});}
   function setLocal(k,v){applying=true;try{originalSet.call(localStorage,k,typeof v==='string'?v:JSON.stringify(v));}catch(e){}finally{applying=false;}}
@@ -84,7 +107,7 @@
     if(ms&&ms<lastRemoteMs) return;
     var nowMs=Date.now();
     var normalized=normalizeState(st);
-    normalized=applyPending(normalized);
+    normalized=resolveWaitCancel(applyPending(normalized));
 
     if(nowMs-lastLocalEditAt<CONTROL_HOLD_MS){
       var localWait=arr(read(WAIT_KEY,[]));
@@ -100,7 +123,7 @@
       if(localChanged && (!ms || ms<lastLocalEditAt)) normalized.updatedAt=now();
     }
 
-    normalized=applyPending(normalized);
+    normalized=resolveWaitCancel(applyPending(normalized));
     if(lastSaveAt&&ms&&ms<lastSaveAt-50 && nowMs-lastLocalEditAt>=CONTROL_HOLD_MS && !pendingWait.length && !pendingCancel.length) return;
     lastRemoteMs=ms||nowMs;
     currentState=normalized;
@@ -129,7 +152,7 @@
     merged.cancelList=withoutMembers(mergeByIdentity(serverSt.cancelList, localSt.cancelList), localSt.waitList);
     merged.recruitState=localSt.recruitState&&localSt.recruitState.state?localSt.recruitState:serverSt.recruitState;
     merged.updatedAt=now();
-    return applyPending(merged);
+    return resolveWaitCancel(applyPending(merged));
   }
   function saveNow(){
     var localSt=stateFromLocal();

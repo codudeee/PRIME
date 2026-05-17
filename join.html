@@ -5250,8 +5250,29 @@ function safeJson(key, fallback){
     return true;
   }
 
+  function getWaitActionTime(item){
+    item = item || {};
+    return Date.parse(item.rejoinedAt || item.joinedAt || item.updatedAt || item.createdAt || '') || 0;
+  }
+
+  function getCancelActionTime(item){
+    item = item || {};
+    return Date.parse(item.canceledAt || item.cancelledAt || item.cancelAt || item.updatedAt || item.createdAt || '') || 0;
+  }
+
+  function isCanceledAfterWait(waitItem, cancelItem){
+    if(!identityMatches(waitItem, cancelItem)) return false;
+    const waitTime = getWaitActionTime(waitItem);
+    const cancelTime = getCancelActionTime(cancelItem);
+    if(waitTime && cancelTime) return cancelTime >= waitTime;
+    return true;
+  }
+
   function readActiveWaitList(){
-    return readList(STORAGE_KEY).filter(isActiveWaitItem);
+    const cancelList = readList(CANCEL_KEY);
+    return readList(STORAGE_KEY).filter(isActiveWaitItem).filter(function(item){
+      return !cancelList.some(function(cancelItem){ return isCanceledAfterWait(item, cancelItem); });
+    });
   }
 
 
@@ -5639,8 +5660,18 @@ function safeJson(key, fallback){
     let sig = "";
     try{
       sig = JSON.stringify({
-        wait: readActiveWaitList().map(function(v){return v.discordId||v.id||v.key||v.name||v.nickname||v.pubgId||"";}),
-        cancel: readList(CANCEL_KEY).map(function(v){return v.discordId||v.id||v.key||v.name||v.nickname||v.pubgId||"";}),
+        wait: readActiveWaitList().map(function(v){return {
+          id:v.discord_id||v.discordId||v.uid||v.id||v.userId||v.key||v.name||v.nickname||v.pubgId||'',
+          state:v.state||v.status||'',
+          joinedAt:v.joinedAt||'',
+          rejoinedAt:v.rejoinedAt||'',
+          canceledAt:v.canceledAt||v.cancelledAt||v.cancelAt||''
+        };}),
+        cancel: readList(CANCEL_KEY).map(function(v){return {
+          id:v.discord_id||v.discordId||v.uid||v.id||v.userId||v.key||v.name||v.nickname||v.pubgId||'',
+          reason:v.reason||'',
+          canceledAt:v.canceledAt||v.cancelledAt||v.cancelAt||''
+        };}),
         state: getRecruitStateForAction()
       });
     }catch(e){}
@@ -5661,6 +5692,13 @@ function safeJson(key, fallback){
     if(document.body.classList.contains("pkl-recruit-loading") && remoteState === "waiting") return;
     renderAllIfChanged(false);
   });
+
+  setInterval(function(){
+    if(window.__PKL_JOIN_INITIAL_READY){
+      renderAllIfChanged(false);
+    }
+  }, 1500);
+
   seedJoinTierMap();
   fetchJoinTierMapOnce();
 
