@@ -11588,16 +11588,6 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function readSheetState(){
     try{
-      if(window.PKLSheetLiveBridge && typeof window.PKLSheetLiveBridge.getState==="function"){
-        const liveState=window.PKLSheetLiveBridge.getState();
-        if(liveState && typeof liveState==="object") return liveState;
-      }
-    }catch(e){}
-    try{
-      const sessionData=JSON.parse(sessionStorage.getItem(STATE_KEY)||"{}");
-      if(sessionData && typeof sessionData==="object" && (Array.isArray(sessionData.teams) || sessionData.fires || sessionData.surrenders)) return sessionData;
-    }catch(e){}
-    try{
       const data=JSON.parse(localStorage.getItem(STATE_KEY)||"{}");
       return data && typeof data==="object" ? data : {};
     }catch(e){return {}}
@@ -11712,14 +11702,18 @@ document.addEventListener("DOMContentLoaded", function(){
     if(type!=="불판" && type!=="서렌") return;
     const team=normalizeTeamText(item.team);
     const time=Number(item.time||0);
-    const key=String(item.key || (type+":"+team+":"+time));
-    if(seen[key]) return;
-    seen[key]=true;
+    const roundIndex=Number(item && item.roundIndex);
+    const minuteKey=time ? Math.floor(time/60000) : 0;
+    const canonicalKey=[type, team.replace(/\s+/g,""), Number.isFinite(roundIndex) && roundIndex>=0 ? ("round"+roundIndex) : ("minute"+minuteKey)].join(":");
+    const rawKey=String(item.key || (type+":"+team+":"+time));
+    if(seen[canonicalKey] || seen[rawKey]) return;
+    seen[canonicalKey]=true;
+    seen[rawKey]=true;
     const verb=type==="불판" ? "불판을 사용" : "서렌";
     rows.push({
       type:type,
       time:time,
-      key:key,
+      key:rawKey,
       html:'<tr class="pkl-item-history-log-row pkl-item-history-log-'+esc(type)+'"><td><div class="pkl-item-history-log"><span class="pkl-item-history-log-type">'+esc(type)+'</span><span class="pkl-item-history-log-text">'+esc(team)+' '+esc(formatHistoryTime(time))+' '+esc(verb)+'</span></div></td></tr>'
     });
   }
@@ -11730,7 +11724,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const savedHistory=Array.isArray(st && st.itemHistory) ? st.itemHistory : [];
     savedHistory.forEach(function(h){
       if(!h || (h.type!=="불판" && h.type!=="서렌")) return;
-      pushHistory(rows, seen, {type:h.type, team:h.team || "해당 팀", time:h.time, key:h.key || (h.type+":item:"+String(h.team||"")+":"+String(h.time||""))});
+      pushHistory(rows, seen, {type:h.type, team:h.team || "해당 팀", time:h.time, key:h.key || (h.type+":item:"+String(h.team||"")+":"+String(h.time||"")), roundIndex:h.roundIndex});
     });
 
     const feeds=Array.isArray(st && st.feeds) ? st.feeds : [];
@@ -11748,7 +11742,7 @@ document.addEventListener("DOMContentLoaded", function(){
         const sessions=Array.isArray(rec.sessions) ? rec.sessions : ((rec.done || rec.checked) ? [rec] : []);
         sessions.forEach(function(session,si){
           if(!session || !session.done) return;
-          pushHistory(rows, seen, {type:"불판", team:teamName(view,index), time:session.time||0, key:"fire-store:"+id+":"+si+":"+(session.time||0)});
+          pushHistory(rows, seen, {type:"불판", team:teamName(view,index), time:session.time||0, key:"fire-store:"+id+":"+si+":"+(session.time||0), roundIndex:session.roundIndex});
         });
       });
     });
