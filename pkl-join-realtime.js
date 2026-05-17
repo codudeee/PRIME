@@ -132,7 +132,22 @@
   }
   function textOf(st){return JSON.stringify({waitList:arr(st.waitList),cancelList:arr(st.cancelList),recruitState:st.recruitState||{state:'loading'}});}
   function setLocal(k,v){applying=true;try{originalSet.call(localStorage,k,typeof v==='string'?v:JSON.stringify(v));}catch(e){}finally{applying=false;}}
-  function emit(st){try{window.dispatchEvent(new CustomEvent('pkl-join-state-updated',{detail:st}));}catch(e){}}
+  var renderQueued=false;
+  function requestJoinRender(){
+    if(renderQueued) return;
+    renderQueued=true;
+    setTimeout(function(){
+      renderQueued=false;
+      try{
+        if(typeof window.PKLJoinRenderAll === 'function') window.PKLJoinRenderAll();
+        else if(typeof window.PKLJoinSyncActionButtons === 'function') window.PKLJoinSyncActionButtons();
+      }catch(e){}
+    },0);
+  }
+  function emit(st){
+    try{window.dispatchEvent(new CustomEvent('pkl-join-state-updated',{detail:st}));}catch(e){}
+    requestJoinRender();
+  }
 
   function applyState(st){
     if(!st||typeof st!=='object') return;

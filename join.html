@@ -6007,16 +6007,17 @@ function safeJson(key, fallback){
 
     if(cancelIndex >= 0){
       const restored = cancelList.splice(cancelIndex,1)[0];
-      list.push({
+      const rejoinRecord = {
         ...restored,
         ...userData,
         reason:undefined,
         canceledAt:undefined,
         rejoinedAt:new Date().toISOString()
-      });
+      };
+      list.push(rejoinRecord);
       saveList(CANCEL_KEY,cancelList);
       saveList(STORAGE_KEY,list);
-      try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markJoin === 'function') window.PKLJoinRealtime.markJoin(userData); }catch(e){}
+      try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markJoin === 'function') window.PKLJoinRealtime.markJoin(rejoinRecord); }catch(e){}
       renderAll();
       if(isPaidRecruit()) openDepositModal();
       return;
@@ -6078,15 +6079,16 @@ function safeJson(key, fallback){
     const removed = hydrateItem(list.splice(index,1)[0]);
     const cancelList = readList(CANCEL_KEY);
 
-    cancelList.push({
+    const cancelRecord = {
       ...removed,
       reason:reason,
       canceledAt:new Date().toISOString()
-    });
+    };
+    cancelList.push(cancelRecord);
 
     saveList(STORAGE_KEY,list);
     saveList(CANCEL_KEY,cancelList);
-    try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markCancel === 'function') window.PKLJoinRealtime.markCancel(removed); }catch(e){}
+    try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.markCancel === 'function') window.PKLJoinRealtime.markCancel(cancelRecord); }catch(e){}
     closeReasonModal();
     renderAll();
   }
