@@ -34,51 +34,43 @@ function tableFor(type){
 function did(u){ return clean(u && (u.discord_id || u.discordId || u.discord || u.user_id || u.userId || u.id || '')).replace(/^discord-/i, '').toLowerCase(); }
 function keyOfUser(u){ return did(u) || clean(u && (u.pubg_id || u.pubgId || u.gameId || u.ref || u.nickname || u.name)).toLowerCase(); }
 function sameUser(a,b){ const ak=keyOfUser(a), bk=keyOfUser(b); return !!(ak && bk && ak === bk); }
-function parseMs(v){ const n=Date.parse(v || ''); return Number.isFinite(n) ? n : 0; }
-function waitMs(u){ return parseMs(u && (u.rejoinedAt || u.joinedAt || u.updatedAt || u.createdAt)); }
-function cancelMs(u){ return parseMs(u && (u.canceledAt || u.cancelledAt || u.cancelAt || u.updatedAt || u.createdAt)); }
-function latestBy(list, timeFn){
-  const out=[];
-  (Array.isArray(list)?list:[]).forEach(function(x){
-    if(!x || typeof x !== 'object') return;
-    const idx = out.findIndex(function(p){ return sameUser(p, x); });
-    if(idx < 0){ out.push(x); return; }
-    const prevTime = timeFn(out[idx]);
-    const nextTime = timeFn(x);
-    if(nextTime && (!prevTime || nextTime >= prevTime)) out[idx] = Object.assign({}, out[idx], x);
-  });
-  return out;
-}
-function uniqueUsers(list){ return latestBy(list, function(u){ return Math.max(waitMs(u), cancelMs(u)); }); }
+function uniqueUsers(list){ const out=[]; (Array.isArray(list)?list:[]).forEach(function(x){ if(x && typeof x === 'object' && !out.some(function(p){return sameUser(p,x);})){ out.push(x); } }); return out; }
 function mergeUsersList(a,b){ return uniqueUsers([].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[])); }
 function removeUsers(list, remove){ const rem=uniqueUsers(remove); return uniqueUsers(list).filter(function(x){ return !rem.some(function(r){return sameUser(r,x);}); }); }
+function parseMs(v){ const n=Date.parse(v || ''); return Number.isFinite(n) ? n : 0; }
+function waitActionMs(item){ return parseMs(item && (item.rejoinedAt || item.joinedAt || item.updatedAt || item.createdAt)); }
+function cancelActionMs(item){ return parseMs(item && (item.canceledAt || item.cancelledAt || item.cancelAt || item.updatedAt || item.createdAt)); }
 function resolveJoinLists(waitList, cancelList){
-  const waits = latestBy(waitList, waitMs);
-  const cancels = latestBy(cancelList, cancelMs);
-  const finalWait=[];
-  const finalCancel=[];
+  waitList = uniqueUsers(waitList);
+  cancelList = uniqueUsers(cancelList);
+  const finalWait = [];
+  const finalCancel = [];
 
-  waits.forEach(function(w){
-    const c = cancels.find(function(x){ return sameUser(w, x); });
-    if(!c){ finalWait.push(w); return; }
-    const wt = waitMs(w);
-    const ct = cancelMs(c);
+  waitList.forEach(function(waitItem){
+    const cancelItem = cancelList.find(function(c){ return sameUser(waitItem, c); });
+    if(!cancelItem){ finalWait.push(waitItem); return; }
+    const wt = waitActionMs(waitItem);
+    const ct = cancelActionMs(cancelItem);
     if(wt && ct){
-      if(ct >= wt) finalCancel.push(c);
-      else finalWait.push(w);
+      if(wt > ct) finalWait.push(waitItem);
       return;
     }
-    if(ct && !wt) finalCancel.push(c);
-    else if(wt && !ct) finalWait.push(w);
-    else finalCancel.push(c);
+    // 시간값이 없으면 대기취소 기록을 더 명시적인 최종 액션으로 본다.
   });
 
-  cancels.forEach(function(c){
-    if(!waits.some(function(w){ return sameUser(w, c); }) && !finalCancel.some(function(x){ return sameUser(x, c); })){
-      finalCancel.push(c);
+  cancelList.forEach(function(cancelItem){
+    const waitItem = waitList.find(function(w){ return sameUser(w, cancelItem); });
+    if(!waitItem){ finalCancel.push(cancelItem); return; }
+    const wt = waitActionMs(waitItem);
+    const ct = cancelActionMs(cancelItem);
+    if(wt && ct){
+      if(ct >= wt) finalCancel.push(cancelItem);
+      return;
     }
+    finalCancel.push(cancelItem);
   });
-  return { waitList: finalWait, cancelList: finalCancel };
+
+  return { waitList: uniqueUsers(finalWait), cancelList: uniqueUsers(finalCancel) };
 }
 function normalizeJoinPayload(payload, updatedAt){
   payload = payload && typeof payload === 'object' ? payload : {};
@@ -93,11 +85,11 @@ async function readCanonicalJoinState(){
   const sharedCancel = await readShared('pklJoinCancelList').catch(()=>({value:null,updated_at:null}));
   const sharedRecruit = await readShared('pklJoinRecruitState').catch(()=>({value:null,updated_at:null}));
   const sharedUpdated = Math.max(parseMs(sharedWait.updated_at), parseMs(sharedCancel.updated_at), parseMs(sharedRecruit.updated_at));
-  let liveWait = latestBy(live.waitList, waitMs);
-  let liveCancel = latestBy(live.cancelList, cancelMs);
-  let sharedWaitList = latestBy(sharedWait.value, waitMs);
-  let sharedCancelList = latestBy(sharedCancel.value, cancelMs);
-  let resolvedLists = resolveJoinLists(mergeUsersList(liveWait, sharedWaitList), mergeUsersList(liveCancel, sharedCancelList));
+  let liveWait = uniqueUsers(live.waitList);
+  let liveCancel = uniqueUsers(live.cancelList);
+  let sharedWaitList = uniqueUsers(sharedWait.value);
+  let sharedCancelList = uniqueUsers(sharedCancel.value);
+  const resolvedLists = resolveJoinLists(mergeUsersList(liveWait, sharedWaitList), mergeUsersList(liveCancel, sharedCancelList));
   let waitList = resolvedLists.waitList;
   let cancelList = resolvedLists.cancelList;
   const recruitState = sharedUpdated > parseMs(live.updatedAt) && sharedRecruit.value && typeof sharedRecruit.value === 'object' ? sharedRecruit.value : live.recruitState;
@@ -125,16 +117,13 @@ async function writeLive(id, payload){
   if(rowId === 'join_state' && body && typeof body === 'object' && !isJoinReset(body)){
     const current = await readCanonicalJoinState().catch(()=>null);
     if(current && current.payload){
-      const resolvedLists = resolveJoinLists(
-        mergeUsersList(current.payload.waitList, body.waitList),
-        mergeUsersList(current.payload.cancelList, body.cancelList)
-      );
       body = Object.assign({}, body, {
         version:2,
-        // 서버에 wait/cancel이 동시에 남아도 대기자 우선으로 덮지 않는다.
-        // joinedAt/rejoinedAt 과 canceledAt 중 더 최신 액션만 최종 상태로 저장한다.
-        waitList: resolvedLists.waitList,
-        cancelList: resolvedLists.cancelList,
+        // body는 버튼 클릭 후 브라우저/봇이 보낸 '최종 의도'다.
+        // body.waitList에 있으면 과거 cancelList에서 반드시 제거하고,
+        // body.cancelList에 있으면 과거 waitList에서 반드시 제거한다.
+        waitList: resolveJoinLists(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)).waitList,
+        cancelList: resolveJoinLists(mergeUsersList(current.payload.waitList, body.waitList), mergeUsersList(current.payload.cancelList, body.cancelList)).cancelList,
         recruitState: body.recruitState && body.recruitState.state ? body.recruitState : current.payload.recruitState,
         updatedAt: new Date().toISOString()
       });

@@ -244,6 +244,18 @@
       return null;
     });
   }
+  function applySharedRow(row){
+    if(!row || typeof row !== 'object') return;
+    var key=String(row.key||row.id||'');
+    if(!KEYS[key]) return;
+    var base=currentState || stateFromLocal();
+    var next=normalizeStateRaw(base);
+    if(key===WAIT_KEY) next.waitList=arr(row.value);
+    else if(key===CANCEL_KEY) next.cancelList=arr(row.value);
+    else if(key===RECRUIT_KEY) next.recruitState=(row.value&&typeof row.value==='object')?row.value:{state:'loading'};
+    next.updatedAt=row.updated_at || now();
+    applyState(next);
+  }
   function realtimeSend(topic,event,payload){
     if(!realtimeSocket || realtimeSocket.readyState!==1) return;
     realtimeSocket.send(JSON.stringify({topic:topic,event:event,payload:payload||{},ref:String(realtimeRef++)}));
@@ -255,11 +267,14 @@
       realtimeSocket=new WebSocket(wsUrl);
       realtimeSocket.onopen=function(){
         realtimeJoined=false;
-        realtimeSend('realtime:public:live_scores','phx_join',{
+        realtimeSend('realtime:public:pkl_join_state','phx_join',{
           config:{
             broadcast:{self:false},
             presence:{key:''},
-            postgres_changes:[{event:'*',schema:'public',table:'live_scores',filter:'id=eq.join_state'}]
+            postgres_changes:[
+              {event:'*',schema:'public',table:'live_scores',filter:'id=eq.join_state'},
+              {event:'*',schema:'public',table:'pkl_shared_data',filter:'key=in.(pklJoinWaitList,pklJoinCancelList,pklJoinRecruitState)'}
+            ]
           }
         });
       };
@@ -269,10 +284,15 @@
         if(msg.event==='postgres_changes'){
           var data=msg.payload && msg.payload.data;
           var row=(data && (data.record || data.new || data.old)) || null;
+          if(!row) return;
           var payload=row && row.payload;
           if(payload){
             var next=Object.assign({},payload,{updatedAt:payload.updatedAt||row.updated_at});
             applyState(next);
+            return;
+          }
+          if(row.key || row.id){
+            applySharedRow(row);
           }
         }
       };
