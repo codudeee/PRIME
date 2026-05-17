@@ -6,7 +6,7 @@
   var KEYS={}; KEYS[WAIT_KEY]=1; KEYS[CANCEL_KEY]=1; KEYS[RECRUIT_KEY]=1;
   var originalSet=Storage.prototype.setItem, originalRemove=Storage.prototype.removeItem;
   var saveTimer=null, realtimeSocket=null, realtimeRef=1, realtimeJoined=false, applying=false;
-  var realtimeHeartbeatTimer=null, realtimeReconnectTimer=null, realtimeReconnectTry=0;
+  var heartbeatTimer=null, reconnectTimer=null, reconnectDelay=1200;
   var lastText='', lastRemoteMs=0, lastSaveAt=0, lastLocalEditAt=0;
   var CONTROL_HOLD_MS = 8000;
   var remoteReady=false, localChanged=false, currentState=null;
@@ -21,6 +21,28 @@
     URL=String(c.url||localStorage.getItem('SUPABASE_URL')||localStorage.getItem('PKL_SUPABASE_URL')||URL||'').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');
     KEY=String(c.anonKey||localStorage.getItem('SUPABASE_ANON_KEY')||localStorage.getItem('PKL_SUPABASE_ANON_KEY')||KEY||'');
     return !!(URL&&KEY);
+  }
+  function applySupabaseConfig(c){
+    c=c||{};
+    var u=String(c.url||c.supabaseUrl||c.SUPABASE_URL||'').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');
+    var k=String(c.anonKey||c.supabaseAnonKey||c.SUPABASE_ANON_KEY||'');
+    if(u&&k){
+      URL=u; KEY=k;
+      window.PKL_SUPABASE_CONFIG={url:u,anonKey:k,ready:true};
+      try{localStorage.setItem('SUPABASE_URL',u);localStorage.setItem('SUPABASE_ANON_KEY',k);localStorage.setItem('PKL_SUPABASE_URL',u);localStorage.setItem('PKL_SUPABASE_ANON_KEY',k);}catch(e){}
+      return true;
+    }
+    return configured();
+  }
+  function ensureConfig(){
+    if(configured()) return Promise.resolve(true);
+    if(window.PKLGetSupabaseConfig){
+      try{return Promise.resolve(window.PKLGetSupabaseConfig()).then(function(c){return applySupabaseConfig(c);}).catch(function(){return configured();});}catch(e){}
+    }
+    if(window.PKL_SUPABASE_READY){
+      try{return Promise.resolve(window.PKL_SUPABASE_READY).then(function(c){return applySupabaseConfig(c);}).catch(function(){return configured();});}catch(e){}
+    }
+    return fetch('/api/supabase-config',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(c){return applySupabaseConfig(c);}).catch(function(){return configured();});
   }
   function parse(v,fb){try{var x=JSON.parse(v);return x==null?fb:x;}catch(e){return fb;}}
   function read(k,fb){try{return parse(localStorage.getItem(k),fb);}catch(e){return fb;}}
@@ -259,106 +281,103 @@
     applyState(next);
   }
   function realtimeSend(topic,event,payload){
-    if(!realtimeSocket || realtimeSocket.readyState!==1) return;
-    realtimeSocket.send(JSON.stringify({topic:topic,event:event,payload:payload||{},ref:String(realtimeRef++)}));
+    if(!realtimeSocket || realtimeSocket.readyState!==1) return false;
+    try{
+      realtimeSocket.send(JSON.stringify({topic:topic,event:event,payload:payload||{},ref:String(realtimeRef++)}));
+      return true;
+    }catch(e){return false;}
   }
-  function stopRealtimeHeartbeat(){
-    if(realtimeHeartbeatTimer){clearInterval(realtimeHeartbeatTimer); realtimeHeartbeatTimer=null;}
+  function clearHeartbeat(){
+    if(heartbeatTimer){clearInterval(heartbeatTimer);heartbeatTimer=null;}
   }
-  function startRealtimeHeartbeat(){
-    stopRealtimeHeartbeat();
-    realtimeHeartbeatTimer=setInterval(function(){
-      try{
-        if(realtimeSocket && realtimeSocket.readyState===1){
-          realtimeSend('phoenix','heartbeat',{});
-        }
-      }catch(e){}
-    },25000);
-  }
-  function scheduleRealtimeReconnect(){
-    if(realtimeReconnectTimer) return;
-    var delay=Math.min(1000*Math.pow(1.6, realtimeReconnectTry++), 12000);
-    realtimeReconnectTimer=setTimeout(function(){
-      realtimeReconnectTimer=null;
-      startRealtime();
-    },delay);
-  }
-  function closeRealtimeSocket(){
-    stopRealtimeHeartbeat();
-    if(realtimeSocket){try{realtimeSocket.onclose=null; realtimeSocket.onerror=null; realtimeSocket.close();}catch(e){}}
+  function scheduleReconnect(){
+    clearHeartbeat();
     realtimeSocket=null; realtimeJoined=false;
+    if(reconnectTimer) return;
+    reconnectTimer=setTimeout(function(){
+      reconnectTimer=null;
+      var d=reconnectDelay;
+      reconnectDelay=Math.min(reconnectDelay*1.6, 12000);
+      ensureConfig().then(function(ok){ if(ok) startRealtime(true); });
+    }, reconnectDelay);
   }
-  function startRealtime(){
-    if(!configured() || realtimeSocket) return;
+  function subscribeRealtime(){
+    realtimeSend('realtime:public:pkl_join_state','phx_join',{
+      config:{
+        broadcast:{self:false},
+        presence:{key:''},
+        postgres_changes:[
+          {event:'*',schema:'public',table:'live_scores',filter:'id=eq.join_state'},
+          {event:'*',schema:'public',table:'pkl_shared_data',filter:'key=eq.pklJoinWaitList'},
+          {event:'*',schema:'public',table:'pkl_shared_data',filter:'key=eq.pklJoinCancelList'},
+          {event:'*',schema:'public',table:'pkl_shared_data',filter:'key=eq.pklJoinRecruitState'}
+        ]
+      }
+    });
+  }
+  function rowFromRealtimeMessage(msg){
+    var p=msg&&msg.payload;
+    var data=p && (p.data || p);
+    return (data && (data.record || data.new || data.old)) || (p && (p.record || p.new || p.old)) || null;
+  }
+  function handleRealtimeRow(row){
+    if(!row || typeof row !== 'object') return;
+    if(row.payload){
+      var next=Object.assign({},row.payload,{updatedAt:row.payload.updatedAt||row.updated_at||now()});
+      applyState(next);
+      return;
+    }
+    if(row.key || row.id){
+      // shared row 하나만 조각 적용하면 wait/cancel 순서가 어긋날 수 있어
+      // 서버의 canonical join_state를 1회 읽어 화면에 반영한다. polling 아님.
+      fetchNow();
+    }
+  }
+  function startRealtime(force){
+    if(realtimeSocket && !force) return;
+    if(realtimeSocket){try{realtimeSocket.close();}catch(e){} realtimeSocket=null;}
+    if(!configured()) return ensureConfig().then(function(ok){ if(ok) startRealtime(true); });
     try{
       var wsUrl=URL.replace(/^http/i,'ws')+'/realtime/v1/websocket?apikey='+encodeURIComponent(KEY)+'&vsn=1.0.0';
       realtimeSocket=new WebSocket(wsUrl);
       realtimeSocket.onopen=function(){
-        realtimeReconnectTry=0;
+        reconnectDelay=1200;
         realtimeJoined=false;
-        startRealtimeHeartbeat();
-        realtimeSend('realtime:public:pkl_join_state','phx_join',{
-          config:{
-            broadcast:{self:false},
-            presence:{key:''},
-            postgres_changes:[
-              {event:'*',schema:'public',table:'live_scores',filter:'id=eq.join_state'},
-              {event:'*',schema:'public',table:'pkl_shared_data',filter:'key=in.(pklJoinWaitList,pklJoinCancelList,pklJoinRecruitState)'}
-            ]
-          }
-        });
+        subscribeRealtime();
+        clearHeartbeat();
+        heartbeatTimer=setInterval(function(){
+          realtimeSend('phoenix','heartbeat',{});
+        },25000);
+        // 연결 직후 한 번만 canonical 상태를 맞춘다. polling 아님.
+        setTimeout(function(){fetchNow();},120);
       };
-      function realtimeRowFromMessage(msg){
-        var payload = (msg && msg.payload) || {};
-        var data = payload.data || payload;
-        return (data && (data.record || data.new || data.old || data.old_record)) ||
-               payload.record || payload.new || payload.old || payload.old_record || null;
-      }
       realtimeSocket.onmessage=function(ev){
         var msg=null; try{msg=JSON.parse(ev.data);}catch(e){return;}
-        if(msg.event==='phx_reply' && msg.payload && msg.payload.status==='ok'){
-          realtimeJoined=true;
-          /* 재연결 직후 놓친 A화면 참가/취소 이벤트는 1회만 서버 기준으로 맞춘다. polling 아님. */
-          fetchNow();
+        if(msg.event==='phx_reply'){
+          if(msg.payload && msg.payload.status==='ok') realtimeJoined=true;
+          return;
         }
         if(msg.event==='postgres_changes'){
-          var row=realtimeRowFromMessage(msg);
-          if(!row) return;
-          var payload=row && row.payload;
-          if(payload){
-            var next=Object.assign({},payload,{updatedAt:payload.updatedAt||row.updated_at||row.updatedAt});
-            applyState(next);
-            return;
-          }
-          if(row.key || row.id){
-            applySharedRow(row);
-          }
+          handleRealtimeRow(rowFromRealtimeMessage(msg));
         }
       };
-      realtimeSocket.onclose=function(){
-        stopRealtimeHeartbeat();
-        realtimeSocket=null; realtimeJoined=false;
-        scheduleRealtimeReconnect();
-      };
-      realtimeSocket.onerror=function(){
-        try{realtimeSocket.close();}catch(e){}
-      };
-    }catch(e){
-      closeRealtimeSocket();
-      scheduleRealtimeReconnect();
-    }
+      realtimeSocket.onclose=function(){scheduleReconnect();};
+      realtimeSocket.onerror=function(){try{realtimeSocket.close();}catch(e){scheduleReconnect();}};
+    }catch(e){scheduleReconnect();}
   }
   function start(){
     apiRead().then(function(st){
       if(st){applyState(st);}else{emit({version:2,waitList:arr(read(WAIT_KEY,[])),cancelList:arr(read(CANCEL_KEY,[])),recruitState:{state:'loading'},updatedAt:now()});}
     }).catch(function(){emit({version:2,waitList:arr(read(WAIT_KEY,[])),cancelList:arr(read(CANCEL_KEY,[])),recruitState:{state:'loading'},updatedAt:now()});});
-    startRealtime();
+    ensureConfig().then(function(ok){ if(ok) startRealtime(); });
   }
   if(!Storage.prototype.__pklJoinRealtimePatched){
     Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;localActionUntil=Date.now()+PENDING_MS;queueSave(String(k)===RECRUIT_KEY?220:120);emit(stateFromLocal());}}catch(e){}return ret;};
     Storage.prototype.__pklJoinRealtimePatched=true;
   }
   try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;localActionUntil=Date.now()+PENDING_MS;queueSave(180);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
+  window.addEventListener('pkl-supabase-config-ready',function(e){applySupabaseConfig(e&&e.detail);startRealtime(true);});
+  document.addEventListener('visibilitychange',function(){if(!document.hidden){fetchNow();ensureConfig().then(function(ok){if(ok && (!realtimeSocket || realtimeSocket.readyState>1)) startRealtime(true);});}});
   window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=((pendingWait.length || pendingCancel.length) && localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS)?stateFromLocal():(currentState||stateFromLocal());return applyPending(normalizeState(st));},apply:applyState,fetchNow:fetchNow,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
   start();
 })();
