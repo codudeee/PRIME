@@ -8852,10 +8852,15 @@ function pklRoundInlineResetToast(msg, keep){
       el.style.display='flex';
       clearTimeout(pklRoundInlineResetToastTimer);
     }else{
-      el.textContent=msg||'';
-      el.style.display='flex';
       clearTimeout(pklRoundInlineResetToastTimer);
-      pklRoundInlineResetToastTimer=setTimeout(()=>{try{if(!pklRoundInlineResetMode) el.style.display='none';}catch(e){}},1800);
+      if(pklRoundInlineResetMode){
+        el.innerHTML='<span>'+String(msg||'')+'</span><button type="button" data-pkl-round-reset-done>완료</button>';
+        el.style.display='flex';
+      }else{
+        el.textContent=msg||'';
+        el.style.display='flex';
+        pklRoundInlineResetToastTimer=setTimeout(()=>{try{if(!pklRoundInlineResetMode) el.style.display='none';}catch(e){}},1800);
+      }
     }
   }catch(e){}
 }
@@ -9011,7 +9016,7 @@ function pklResetInlineRound(roundIndex){
   try{updateTopTimes();}catch(e){}
   try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(20);}catch(e){}
   save();
-  pklRoundInlineResetToast((ri+1)+'라운드가 초기화되었습니다.');
+  pklRoundInlineResetToast((ri+1)+'라운드가 초기화되었습니다. 계속 정리하거나 완료를 누르세요.');
   return true;
 }
 window.PKLEnableRoundInlineReset=function(){pklSetRoundInlineResetMode(true);};
