@@ -6369,12 +6369,7 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 
 <style id="pklRoundInlineResetFixStyle">
 body.pkl-round-reset-inline-mode #recordBody tr{position:relative;}
-.pkl-round-reset-cell{
-  width:38px;
-  min-width:38px;
-  text-align:center;
-  vertical-align:middle;
-}
+.total-cell{position:relative;}
 .pkl-round-reset-x{
   width:28px !important;
   height:28px !important;
@@ -6383,6 +6378,11 @@ body.pkl-round-reset-inline-mode #recordBody tr{position:relative;}
   padding:0 !important;
   display:inline-grid !important;
   place-items:center !important;
+  position:absolute !important;
+  right:-22px !important;
+  top:50% !important;
+  transform:translateY(-50%) !important;
+  z-index:30 !important;
   border-radius:999px !important;
   border:1px solid rgba(74,222,128,.78) !important;
   background:radial-gradient(circle at 35% 20%,rgba(255,255,255,.22),transparent 34%),linear-gradient(180deg,rgba(34,197,94,.92),rgba(21,128,61,.96)) !important;
@@ -6395,11 +6395,18 @@ body.pkl-round-reset-inline-mode #recordBody tr{position:relative;}
   pointer-events:auto !important;
 }
 .pkl-round-reset-x:hover{
-  transform:translateY(-1px);
+  transform:translateY(-50%) translateY(-1px);
   filter:brightness(1.08);
   box-shadow:0 0 24px rgba(34,197,94,.48), inset 0 1px 0 rgba(255,255,255,.22) !important;
 }
-.pkl-round-reset-x:active{transform:translateY(0) scale(.96);}
+.pkl-round-reset-x:active{transform:translateY(-50%) scale(.96);}
+.record-table tr.is-fire-used-row .pkl-round-reset-x,
+.record-table tbody tr.is-fire-used-row .pkl-round-reset-x{
+  opacity:1 !important;
+  filter:none !important;
+  pointer-events:auto !important;
+}
+body.pkl-round-reset-inline-mode .record-table{overflow:visible !important;}
 .pkl-round-reset-active-toast{
   position:fixed;
   left:50%;
@@ -8001,8 +8008,7 @@ function renderSheet(){
       <td><div class="pkl-map-field">
         <button type="button" class="pkl-map-trigger pkl-stop-trigger" data-stop-round="${ri}" ${disabledAttr}>${Number(d.stop||0) ? Number(d.stop||0) : ''}</button>
       </div></td>
-      <td class="total-cell">${total}</td>
-      ${pklRoundInlineResetMode && pklIsSheetStaff() ? `<td class="pkl-round-reset-cell"><button type="button" class="pkl-round-reset-x" data-pkl-round-reset-index="${ri}" title="${r.no}라운드 초기화">×</button></td>` : ''}
+      <td class="total-cell"><span class="pkl-round-total-value">${total}</span>${pklRoundInlineResetMode && pklIsSheetStaff() ? `<button type="button" class="pkl-round-reset-x" data-pkl-round-reset-index="${ri}" title="${r.no}라운드 초기화">×</button>` : ''}</td>
     </tr>`;
   }).join('');
 }
@@ -8843,6 +8849,73 @@ function pklRemoveRoundRelatedFeeds(view, roundIndex){
     });
   }
 }
+function pklRoundResetKeyCandidates(view, realId){
+  const keys=[];
+  function add(v){
+    v=String(v||'').trim();
+    if(v && !keys.includes(v)) keys.push(v);
+  }
+  add(view && view.viewId);
+  add(realId);
+  add(view && view.realId);
+  add(view && view.id);
+  add(view && view.name);
+  add(view && view.viewName);
+  try{
+    const fv=currentFireView && currentFireView();
+    if(fv){add(fv.viewId); add(fv.realId); add(fv.id); add(fv.name); add(fv.viewName);}
+  }catch(e){}
+  try{
+    if(state.fires && typeof state.fires==='object'){
+      Object.keys(state.fires).forEach(function(k){
+        const rec=state.fires[k];
+        if(!rec) return;
+        const text=[k, rec.teamId, rec.viewId, rec.realId, rec.teamName, rec.name].map(x=>String(x||'')).join(' ');
+        keys.forEach(function(token){ if(token && text.indexOf(token)>-1) add(k); });
+      });
+    }
+  }catch(e){}
+  return keys;
+}
+function pklClearFireForInlineRound(view, realId, ri){
+  if(!state.fireCancels || typeof state.fireCancels!=='object') state.fireCancels={};
+  const keys=pklRoundResetKeyCandidates(view, realId);
+  keys.forEach(function(k){
+    if(!state.fireCancels[k] || typeof state.fireCancels[k]!=='object') state.fireCancels[k]={};
+    state.fireCancels[k][String(ri)]=true;
+  });
+  if(state.fires && typeof state.fires==='object'){
+    keys.forEach(function(k){
+      const rec=state.fires[k];
+      if(!rec) return;
+      if(Array.isArray(rec.sessions)){
+        rec.sessions=rec.sessions.filter(function(sess){
+          const sr=Number(sess && sess.roundIndex);
+          return !(sess && sess.done && Number.isFinite(sr) && sr===ri);
+        });
+        if(!rec.sessions.length) delete state.fires[k];
+      }else{
+        const sr=Number(rec.roundIndex);
+        if((rec.done||rec.checked) && Number.isFinite(sr) && sr===ri) delete state.fires[k];
+      }
+    });
+  }
+  try{
+    if(Array.isArray(state.itemHistory)){
+      const teamTokens=pklRoundResetKeyCandidates(view, realId).concat([
+        String((view && (view.name||view.viewName))||'').replace(/팀$/,''),
+        String((view && (view.name||view.viewName))||'')
+      ]).filter(Boolean);
+      state.itemHistory=state.itemHistory.filter(function(h){
+        if(!h || h.type!=='불판') return true;
+        const hr=Number(h.roundIndex);
+        const ht=[h.team,h.teamName,h.viewId,h.realId,h.key,h.text].map(x=>String(x||'')).join(' ');
+        if(Number.isFinite(hr) && hr===ri && teamTokens.some(t=>ht.indexOf(t)>-1)) return false;
+        return true;
+      });
+    }
+  }catch(e){}
+}
 function pklResetInlineRound(roundIndex){
   if(!pklIsSheetStaff || !pklIsSheetStaff()){
     pklBlockSheetAction();
@@ -8865,29 +8938,15 @@ function pklResetInlineRound(roundIndex){
   d.stop=0;
   d.map='';
   state.rounds[ri].teams[realId]=d;
+  try{
+    if(state.rounds[ri].maps && typeof state.rounds[ri].maps==='object') delete state.rounds[ri].maps[realId];
+    if(state.rounds[ri].teamMaps && typeof state.rounds[ri].teamMaps==='object') delete state.rounds[ri].teamMaps[realId];
+    if(state.rounds[ri].mapByTeam && typeof state.rounds[ri].mapByTeam==='object') delete state.rounds[ri].mapByTeam[realId];
+  }catch(e){}
 
   const viewKey=String(view.viewId||'');
   const realKey=String(realId||'');
-  if(!state.fireCancels || typeof state.fireCancels!=='object') state.fireCancels={};
-  if(!state.fireCancels[viewKey] || typeof state.fireCancels[viewKey]!=='object') state.fireCancels[viewKey]={};
-  state.fireCancels[viewKey][String(ri)]=true;
-  if(realKey && realKey!==viewKey){
-    if(!state.fireCancels[realKey] || typeof state.fireCancels[realKey]!=='object') state.fireCancels[realKey]={};
-    state.fireCancels[realKey][String(ri)]=true;
-  }
-
-  if(state.fires && typeof state.fires==='object'){
-    [viewKey, realKey].forEach(function(k){
-      const rec=state.fires[k];
-      if(!rec) return;
-      if(Array.isArray(rec.sessions)){
-        rec.sessions=rec.sessions.filter(function(s){return Number(s&&s.roundIndex)!==ri;});
-        if(!rec.sessions.length && k===viewKey) delete state.fires[k];
-      }else if(Number(rec.roundIndex)===ri){
-        delete state.fires[k];
-      }
-    });
-  }
+  pklClearFireForInlineRound(view, realId, ri);
 
   if(state.surrenders && typeof state.surrenders==='object'){
     [viewKey, realKey].forEach(function(k){ if(state.surrenders[k]) delete state.surrenders[k]; });
@@ -9201,7 +9260,11 @@ function pklUpdateRecordRowTotal(row, roundIndex, view, realId){
   const deathPenalty=localDeaths.reduce((sum,death,i)=>sum + pklMemberDeathPenalty(view.members[i], death), 0);
   const total=localKills.reduce((a,b)=>a+Number(b||0),0)+chickenScore+deathPenalty+Number(d.stop||0);
   const totalCell=row.querySelector('.total-cell');
-  if(totalCell) totalCell.textContent=String(total);
+  if(totalCell){
+    const value=totalCell.querySelector('.pkl-round-total-value');
+    if(value) value.textContent=String(total);
+    else totalCell.textContent=String(total);
+  }
 }
 
 document.addEventListener('input',e=>{
