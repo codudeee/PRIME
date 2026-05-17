@@ -6986,7 +6986,10 @@ function pklEnsureSheetHeaderTierUsers(view){
   if(!view || !Array.isArray(view.members)) return;
   view.members.forEach(member=>{
     if(!member) return;
-    if(pklTierRoleOfMember(member)) return;
+    /* 시트로 넘어온 member.tier/memberTier는 팀 편성 당시의 캐시일 수 있다.
+       Supabase users가 아직 캐시에 없으면, cached tier가 있어도 검색해서 최신 티어/감점 기준을 보강한다. */
+    const matchedUser = pklFindTierUserByMember(member);
+    if(matchedUser && pklTierRoleOfMember(member)) return;
     const searchKey = pklSheetMemberSearchKeys(member).find(Boolean);
     const pendingKey = pklNormUserKey(searchKey);
     if(!searchKey || !pendingKey || pklSheetHeaderTierFetchPending.has(pendingKey)) return;
@@ -7089,11 +7092,16 @@ function pklFindTierUserByMember(member){
 }
 function pklTierRoleOfMember(member){
   const user=pklFindTierUserByMember(member);
-  const direct=[
-    member?.memberTier,member?.__tierRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,
-    user?.memberTier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level
+  /* Supabase users가 최신 원본이다.
+     팀/시트에 저장된 memberTier는 오래된 캐시라서 점수 계산에서는 Supabase 값을 먼저 쓴다. */
+  const userRole=[
+    user?.memberTier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.role,user?.title
   ].map(pklTierScoreRoleFromText).find(Boolean);
-  return direct || "";
+  if(userRole) return userRole;
+  const memberRole=[
+    member?.memberTier,member?.__tierRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,member?.role,member?.title
+  ].map(pklTierScoreRoleFromText).find(Boolean);
+  return memberRole || "";
 }
 function pklMemberTierScore(member){
   const role=pklTierRoleOfMember(member);
