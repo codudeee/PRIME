@@ -183,11 +183,13 @@
   var ROLE_RANK={guest:0,user:1,operator:2,admin:3};
   function roleRank(role){return ROLE_RANK[normalizeMemberRole(role)]||0;}
   function loginStrongId(user){
-    return cleanKey(user && (user.discordId || user.uid || user.id || user.userId));
+    return cleanKey(user && (user.discordId || user.discord_id || user.uid || user.id || user.userId)).replace(/^discord-/i,"");
   }
   function currentUser(){
     try{if(localStorage.getItem("pklManualLogout")==="1")return null;}catch(e){}
-    var keys=["discordUser","pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"];
+    var fresh=window.__PKL_CURRENT_SUPABASE_USER;
+    if(fresh&&typeof fresh==="object"&&loginStrongId(fresh)) return hydrateUser(fresh);
+    var keys=["pklLoginUser","pklCurrentUser","pklLoggedInUser","pkl_current_user","pklUser","discordUser"];
     var candidates=[];
     for(var i=0;i<keys.length;i++){
       try{
@@ -198,8 +200,9 @@
       }catch(e){}
     }
     if(!candidates.length)return null;
-    var picked=candidates.find(function(c){return c.key==="discordUser"&&c.id;})
-      || candidates.find(function(c){return c.key==="pklLoginUser"&&c.id;})
+    var picked=candidates.find(function(c){return c.key==="pklLoginUser"&&c.id;})
+      || candidates.find(function(c){return c.key==="pklCurrentUser"&&c.id;})
+      || candidates.find(function(c){return c.key==="pklLoggedInUser"&&c.id;})
       || candidates.find(function(c){return c.id;})
       || candidates[0];
     return hydrateUser(picked.user);
@@ -277,8 +280,9 @@
 
   function writeLoginSnapshot(user){
     if(!user || !loginStrongId(user)) return;
-    var keys=["discordUser","pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"];
+    var keys=["pklLoginUser","pklCurrentUser","pklLoggedInUser","pkl_current_user"];
     keys.forEach(function(k){try{localStorage.setItem(k,JSON.stringify(user));sessionStorage.removeItem(k);}catch(e){}});
+    try{localStorage.removeItem("discordUser");sessionStorage.removeItem("discordUser");}catch(e){}
   }
   async function refreshCurrentUserFromServer(){
     var local=currentUser();
@@ -286,7 +290,7 @@
     if(!did || refreshCurrentUserFromServer._loading) return null;
     refreshCurrentUserFromServer._loading=true;
     try{
-      var res=await fetch('/api/pkl-users?limit=20&offset=0&q='+encodeURIComponent(did),{cache:'no-store',headers:{Accept:'application/json'}});
+      var res=await fetch('/api/pkl-users?limit=20&offset=0&discordId='+encodeURIComponent(did),{cache:'no-store',headers:{Accept:'application/json'}});
       if(!res.ok) return null;
       var data=await res.json();
       var users=Array.isArray(data&&data.users)?data.users:[];
