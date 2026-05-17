@@ -5238,6 +5238,19 @@ function safeJson(key, fallback){
   }
 
   function readList(key){
+    /*
+      참가/대기취소 리스트는 화면 렌더 시 pkl-join-realtime의 현재 상태를 최우선으로 본다.
+      기존에는 localStorage 메모리 캐시가 남아 있으면 원격 Realtime 취소 상태보다 오래된 대기자 목록이
+      먼저 읽혀서, 다른 사람 화면에서 대기취소자가 대기자 리스트에 계속 남는 문제가 있었다.
+      저장 구조는 그대로 두고, 표시 원본만 현재 Realtime 상태로 통일한다.
+    */
+    try{
+      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function"){
+        const st = window.PKLJoinRealtime.getState();
+        if(st && key === STORAGE_KEY && Array.isArray(st.waitList)) return st.waitList;
+        if(st && key === CANCEL_KEY && Array.isArray(st.cancelList)) return st.cancelList;
+      }
+    }catch(e){}
     const data = safeJson(key, []);
     return Array.isArray(data) ? data : [];
   }
