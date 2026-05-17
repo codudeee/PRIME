@@ -5714,7 +5714,9 @@ function safeJson(key, fallback){
       deadlineText:"모집대기중",
       feeText:"",
       feeInput:"",
-      deadlineConfigured:false
+      deadlineConfigured:false,
+      resetAt:new Date().toISOString(),
+      resetNonce:Date.now()
     }));
     localStorage.removeItem("pklJoinFeeInfo");
     Object.keys(localStorage).forEach(function(key){ if(key.indexOf("pklJoinDepositRequested_") === 0) localStorage.removeItem(key); });
@@ -6505,6 +6507,8 @@ function safeJson(key, fallback){
     const deadline = getDeadlineDisplayText();
     if(deadlineText) deadlineText.textContent = deadline;
 
+    const prevResetState = readRecruitState() || {};
+    const keepResetMarker = (prevResetState.resetAt || prevResetState.resetNonce) && !readList(STORAGE_KEY).length && !readList(CANCEL_KEY).length;
     saveRecruitState({
       state:"open",
       hostHtml:openData.hostHtml,
@@ -6512,7 +6516,9 @@ function safeJson(key, fallback){
       deadlineText:deadline,
       feeText:deadline,
       feeInput:deadline,
-      deadlineConfigured:deadlineConfigured
+      deadlineConfigured:deadlineConfigured,
+      resetAt:keepResetMarker ? (prevResetState.resetAt || new Date().toISOString()) : undefined,
+      resetNonce:keepResetMarker ? (prevResetState.resetNonce || Date.now()) : undefined
     });
   }
 
@@ -7239,7 +7245,7 @@ document.addEventListener("click",function(e){
     }else{
       localStorage.setItem("pklJoinWaitList", "[]");
       localStorage.setItem("pklJoinCancelList", "[]");
-      localStorage.setItem("pklJoinRecruitState", JSON.stringify({state:"waiting",hostHtml:"",openTime:"",deadlineText:"모집대기중",feeText:"",feeInput:"",deadlineConfigured:false}));
+      localStorage.setItem("pklJoinRecruitState", JSON.stringify({state:"waiting",hostHtml:"",openTime:"",deadlineText:"모집대기중",feeText:"",feeInput:"",deadlineConfigured:false,resetAt:new Date().toISOString(),resetNonce:Date.now()}));
       localStorage.removeItem("pklJoinFeeInfo");
       localStorage.removeItem("pklJoinDepositRequests");
       Object.keys(localStorage).forEach(function(key){

@@ -126,7 +126,8 @@ async function readRows(type, id){
 }
 function isJoinReset(body){
   const rs = body && body.recruitState || {};
-  return !!(rs.resetNonce || rs.resetAt || rs.reset === true || ((rs.state === 'waiting' || rs.state === 'closed') && Array.isArray(body.waitList) && body.waitList.length === 0 && Array.isArray(body.cancelList) && body.cancelList.length === 0));
+  const empty = Array.isArray(body && body.waitList) && body.waitList.length === 0 && Array.isArray(body && body.cancelList) && body.cancelList.length === 0;
+  return !!(empty && (rs.resetNonce || rs.resetAt || rs.reset === true || rs.state === 'waiting' || rs.state === 'closed'));
 }
 async function writeLive(id, payload){
   const rowId = safeId(id);

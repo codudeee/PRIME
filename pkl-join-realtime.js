@@ -93,7 +93,8 @@
   function isResetState(st){
     st=st||{};
     var rs=st.recruitState||{};
-    return !!(rs.resetNonce || rs.resetAt || rs.reset === true || (rs.state==='waiting' && !arr(st.waitList).length && !arr(st.cancelList).length && Date.now()-lastLocalEditAt<3000));
+    var empty=!arr(st.waitList).length && !arr(st.cancelList).length;
+    return !!((empty && (rs.resetNonce || rs.resetAt || rs.reset === true)) || (rs.state==='waiting' && empty && Date.now()-lastLocalEditAt<3000));
   }
   function rememberPending(type,item){
     if(!item||typeof item!=='object') return;
