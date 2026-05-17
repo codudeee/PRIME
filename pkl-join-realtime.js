@@ -308,6 +308,12 @@
           }
         });
       };
+      function realtimeRowFromMessage(msg){
+        var payload = (msg && msg.payload) || {};
+        var data = payload.data || payload;
+        return (data && (data.record || data.new || data.old || data.old_record)) ||
+               payload.record || payload.new || payload.old || payload.old_record || null;
+      }
       realtimeSocket.onmessage=function(ev){
         var msg=null; try{msg=JSON.parse(ev.data);}catch(e){return;}
         if(msg.event==='phx_reply' && msg.payload && msg.payload.status==='ok'){
@@ -316,12 +322,11 @@
           fetchNow();
         }
         if(msg.event==='postgres_changes'){
-          var data=msg.payload && msg.payload.data;
-          var row=(data && (data.record || data.new || data.old)) || null;
+          var row=realtimeRowFromMessage(msg);
           if(!row) return;
           var payload=row && row.payload;
           if(payload){
-            var next=Object.assign({},payload,{updatedAt:payload.updatedAt||row.updated_at});
+            var next=Object.assign({},payload,{updatedAt:payload.updatedAt||row.updated_at||row.updatedAt});
             applyState(next);
             return;
           }
