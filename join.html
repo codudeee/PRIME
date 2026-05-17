@@ -5693,11 +5693,6 @@ function safeJson(key, fallback){
     renderAllIfChanged(false);
   });
 
-  setInterval(function(){
-    if(window.__PKL_JOIN_INITIAL_READY){
-      renderAllIfChanged(false);
-    }
-  }, 1500);
 
   seedJoinTierMap();
   fetchJoinTierMapOnce();
@@ -6800,12 +6795,7 @@ function safeJson(key, fallback){
   }
   document.addEventListener('DOMContentLoaded', guard);
   window.addEventListener('pkl-join-state-updated', function(){ setTimeout(guard, 0); });
-  var n=0;
-  var timer=setInterval(function(){
-    guard();
-    n += 1;
-    if(window.__PKL_JOIN_REMOTE_CONFIRMED || n > 40) clearInterval(timer);
-  }, 50);
+  setTimeout(guard, 0);
 })();
 </script>
 

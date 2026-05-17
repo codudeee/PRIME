@@ -5,7 +5,7 @@
   var WAIT_KEY='pklJoinWaitList', CANCEL_KEY='pklJoinCancelList', RECRUIT_KEY='pklJoinRecruitState';
   var KEYS={}; KEYS[WAIT_KEY]=1; KEYS[CANCEL_KEY]=1; KEYS[RECRUIT_KEY]=1;
   var originalSet=Storage.prototype.setItem, originalRemove=Storage.prototype.removeItem;
-  var saveTimer=null, pollTimer=null, applying=false;
+  var saveTimer=null, realtimeSocket=null, realtimeRef=1, realtimeJoined=false, applying=false;
   var lastText='', lastRemoteMs=0, lastSaveAt=0, lastLocalEditAt=0;
   var CONTROL_HOLD_MS = 8000;
   var remoteReady=false, localChanged=false, currentState=null;
@@ -179,19 +179,65 @@
     return apiRead().then(doSave).catch(function(){return doSave(null);});
   }
   function queueSave(d){if(applying)return;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,d==null?180:d);}
-  function poll(){if(localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS){return Promise.resolve(currentState||stateFromLocal());}return apiRead().then(function(st){if(st){applyState(st);return st;} if(configured())return sb('live_scores?id=eq.join_state&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){var r=rows&&rows[0]; if(r&&r.payload){var next=Object.assign({},r.payload,{updatedAt:r.payload.updatedAt||r.updated_at});applyState(next);return next;} return null;}); return null;});}
+  function fetchNow(){
+    if(localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS){return Promise.resolve(currentState||stateFromLocal());}
+    return apiRead().then(function(st){
+      if(st){applyState(st);return st;}
+      if(configured()) return sb('live_scores?id=eq.join_state&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){
+        var r=rows&&rows[0];
+        if(r&&r.payload){var next=Object.assign({},r.payload,{updatedAt:r.payload.updatedAt||r.updated_at});applyState(next);return next;}
+        return null;
+      });
+      return null;
+    });
+  }
+  function realtimeSend(topic,event,payload){
+    if(!realtimeSocket || realtimeSocket.readyState!==1) return;
+    realtimeSocket.send(JSON.stringify({topic:topic,event:event,payload:payload||{},ref:String(realtimeRef++)}));
+  }
+  function startRealtime(){
+    if(!configured() || realtimeSocket) return;
+    try{
+      var wsUrl=URL.replace(/^http/i,'ws')+'/realtime/v1/websocket?apikey='+encodeURIComponent(KEY)+'&vsn=1.0.0';
+      realtimeSocket=new WebSocket(wsUrl);
+      realtimeSocket.onopen=function(){
+        realtimeJoined=false;
+        realtimeSend('realtime:public:live_scores','phx_join',{
+          config:{
+            broadcast:{self:false},
+            presence:{key:''},
+            postgres_changes:[{event:'*',schema:'public',table:'live_scores',filter:'id=eq.join_state'}]
+          }
+        });
+      };
+      realtimeSocket.onmessage=function(ev){
+        var msg=null; try{msg=JSON.parse(ev.data);}catch(e){return;}
+        if(msg.event==='phx_reply' && msg.payload && msg.payload.status==='ok') realtimeJoined=true;
+        if(msg.event==='postgres_changes'){
+          var data=msg.payload && msg.payload.data;
+          var row=(data && (data.record || data.new || data.old)) || null;
+          var payload=row && row.payload;
+          if(payload){
+            var next=Object.assign({},payload,{updatedAt:payload.updatedAt||row.updated_at});
+            applyState(next);
+          }
+        }
+      };
+      realtimeSocket.onclose=function(){realtimeSocket=null; realtimeJoined=false;};
+      realtimeSocket.onerror=function(){try{realtimeSocket.close();}catch(e){}};
+    }catch(e){realtimeSocket=null; realtimeJoined=false;}
+  }
   function start(){
     apiRead().then(function(st){
       if(st){applyState(st);}else{emit({version:2,waitList:arr(read(WAIT_KEY,[])),cancelList:arr(read(CANCEL_KEY,[])),recruitState:{state:'loading'},updatedAt:now()});}
     }).catch(function(){emit({version:2,waitList:arr(read(WAIT_KEY,[])),cancelList:arr(read(CANCEL_KEY,[])),recruitState:{state:'loading'},updatedAt:now()});});
-    if(pollTimer) clearInterval(pollTimer);
-    pollTimer=setInterval(function(){poll();},3000);
+    startRealtime();
   }
   if(!Storage.prototype.__pklJoinRealtimePatched){
     Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(String(k)===RECRUIT_KEY?220:120);emit(stateFromLocal());}}catch(e){}return ret;};
     Storage.prototype.__pklJoinRealtimePatched=true;
   }
   try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(180);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
-  window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=(localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS)?stateFromLocal():(currentState||stateFromLocal());return applyPending(normalizeState(st));},apply:applyState,fetchNow:poll,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
+  window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=(localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS)?stateFromLocal():(currentState||stateFromLocal());return applyPending(normalizeState(st));},apply:applyState,fetchNow:fetchNow,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
   start();
 })();
