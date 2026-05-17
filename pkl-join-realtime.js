@@ -159,17 +159,20 @@
     normalized=resolveWaitCancel(applyPending(normalized));
 
     if(nowMs-lastLocalEditAt<CONTROL_HOLD_MS){
-      var localWait=arr(read(WAIT_KEY,[]));
-      var localCancel=arr(read(CANCEL_KEY,[]));
+      /*
+       * 이전 버전은 CONTROL_HOLD 중 localStorage의 전체 wait/cancel 목록을
+       * 원격 상태 위에 다시 합쳤다. 그 결과 다른 유저가 대기취소했을 때
+       * 이 브라우저에 남아 있던 오래된 waitList가 cancelList를 다시 지워서,
+       * 다른 화면에서 대기취소 명단으로 이동하지 않는 문제가 생겼다.
+       *
+       * 이제 로컬 보호는 markJoin/markCancel로 기록된 pending 액션에만 맡기고,
+       * 다른 유저의 Realtime 원격 변경은 그대로 수용한다.
+       */
       var localRecruit=read(RECRUIT_KEY,null);
-      if(localRecruit && localRecruit.state){
+      if(localRecruit && localRecruit.state && localChanged && (!ms || ms<lastLocalEditAt)){
         normalized.recruitState=localRecruit;
+        normalized.updatedAt=now();
       }
-      if(!isResetState(normalized)){
-        normalized.waitList=withoutMembers(mergeByIdentity(normalized.waitList, localWait), localCancel);
-        normalized.cancelList=withoutMembers(mergeByIdentity(normalized.cancelList, localCancel), localWait);
-      }
-      if(localChanged && (!ms || ms<lastLocalEditAt)) normalized.updatedAt=now();
     }
 
     normalized=resolveWaitCancel(applyPending(normalized));
