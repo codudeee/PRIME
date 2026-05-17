@@ -6366,50 +6366,6 @@ body{overflow-x:visible !important;min-width:1560px !important;width:auto !impor
 .sheet.is-cold-sheet::after{display:none !important; content:none !important;}
 .team-card.is-cold-team{filter:none !important;}
 </style>
-
-<style id="pklRoundInlineResetFixStyle">
-body.pkl-round-inline-reset-mode .record-table .total-cell{position:relative !important; overflow:visible !important;}
-.pkl-round-inline-reset-btn{
-  position:absolute !important;
-  right:-34px !important;
-  top:50% !important;
-  transform:translateY(-50%) !important;
-  z-index:80 !important;
-  width:22px !important;
-  height:22px !important;
-  min-width:22px !important;
-  padding:0 !important;
-  display:inline-flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  border-radius:999px !important;
-  border:2px solid #16ff43 !important;
-  background:rgba(0,0,0,.72) !important;
-  color:#16ff43 !important;
-  font-size:15px !important;
-  line-height:18px !important;
-  font-weight:1000 !important;
-  box-shadow:0 0 10px rgba(22,255,67,.52), inset 0 0 8px rgba(22,255,67,.14) !important;
-  cursor:pointer !important;
-  opacity:1 !important;
-  filter:none !important;
-  pointer-events:auto !important;
-}
-.pkl-round-inline-reset-btn:hover{
-  transform:translateY(-50%) scale(1.08) !important;
-  background:rgba(9,24,12,.92) !important;
-  box-shadow:0 0 15px rgba(22,255,67,.72), inset 0 0 10px rgba(22,255,67,.22) !important;
-}
-.record-table tr.is-fire-used-row .pkl-round-inline-reset-btn,
-.sheet.is-surrendered-sheet .record-table .pkl-round-inline-reset-btn{
-  opacity:1 !important;
-  filter:none !important;
-  pointer-events:auto !important;
-  cursor:pointer !important;
-}
-body:not(.pkl-round-inline-reset-mode) .pkl-round-inline-reset-btn{display:none !important;}
-</style>
-
 </head>
 <body>
 <div class="app">
@@ -7949,78 +7905,6 @@ function pklSheetHeaderNameHtml(member){
   return `<span class="user-role-line"><span class="user-name">${escape(name)}</span>${badge ? ' ' + badge : ''}</span>`;
 }
 
-
-let pklRoundInlineResetMode=false;
-function pklSetRoundInlineResetMode(on){
-  pklRoundInlineResetMode=!!on;
-  try{document.body.classList.toggle('pkl-round-inline-reset-mode', pklRoundInlineResetMode);}catch(e){}
-}
-function pklCanUseRoundInlineReset(){
-  try{return (typeof pklCanViewAdminPanel==='function') ? !!pklCanViewAdminPanel() : !!pklIsSheetStaff();}catch(e){return false;}
-}
-function pklRoundInlineResetButtonHtml(ri){
-  if(!pklRoundInlineResetMode || !pklCanUseRoundInlineReset()) return '';
-  return '<button type="button" class="pkl-round-inline-reset-btn" data-pkl-inline-round-reset="'+ri+'" title="해당 라운드 초기화" aria-label="해당 라운드 초기화">×</button>';
-}
-function pklCleanRoundRelatedLogs(st, view, ri){
-  const roundText=(Number(ri)+1)+'라운드';
-  const teamName=String((view&&(view.name||view.viewName))||'').replace(/팀$/,'').trim();
-  const hasTeam=(text)=>!teamName || String(text||'').indexOf(teamName)>-1;
-  const hasRound=(text)=>String(text||'').indexOf(roundText)>-1;
-  if(Array.isArray(st.feeds)){
-    st.feeds=st.feeds.filter(function(f){
-      const text=String(f&&f.text||'');
-      const type=String(f&&f.type||'');
-      if((type==='불판'||type==='치킨'||type==='올다이'||type==='서렌') && hasTeam(text) && (hasRound(text)||type==='서렌')) return false;
-      return true;
-    });
-  }
-  if(Array.isArray(st.itemHistory)){
-    st.itemHistory=st.itemHistory.filter(function(item){
-      const type=String(item&&item.type||'');
-      const itemTeam=String(item&&item.team||'').replace(/팀$/,'').trim();
-      const sameTeam=!teamName || !itemTeam || itemTeam.indexOf(teamName)>-1 || teamName.indexOf(itemTeam)>-1;
-      const itemRound=Number(item&&item.roundIndex);
-      if((type==='불판'||type==='서렌') && sameTeam && (itemRound===Number(ri)||type==='서렌')) return false;
-      return true;
-    });
-  }
-}
-function pklResetInlineRound(ri){
-  if(!pklCanUseRoundInlineReset()) return;
-  ri=Number(ri);
-  const view=currentView();
-  if(!view || !Array.isArray(state.rounds) || !state.rounds[ri]) return;
-  const realId=realTeamId(view.viewId);
-  const offset=view.memberOffset||0;
-  const r=state.rounds[ri];
-  if(!r.teams) r.teams={};
-  const d=r.teams[realId] || {kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};
-  d.kills=Array.isArray(d.kills)?d.kills:[0,0,0,0];
-  d.deaths=Array.isArray(d.deaths)?d.deaths:[0,0,0,0];
-  for(let i=offset;i<offset+(view.len||4);i++){d.kills[i]=0;d.deaths[i]=0;}
-  d.chicken=0;
-  d.stop=0;
-  r.teams[realId]=d;
-  if(!state.fireCancels || typeof state.fireCancels!=='object') state.fireCancels={};
-  const fireId=String(view.viewId||'');
-  if(!state.fireCancels[fireId] || typeof state.fireCancels[fireId]!=='object') state.fireCancels[fireId]={};
-  state.fireCancels[fireId][String(ri)]=true;
-  if(state.surrenders && typeof state.surrenders==='object'){
-    delete state.surrenders[String(view.viewId||'')];
-    delete state.surrenders[String(realId||'')];
-  }
-  pklCleanRoundRelatedLogs(state, view, ri);
-  checkColdStates();
-  renderBoard();
-  renderSheet();
-  renderFeeds();
-  try{ if(typeof window.pklRenderItemHistoryTable==='function') window.pklRenderItemHistoryTable(); }catch(e){}
-  save();
-  try{window.PKLScoreboardRealtime&&window.PKLScoreboardRealtime.schedulePublish&&window.PKLScoreboardRealtime.schedulePublish(20);}catch(e){}
-  toast((ri+1)+'라운드가 초기화되었습니다.');
-}
-
 function renderSheet(){
   const view=currentView(), realId=realTeamId(view.viewId), offset=view.memberOffset||0;
   pklEnsureSheetHeaderTierUsers(view);
@@ -8066,7 +7950,7 @@ function renderSheet(){
       <td><div class="pkl-map-field">
         <button type="button" class="pkl-map-trigger pkl-stop-trigger" data-stop-round="${ri}" ${disabledAttr}>${Number(d.stop||0) ? Number(d.stop||0) : ''}</button>
       </div></td>
-      <td class="total-cell"><span class="pkl-round-total-value">${total}</span>${pklRoundInlineResetButtonHtml(ri)}</td>
+      <td class="total-cell">${total}</td>
     </tr>`;
   }).join('');
 }
@@ -9129,11 +9013,7 @@ function pklUpdateRecordRowTotal(row, roundIndex, view, realId){
   const deathPenalty=localDeaths.reduce((sum,death,i)=>sum + pklMemberDeathPenalty(view.members[i], death), 0);
   const total=localKills.reduce((a,b)=>a+Number(b||0),0)+chickenScore+deathPenalty+Number(d.stop||0);
   const totalCell=row.querySelector('.total-cell');
-  if(totalCell){
-    const valueEl=totalCell.querySelector('.pkl-round-total-value');
-    if(valueEl) valueEl.textContent=String(total);
-    else totalCell.textContent=String(total);
-  }
+  if(totalCell) totalCell.textContent=String(total);
 }
 
 document.addEventListener('input',e=>{
@@ -12313,7 +12193,7 @@ function normalizeTime(v){var raw=String(v||'').trim();if(!raw)return '';var m=r
 function displayTime(v){var raw=String(v||'').trim();var m=raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);if(!m)return raw;var h=Number(m[1]);return (h>=12?'PM':'AM')+' '+String((h%12)||12).padStart(2,'0')+':'+m[2]+':'+String(m[3]||'00').padStart(2,'0');}
 function openTime(){var st=readState();var a=document.getElementById('pklAdminStartTimeValue'),b=document.getElementById('pklAdminEndTimeValue');if(a)a.value=displayTime(st.startTime||'');if(b)b.value=displayTime(st.endTime||'');openModal('pklTimeEditModal');}
 function saveTime(){var st=readState();var start=normalizeTime((document.getElementById('pklAdminStartTimeValue')||{}).value);var end=normalizeTime((document.getElementById('pklAdminEndTimeValue')||{}).value);st.startTime=start;st.endTime=end;writeState(st);try{var si=document.getElementById('startTimeInput');if(si){si.value=displayTime(start);si.dispatchEvent(new Event('change',{bubbles:true}));}var ei=document.getElementById('endTimeInput');if(ei){ei.value=displayTime(end);ei.dispatchEvent(new Event('change',{bubbles:true}));}if(typeof updateTopTimes==='function')updateTopTimes();}catch(e){}try{if(window.PKLScoreboardRealtime&&typeof window.PKLScoreboardRealtime.publish==='function')window.PKLScoreboardRealtime.publish();else if(window.PKLScoreboardRealtime&&typeof window.PKLScoreboardRealtime.schedulePublish==='function')window.PKLScoreboardRealtime.schedulePublish(20);}catch(e){}closeAll();toast('경기 시간이 수정되었습니다.');setTimeout(function(){location.reload();},520);}
-function openRoundReset(){if(!pklCanUseRoundInlineReset())return; pklSetRoundInlineResetMode(!pklRoundInlineResetMode); closeAll(); renderSheet(); toast(pklRoundInlineResetMode?'라운드 초기화 모드가 켜졌습니다. 오른쪽 X를 눌러 해당 라운드를 초기화하세요.':'라운드 초기화 모드가 꺼졌습니다.');}
+function openRoundReset(){var st=readState();var team=document.getElementById('pklRoundResetTeam'),round=document.getElementById('pklRoundResetRound');var views=viewList(st);if(team)team.innerHTML=views.map(function(v){return '<option value="'+esc(v.viewId)+'">'+esc(v.name)+'</option>';}).join('');var rounds=Array.isArray(st.rounds)?st.rounds:[];if(round)round.innerHTML=rounds.map(function(r,i){return '<option value="'+i+'">'+(i+1)+'라운드</option>';}).join('');openModal('pklRoundResetModal');}
 function resetRound(){var st=readState();var teamKey=(document.getElementById('pklRoundResetTeam')||{}).value;var ri=Number((document.getElementById('pklRoundResetRound')||{}).value);var view=viewList(st).find(function(v){return String(v.viewId)===String(teamKey);});if(!view||!Array.isArray(st.rounds)||!st.rounds[ri])return;var r=st.rounds[ri];if(!r.teams)r.teams={};var d=r.teams[view.realId]||{kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0};d.kills=Array.isArray(d.kills)?d.kills:[0,0,0,0];d.deaths=Array.isArray(d.deaths)?d.deaths:[0,0,0,0];for(var i=view.offset;i<view.offset+view.len;i++){d.kills[i]=0;d.deaths[i]=0;}d.chicken=0;d.stop=0;r.teams[view.realId]=d;if(Array.isArray(st.feeds)){var rt=(ri+1)+'라운드';var tn=String(view.name).replace(/팀$/,'');st.feeds=st.feeds.filter(function(f){var text=String(f&&f.text||'');return !(text.indexOf(rt)>-1&&text.indexOf(tn)>-1);});}writeState(st);closeAll();toast('선택 라운드 점수가 초기화되었습니다.');setTimeout(function(){location.reload();},260);}
 
 function pklNormKey(v){return String(v||'').trim().replace(/\s+/g,'').toLowerCase();}
@@ -12659,7 +12539,6 @@ document.addEventListener('click',function(e){
   if(btn&&btn.id==='pklAdminFireCancelOpen'){e.preventDefault();renderFireCancel();openModal('pklFireCancelModal');return;}
   if(btn&&btn.id==='pklAdminTimeEditOpen'){e.preventDefault();openTime();return;}
   if(btn&&btn.id==='pklAdminTimeSave'){e.preventDefault();saveTime();return;}
-  if(btn&&btn.hasAttribute&&btn.hasAttribute('data-pkl-inline-round-reset')){e.preventDefault();e.stopPropagation();pklResetInlineRound(btn.getAttribute('data-pkl-inline-round-reset'));return;}
   if(btn&&btn.id==='pklAdminRoundResetOpen'){e.preventDefault();openRoundReset();return;}
   if(btn&&btn.id==='pklAdminRoundResetRun'){e.preventDefault();resetRound();return;}
   if(btn&&btn.id==='pklAdminMatchSave'){e.preventDefault();openMatchSaveConfirm('league');return;}
@@ -13812,6 +13691,217 @@ window.addEventListener('DOMContentLoaded',()=>{
   }
   window.addEventListener('pkl-team-mode-changed', function(e){ applyMode(e.detail); });
   applyMode({});
+})();
+</script>
+
+
+
+<style id="pklRoundInlineResetModeFixStyle">
+body.pkl-round-inline-reset-mode #recordBody tr td:last-child{position:relative !important; overflow:visible !important; padding-right:34px !important;}
+body.pkl-round-inline-reset-mode #recordBody tr .pkl-inline-round-reset-x{
+  position:absolute !important;
+  right:4px !important;
+  top:50% !important;
+  transform:translateY(-50%) !important;
+  width:24px !important;
+  height:24px !important;
+  min-width:24px !important;
+  border-radius:999px !important;
+  border:2px solid rgba(29,255,86,.98) !important;
+  background:rgba(2,8,4,.92) !important;
+  color:#39ff6a !important;
+  font-size:16px !important;
+  font-weight:1000 !important;
+  line-height:18px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  cursor:pointer !important;
+  z-index:999 !important;
+  pointer-events:auto !important;
+  opacity:1 !important;
+  filter:none !important;
+  box-shadow:0 0 12px rgba(29,255,86,.56), inset 0 0 0 1px rgba(255,255,255,.12) !important;
+}
+body.pkl-round-inline-reset-mode #recordBody tr .pkl-inline-round-reset-x:hover{
+  transform:translateY(-50%) scale(1.08) !important;
+  background:rgba(10,34,16,.98) !important;
+}
+body.pkl-round-inline-reset-mode #recordBody tr.is-locked-row .pkl-inline-round-reset-x,
+body.pkl-round-inline-reset-mode #recordBody tr.is-fire-used-row .pkl-inline-round-reset-x{
+  pointer-events:auto !important;
+  cursor:pointer !important;
+  opacity:1 !important;
+  filter:none !important;
+}
+</style>
+<script id="pklRoundInlineResetModeFixScript">
+(function(){
+  'use strict';
+  var active=false;
+  var observer=null;
+  function staff(){
+    try{ if(typeof window.pklIsSheetStaff==='function') return !!window.pklIsSheetStaff(); }catch(e){}
+    try{ if(typeof window.pklCanViewAdminPanel==='function') return !!window.pklCanViewAdminPanel(); }catch(e){}
+    try{ if(typeof pklIsSheetStaff==='function') return !!pklIsSheetStaff(); }catch(e){}
+    return false;
+  }
+  function toast(msg){
+    try{ if(typeof window.pklSheetPermissionToast==='function'){ window.pklSheetPermissionToast(msg); return; } }catch(e){}
+    var t=document.getElementById('pklSheetResetToast')||document.getElementById('pklFireBlockToast');
+    if(t){ t.textContent=msg; t.classList.add('show'); clearTimeout(window.__pklRoundInlineToastTimer); window.__pklRoundInlineToastTimer=setTimeout(function(){t.classList.remove('show');},1200); }
+  }
+  function closeAdmin(){
+    var m=document.getElementById('pklAdminModal');
+    if(m){ m.classList.remove('show'); m.setAttribute('aria-hidden','true'); }
+    document.querySelectorAll('.pkl-admin-action-modal').forEach(function(x){x.classList.remove('show'); x.setAttribute('aria-hidden','true');});
+  }
+  function removeButtons(){
+    document.querySelectorAll('.pkl-inline-round-reset-x').forEach(function(b){b.remove();});
+    document.body && document.body.classList.remove('pkl-round-inline-reset-mode');
+  }
+  function addButtons(){
+    if(!active || !staff()){ removeButtons(); return; }
+    var body=document.getElementById('recordBody');
+    if(!body) return;
+    document.body && document.body.classList.add('pkl-round-inline-reset-mode');
+    Array.prototype.forEach.call(body.querySelectorAll('tr'), function(row, ri){
+      var last=row.lastElementChild;
+      if(!last) return;
+      var old=row.querySelector('.pkl-inline-round-reset-x');
+      if(old) old.remove();
+      var b=document.createElement('button');
+      b.type='button';
+      b.className='pkl-inline-round-reset-x';
+      b.setAttribute('data-pkl-inline-round-reset','1');
+      b.setAttribute('data-round', String(ri));
+      b.title=(ri+1)+'라운드 초기화';
+      b.setAttribute('aria-label',(ri+1)+'라운드 초기화');
+      b.textContent='×';
+      last.appendChild(b);
+    });
+  }
+  function current(){
+    try{ if(typeof currentView==='function') return currentView(); }catch(e){}
+    try{ if(typeof visibleTeams==='function'){ var arr=visibleTeams(); return arr && arr[0]; } }catch(e){}
+    return null;
+  }
+  function resetFireForRound(view, ri){
+    try{
+      if(!state.fireCancels || typeof state.fireCancels!=='object') state.fireCancels={};
+      [view.viewId, (typeof realTeamId==='function'?realTeamId(view.viewId):view.id), view.id].filter(Boolean).forEach(function(k){
+        if(!state.fireCancels[k] || typeof state.fireCancels[k]!=='object') state.fireCancels[k]={};
+        state.fireCancels[k][String(ri)]=true;
+      });
+    }catch(e){}
+    try{
+      var keys=[view.viewId, (typeof realTeamId==='function'?realTeamId(view.viewId):view.id), view.id].filter(Boolean).map(String);
+      if(state.fires && typeof state.fires==='object'){
+        keys.forEach(function(k){
+          var rec=state.fires[k];
+          if(rec && Array.isArray(rec.sessions)){
+            rec.sessions=rec.sessions.filter(function(s){ return Number(s && s.roundIndex)!==Number(ri); });
+            if(!rec.sessions.length) delete state.fires[k];
+          }else if(rec && Number(rec.roundIndex)===Number(ri)){
+            delete state.fires[k];
+          }
+        });
+      }
+    }catch(e){}
+  }
+  function resetSurrenderForView(view){
+    try{
+      if(!state.surrenders || typeof state.surrenders!=='object') return;
+      [view.viewId, (typeof realTeamId==='function'?realTeamId(view.viewId):view.id), view.id].filter(Boolean).map(String).forEach(function(k){ delete state.surrenders[k]; });
+    }catch(e){}
+  }
+  function cleanFeeds(view, ri){
+    try{
+      if(!Array.isArray(state.feeds)) return;
+      var roundText=(Number(ri)+1)+'라운드';
+      var names=[];
+      [view.viewName, view.name, view.members && view.members[0] && view.members[0].name].forEach(function(n){
+        n=String(n||'').replace(/팀$/,'').trim(); if(n) names.push(n);
+      });
+      state.feeds=state.feeds.filter(function(f){
+        var text=String((f&&f.text)||'');
+        var type=String((f&&f.type)||'');
+        var related=/불판|서렌|치킨|올다이|정지|콜드/.test(type+text);
+        var sameRound=text.indexOf(roundText)>-1 || text.indexOf((Number(ri)+1)+'R')>-1;
+        var sameTeam=!names.length || names.some(function(n){return text.indexOf(n)>-1;});
+        return !(related && sameRound && sameTeam);
+      });
+    }catch(e){}
+  }
+  function resetRound(ri){
+    if(!staff()){ toast('관리자/운영자만 사용할 수 있습니다.'); return; }
+    var view=current();
+    if(!view || !Array.isArray(state.rounds) || !state.rounds[ri]){ toast('초기화할 라운드를 찾지 못했습니다.'); return; }
+    var realId=(typeof realTeamId==='function') ? realTeamId(view.viewId) : (view.id || view.viewId);
+    var offset=Number(view.memberOffset||0);
+    var len=Number((view.members && view.members.length) || (state.mode==='duo'?2:4));
+    var r=state.rounds[ri];
+    var d=(typeof teamData==='function') ? teamData(r, realId) : ((r.teams||(r.teams={}))[realId] || ((r.teams||(r.teams={}))[realId]={kills:[0,0,0,0],deaths:[0,0,0,0],chicken:false,stop:0,map:''}));
+    d.kills=Array.isArray(d.kills)?d.kills:[0,0,0,0];
+    d.deaths=Array.isArray(d.deaths)?d.deaths:[0,0,0,0];
+    for(var i=offset;i<offset+len;i++){ d.kills[i]=0; d.deaths[i]=0; }
+    d.chicken=false;
+    d.stop=0;
+    d.map='';
+    r.teams=r.teams||{};
+    r.teams[realId]=d;
+    resetFireForRound(view, ri);
+    resetSurrenderForView(view);
+    cleanFeeds(view, ri);
+    try{ if(typeof checkAutoEvents==='function') checkAutoEvents(ri, realId); }catch(e){}
+    try{ if(typeof renderSheet==='function') renderSheet(); }catch(e){}
+    try{ if(typeof renderBoard==='function') renderBoard(); }catch(e){}
+    try{ if(typeof renderFeeds==='function') renderFeeds(); }catch(e){}
+    try{ if(typeof save==='function') save(); }catch(e){}
+    try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(20); }catch(e){}
+    setTimeout(addButtons,0);
+    toast((ri+1)+'라운드가 초기화되었습니다.');
+  }
+  function setMode(on){
+    if(on && !staff()){ toast('관리자/운영자만 사용할 수 있습니다.'); return; }
+    active=!!on;
+    closeAdmin();
+    if(active){
+      try{ if(typeof renderSheet==='function') renderSheet(); }catch(e){}
+      addButtons();
+      toast('라운드 초기화 모드가 켜졌습니다. 지울 라운드 오른쪽 X를 누르세요.');
+    }else{
+      removeButtons();
+      toast('라운드 초기화 모드가 꺼졌습니다.');
+    }
+  }
+  document.addEventListener('click', function(e){
+    var open=e.target && e.target.closest && e.target.closest('#pklAdminRoundResetOpen');
+    if(open){
+      e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      setMode(!active);
+      return;
+    }
+    var x=e.target && e.target.closest && e.target.closest('.pkl-inline-round-reset-x');
+    if(x){
+      e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      resetRound(Number(x.getAttribute('data-round')));
+      return;
+    }
+  }, true);
+  try{
+    var oldRenderSheet=renderSheet;
+    if(typeof oldRenderSheet==='function' && !oldRenderSheet.__pklRoundInlinePatched){
+      var patched=function(){ var ret=oldRenderSheet.apply(this,arguments); setTimeout(addButtons,0); return ret; };
+      patched.__pklRoundInlinePatched=true;
+      renderSheet=patched;
+    }
+  }catch(e){}
+  try{
+    observer=new MutationObserver(function(){ if(active) setTimeout(addButtons,0); });
+    var body=document.getElementById('recordBody');
+    if(body) observer.observe(body,{childList:true});
+  }catch(e){}
 })();
 </script>
 
