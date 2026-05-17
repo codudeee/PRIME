@@ -11588,6 +11588,16 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function readSheetState(){
     try{
+      if(window.PKLSheetLiveBridge && typeof window.PKLSheetLiveBridge.getState==="function"){
+        const liveState=window.PKLSheetLiveBridge.getState();
+        if(liveState && typeof liveState==="object") return liveState;
+      }
+    }catch(e){}
+    try{
+      const sessionData=JSON.parse(sessionStorage.getItem(STATE_KEY)||"{}");
+      if(sessionData && typeof sessionData==="object" && (Array.isArray(sessionData.teams) || sessionData.fires || sessionData.surrenders)) return sessionData;
+    }catch(e){}
+    try{
       const data=JSON.parse(localStorage.getItem(STATE_KEY)||"{}");
       return data && typeof data==="object" ? data : {};
     }catch(e){return {}}
