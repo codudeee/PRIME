@@ -6584,6 +6584,21 @@ function pklPersonalSheetUserKey(){
 function pklPersonalSelectedTeamKey(){return PKL_PERSONAL_SELECTED_TEAM_PREFIX+':'+pklPersonalSheetUserKey();}
 function pklLoadPersonalSelectedTeam(){try{return sessionStorage.getItem(pklPersonalSelectedTeamKey())||localStorage.getItem(pklPersonalSelectedTeamKey())||'';}catch(e){return '';}}
 function pklSavePersonalSelectedTeam(id){try{if(!id)return;sessionStorage.setItem(pklPersonalSelectedTeamKey(),id);localStorage.setItem(pklPersonalSelectedTeamKey(),id);}catch(e){}}
+function pklStripPersonalViewFromSheetState(st){
+  try{
+    if(!st || typeof st!=='object') return st;
+    const copy=JSON.parse(JSON.stringify(st));
+    /* selectedTeamId는 각자 보고 있는 팀 화면값이라 Supabase/shared에 올리면
+       한 명이 팀카드를 누를 때 다른 팀원 화면까지 따라 바뀐다.
+       공용 저장값에서는 항상 비워두고, 개인 선택은 pklSavePersonalSelectedTeam만 사용한다. */
+    copy.selectedTeamId='';
+    return copy;
+  }catch(e){
+    try{ st.selectedTeamId=''; }catch(x){}
+    return st;
+  }
+}
+function pklPersistableSheetState(){return pklStripPersonalViewFromSheetState(state);}
 let selectedTeamId=pklLoadPersonalSelectedTeam()||state.selectedTeamId||state.teams[0].id;
 let pklApplyingRemoteSheetState=false;
 let pklSheetRemoteSaveTimer=null;
@@ -6658,11 +6673,11 @@ function pklPersistSheetStateNow(){
     pklSavePersonalSelectedTeam(selectedTeamId);
     state.savedAt=new Date().toISOString();
     try{ const sheetJson=JSON.stringify(state); sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
-    const payload=JSON.stringify({type:'shared',key:STORAGE_KEY,value:state});
+    const payload=JSON.stringify({type:'shared',key:STORAGE_KEY,value:pklPersistableSheetState()});
     if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function'){
-      window.PKLSupabaseDataSync.setShared(STORAGE_KEY, state);
+      window.PKLSupabaseDataSync.setShared(STORAGE_KEY, pklPersistableSheetState());
     }else if(typeof window.saveSharedData==='function'){
-      window.saveSharedData(STORAGE_KEY, state);
+      window.saveSharedData(STORAGE_KEY, pklPersistableSheetState());
     }else{
       fetch('/api/pkl-data-store',{
         method:'POST',
@@ -6699,7 +6714,7 @@ function pklNormalizeLoadedSheetState(saved){
     pklTeamCount:Number(saved.pklTeamCount || (saved.teams ? saved.teams.length : 10)) || 10,
     pklTeamSlots:Number(saved.pklTeamSlots || (saved.mode === 'duo' ? 2 : 4)) || 4,
     pklBuddyMode:!!saved.pklBuddyMode,
-    selectedTeamId:saved.selectedTeamId || 'team1',
+    selectedTeamId:'',
     teams:saved.teams.length ? saved.teams : baseTeams,
     rounds:saved.rounds.length ? saved.rounds : Array.from({length:30},(_,i)=>makeRound(i+1)),
     feeds:Array.isArray(saved.feeds) ? saved.feeds : [],
@@ -6794,7 +6809,7 @@ function save(){
   }
   pklMarkLocalSheetEdit();
   state.savedAt=new Date().toISOString();
-  const sheetJson=JSON.stringify(state);
+  const sheetJson=JSON.stringify(pklPersistableSheetState());
   try{ sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
   localStorage.setItem(STORAGE_KEY,sheetJson);
   /* 결과저장/초기화 전까지 현재 경기 시트는 Supabase 공유값에도 유지한다.
@@ -7596,7 +7611,7 @@ function pklApplyRemoteSheetState(){
   pklApplyingRemoteSheetState=true;
   try{
     state=next;
-    selectedTeamId=state.selectedTeamId || selectedTeamId || 'team1';
+    selectedTeamId=pklLoadPersonalSelectedTeam() || selectedTeamId || 'team1';
     if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId=visibleTeams()[0]?.viewId || 'team1';
     bindTopTimeInputs();
     render();
@@ -9000,7 +9015,7 @@ window.PKLSheetLiveBridge={
         });
       });
       state=next;
-      selectedTeamId=pklLoadPersonalSelectedTeam()||selectedTeamId||state.selectedTeamId||(state.teams[0]&&state.teams[0].id)||'team1';
+      selectedTeamId=pklLoadPersonalSelectedTeam()||selectedTeamId||(state.teams[0]&&state.teams[0].id)||'team1';
       const sheetJson=JSON.stringify(state);
       try{ sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
       // 원격 반영 중 localStorage 운영키를 다시 쓰면 pkl-supabase-sync가 shared 저장을 재발행해서
@@ -9053,7 +9068,7 @@ function pklApplySupabaseSheetStateOnce(){
       return false;
     }
     state = next;
-    selectedTeamId = pklLoadPersonalSelectedTeam() || selectedTeamId || state.selectedTeamId || (state.teams[0] && state.teams[0].id) || 'team1';
+    selectedTeamId = pklLoadPersonalSelectedTeam() || selectedTeamId || (state.teams[0] && state.teams[0].id) || 'team1';
     if(!visibleTeams().find(t=>t.viewId===selectedTeamId)) selectedTeamId = (visibleTeams()[0] && visibleTeams()[0].viewId) || 'team1';
     try{ const sheetJson=JSON.stringify(state); sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
     pklApplyingRemoteSheetState=true;
