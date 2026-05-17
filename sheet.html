@@ -6449,6 +6449,121 @@ body.pkl-round-reset-inline-mode .record-table{overflow:visible !important;}
 }
 .pkl-round-reset-active-toast button:hover{filter:brightness(1.12);}
 </style>
+
+<style id="pklTeamCompositionEditStyle">
+body.pkl-team-compose-edit-mode .member-row.pkl-team-compose-edit-row{
+  position:relative !important;
+  overflow:visible !important;
+  z-index:25 !important;
+}
+.pkl-team-member-edit-input{
+  width:100% !important;
+  min-width:0 !important;
+  height:24px !important;
+  padding:0 9px !important;
+  border-radius:9px !important;
+  border:1px solid rgba(168,85,247,.46) !important;
+  background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(0,0,0,.38)) !important;
+  color:#fff !important;
+  font-size:12px !important;
+  font-weight:1000 !important;
+  outline:none !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 14px rgba(168,85,247,.12) !important;
+}
+.pkl-team-member-edit-input:focus{
+  border-color:rgba(216,180,254,.82) !important;
+  box-shadow:0 0 0 2px rgba(168,85,247,.18),0 0 20px rgba(168,85,247,.28),inset 0 1px 0 rgba(255,255,255,.12) !important;
+}
+.pkl-team-edit-suggest{
+  position:absolute;
+  left:0;
+  top:calc(100% + 4px);
+  width:min(260px,calc(100vw - 30px));
+  max-height:210px;
+  overflow-y:auto;
+  display:none;
+  padding:6px;
+  border-radius:13px;
+  border:1px solid rgba(216,180,254,.34);
+  background:linear-gradient(180deg,rgba(17,10,33,.98),rgba(4,4,12,.99));
+  box-shadow:0 18px 44px rgba(0,0,0,.58),0 0 24px rgba(168,85,247,.22);
+  z-index:2147481000;
+}
+.pkl-team-edit-suggest.show{display:grid;gap:5px;}
+.pkl-team-edit-option{
+  min-height:38px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+  padding:6px 8px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.06);
+  background:rgba(255,255,255,.035);
+  color:#fff;
+  cursor:pointer;
+  text-align:left;
+}
+.pkl-team-edit-option:hover,.pkl-team-edit-option.is-active{
+  border-color:rgba(216,180,254,.36);
+  background:rgba(168,85,247,.16);
+}
+.pkl-team-edit-option strong{
+  min-width:0;
+  display:block;
+  font-size:12px;
+  font-weight:1000;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.pkl-team-edit-option em{
+  display:block;
+  margin-top:2px;
+  color:rgba(216,180,254,.68);
+  font-size:10px;
+  font-style:normal;
+  font-weight:850;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.pkl-team-edit-option .tier-mark,.pkl-team-edit-option .member-role-badge{
+  transform:scale(.86);
+  transform-origin:right center;
+}
+.pkl-team-compose-toast{
+  position:fixed;
+  left:50%;
+  bottom:78px;
+  z-index:2147482001;
+  transform:translateX(-50%);
+  min-height:42px;
+  padding:8px 10px 8px 15px;
+  display:none;
+  align-items:center;
+  gap:10px;
+  border-radius:999px;
+  border:1px solid rgba(216,180,254,.42);
+  background:linear-gradient(180deg,rgba(32,16,58,.96),rgba(7,7,14,.98));
+  color:#f5efff;
+  font-size:13px;
+  font-weight:1000;
+  box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 24px rgba(168,85,247,.24);
+}
+.pkl-team-compose-toast.show{display:flex;}
+.pkl-team-compose-toast button{
+  height:28px;
+  padding:0 12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.22);
+  background:rgba(255,255,255,.10);
+  color:#fff;
+  font-size:12px;
+  font-weight:1000;
+  cursor:pointer;
+}
+</style>
 </head>
 <body>
 <div class="app">
@@ -7873,7 +7988,12 @@ function renderBoard(){
           const memberScore=killScore-deathScore;
           const canDrag=pklIsSheetStaff();
           const dragAttrs=canDrag ? ` draggable="true" data-pkl-member-drag="1" data-real-team="${realTeamId(view.viewId)}" data-member-index="${(view.memberOffset||0)+i}" title="관리자/운영자 드래그 이동"` : '';
-          return `<div class="member-row ${canDrag?'pkl-member-draggable':''}"${dragAttrs}><span class="member-name">${m.name ? escape(m.name) : '&nbsp;'}</span><span class="member-kd">${memberScore} (${killScore}/${deathScore})</span></div>`;
+          const teamEdit=!!(window.__PKL_TEAM_COMPOSE_EDIT_MODE && pklIsSheetStaff());
+          const editAttrs=teamEdit ? ` data-pkl-team-edit-row="1" data-real-team="${realTeamId(view.viewId)}" data-member-index="${(view.memberOffset||0)+i}"` : '';
+          const nameHtml=teamEdit
+            ? `<input class="pkl-team-member-edit-input" type="text" value="${escape(m.name||'')}" placeholder="선수 검색" data-pkl-team-edit-input="1" data-real-team="${realTeamId(view.viewId)}" data-member-index="${(view.memberOffset||0)+i}" autocomplete="off"><div class="pkl-team-edit-suggest" data-pkl-team-edit-suggest="1"></div>`
+            : `<span class="member-name">${m.name ? escape(m.name) : '&nbsp;'}</span>`;
+          return `<div class="member-row ${canDrag && !teamEdit?'pkl-member-draggable':''} ${teamEdit?'pkl-team-compose-edit-row':''}"${teamEdit?'':dragAttrs}${editAttrs}>${nameHtml}<span class="member-kd">${memberScore} (${killScore}/${deathScore})</span></div>`;
         }).join('')}
         <div class="member-row team-extra-row"><span class="member-name">🍗 ${st.chicken}</span><span class="member-kd">⛔ ${st.stop}</span></div>
       </div>
@@ -11631,7 +11751,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     <div class="pkl-admin-group">
       <div class="pkl-admin-grid">
-        <button type="button" class="pkl-admin-card">팀 구성 수정</button>
+        <button type="button" class="pkl-admin-card" id="pklAdminTeamComposeEditOpen">팀 구성 수정</button>
         <button type="button" class="pkl-admin-card">추가점수 설정</button>
       </div>
     </div>
@@ -14005,6 +14125,238 @@ window.addEventListener('DOMContentLoaded',()=>{
 })();
 </script>
 
+
+<script id="pklTeamCompositionEditScript">
+(function(){
+  'use strict';
+  if(window.__PKL_TEAM_COMPOSITION_EDIT_SCRIPT__) return;
+  window.__PKL_TEAM_COMPOSITION_EDIT_SCRIPT__=true;
+  window.__PKL_TEAM_COMPOSE_EDIT_MODE=false;
+
+  var CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  function norm(v){ return String(v||'').trim().replace(/\s+/g,'').toLowerCase(); }
+  function esc(v){
+    return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
+  }
+  function chosung(v){
+    return String(v||'').split('').map(function(ch){
+      var code=ch.charCodeAt(0)-0xAC00;
+      if(code>=0 && code<=11171) return CHO[Math.floor(code/588)] || ch;
+      return ch;
+    }).join('');
+  }
+  function userName(u){ return String((u&&(u.nickname||u.nick||u.name||u.displayName||u.pubgId||u.pubg_id||u.pubgID||u.pubgName||u.gameId||u.username))||'').trim(); }
+  function userPubg(u){ return String((u&&(u.pubgId||u.pubg_id||u.pubgID||u.pubgName||u.gameId))||'').trim(); }
+  function userTier(u){ return String((u&&(u.memberTier||u.tier||u.grade||u.memberGrade||u.pklTier||u.rank||u.level||u.role||u.title))||'').trim(); }
+  function userKey(u){ return norm(u&&(u.discord_id||u.discordId||u.uid||u.id||u.userId||u.memberId||u.nickname||u.name||u.pubgId||u.pubg_id||u.gameId)); }
+  function normalizePayload(data){
+    if(Array.isArray(data)) return data;
+    if(data && Array.isArray(data.users)) return data.users;
+    if(data && Array.isArray(data.rows)) return data.rows;
+    if(data && Array.isArray(data.items)) return data.items;
+    return [];
+  }
+
+  var allUsersPromise=null;
+  function mergeUsers(list){
+    if(!Array.isArray(list) || !list.length) return [];
+    var map={};
+    try{
+      if(Array.isArray(window.pklSheetSupabaseUsersCache)){
+        window.pklSheetSupabaseUsersCache.forEach(function(u){ var k=userKey(u); if(k) map[k]=u; });
+      }
+    }catch(e){}
+    list.forEach(function(u){ var k=userKey(u); if(k) map[k]=u; });
+    var out=Object.keys(map).map(function(k){return map[k];}).filter(Boolean);
+    try{
+      if(Array.isArray(window.pklSheetSupabaseUsersCache)) window.pklSheetSupabaseUsersCache=out;
+      if(typeof pklMergeSheetSupabaseUsers==='function') pklMergeSheetSupabaseUsers(out);
+    }catch(e){}
+    return out;
+  }
+  function readCachedUsers(){
+    var out=[];
+    try{ if(typeof pklReadTierUsers==='function') out=out.concat(pklReadTierUsers()||[]); }catch(e){}
+    try{ if(Array.isArray(window.pklSheetSupabaseUsersCache)) out=out.concat(window.pklSheetSupabaseUsersCache); }catch(e){}
+    return mergeUsers(out);
+  }
+  async function loadAllUsers(){
+    if(allUsersPromise) return allUsersPromise;
+    allUsersPromise=(async function(){
+      var acc=readCachedUsers();
+      try{ if(typeof pklLoadSheetSupabaseUsersOnce==='function') await pklLoadSheetSupabaseUsersOnce(); }catch(e){}
+      acc=mergeUsers(acc.concat(readCachedUsers()));
+      for(var offset=0; offset<1000; offset+=100){
+        try{
+          var res=await fetch('/api/pkl-users?limit=100&offset='+offset+'&tierOnly=0',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
+          if(!res.ok) break;
+          var data=await res.json().catch(function(){return null;});
+          var rows=normalizePayload(data).filter(function(u){return u && typeof u==='object';});
+          if(!rows.length) break;
+          acc=mergeUsers(acc.concat(rows));
+          if(rows.length<100) break;
+        }catch(e){ break; }
+      }
+      return acc;
+    })();
+    return allUsersPromise;
+  }
+  function searchableText(u){
+    return [
+      u&&u.nickname,u&&u.nick,u&&u.name,u&&u.displayName,u&&u.discordUsername,u&&u.discord_username,
+      u&&u.pubgId,u&&u.pubg_id,u&&u.pubgID,u&&u.pubgName,u&&u.gameId,u&&u.username,
+      u&&u.discord_id,u&&u.discordId,u&&u.uid,u&&u.id,u&&u.userId,u&&u.memberId
+    ].filter(Boolean).join(' ');
+  }
+  function matchUser(u,q){
+    q=norm(q);
+    if(!q) return true;
+    var text=searchableText(u);
+    var n=norm(text);
+    if(n.indexOf(q)>=0) return true;
+    var c=norm(chosung(text));
+    return c.indexOf(q)>=0;
+  }
+  function badgeForUser(u){
+    try{ if(window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser==='function') return window.PKLTierBadge.renderForUser(u)||''; }catch(e){}
+    var tier=userTier(u);
+    if(!tier) return '';
+    try{ if(window.PKLTierBadge && typeof window.PKLTierBadge.render==='function') return window.PKLTierBadge.render(tier)||''; }catch(e){}
+    return '<span class="tier-mark">'+esc(tier)+'</span>';
+  }
+  function findTeam(teamId){
+    try{ return (state.teams||[]).find(function(t){ return String(t.id)===String(teamId); }); }catch(e){ return null; }
+  }
+  function applyUserToSlot(input,user){
+    if(!input || !user) return;
+    var team=findTeam(input.dataset.realTeam);
+    var index=Number(input.dataset.memberIndex);
+    if(!team || !Array.isArray(team.members) || !Number.isFinite(index)) return;
+    while(team.members.length<=index) team.members.push({name:'',tier:''});
+    var name=userName(user);
+    var tier=userTier(user);
+    team.members[index]={
+      name:name,
+      nickname:name,
+      nick:user.nick||'',
+      displayName:user.displayName||'',
+      pubgId:userPubg(user),
+      gameId:user.gameId||user.pubgId||user.pubg_id||'',
+      discord_id:user.discord_id||user.discordId||'',
+      discordId:user.discordId||user.discord_id||'',
+      uid:user.uid||user.id||user.userId||user.memberId||'',
+      id:user.id||user.uid||user.userId||user.memberId||'',
+      userId:user.userId||user.id||user.uid||'',
+      memberId:user.memberId||'',
+      tier:tier,
+      memberTier:tier,
+      grade:user.grade||user.memberGrade||'',
+      memberGrade:user.memberGrade||user.grade||'',
+      role:user.role||'',
+      title:user.title||''
+    };
+    try{ if(typeof pklMarkLocalSheetEdit==='function') pklMarkLocalSheetEdit(); }catch(e){}
+    try{ if(typeof save==='function') save(); }catch(e){}
+    try{ if(typeof render==='function') render(); }catch(e){}
+    try{ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast(name+' 선수로 변경되었습니다.'); }catch(e){}
+  }
+  function closeSuggest(){
+    document.querySelectorAll('.pkl-team-edit-suggest.show').forEach(function(el){ el.classList.remove('show'); el.innerHTML=''; });
+  }
+  async function showSuggest(input){
+    if(!input) return;
+    var box=input.parentElement && input.parentElement.querySelector('[data-pkl-team-edit-suggest]');
+    if(!box) return;
+    var q=input.value;
+    var users=await loadAllUsers();
+    var matches=users.filter(function(u){return userName(u) && matchUser(u,q);}).slice(0,9);
+    if(!matches.length){
+      box.innerHTML='<div class="pkl-team-edit-option"><strong>검색 결과 없음</strong><em>닉네임/배그ID/초성으로 검색하세요</em></div>';
+      box.classList.add('show');
+      return;
+    }
+    box.innerHTML=matches.map(function(u,i){
+      var name=userName(u);
+      var pubg=userPubg(u);
+      var sub=[pubg && ('배그ID '+pubg), userTier(u)].filter(Boolean).join(' · ');
+      return '<button type="button" class="pkl-team-edit-option'+(i===0?' is-active':'')+'" data-pkl-team-user-index="'+i+'"><span><strong>'+esc(name)+'</strong><em>'+esc(sub||'Supabase users')+'</em></span>'+badgeForUser(u)+'</button>';
+    }).join('');
+    box.__pklUsers=matches;
+    box.classList.add('show');
+  }
+  function ensureToast(){
+    var toast=document.getElementById('pklTeamComposeToast');
+    if(toast) return toast;
+    toast=document.createElement('div');
+    toast.id='pklTeamComposeToast';
+    toast.className='pkl-team-compose-toast';
+    toast.innerHTML='<span>팀 구성 수정 모드입니다. 선수칸을 검색해서 교체 후 완료를 누르세요.</span><button type="button" id="pklTeamComposeDone">완료</button>';
+    document.body.appendChild(toast);
+    return toast;
+  }
+  function setEditMode(on){
+    if(on){
+      try{ if(typeof pklIsSheetStaff==='function' && !pklIsSheetStaff()){ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast('관리자/운영자만 팀 구성을 수정할 수 있습니다.'); return; } }catch(e){}
+    }
+    window.__PKL_TEAM_COMPOSE_EDIT_MODE=!!on;
+    document.body.classList.toggle('pkl-team-compose-edit-mode',!!on);
+    var toast=ensureToast();
+    toast.classList.toggle('show',!!on);
+    closeSuggest();
+    try{ if(typeof renderBoard==='function') renderBoard(); }catch(e){ try{ if(typeof render==='function') render(); }catch(_e){} }
+    if(on){
+      loadAllUsers();
+      try{ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast('팀 구성 수정 모드가 켜졌습니다.'); }catch(e){}
+    }
+  }
+
+  document.addEventListener('click',function(e){
+    var open=e.target && e.target.closest && e.target.closest('#pklAdminTeamComposeEditOpen');
+    if(open){
+      e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      var admin=document.getElementById('pklAdminModal');
+      if(admin){ admin.classList.remove('show'); admin.setAttribute('aria-hidden','true'); }
+      setEditMode(true);
+      return;
+    }
+    if(e.target && e.target.id==='pklTeamComposeDone'){
+      e.preventDefault();
+      setEditMode(false);
+      try{ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast('팀 구성 수정이 완료되었습니다.'); }catch(_e){}
+      return;
+    }
+    var opt=e.target && e.target.closest && e.target.closest('.pkl-team-edit-option[data-pkl-team-user-index]');
+    if(opt){
+      e.preventDefault(); e.stopPropagation();
+      var box=opt.closest('[data-pkl-team-edit-suggest]');
+      var row=opt.closest('.pkl-team-compose-edit-row');
+      var input=row && row.querySelector('[data-pkl-team-edit-input]');
+      var users=box && box.__pklUsers || [];
+      applyUserToSlot(input, users[Number(opt.dataset.pklTeamUserIndex)]);
+      return;
+    }
+    if(!(e.target && e.target.closest && e.target.closest('.pkl-team-compose-edit-row'))) closeSuggest();
+  },true);
+  document.addEventListener('focusin',function(e){
+    var input=e.target && e.target.matches && e.target.matches('[data-pkl-team-edit-input]') ? e.target : null;
+    if(input) showSuggest(input);
+  },true);
+  document.addEventListener('input',function(e){
+    var input=e.target && e.target.matches && e.target.matches('[data-pkl-team-edit-input]') ? e.target : null;
+    if(input) showSuggest(input);
+  },true);
+  document.addEventListener('keydown',function(e){
+    var input=e.target && e.target.matches && e.target.matches('[data-pkl-team-edit-input]') ? e.target : null;
+    if(!input) return;
+    if(e.key==='Escape'){ closeSuggest(); return; }
+    if(e.key==='Enter'){
+      var box=input.parentElement && input.parentElement.querySelector('[data-pkl-team-edit-suggest]');
+      var users=box && box.__pklUsers || [];
+      if(users[0]){ e.preventDefault(); applyUserToSlot(input,users[0]); }
+    }
+  },true);
+})();
+</script>
 </body>
 </html>
 
