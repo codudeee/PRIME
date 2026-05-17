@@ -10,6 +10,7 @@
   var CONTROL_HOLD_MS = 8000;
   var remoteReady=false, localChanged=false, currentState=null;
   var pendingWait=[], pendingCancel=[], PENDING_MS=12000;
+  var localActionUntil=0;
   var cfg=window.PKL_SUPABASE_CONFIG||{};
   var URL=String(cfg.url||localStorage.getItem('PKL_SUPABASE_URL')||'').replace(/\/+$/,'');
   var KEY=String(cfg.anonKey||localStorage.getItem('PKL_SUPABASE_ANON_KEY')||'');
@@ -106,7 +107,7 @@
       pendingWait.push(rec);
       pendingCancel=removeMatching(pendingCancel.map(function(x){return x.item;}),item).map(function(x){return {item:x,at:Date.now()};});
     }
-    lastLocalEditAt=Date.now();localChanged=true;
+    lastLocalEditAt=Date.now();localChanged=true;localActionUntil=Date.now()+PENDING_MS;
   }
   function applyPending(normalized){
     var t=Date.now();
@@ -158,7 +159,7 @@
     var normalized=normalizeState(st);
     normalized=resolveWaitCancel(applyPending(normalized));
 
-    if(nowMs-lastLocalEditAt<CONTROL_HOLD_MS){
+    if((pendingWait.length || pendingCancel.length) && nowMs-lastLocalEditAt<CONTROL_HOLD_MS){
       /*
        * 이전 버전은 CONTROL_HOLD 중 localStorage의 전체 wait/cancel 목록을
        * 원격 상태 위에 다시 합쳤다. 그 결과 다른 유저가 대기취소했을 때
@@ -232,7 +233,7 @@
   }
   function queueSave(d){if(applying)return;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,d==null?180:d);}
   function fetchNow(){
-    if(localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS){return Promise.resolve(currentState||stateFromLocal());}
+    if((pendingWait.length || pendingCancel.length) && localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS){return Promise.resolve(currentState||stateFromLocal());}
     return apiRead().then(function(st){
       if(st){applyState(st);return st;}
       if(configured()) return sb('live_scores?id=eq.join_state&select=payload,updated_at&limit=1',{method:'GET'}).then(function(rows){
@@ -286,10 +287,10 @@
     startRealtime();
   }
   if(!Storage.prototype.__pklJoinRealtimePatched){
-    Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(String(k)===RECRUIT_KEY?220:120);emit(stateFromLocal());}}catch(e){}return ret;};
+    Storage.prototype.setItem=function(k,v){var ret=originalSet.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;localActionUntil=Date.now()+PENDING_MS;queueSave(String(k)===RECRUIT_KEY?220:120);emit(stateFromLocal());}}catch(e){}return ret;};
     Storage.prototype.__pklJoinRealtimePatched=true;
   }
-  try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;queueSave(180);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
-  window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=(localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS)?stateFromLocal():(currentState||stateFromLocal());return applyPending(normalizeState(st));},apply:applyState,fetchNow:fetchNow,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
+  try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;localActionUntil=Date.now()+PENDING_MS;queueSave(180);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
+  window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=((pendingWait.length || pendingCancel.length) && localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS)?stateFromLocal():(currentState||stateFromLocal());return applyPending(normalizeState(st));},apply:applyState,fetchNow:fetchNow,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
   start();
 })();
