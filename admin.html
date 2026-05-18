@@ -8508,6 +8508,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     var res=await fetch('/api/pkl-users?limit=20&offset=0',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok || !data.ok || !Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
+    window.__PKL_ADMIN_LAST_BANS = Array.isArray(data.bans) ? data.bans : [];
     return data.users;
   }
   function applyUsers(rows){
@@ -8521,7 +8522,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     var baseState=(state && typeof state==='object') ? state : {users:[],pending:[],bans:[],warningRecords:[]};
     state=Object.assign({},baseState,{users:list});
     if(!Array.isArray(state.pending)) state.pending=[];
-    if(!Array.isArray(state.bans)) state.bans=[];
+    state.bans=Array.isArray(window.__PKL_ADMIN_LAST_BANS)?window.__PKL_ADMIN_LAST_BANS.slice():(Array.isArray(state.bans)?state.bans:[]);
     if(!Array.isArray(state.warningRecords)) state.warningRecords=[];
     try{state=typeof normalizeState==='function'?normalizeState(state):state;}catch(e){}
     window.state=state;
@@ -8960,7 +8961,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       state=Object.assign({},state||{}, {
         users:Array.isArray(users)?users:[],
         pending:Array.isArray(state&&state.pending)?state.pending:[],
-        bans:Array.isArray(state&&state.bans)?state.bans:[],
+        bans:Array.isArray(window.__PKL_ADMIN_LAST_BANS)?window.__PKL_ADMIN_LAST_BANS.slice():(Array.isArray(state&&state.bans)?state.bans:[]),
         warningRecords:Array.isArray(state&&state.warningRecords)?state.warningRecords:[]
       });
       window.state=state;
@@ -9006,6 +9007,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
+    if(Array.isArray(data.bans)) window.__PKL_ADMIN_LAST_BANS=data.bans;
     if(typeof data.count==='number' && isFinite(data.count)) __pklAdminUsersTotal=data.count;
     return data.users;
   }

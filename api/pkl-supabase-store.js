@@ -608,7 +608,10 @@ async function readUserDocs(options={}){
     const pageLength = Array.isArray(json) ? json.length : 0;
     count = offset + pageLength + (pageLength >= limit ? 1 : 0);
   }
-  const rawUsers = (Array.isArray(json) ? json : []).map(rowToUser).filter(u => !!u.discordId);
+  const rawUsers = (Array.isArray(json) ? json : [])
+    .map(rowToUser)
+    .filter(u => !!u.discordId)
+    .filter(u => !(u.banned === true || String(u.role || u.memberRole || '').toLowerCase() === 'banned' || String(u.raw && (u.raw.banned || u.raw.isBanned) || '').toLowerCase() === 'true'));
   // Supabase users is the only source, but the API also normalizes the page result once here.
   // This prevents the client pages from each doing their own cache/nickname merge and creating duplicate visible users.
   const seenDiscord = new Set();
@@ -772,6 +775,25 @@ async function hasActiveBanRecord(identity={}){
   const path = `ban_records?select=*&or=(${filters.join(',')})&limit=1`;
   const { json } = await supabaseFetch(path);
   return Array.isArray(json) && json.length > 0;
+}
+async function readBanRecords(options={}){
+  const limit = Math.max(1, Math.min(500, Number(options.limit || 200)));
+  const { json } = await supabaseFetch(`ban_records?select=*&order=created_at.desc.nullslast&limit=${limit}`);
+  return (Array.isArray(json) ? json : []).map(r => ({
+    id: clean(r.id || ''),
+    discordId: clean(r.discord_id || ''),
+    discord_id: clean(r.discord_id || ''),
+    nickname: clean(r.nickname || ''),
+    pubgId: clean(r.pubg_id || ''),
+    pubg_id: clean(r.pubg_id || ''),
+    reason: clean(r.reason || (r.raw && r.raw.reason) || '영구추방'),
+    admin: clean(r.actor || (r.raw && r.raw.admin) || 'ADMIN'),
+    actor: clean(r.actor || (r.raw && r.raw.admin) || 'ADMIN'),
+    date: r.created_at || (r.raw && r.raw.date) || '',
+    created_at: r.created_at || '',
+    permanent: true,
+    raw: r.raw || r
+  }));
 }
 async function insertAdminLogSafe(payload){
   try{
@@ -1093,7 +1115,7 @@ async function writeUsers(users){
   return mergeUsers(saved);
 }
 async function readAdminState(){
-  return { users: await readUsers({ limit: 100 }), pending: [], bans: [], warningRecords: [] };
+  return { users: await readUsers({ limit: 100 }), pending: [], bans: await readBanRecords({ limit: 500 }), warningRecords: [] };
 }
 
-module.exports = { readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, updateUserTier, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, syncDiscordGuildRoles, syncDiscordGuildNicknames, discordRolePatchForUser, explicitDiscordId, hasDiscordIdentity };
+module.exports = { readBanRecords, readUserDocs, writeUserDoc, readUsers, writeUsers, readAdminState, mergeUsers, normalizeUser, adjustUserPrime, updateUserWithLog, updateUserTier, recordBan, deleteBanRecord, hasActiveBanRecord, readLegacyUsers, cleanupDiscordUser, cleanupDuplicateUsersByDiscordId, findUserRowsByDiscordId, syncDiscordProfile, syncDiscordGuildRoles, syncDiscordGuildNicknames, discordRolePatchForUser, explicitDiscordId, hasDiscordIdentity };

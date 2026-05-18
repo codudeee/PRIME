@@ -33,7 +33,11 @@ module.exports = async function handler(req, res) {
         }
         result = Object.assign({}, result, { users: synced });
       }
-      return res.status(200).json({ ok: true, users: result.users, count: result.count, limit, offset, q, discordId, tierOnly });
+      let bans = [];
+      if (!tierOnly && typeof supabaseStore.readBanRecords === 'function') {
+        try { bans = await supabaseStore.readBanRecords({ limit: 500 }); } catch (_) { bans = []; }
+      }
+      return res.status(200).json({ ok: true, users: result.users, bans, count: result.count, limit, offset, q, discordId, tierOnly });
     }
     if (req.method === 'PATCH') {
       const body = parseBody(req);
