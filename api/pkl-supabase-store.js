@@ -63,9 +63,9 @@ function discordDisplayFromRaw(raw){
 function safeDisplayNickname(src){
   src = src && typeof src === 'object' ? src : {};
   const raw = src.raw && typeof src.raw === 'object' ? src.raw : {};
-  // Supabase users.nickname 컬럼을 단일 표시 이름으로 우선 사용한다.
-  // raw.discordGuildNick / raw.displayName 같은 예전 디코 캐시가 최신 nickname을 되돌리는 원인이어서 fallback으로만 둔다.
-  const current = cleanNickname(src.nickname || src.nick || src.name || '');
+  // Supabase users.nickname(row.nickname)이 사이트/admin/tier의 단일 표시 기준이다.
+  // raw.discordGuildNick 같은 과거 서버닉은 최신 nickname을 절대 덮어쓰지 않고, nickname이 없을 때만 fallback으로 사용한다.
+  const current = cleanNickname(src.nickname || src.nick || src.name || raw.nickname || raw.nick || raw.name || '');
   if(current) return current;
   const registered = registeredNicknameFromRaw(raw);
   if(registered) return registered;
@@ -73,8 +73,6 @@ function safeDisplayNickname(src){
   if(pkl) return pkl;
   const guildNick = discordDisplayFromRaw(Object.assign({}, raw, src));
   if(guildNick) return guildNick;
-  const legacy = cleanNickname(raw.nickname || raw.nick || raw.name || raw.displayName || '');
-  if(legacy) return legacy;
   return '';
 }
 
@@ -566,8 +564,9 @@ async function supabaseFetch(path, options={}){
   return { json, headers: res.headers };
 }
 async function readUserDocs(options={}){
-  // 읽기 요청에서 전체 users 정리/디코 재동기화를 수행하지 않는다.
-  // 이 작업은 로그인/admin 진입/유저목록 페이지네이션을 느리게 하고 최신 Supabase nickname/tier를 예전 raw 값으로 되돌릴 수 있다.
+  if(!options.tierOnly && options.cleanup !== false){
+    try{ await cleanupDuplicateUsersByDiscordId(2000); }catch(e){}
+  }
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
   const offset = Math.max(0, Number(options.offset || 0));
   const q = clean(options.q || '');
@@ -610,10 +609,7 @@ async function readUserDocs(options={}){
   let headers = new Headers();
   let count = NaN;
   if(!tierOnly){
-    // 추방 유저를 제외한 뒤 visible offset/limit을 적용해야 하지만, 매번 5000명을 가져오면 admin 진입이 느려진다.
-    // 현재 페이지를 채울 수 있을 만큼만 넉넉히 가져온다. 추방자가 많은 경우에도 보통 다음 페이지가 정상 채워진다.
-    const rawLimit = Math.max(limit, Math.min(500, offset + limit + 120));
-    let allPath = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&limit=${rawLimit}`;
+    let allPath = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&limit=5000`;
     if(q){
       const term = encodeURIComponent(`*${escapeLike(q)}*`);
       allPath += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
