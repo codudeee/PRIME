@@ -12955,9 +12955,17 @@ function pklBuildFrozenResultScores(st){
 }
 function pklAttachFrozenResultSnapshot(snap){
   if(!snap || typeof snap!=='object') return snap;
+  /*
+    결과 저장 전송이 막히던 원인: 저장 snapshot 안에 frozen score를
+    pklFrozenScores/savedScores 두 이름으로 중복 저장하면서 payload가 불필요하게 커졌다.
+    결과표는 snap.pklFrozenScores 하나만 있어도 저장 당시 점수 고정 표시가 가능하므로
+    중복 필드는 만들지 않는다.
+  */
   var frozen=pklBuildFrozenResultScores(snap);
   snap.pklFrozenScores=frozen;
-  snap.savedScores=frozen;
+  if(Object.prototype.hasOwnProperty.call(snap,'savedScores')){
+    try{ delete snap.savedScores; }catch(_e){ snap.savedScores=null; }
+  }
   return snap;
 }
 async function pklSaveResultMatches(matches){
