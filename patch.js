@@ -232,12 +232,18 @@
   async function saveEditor(){
     if(saving) return;
     if(!isPatchAdmin()){ denyPatchAdmin(); return; }
+    const prevNote = editingIndex === null ? null : (notes[editingIndex] || null);
+    const now = Date.now();
     const note = {
+      ...(prevNote || {}),
+      id: editingIndex === null ? ("patch_" + now + "_" + Math.random().toString(36).slice(2,8)) : (prevNote?.id || prevNote?.patchId || ("patch_" + now + "_" + Math.random().toString(36).slice(2,8))),
+      createdAt: editingIndex === null ? now : (prevNote?.createdAt || prevNote?.created_at || now),
+      updatedAt: now,
       version: els.patchInputVersion.value.trim() || nextPatchVersion(),
       date: editingIndex === null ? todayText() : (els.patchInputDate.value.trim() || todayText()),
       title: els.patchInputTitle.value.trim() || "패치노트",
       summary: "",
-      live: editingIndex === null ? true : !!notes[editingIndex]?.live,
+      live: editingIndex === null ? true : !!prevNote?.live,
       items: textToItems(els.patchInputItems.value)
     };
 
