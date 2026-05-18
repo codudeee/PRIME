@@ -6119,7 +6119,7 @@ a,
 .memo-delete-modal,.temp-edit-modal{z-index:2147483100!important}
 </style>
 
-<link rel="stylesheet" href="./pkl-horizontal-scroll-only.css?v=20260515-hscroll-safe">
+<link rel="stylesheet" href="./pkl-horizontal-scroll-only.css?v=20260515-scroll-only-root">
 </head>
 <body>
 <div class="app">
@@ -8150,7 +8150,7 @@ function getVisibleAdminScreenId(){
   };
 
   window.toggleEditMemberRoleCustom=function(e){
- if(!pklCanChangeRole(JSON.parse(localStorage.getItem("pklUser") || "null"))){ pklAlert("관리자만 역할 변경 가능","권한 제한"); return; }
+ if(!pklCanChangeRole()){ pklAlert("관리자만 역할 변경 가능","권한 제한"); return; }
 
     if(e) e.stopPropagation();
     if((typeof canEditMemberRole==="function") && !canEditMemberRole()) return;
@@ -8355,11 +8355,39 @@ function getVisibleAdminScreenId(){
 (function(){
   function sys(){return window.PKLRoleSystem||{};}
   function readUserKey(key){try{var raw=localStorage.getItem(key);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+  function adminDiscordIdOf(user){
+    user=user||{};
+    return String(user.discord_id||user.discordId||user.discordID||user.discord||user.userDiscordId||user.uid||user.id||user.userId||"").replace(/^discord-/i,"").trim();
+  }
+  function mergeCurrentAdminUser(user){
+    if(!user||typeof user!=="object") return null;
+    var merged=Object.assign({}, window.__PKL_CURRENT_SUPABASE_USER||{}, user);
+    window.__PKL_CURRENT_SUPABASE_USER=merged;
+    ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"].forEach(function(k){
+      try{ if(localStorage.getItem(k) || k==="pklLoginUser") localStorage.setItem(k,JSON.stringify(Object.assign({}, readUserKey(k)||{}, merged))); }catch(e){}
+    });
+    try{ if(window.PKLRoleSystem&&typeof window.PKLRoleSystem.setCurrentUser==="function") window.PKLRoleSystem.setCurrentUser(merged); }catch(e){}
+    return merged;
+  }
   window.pklGetCurrentAdminUser=function(){
+    if(window.__PKL_CURRENT_SUPABASE_USER&&typeof window.__PKL_CURRENT_SUPABASE_USER==="object")return window.__PKL_CURRENT_SUPABASE_USER;
     var keys=["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"];
     for(var i=0;i<keys.length;i++){var user=readUserKey(keys[i]);if(user&&typeof user==="object")return user;}
     return null;
   };
+  async function refreshCurrentAdminFromSupabase(){
+    var seed=window.pklGetCurrentAdminUser&&window.pklGetCurrentAdminUser();
+    var did=adminDiscordIdOf(seed);
+    if(!did) return null;
+    try{
+      var res=await fetch('/api/pkl-users?limit=5&discordId='+encodeURIComponent(did),{cache:'no-store',headers:{Accept:'application/json'}});
+      var data=await res.json().catch(function(){return{};});
+      var list=Array.isArray(data.users)?data.users:[];
+      var fresh=list.find(function(u){return adminDiscordIdOf(u)===did;})||list[0];
+      if(fresh) return mergeCurrentAdminUser(fresh);
+    }catch(e){console.warn('[PKL] admin role refresh failed',e);}
+    return null;
+  }
   function fallbackRoleFromLogin(){
     var u=window.pklGetCurrentAdminUser()||{};
     var ownerText=[u.email,u.mail,u.handle,u.username,u.discordUsername,u.discord_username,u.nickname,u.nick,u.name,u.displayName,u.loginId].map(function(v){return String(v==null?'':v).trim().toLowerCase();}).join('|');
@@ -8418,7 +8446,7 @@ function getVisibleAdminScreenId(){
       applyAccess();
     },60);
   }
-  document.addEventListener("DOMContentLoaded",function(){scheduleApplyAccess();});
+  document.addEventListener("DOMContentLoaded",function(){scheduleApplyAccess(); refreshCurrentAdminFromSupabase().then(function(fresh){ if(fresh) scheduleApplyAccess(); });});
   window.addEventListener("storage",scheduleApplyAccess);
   window.addEventListener("pkl-role-data-updated",scheduleApplyAccess);
   window.pklApplyAdminAccess=applyAccess;
@@ -8469,7 +8497,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   function mapUser(u){
     u=u||{};
     var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
-    var nick=clean(u.nickname||raw.nickname||u.name||u.nick||u.discordUsername||u.discord_username||raw.discord_username||u.username);
+    var serverNick=clean(raw.discordServerNickname||raw.discordGuildNick||raw.guildNick||u.discordServerNickname||u.discordGuildNick||u.guildNick); if(serverNick.indexOf('/')>=0) serverNick=serverNick.split('/')[0]; serverNick=serverNick.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); var nick=clean(serverNick||u.nickname||raw.nickname||u.name||u.nick);
     var pubg=clean(u.pubgId||u.gameId||u.pubg_id||raw.pubg_id||u.pubgName||u.pubg_name||u.ref);
     var did=keyOf(u)||clean(raw.discordId||raw.discord_id).toLowerCase().replace(/^discord-/, '');
     var memberRole=clean(u.memberRole||u.member_role||raw.memberRole||raw.member_role||u.role||raw.role||(u.is_admin||u.admin?'admin':'user'))||'user';
@@ -8480,6 +8508,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     var res=await fetch('/api/pkl-users?limit=20&offset=0',{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok || !data.ok || !Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
+    window.__PKL_ADMIN_LAST_BANS = Array.isArray(data.bans) ? data.bans : [];
     return data.users;
   }
   function applyUsers(rows){
@@ -8493,7 +8522,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     var baseState=(state && typeof state==='object') ? state : {users:[],pending:[],bans:[],warningRecords:[]};
     state=Object.assign({},baseState,{users:list});
     if(!Array.isArray(state.pending)) state.pending=[];
-    if(!Array.isArray(state.bans)) state.bans=[];
+    state.bans=Array.isArray(window.__PKL_ADMIN_LAST_BANS)?window.__PKL_ADMIN_LAST_BANS.slice():(Array.isArray(state.bans)?state.bans:[]);
     if(!Array.isArray(state.warningRecords)) state.warningRecords=[];
     try{state=typeof normalizeState==='function'?normalizeState(state):state;}catch(e){}
     window.state=state;
@@ -8806,14 +8835,26 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     return list;
   }
   window.PKLAdminInvalidateUsersRenderCache=bumpUsersCacheVersion;
+  function discordServerNickname(v){
+    v=String(v==null?'':v).split('/')[0]||'';
+    v=stripLeadingNicknameDecorations(v);
+    var m=v.match(/[가-힣][가-힣0-9A-Za-z_\-\s]{0,18}/);
+    return stripLeadingNicknameDecorations(m?m[0]:v);
+  }
   function normalize(u){
     u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var did=didOf(u)||didOf(raw); if(!did) return null;
-    var nick=stripLeadingNicknameDecorations(u.nickname||u.name||u.nick||raw.nickname||raw.name||raw.nick||u.discord_username||u.discordUsername||raw.discord_username)||('회원-'+did.slice(-4));
+    var serverNick=discordServerNickname(raw.discordGuildNick||raw.guildNick||raw.discordServerNickname||u.discordGuildNick||u.guildNick||u.discordServerNickname||'');
+    var currentNick=stripLeadingNicknameDecorations(u.nickname||u.nick||u.name||raw.nickname||raw.nick||raw.name||'');
+    var registeredNick=stripLeadingNicknameDecorations(raw.registeredNickname||raw.pklNickname||raw.pkl_nickname||raw.signupNickname||raw.signup_nickname||u.registeredNickname||u.pklNickname||u.signupNickname||'');
+    // admin 표시는 Supabase users.nickname을 최우선으로 사용한다.
+    // 디코 서버닉(raw.discordGuildNick)은 nickname이 비어 있을 때만 fallback으로 쓴다.
+    // 그래야 봇/관리자 수정으로 Supabase nickname이 바뀌면 admin과 tier가 같은 이름을 보여준다.
+    var nick=currentNick || registeredNick || serverNick || ('회원-'+did.slice(-4));
     var pubg=clean(u.pubgId||u.pubg_id||u.gameId||u.pubgName||raw.pubgId||raw.pubg_id||raw.gameId);
     var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||raw.memberTier||raw.gradeRole||raw.tierRole||raw.tier||'none');
     var role=clean(u.memberRole||u.role||u.userRole||u.authRole||raw.memberRole||raw.role||(u.is_admin?'admin':'user'))||'user';
     var prime=Number(u.prime??u.points??u.dia??raw.prime??raw.points??0)||0;
-    return Object.assign({}, raw, u, {discordId:did,discord_id:did,uid:'discord-'+did,id:'discord-'+did,userId:'discord-'+did,nickname:nick,name:nick,nick:nick,displayName:nick,pubgId:pubg,gameId:pubg,pubgName:pubg,ref:pubg,memberTier:tier,gradeRole:tier,tierRole:tier,baseRole:tier,memberRole:role,userRole:role,authRole:role,role:role,prime:prime,points:prime,dia:prime,warnings:Number(u.warnings??raw.warnings??0)||0,history:Array.isArray(u.history)?u.history:[],memoList:Array.isArray(u.memoList)?u.memoList:[]});
+    return Object.assign({}, raw, u, {discordId:did,discord_id:did,uid:'discord-'+did,id:'discord-'+did,userId:'discord-'+did,discordUsername:clean(u.discordUsername||u.discord_username||raw.discordUsername||raw.discord_username||''),discordDisplayName:clean(u.discordDisplayName||u.discordGlobalName||u.global_name||u.discord_username||raw.discordDisplayName||raw.discordGlobalName||raw.global_name||raw.discord_username||''),nickname:nick,name:nick,nick:nick,displayName:nick,pubgId:pubg,gameId:pubg,pubgName:pubg,ref:pubg,memberTier:tier,gradeRole:tier,tierRole:tier,baseRole:tier,memberRole:role,userRole:role,authRole:role,role:role,prime:prime,points:prime,dia:prime,warnings:Number(u.warnings??raw.warnings??0)||0,history:Array.isArray(u.history)?u.history:[],memoList:Array.isArray(u.memoList)?u.memoList:[]});
   }
   function unique(list){
     var seenDid=new Set(), out=[];
@@ -8868,7 +8909,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       if(typeof realIndex!=='number' || realIndex<0) realIndex=displayIndex;
       var active=(typeof current==='number'&&realIndex===current)?'active':'';
       var mb='', gb=''; try{mb=typeof memberBadgeHtml==='function'?memberBadgeHtml(u):'';}catch(e){} try{gb=typeof gradeBadgeHtml==='function'?gradeBadgeHtml(u):'';}catch(e){}
-      return '<div class="user-card named-role-layout '+active+'" data-did="'+did+'" data-real-index="'+realIndex+'" onclick="selectUser('+realIndex+')"><div class="avatar">'+(displayIndex+1)+'</div><div class="user-main"><div class="user-role-line"><span class="user-name">'+(typeof esc==='function'?esc(u.nickname||u.name||'-'):clean(u.nickname||u.name||'-'))+'</span>'+mb+gb+'</div><div class="user-sub">'+(typeof esc==='function'?esc(u.pubgId||u.gameId||'-'):clean(u.pubgId||u.gameId||'-'))+'</div></div></div>';
+      return '<div class="user-card named-role-layout '+active+'" data-did="'+did+'" data-real-index="'+realIndex+'" onclick="selectUser('+realIndex+')"><div class="avatar">'+(displayIndex+1)+'</div><div class="user-main"><div class="user-role-line"><span class="user-name">'+(typeof esc==='function'?esc(u.nickname||u.name||'-'):clean(u.nickname||u.name||'-'))+'</span>'+mb+gb+'</div><div class="user-sub">'+(typeof esc==='function'?esc((u.pubgId||u.gameId||'-')+((u.discordDisplayName||u.discordGlobalName||u.global_name||u.discordUsername||u.discord_username)?' · 디코 '+(u.discordDisplayName||u.discordGlobalName||u.global_name||u.discordUsername||u.discord_username):'')):clean((u.pubgId||u.gameId||'-')+((u.discordDisplayName||u.discordGlobalName||u.global_name||u.discordUsername||u.discord_username)?' · 디코 '+(u.discordDisplayName||u.discordGlobalName||u.global_name||u.discordUsername||u.discord_username):'')))+'</div></div></div>';
     }).join('') || '<div class="pending-empty">검색된 회원이 없습니다.</div>';
     var uc=document.getElementById('userCount'); if(uc) uc.textContent=list.length+'명';
   };
@@ -8921,7 +8962,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       state=Object.assign({},state||{}, {
         users:Array.isArray(users)?users:[],
         pending:Array.isArray(state&&state.pending)?state.pending:[],
-        bans:Array.isArray(state&&state.bans)?state.bans:[],
+        bans:Array.isArray(window.__PKL_ADMIN_LAST_BANS)?window.__PKL_ADMIN_LAST_BANS.slice():(Array.isArray(state&&state.bans)?state.bans:[]),
         warningRecords:Array.isArray(state&&state.warningRecords)?state.warningRecords:[]
       });
       window.state=state;
@@ -8942,10 +8983,32 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     hint.style.cssText='margin:8px 0 2px;padding:12px 10px;border:1px solid rgba(216,180,254,.13);border-radius:14px;background:rgba(255,255,255,.035);color:rgba(221,214,254,.78);font-size:12px;font-weight:900;text-align:center;';
     wrap.appendChild(hint);
   }
+  var __pklAdminDuplicateCleanupDone=false;
+  var __pklAdminGuildNicknameSyncDone=false;
+  async function runDuplicateCleanupOnce(){
+    if(__pklAdminDuplicateCleanupDone) return;
+    __pklAdminDuplicateCleanupDone=true;
+    try{
+      await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'cleanupDuplicateUsers',limit:2000})});
+    }catch(e){}
+  }
+  async function runDiscordGuildNicknameSyncOnce(){
+    if(__pklAdminGuildNicknameSyncDone) return;
+    __pklAdminGuildNicknameSyncDone=true;
+    try{
+      var res=await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({action:'syncDiscordGuildNicknames',limit:Math.max(20,(__pklAdminUsersPageSize||20))})});
+      var data=await res.json().catch(function(){return {};});
+      window.__PKL_LAST_GUILD_NICK_SYNC_RESULT=data;
+      if(data && data.ok && Number(data.updated||0)>0 && typeof window.PKLAdminInvalidateUsersRenderCache==='function') window.PKLAdminInvalidateUsersRenderCache();
+      if(data && data.missingConfig) console.warn('Discord 서버닉 동기화 환경변수 누락: DISCORD_BOT_TOKEN / DISCORD_GUILD_ID');
+    }catch(e){ console.warn('Discord 서버닉 동기화 실패', e); }
+  }
   async function fetchAdminUsersPage(offset){
+    if(!offset){ await runDuplicateCleanupOnce(); await runDiscordGuildNicknameSyncOnce(); }
     var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
+    if(Array.isArray(data.bans)) window.__PKL_ADMIN_LAST_BANS=data.bans;
     if(typeof data.count==='number' && isFinite(data.count)) __pklAdminUsersTotal=data.count;
     return data.users;
   }
