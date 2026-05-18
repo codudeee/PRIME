@@ -7774,5 +7774,58 @@ body.pkl-recruit-waiting #joinCancelBtn,
 })();
 </script>
 
+
+<script id="pklJoinDiscordOpenHostRenderFix20260518">
+(function(){
+  if(window.__PKL_JOIN_DISCORD_OPEN_HOST_RENDER_FIX__) return;
+  window.__PKL_JOIN_DISCORD_OPEN_HOST_RENDER_FIX__ = true;
+  function clean(v){ return String(v == null ? '' : v).trim(); }
+  function escapeHtml(v){ return clean(v).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];}); }
+  function readRecruit(){ try{return JSON.parse(localStorage.getItem('pklJoinRecruitState')||'null')||{};}catch(e){return{};} }
+  function nameOf(u){ u=u||{}; return clean(u.nickname||u.name||u.nick||u.displayName||u.discordServerNickname||u.discordGlobalName||u.discordUsername||u.pubgId||u.pubg_id||'오픈자')||'오픈자'; }
+  function roleOf(u){ u=u||{}; return clean(u.memberRole||u.role||u.userRole||u.authRole||u.adminRole||'operator')||'operator'; }
+  function hostHtml(u){
+    var role=roleOf(u), badge='';
+    try{ if(window.PKLRoleBadge && typeof window.PKLRoleBadge.render==='function') badge = window.PKLRoleBadge.render(role,{extraClass:'join-admin-role-badge'}) || ''; }catch(e){}
+    try{ if(!badge && window.PKLRoleSystem && typeof window.PKLRoleSystem.memberBadge==='function') badge = window.PKLRoleSystem.memberBadge(role) || ''; }catch(e){}
+    return '<span class="join-open-host-line user-role-line">'+badge+'<span class="join-open-host-name user-name">'+escapeHtml(nameOf(u))+'</span></span>';
+  }
+  function formatOpenTime(st){
+    st=st||{};
+    var txt=clean(st.openTime||st.openedTime||'');
+    if(txt) return txt;
+    var iso=clean(st.openedAt||st.createdAt||'');
+    if(!iso) return '';
+    var d=new Date(iso);
+    if(isNaN(d.getTime())) return '';
+    try{return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:true}).format(d);}catch(e){return '';}
+  }
+  function applyRecruitOpenInfo(st){
+    st=st||readRecruit();
+    var openHost=document.getElementById('joinOpenHost');
+    var openTime=document.getElementById('joinOpenTime');
+    var deadline=document.getElementById('joinDeadlineText');
+    if(!st || st.state!=='open') return;
+    if(openHost){
+      var host=st.hostUser||st.host||st.openHost||st.openedByUser||null;
+      if(st.hostHtml) openHost.innerHTML=st.hostHtml;
+      else if(host) openHost.innerHTML=hostHtml(host);
+      else if(st.openedByName) openHost.innerHTML=hostHtml({nickname:st.openedByName,role:st.openedByRole||'operator'});
+    }
+    if(openTime) openTime.textContent=formatOpenTime(st);
+    if(deadline){
+      var d=clean(st.deadlineText||st.feeText||st.feeInput||'');
+      if(d && deadline.textContent!==d) deadline.textContent=d;
+    }
+  }
+  window.PKLJoinApplyRecruitOpenInfo = applyRecruitOpenInfo;
+  window.addEventListener('pkl-join-state-updated',function(ev){
+    var st=ev && ev.detail && ev.detail.recruitState;
+    if(st && st.state==='open') setTimeout(function(){applyRecruitOpenInfo(st);},0);
+  });
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){applyRecruitOpenInfo(readRecruit());},150);});
+})();
+</script>
+
 </body>
 </html>

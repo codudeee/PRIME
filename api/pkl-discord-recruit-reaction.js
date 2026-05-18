@@ -29,6 +29,22 @@ function normalizeUser(u){
   const key = discordId || clean(u.key || u.uid || u.userId || nickname || pubgId);
   return { key, uid:key, userId:key, id: discordId ? `discord-${discordId}` : key, discord_id:discordId, discordId, discordUsername:clean(u.discordUsername || u.discord_username || u.username || ''), discordGlobalName:clean(u.discordGlobalName || u.global_name || u.displayName || u.nick || u.name || u.nickname || ''), discordGuildNick:guildNickRaw, discordServerNickname:guildNick, name:nickname, nickname, pubgId, joinedAt:new Date().toISOString() };
 }
+
+function hostFromUser(user){
+  if(!keyOf(user)) return null;
+  return {
+    key:user.key, uid:user.uid, userId:user.userId, id:user.id,
+    discord_id:user.discord_id, discordId:user.discordId,
+    discordUsername:user.discordUsername, discordGlobalName:user.discordGlobalName,
+    discordGuildNick:user.discordGuildNick, discordServerNickname:user.discordServerNickname,
+    name:user.name, nickname:user.nickname, pubgId:user.pubgId, pubg_id:user.pubgId,
+    role:clean(user.role || user.memberRole || user.userRole || 'operator'),
+    memberRole:clean(user.memberRole || user.role || user.userRole || 'operator')
+  };
+}
+function koreaTimeLabel() {
+  return new Intl.DateTimeFormat('ko-KR', { timeZone:'Asia/Seoul', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:true }).format(new Date());
+}
 function same(a,b){ const ak=keyOf(a), bk=keyOf(b); return !!(ak && bk && ak === bk); }
 function unique(arr){ const out=[]; (Array.isArray(arr)?arr:[]).forEach(x=>{ if(x && typeof x==='object' && !out.some(p=>same(p,x))) out.push(x); }); return out; }
 async function sb(path, options={}){
@@ -146,17 +162,20 @@ async function handler(req,res){
 
     if(/^(open|start|recruit|recruitopen|openrecruit|joinopen|모집|모집열기|모집시작)$/.test(action)){
       const now = new Date().toISOString();
+      const host = hostFromUser(user);
       st.recruitState = Object.assign({}, st.recruitState || {}, {
         state:'open',
         openedAt: now,
+        openTime: clean(body.openTime || body.open_time || '') || koreaTimeLabel(),
         updatedAt: now,
         source:'discord'
       });
-      if(keyOf(user)) st.recruitState.host = {
-        key:user.key, uid:user.uid, userId:user.userId, id:user.id,
-        discord_id:user.discord_id, discordId:user.discordId,
-        name:user.name, nickname:user.nickname, pubgId:user.pubgId
-      };
+      if(host){
+        st.recruitState.host = host;
+        st.recruitState.hostUser = host;
+        st.recruitState.openedBy = host.discord_id || host.discordId || host.name || '';
+        st.recruitState.openedByName = host.nickname || host.name || '';
+      }
       if(body.deadline || body.deadlineText) st.recruitState.deadlineText = clean(body.deadlineText || body.deadline);
       if(body.max || body.limit || body.maxCount) st.recruitState.maxCount = Number(body.max || body.limit || body.maxCount) || undefined;
       const saved = await writeJoinState(st);
