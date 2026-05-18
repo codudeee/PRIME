@@ -9023,13 +9023,8 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       var page=await fetchAdminUsersPage(offset);
       var merged=append ? mergeAdminUserPages(adminUsers(),page) : unique(page);
       __pklAdminUsersOffset=offset+page.length;
-      /* PKL admin user scroll fix:
-         기존 API가 count를 현재 페이지 수(20)처럼 내려주는 경우가 있어도,
-         page가 pageSize만큼 꽉 차면 다음 페이지가 있을 수 있으므로 admin 쪽에서 추가 로드를 막지 않는다.
-         API/전체 구조/닉변 반영 로직은 건드리지 않는다. */
-      var gotFullPage = page.length >= __pklAdminUsersPageSize;
-      var reliableTotal = (__pklAdminUsersTotal != null && __pklAdminUsersTotal > __pklAdminUsersOffset);
-      __pklAdminUsersHasMore = gotFullPage && (reliableTotal || __pklAdminUsersTotal == null || __pklAdminUsersTotal <= __pklAdminUsersPageSize);
+      /* admin 전용 복구: 기존 API가 count를 20으로 내려줘도 첫 페이지가 꽉 차면 다음 페이지를 시도한다. */
+      __pklAdminUsersHasMore=page.length>=__pklAdminUsersPageSize && (__pklAdminUsersTotal==null || __pklAdminUsersOffset<__pklAdminUsersTotal || page.length===__pklAdminUsersPageSize);
       setAdminUsers(merged);
     }catch(err){
       console.error('PKL admin canonical users load failed',err);
@@ -9038,16 +9033,28 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     }finally{
       __pklAdminUsersLoadInFlight=false;
       updateAdminUsersLoadHint();
+      setTimeout(function(){ try{ maybeLoadMoreAdminUsers(); }catch(e){} },80);
     }
   }
+  function isAdminUsersNearBottom(){
+    var wrap=document.getElementById('userList');
+    if(!wrap) return false;
+    return wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 160;
+  }
+  function maybeLoadMoreAdminUsers(){
+    var wrap=document.getElementById('userList');
+    if(!wrap || __pklAdminUsersLoadInFlight || !__pklAdminUsersHasMore) return;
+    if(wrap.scrollHeight <= wrap.clientHeight + 24 || isAdminUsersNearBottom()) load(true);
+  }
   function bindAdminUserInfiniteScroll(){
-    if(__pklAdminUsersScrollBound) return;
     var wrap=document.getElementById('userList'); if(!wrap) return;
+    if(wrap.dataset.pklAdminScrollBound==='1') return;
+    wrap.dataset.pklAdminScrollBound='1';
     __pklAdminUsersScrollBound=true;
-    wrap.addEventListener('scroll',function(){
-      if(__pklAdminUsersLoadInFlight || !__pklAdminUsersHasMore) return;
-      if(wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 140) load(true);
-    },{passive:true});
+    wrap.addEventListener('scroll',function(){ maybeLoadMoreAdminUsers(); },{passive:true});
+    wrap.addEventListener('wheel',function(e){ if(e && e.deltaY>0) setTimeout(maybeLoadMoreAdminUsers,0); },{passive:true});
+    document.addEventListener('scroll',function(){ maybeLoadMoreAdminUsers(); },{passive:true});
+    window.addEventListener('resize',function(){ setTimeout(maybeLoadMoreAdminUsers,80); },{passive:true});
   }
   document.addEventListener('DOMContentLoaded',function(){
     var users=document.getElementById('userManageTab');
@@ -9058,6 +9065,60 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   });
   window.PKLAdminReloadSupabaseUsers=function(){__pklAdminUsersOffset=0;__pklAdminUsersTotal=null;__pklAdminUsersHasMore=true;return load(false);};
   window.PKLAdminLoadMoreSupabaseUsers=function(){return load(true);};
+})();
+</script>
+
+
+<script id="pkl-admin-nickname-realtime-only-20260518">
+(function(){
+  if(window.__PKL_ADMIN_NICKNAME_REALTIME_ONLY__) return;
+  window.__PKL_ADMIN_NICKNAME_REALTIME_ONLY__=true;
+  function clean(v){return String(v==null?'':v).trim();}
+  function didOf(u){
+    u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
+    return clean(u.discord_id||u.discordId||raw.discord_id||raw.discordId||'').replace(/^discord-/i,'');
+  }
+  function nickOf(u){
+    u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
+    var nick=clean(raw.discordGuildNick||raw.guildNick||raw.discordServerNickname||u.discordGuildNick||u.guildNick||u.discordServerNickname||u.nickname||u.name||raw.nickname||raw.name);
+    if(nick.indexOf('/')>=0) nick=nick.split('/')[0];
+    return nick.trim();
+  }
+  function patchLoadedUser(row){
+    var did=didOf(row); if(!did) return;
+    var nextNick=nickOf(row); if(!nextNick) return;
+    var users=(window.state&&Array.isArray(window.state.users))?window.state.users:[];
+    var changed=false;
+    for(var i=0;i<users.length;i++){
+      if(didOf(users[i])!==did) continue;
+      users[i]=Object.assign({},users[i],row,{nickname:nextNick,name:nextNick,nick:nextNick,displayName:nextNick});
+      changed=true;
+    }
+    if(!changed) return; /* 아직 로드되지 않은 20명 밖 유저는 스크롤 로딩 구조를 건드리지 않는다. */
+    try{ if(typeof window.PKLAdminInvalidateUsersRenderCache==='function') window.PKLAdminInvalidateUsersRenderCache(); }catch(e){}
+    try{ if(typeof window.render==='function') window.render(); }catch(e){}
+  }
+  async function getCfg(){
+    if(window.PKLSupabaseConfig) return window.PKLSupabaseConfig;
+    try{var r=await fetch('/api/supabase-config',{cache:'no-store'}); var j=await r.json(); return j&&j.ok?j:null;}catch(e){return null;}
+  }
+  async function start(){
+    var cfg=await getCfg();
+    var url=cfg&&cfg.url, key=cfg&&(cfg.anonKey||cfg.anon_key||cfg.key);
+    if(!url||!key) return;
+    if(!window.supabase||!window.supabase.createClient){
+      var s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      s.onload=start;
+      document.head.appendChild(s);
+      return;
+    }
+    var sb=window.supabase.createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+    sb.channel('pkl-admin-users-nickname-only')
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'users'},function(payload){patchLoadedUser(payload&&payload.new);})
+      .subscribe();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true}); else start();
 })();
 </script>
 
