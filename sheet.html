@@ -14371,12 +14371,60 @@ window.addEventListener('DOMContentLoaded',()=>{
     try{ if(window.PKLTierBadge && typeof window.PKLTierBadge.render==='function') return window.PKLTierBadge.render(tier)||''; }catch(e){}
     return '<span class="tier-mark">'+esc(tier)+'</span>';
   }
-  function findTeam(teamId){
-    try{ return (state.teams||[]).find(function(t){ return String(t.id)===String(teamId); }); }catch(e){ return null; }
+  const PKL_TEAM_EDIT_STORAGE_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
+  const PKL_TEAM_EDIT_SESSION_BACKUP_KEY=PKL_TEAM_EDIT_STORAGE_KEY+'_SESSION_BACKUP';
+  function cloneState(st){
+    try{return JSON.parse(JSON.stringify(st||{}));}catch(e){return st||{};}
+  }
+  function getEditableSheetState(){
+    try{
+      if(window.PKLSheetLiveBridge && typeof window.PKLSheetLiveBridge.getState==='function'){
+        var bridged=window.PKLSheetLiveBridge.getState();
+        if(bridged && Array.isArray(bridged.teams)) return cloneState(bridged);
+      }
+    }catch(e){}
+    try{
+      var raw=sessionStorage.getItem(PKL_TEAM_EDIT_SESSION_BACKUP_KEY)||sessionStorage.getItem(PKL_TEAM_EDIT_STORAGE_KEY)||localStorage.getItem(PKL_TEAM_EDIT_STORAGE_KEY);
+      var parsed=raw?JSON.parse(raw):null;
+      if(parsed && Array.isArray(parsed.teams)) return parsed;
+    }catch(e){}
+    return null;
+  }
+  function persistEditableSheetState(st){
+    if(!st || !Array.isArray(st.teams)) return;
+    st.savedAt=new Date().toISOString();
+    var localJson='';
+    try{ localJson=JSON.stringify(st); }catch(e){ localJson=''; }
+    if(localJson){
+      try{ sessionStorage.setItem(PKL_TEAM_EDIT_SESSION_BACKUP_KEY,localJson); sessionStorage.setItem(PKL_TEAM_EDIT_STORAGE_KEY,localJson); localStorage.setItem(PKL_TEAM_EDIT_STORAGE_KEY,localJson); }catch(e){}
+    }
+    try{ if(window.PKLSheetLiveBridge && typeof window.PKLSheetLiveBridge.markLocalEdit==='function') window.PKLSheetLiveBridge.markLocalEdit(); }catch(e){}
+    try{ if(window.PKLSheetLiveBridge && typeof window.PKLSheetLiveBridge.applyState==='function') window.PKLSheetLiveBridge.applyState(st); }catch(e){}
+    var shared=cloneState(st);
+    try{ shared.selectedTeamId=''; }catch(e){}
+    try{
+      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared==='function'){
+        window.PKLSupabaseDataSync.setShared(PKL_TEAM_EDIT_STORAGE_KEY, shared);
+      }else if(typeof window.saveSharedData==='function'){
+        window.saveSharedData(PKL_TEAM_EDIT_STORAGE_KEY, shared);
+      }else{
+        fetch('/api/pkl-data-store',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'shared',key:PKL_TEAM_EDIT_STORAGE_KEY,value:shared}),keepalive:true}).catch(function(){});
+      }
+    }catch(e){}
+    try{ if(window.PKLScoreboardRealtime && typeof window.PKLScoreboardRealtime.schedulePublish==='function') window.PKLScoreboardRealtime.schedulePublish(80); }catch(e){}
+    try{ window.dispatchEvent(new CustomEvent('pkl-sheet-team-members-updated',{detail:{state:shared}})); }catch(e){}
+  }
+  function findTeamInState(st,teamId){
+    try{ return (st.teams||[]).find(function(t){ return String(t.id)===String(teamId); }); }catch(e){ return null; }
   }
   function applyUserToSlot(input,user){
-    if(!input || !user) return;
-    var team=findTeam(input.dataset.realTeam);
+    if(!input || !input.dataset || !user) return;
+    var st=getEditableSheetState();
+    if(!st || !Array.isArray(st.teams)){
+      try{ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast('현재 시트 상태를 찾지 못했습니다. 새로고침 후 다시 시도해주세요.'); }catch(e){}
+      return;
+    }
+    var team=findTeamInState(st,input.dataset.realTeam);
     var index=Number(input.dataset.memberIndex);
     if(!team || !Array.isArray(team.members) || !Number.isFinite(index)) return;
     while(team.members.length<=index) team.members.push({name:'',tier:''});
@@ -14405,7 +14453,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     };
     var nk=userKey(newMember);
     try{
-      (state.teams||[]).some(function(t){
+      (st.teams||[]).some(function(t){
         if(!t || !Array.isArray(t.members)) return false;
         for(var mi=0; mi<t.members.length; mi++){
           if(String(t.id)===String(team.id) && mi===index) continue;
@@ -14418,9 +14466,7 @@ window.addEventListener('DOMContentLoaded',()=>{
       });
     }catch(e){}
     team.members[index]=newMember;
-    try{ if(typeof pklMarkLocalSheetEdit==='function') pklMarkLocalSheetEdit(); }catch(e){}
-    try{ if(typeof save==='function') save(); }catch(e){}
-    try{ if(typeof render==='function') render(); }catch(e){}
+    persistEditableSheetState(st);
     try{ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast(name+' 선수로 변경되었습니다.'); }catch(e){}
   }
   function closeSuggest(){
@@ -14552,7 +14598,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     }
     var opt=e.target && e.target.closest && e.target.closest('.pkl-team-edit-option[data-pkl-team-user-index]');
     if(opt){
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation) e.stopImmediatePropagation();
       var panel=opt.closest('#pklTeamReplacePanel');
       if(panel){
         var resultBox=document.getElementById('pklTeamReplaceResults');
