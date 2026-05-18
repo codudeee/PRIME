@@ -17,7 +17,16 @@
   function emit(name, detail){ try{ window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(e){} }
   function cfgValue(k){ try{ return clean(localStorage.getItem(k) || ''); }catch(e){ return ''; } }
   function getDiscordId(u){ u = u || {}; return stripDiscord(u.discord_id || u.discordId || u.discordID || u.uid || u.id || u.userId || u.key); }
-  function getNick(u){ u = u || {}; return clean(u.nickname || u.nick || u.name || u.discordServerNickname || u.discordGuildNick || u.discord_username || u.discordUsername || u.displayName); }
+  function stripNick(v){ v=clean(v); if(v.indexOf('/')>=0) v=v.split('/')[0]; return v.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); }
+  function getNick(u){
+    u = u || {};
+    // users.nickname 우선. 디코 서버닉/raw 값은 fallback 전용.
+    return clean(stripNick(u.nickname || u.nick || u.name) || stripNick(u.registeredNickname || u.pklNickname || u.pkl_nickname) || stripNick(u.discordServerNickname || u.discordGuildNick || u.guildNick) || u.discord_username || u.discordUsername || u.displayName);
+  }
+  function isBannedUser(u){
+    u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
+    return u.banned===true || raw.banned===true || raw.isBanned===true || low(u.role||u.memberRole||raw.role||raw.memberRole)==='banned';
+  }
   function getPubg(u){ u = u || {}; return clean(u.pubg_id || u.pubgId || u.pubgID || u.gameId || u.pubgName || u.pubg || u.ref); }
   function normalizeTier(v){
     if(window.PKLTierBadge && typeof window.PKLTierBadge.normalize === 'function') return window.PKLTierBadge.normalize(v);
@@ -56,31 +65,34 @@
     u.memberTier = tier; u.gradeRole = tier; u.tierRole = tier; u.baseRole = tier; u.originalRole = tier; u.tier = tierLabel(tier); u.memberTierName = tierLabel(tier);
     return u;
   }
-
-  function isBanned(u){
-    u = u || {};
-    var raw = u.raw && typeof u.raw === 'object' ? u.raw : {};
-    var roleText = low(u.role || u.memberRole || raw.role || raw.memberRole || '');
-    return u.banned === true || raw.banned === true || raw.isBanned === true || roleText === 'banned';
-  }
-
   function sameUser(a,b){
-    var ad = getDiscordId(a), bd = getDiscordId(b);
-    return !!(ad && bd && ad === bd);
+    var ad = getDiscordId(a), bd = getDiscordId(b); if(ad && bd) return ad === bd;
+    var ap = low(getPubg(a)), bp = low(getPubg(b)); if(ap && bp) return ap === bp;
+    var an = low(getNick(a)), bn = low(getNick(b)); return !!(an && bn && an === bn);
   }
   function applyUsers(users, meta){
-    users = (Array.isArray(users) ? users : []).map(normalizeUser).filter(function(u){ return !!getDiscordId(u); });
-    if(!users.length) return cache.slice();
-    users.forEach(function(u){
+    var incoming = (Array.isArray(users) ? users : []).map(normalizeUser).filter(function(u){ return !!getDiscordId(u); });
+    var removed = [];
+    incoming.filter(isBannedUser).forEach(function(u){
       var did = getDiscordId(u);
-      var idx = cache.findIndex(function(x){ return sameUser(x,u); });
-      if(isBanned(u)){
-        if(idx >= 0) cache.splice(idx, 1);
-        if(did) delete byDiscord[did];
-        return;
+      if(!did) return;
+      var before = cache.length;
+      cache = cache.filter(function(x){ return getDiscordId(x) !== did; });
+      delete byDiscord[did];
+      if(cache.length !== before) removed.push(u);
+    });
+    users = incoming.filter(function(u){ return !isBannedUser(u); });
+    if(!users.length){
+      if(removed.length){
+        emit('pkl-users-updated', { users: cache.slice(), changedUsers: [], removedUsers: removed.slice(), meta: meta || {} });
+        emit('pkl-role-data-updated', { users: cache.slice(), changedUsers: [], removedUsers: removed.slice(), meta: meta || {} });
       }
+      return cache.slice();
+    }
+    users.forEach(function(u){
+      var idx = cache.findIndex(function(x){ return sameUser(x,u); });
       if(idx >= 0) cache[idx] = Object.assign({}, cache[idx], u); else cache.push(u);
-      if(did) byDiscord[did] = cache[idx >= 0 ? idx : cache.length - 1];
+      var did = getDiscordId(u); if(did) byDiscord[did] = cache[idx >= 0 ? idx : cache.length - 1];
       try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === 'function') window.PKLUserProfile.upsert(u, true); }catch(e){}
       try{ if(typeof window.PKLApplySingleUserTierSync === 'function') window.PKLApplySingleUserTierSync(u); }catch(e){}
       try{ if(typeof window.PKLJoinApplySingleTierSync === 'function') window.PKLJoinApplySingleTierSync(u); }catch(e){}

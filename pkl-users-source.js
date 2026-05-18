@@ -19,7 +19,20 @@
     }
     return '';
   }
-  function nick(u){ u = u || {}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var top=clean(u.nickname || u.nick || u.name || u.registeredNickname || u.pklNickname); if(top) return top; var sn=clean(raw.nickname || raw.registeredNickname || raw.pklNickname || raw.nick || raw.name || raw.discordServerNickname || raw.discordGuildNick || raw.guildNick || u.discordServerNickname || u.discordGuildNick || u.guildNick); if(sn.indexOf('/')>=0) sn=sn.split('/')[0]; sn=sn.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); return clean(sn); }
+  function stripNick(v){ v=clean(v); if(v.indexOf('/')>=0) v=v.split('/')[0]; return v.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); }
+  function nick(u){
+    u = u || {}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
+    // Supabase users.nickname(row.nickname)이 단일 표시 기준이다.
+    // raw.discordGuildNick/raw.discordServerNickname은 row.nickname이 비어 있을 때만 fallback으로 사용한다.
+    var rowNick=stripNick(u.nickname||u.nick||u.name);
+    var registered=stripNick(raw.registeredNickname||raw.pklNickname||raw.pkl_nickname||u.registeredNickname||u.pklNickname||u.pkl_nickname);
+    var server=stripNick(raw.discordServerNickname||raw.discordGuildNick||raw.guildNick||u.discordServerNickname||u.discordGuildNick||u.guildNick);
+    return clean(rowNick || registered || server);
+  }
+  function isBannedUser(u){
+    u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
+    return u.banned===true || raw.banned===true || raw.isBanned===true || low(u.role||u.memberRole||raw.role||raw.memberRole)==='banned';
+  }
   function pubg(u){ u = u || {}; return clean(u.pubgId || u.pubg_id || u.pubgID || u.gameId || u.pubgName || u.ref || u.pubg); }
   function role(v){
     var raw = clean(v), l = raw.toLowerCase();
@@ -66,14 +79,6 @@
     src.last = src.last || src.lastLogin || src.updated_at || src.updatedAt || '';
     return src;
   }
-
-  function isBanned(u){
-    u = u || {};
-    var raw = u.raw && typeof u.raw === 'object' ? u.raw : {};
-    var roleText = low(u.role || u.memberRole || raw.role || raw.memberRole || '');
-    return u.banned === true || raw.banned === true || raw.isBanned === true || roleText === 'banned';
-  }
-
   function same(a,b){
     var ai = id(a), bi = id(b);
     return !!(ai && bi && ai === bi);
@@ -84,7 +89,7 @@
       (Array.isArray(list) ? list : []).forEach(function(raw){
         if(!raw || typeof raw !== 'object') return;
         var u = normalize(raw);
-        if(!id(u) || isBanned(u)) return;
+        if(!id(u) || isBannedUser(u)) return;
         var i = out.findIndex(function(x){ return same(x,u); });
         if(i >= 0) out[i] = normalize(Object.assign({}, out[i], u)); else out.push(u);
       });
@@ -171,7 +176,7 @@
     var range = res.headers.get('content-range') || '';
     var count = Number((range.split('/')[1] || '').replace('*',''));
     meta.source = 'browser'; meta.limit = limit; meta.offset = offset; meta.q = q; meta.count = Number.isFinite(count) ? count : (Array.isArray(rows) ? rows.length : 0); meta.loadedAt = Date.now();
-    return Array.isArray(rows) ? rows.map(rowToUser).filter(function(u){ return !!id(u) && !isBanned(u); }) : [];
+    return Array.isArray(rows) ? rows.map(rowToUser).filter(function(u){ return !!id(u) && !isBannedUser(u); }) : [];
   }
   async function fetchViaApi(options){
     options = options || {};
@@ -187,7 +192,7 @@
     }
     var data = await res.json();
     meta.source = 'api'; meta.limit = limit; meta.offset = offset; meta.q = q; meta.count = Number(data.count || 0); meta.loadedAt = Date.now();
-    return Array.isArray(data.users) ? data.users : [];
+    return Array.isArray(data.users) ? data.users.map(normalize).filter(function(u){ return !!id(u) && !isBannedUser(u); }) : [];
   }
   async function fetchPage(options){
     try { return await fetchViaApi(options); }
@@ -198,7 +203,13 @@
   }
   function applyUsers(users, options){
     options = options || {};
-    cache = sortUsers(options.append ? mergeLists(cache, users) : mergeLists(users));
+    var incoming = (Array.isArray(users) ? users : []).map(normalize).filter(function(u){ return !!id(u); });
+    var bannedIds = incoming.filter(isBannedUser).map(id).filter(Boolean);
+    if(bannedIds.length){
+      cache = cache.filter(function(u){ return bannedIds.indexOf(id(u)) < 0; });
+    }
+    var active = incoming.filter(function(u){ return !isBannedUser(u); });
+    cache = sortUsers(options.append ? mergeLists(cache, active) : mergeLists(active));
     if(!window.state || typeof window.state !== 'object') window.state = { users: [], pending: [], bans: [], warningRecords: [] };
     window.state.users = cache.slice();
     if(!Array.isArray(window.state.pending)) window.state.pending = [];
@@ -281,11 +292,6 @@
   function updateCachedUser(user, options){
     options = options || {};
     var normalized = normalize(user || {});
-    if(isBanned(normalized)){
-      cache = cache.filter(function(x){ return !same(x, normalized); });
-      if(window.state && Array.isArray(window.state.users)) window.state.users = window.state.users.filter(function(x){ return !same(x, normalized); });
-      return cache.slice();
-    }
     /* 3차 청소: discord_id 없는 유저 객체는 화면 캐시에 append하지 않는다.
        닉네임만 있는 이벤트 객체가 들어오면 Supabase의 실제 유저와 별개 항목으로 떠서 중복이 된다. */
     if(!id(normalized)) return cache.slice();
