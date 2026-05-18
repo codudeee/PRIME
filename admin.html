@@ -9023,8 +9023,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       var page=await fetchAdminUsersPage(offset);
       var merged=append ? mergeAdminUserPages(adminUsers(),page) : unique(page);
       __pklAdminUsersOffset=offset+page.length;
-      /* admin 전용 복구: 기존 API가 count를 20으로 내려줘도 첫 페이지가 꽉 차면 다음 페이지를 시도한다. */
-      __pklAdminUsersHasMore=page.length>=__pklAdminUsersPageSize && (__pklAdminUsersTotal==null || __pklAdminUsersOffset<__pklAdminUsersTotal || page.length===__pklAdminUsersPageSize);
+      __pklAdminUsersHasMore=page.length>=__pklAdminUsersPageSize && (__pklAdminUsersTotal==null || __pklAdminUsersOffset<__pklAdminUsersTotal);
       setAdminUsers(merged);
     }catch(err){
       console.error('PKL admin canonical users load failed',err);
@@ -9033,28 +9032,16 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     }finally{
       __pklAdminUsersLoadInFlight=false;
       updateAdminUsersLoadHint();
-      setTimeout(function(){ try{ maybeLoadMoreAdminUsers(); }catch(e){} },80);
     }
   }
-  function isAdminUsersNearBottom(){
-    var wrap=document.getElementById('userList');
-    if(!wrap) return false;
-    return wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 160;
-  }
-  function maybeLoadMoreAdminUsers(){
-    var wrap=document.getElementById('userList');
-    if(!wrap || __pklAdminUsersLoadInFlight || !__pklAdminUsersHasMore) return;
-    if(wrap.scrollHeight <= wrap.clientHeight + 24 || isAdminUsersNearBottom()) load(true);
-  }
   function bindAdminUserInfiniteScroll(){
+    if(__pklAdminUsersScrollBound) return;
     var wrap=document.getElementById('userList'); if(!wrap) return;
-    if(wrap.dataset.pklAdminScrollBound==='1') return;
-    wrap.dataset.pklAdminScrollBound='1';
     __pklAdminUsersScrollBound=true;
-    wrap.addEventListener('scroll',function(){ maybeLoadMoreAdminUsers(); },{passive:true});
-    wrap.addEventListener('wheel',function(e){ if(e && e.deltaY>0) setTimeout(maybeLoadMoreAdminUsers,0); },{passive:true});
-    document.addEventListener('scroll',function(){ maybeLoadMoreAdminUsers(); },{passive:true});
-    window.addEventListener('resize',function(){ setTimeout(maybeLoadMoreAdminUsers,80); },{passive:true});
+    wrap.addEventListener('scroll',function(){
+      if(__pklAdminUsersLoadInFlight || !__pklAdminUsersHasMore) return;
+      if(wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 140) load(true);
+    },{passive:true});
   }
   document.addEventListener('DOMContentLoaded',function(){
     var users=document.getElementById('userManageTab');
@@ -9069,56 +9056,158 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 </script>
 
 
-<script id="pkl-admin-nickname-realtime-only-20260518">
+<script id="pkl-admin-loaded-users-nickname-realtime-only">
 (function(){
-  if(window.__PKL_ADMIN_NICKNAME_REALTIME_ONLY__) return;
-  window.__PKL_ADMIN_NICKNAME_REALTIME_ONLY__=true;
-  function clean(v){return String(v==null?'':v).trim();}
-  function didOf(u){
-    u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
-    return clean(u.discord_id||u.discordId||raw.discord_id||raw.discordId||'').replace(/^discord-/i,'');
-  }
-  function nickOf(u){
-    u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
-    var nick=clean(raw.discordGuildNick||raw.guildNick||raw.discordServerNickname||u.discordGuildNick||u.guildNick||u.discordServerNickname||u.nickname||u.name||raw.nickname||raw.name);
-    if(nick.indexOf('/')>=0) nick=nick.split('/')[0];
-    return nick.trim();
-  }
-  function patchLoadedUser(row){
-    var did=didOf(row); if(!did) return;
-    var nextNick=nickOf(row); if(!nextNick) return;
-    var users=(window.state&&Array.isArray(window.state.users))?window.state.users:[];
-    var changed=false;
-    for(var i=0;i<users.length;i++){
-      if(didOf(users[i])!==did) continue;
-      users[i]=Object.assign({},users[i],row,{nickname:nextNick,name:nextNick,nick:nextNick,displayName:nextNick});
-      changed=true;
+  'use strict';
+  if(window.__PKL_ADMIN_LOADED_USERS_NICK_REALTIME_ONLY__) return;
+  window.__PKL_ADMIN_LOADED_USERS_NICK_REALTIME_ONLY__ = true;
+
+  var socket = null;
+  var channelRef = '';
+  var heartbeatTimer = 0;
+  var reconnectTimer = 0;
+  var joined = false;
+
+  function clean(v){ return String(v == null ? '' : v).trim(); }
+  function low(v){ return clean(v).toLowerCase(); }
+  function didOfLocal(u){
+    u = u || {};
+    var raw = (u.raw && typeof u.raw === 'object') ? u.raw : {};
+    var did = clean(u.discord_id || u.discordId || raw.discord_id || raw.discordId).toLowerCase().replace(/^discord-/, '');
+    if(did) return did;
+    var keys = ['uid','id','userId','key'];
+    for(var i=0;i<keys.length;i++){
+      var v = clean(u[keys[i]] || raw[keys[i]]);
+      if(/^discord-/i.test(v)) return v.toLowerCase().replace(/^discord-/, '');
     }
-    if(!changed) return; /* 아직 로드되지 않은 20명 밖 유저는 스크롤 로딩 구조를 건드리지 않는다. */
-    try{ if(typeof window.PKLAdminInvalidateUsersRenderCache==='function') window.PKLAdminInvalidateUsersRenderCache(); }catch(e){}
-    try{ if(typeof window.render==='function') window.render(); }catch(e){}
+    return '';
   }
-  async function getCfg(){
-    if(window.PKLSupabaseConfig) return window.PKLSupabaseConfig;
-    try{var r=await fetch('/api/supabase-config',{cache:'no-store'}); var j=await r.json(); return j&&j.ok?j:null;}catch(e){return null;}
-  }
-  async function start(){
-    var cfg=await getCfg();
-    var url=cfg&&cfg.url, key=cfg&&(cfg.anonKey||cfg.anon_key||cfg.key);
-    if(!url||!key) return;
-    if(!window.supabase||!window.supabase.createClient){
-      var s=document.createElement('script');
-      s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-      s.onload=start;
-      document.head.appendChild(s);
-      return;
+  function stripLeadingNicknameDecorationsLocal(v){
+    var s = clean(v);
+    for(var i=0;i<8;i++){
+      var n = s.replace(/^[\s\uFE0F\u200D]+/g,'').replace(/^[^\p{L}\p{N}가-힣]+/u,'').trimStart();
+      if(n === s) break;
+      s = n;
     }
-    var sb=window.supabase.createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
-    sb.channel('pkl-admin-users-nickname-only')
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'users'},function(payload){patchLoadedUser(payload&&payload.new);})
-      .subscribe();
+    return s.trim();
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true}); else start();
+  function serverNickLocal(v){
+    var s = clean(v).split('/')[0] || '';
+    s = stripLeadingNicknameDecorationsLocal(s);
+    var m = s.match(/[가-힣][가-힣0-9A-Za-z_\-\s]{0,18}/);
+    return stripLeadingNicknameDecorationsLocal(m ? m[0] : s);
+  }
+  function nickFromRow(row){
+    row = row || {};
+    var raw = (row.raw && typeof row.raw === 'object') ? row.raw : {};
+    return serverNickLocal(
+      raw.discordGuildNick || raw.guildNick || raw.discordServerNickname ||
+      row.discordGuildNick || row.guildNick || row.discordServerNickname || ''
+    ) || stripLeadingNicknameDecorationsLocal(
+      raw.registeredNickname || raw.pklNickname || raw.pkl_nickname || raw.signupNickname || raw.signup_nickname ||
+      row.registeredNickname || row.pklNickname || row.signupNickname || row.nickname || row.name || row.nick || ''
+    );
+  }
+  function escText(v){ return clean(v); }
+  function updateLoadedAdminUser(row){
+    var did = didOfLocal(row);
+    var nick = nickFromRow(row);
+    if(!did || !nick) return false;
+    if(!window.state || !Array.isArray(window.state.users)) return false;
+
+    var changed = false;
+    for(var i=0;i<window.state.users.length;i++){
+      var u = window.state.users[i];
+      if(didOfLocal(u) !== did) continue;
+      var raw = (u.raw && typeof u.raw === 'object') ? Object.assign({}, u.raw) : {};
+      var incomingRaw = (row.raw && typeof row.raw === 'object') ? row.raw : {};
+      ['discordGuildNick','guildNick','discordServerNickname'].forEach(function(k){
+        if(row[k] != null) raw[k] = row[k];
+        if(incomingRaw[k] != null) raw[k] = incomingRaw[k];
+      });
+      u.raw = raw;
+      u.nickname = nick;
+      u.name = nick;
+      u.nick = nick;
+      u.displayName = nick;
+      if(row.discordGuildNick != null) u.discordGuildNick = row.discordGuildNick;
+      if(row.guildNick != null) u.guildNick = row.guildNick;
+      if(row.discordServerNickname != null) u.discordServerNickname = row.discordServerNickname;
+      changed = true;
+      break;
+    }
+    if(!changed) return false;
+
+    var card = document.querySelector('.user-card[data-did="' + CSS.escape(did) + '"]');
+    if(card){
+      var nameEl = card.querySelector('.user-name');
+      if(nameEl) nameEl.textContent = escText(nick);
+    }
+    try{
+      if(typeof current === 'number' && window.state.users[current] && didOfLocal(window.state.users[current]) === did && typeof renderProfile === 'function') renderProfile();
+    }catch(e){}
+    try{ if(typeof renderWelcome === 'function') renderWelcome(); }catch(e){}
+    return true;
+  }
+
+  async function getConfig(){
+    var cfg = window.PKL_SUPABASE_CONFIG || {};
+    var url = clean(cfg.url || cfg.supabaseUrl || cfg.SUPABASE_URL || '').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');
+    var key = clean(cfg.anonKey || cfg.supabaseAnonKey || cfg.SUPABASE_ANON_KEY || '');
+    if(url && key) return { url:url, key:key };
+    try{
+      var res = await fetch('/api/supabase-config', { cache:'no-store', headers:{ Accept:'application/json' } });
+      var data = await res.json().catch(function(){ return {}; });
+      url = clean(data.url || data.supabaseUrl || data.SUPABASE_URL || '').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');
+      key = clean(data.anonKey || data.supabaseAnonKey || data.SUPABASE_ANON_KEY || '');
+    }catch(e){}
+    return { url:url, key:key };
+  }
+  function send(obj){ try{ if(socket && socket.readyState === 1) socket.send(JSON.stringify(obj)); }catch(e){} }
+  function joinChannel(){
+    if(!socket || socket.readyState !== 1 || joined) return;
+    channelRef = String(Date.now()) + Math.random().toString(16).slice(2);
+    send({
+      topic:'realtime:public:users',
+      event:'phx_join',
+      payload:{ config:{ broadcast:{ self:false }, presence:{ key:'' }, postgres_changes:[{ event:'UPDATE', schema:'public', table:'users' }] } },
+      ref:channelRef
+    });
+    joined = true;
+  }
+  function scheduleReconnect(){
+    clearInterval(heartbeatTimer); heartbeatTimer = 0; joined = false;
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connect, 1800);
+  }
+  function handleMessage(event){
+    var msg = null;
+    try{ msg = JSON.parse(event.data); }catch(e){ return; }
+    if(!msg || msg.event !== 'postgres_changes') return;
+    var p = msg.payload || {};
+    var row = p.record || p.new || {};
+    updateLoadedAdminUser(row);
+  }
+  async function connect(){
+    if(!window.WebSocket) return;
+    var cfg = await getConfig();
+    if(!cfg.url || !cfg.key) return;
+    try{ if(socket) socket.close(); }catch(e){}
+    var wsUrl = cfg.url.replace(/^http/i,'ws') + '/realtime/v1/websocket?apikey=' + encodeURIComponent(cfg.key) + '&vsn=1.0.0';
+    socket = new WebSocket(wsUrl);
+    socket.onopen = function(){
+      joinChannel();
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(function(){ send({ topic:'phoenix', event:'heartbeat', payload:{}, ref:String(Date.now()) }); }, 25000);
+    };
+    socket.onmessage = handleMessage;
+    socket.onclose = scheduleReconnect;
+    socket.onerror = scheduleReconnect;
+  }
+  function start(){ connect(); }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true }); else start();
+  window.addEventListener('pkl-supabase-config-ready', connect);
 })();
 </script>
 
