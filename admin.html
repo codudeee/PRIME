@@ -9023,7 +9023,13 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       var page=await fetchAdminUsersPage(offset);
       var merged=append ? mergeAdminUserPages(adminUsers(),page) : unique(page);
       __pklAdminUsersOffset=offset+page.length;
-      __pklAdminUsersHasMore=page.length>=__pklAdminUsersPageSize && (__pklAdminUsersTotal==null || __pklAdminUsersOffset<__pklAdminUsersTotal);
+      /* PKL admin user scroll fix:
+         기존 API가 count를 현재 페이지 수(20)처럼 내려주는 경우가 있어도,
+         page가 pageSize만큼 꽉 차면 다음 페이지가 있을 수 있으므로 admin 쪽에서 추가 로드를 막지 않는다.
+         API/전체 구조/닉변 반영 로직은 건드리지 않는다. */
+      var gotFullPage = page.length >= __pklAdminUsersPageSize;
+      var reliableTotal = (__pklAdminUsersTotal != null && __pklAdminUsersTotal > __pklAdminUsersOffset);
+      __pklAdminUsersHasMore = gotFullPage && (reliableTotal || __pklAdminUsersTotal == null || __pklAdminUsersTotal <= __pklAdminUsersPageSize);
       setAdminUsers(merged);
     }catch(err){
       console.error('PKL admin canonical users load failed',err);
@@ -9052,141 +9058,6 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   });
   window.PKLAdminReloadSupabaseUsers=function(){__pklAdminUsersOffset=0;__pklAdminUsersTotal=null;__pklAdminUsersHasMore=true;return load(false);};
   window.PKLAdminLoadMoreSupabaseUsers=function(){return load(true);};
-})();
-</script>
-
-
-<script id="pkl-admin-users-nickname-realtime-minimal-20260518">
-(function(){
-  'use strict';
-  if(window.__PKL_ADMIN_USERS_NICKNAME_REALTIME_MINIMAL__) return;
-  window.__PKL_ADMIN_USERS_NICKNAME_REALTIME_MINIMAL__=true;
-
-  function clean(v){return String(v==null?'':v).trim();}
-  function didOf(u){
-    u=u||{};
-    var did=clean(u.discordId||u.discord_id).replace(/^discord-/i,'');
-    if(did) return did;
-    var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
-    did=clean(raw.discordId||raw.discord_id).replace(/^discord-/i,'');
-    if(did) return did;
-    ['uid','id','userId','key'].some(function(k){
-      var v=clean(u[k]);
-      if(/^discord-/i.test(v)){did=v.replace(/^discord-/i,''); return true;}
-      return false;
-    });
-    return did;
-  }
-  function stripNick(v){
-    var s=clean(v).split('/')[0]||'';
-    try{s=s.normalize('NFKC').replace(/^[\s\u00a0\u200b\u200c\u200d\ufeff]+/g,'').replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u,'').trim();}catch(e){s=s.replace(/^\W+/,'').trim();}
-    return s;
-  }
-  function nicknameFrom(row){
-    row=row||{};
-    var raw=(row.raw&&typeof row.raw==='object')?row.raw:{};
-    return stripNick(raw.discordGuildNick||raw.guildNick||raw.discordServerNickname||row.discordGuildNick||row.guildNick||row.discordServerNickname||row.nickname||raw.nickname||row.name||raw.name||row.nick||raw.nick||'');
-  }
-  function updateLoadedUser(row){
-    var did=didOf(row);
-    if(!did) return false;
-    if(typeof state==='undefined' || !state || !Array.isArray(state.users)) return false;
-    var users=state.users;
-    var idx=-1;
-    for(var i=0;i<users.length;i++){
-      if(didOf(users[i])===did){idx=i;break;}
-    }
-    if(idx<0) return false; // 기존 20명씩 로딩 구조 유지: 아직 로드 안 된 유저는 목록에 새로 끼워넣지 않음
-
-    var before=users[idx]||{};
-    var rawBefore=(before.raw&&typeof before.raw==='object')?before.raw:{};
-    var rawIncoming=(row.raw&&typeof row.raw==='object')?row.raw:{};
-    var nick=nicknameFrom(row)||nicknameFrom(before);
-    var mergedRaw=Object.assign({}, rawBefore, rawIncoming);
-    ['discordGuildNick','guildNick','discordServerNickname'].forEach(function(k){
-      if(row[k]!=null) mergedRaw[k]=row[k];
-      if(rawIncoming[k]!=null) mergedRaw[k]=rawIncoming[k];
-    });
-    var merged=Object.assign({}, before, row, {
-      raw:mergedRaw,
-      discordId:did,
-      discord_id:did,
-      uid:'discord-'+did,
-      id:'discord-'+did,
-      userId:'discord-'+did
-    });
-    if(nick){
-      merged.nickname=nick;
-      merged.name=nick;
-      merged.nick=nick;
-      merged.displayName=nick;
-    }
-    users[idx]=merged;
-
-    try{ if(typeof window.PKLAdminInvalidateUsersRenderCache==='function') window.PKLAdminInvalidateUsersRenderCache(); }catch(e){}
-    try{ if(typeof window.render==='function') window.render(); }
-    catch(e){
-      try{ if(typeof window.renderUserList==='function') window.renderUserList(); }catch(_e){}
-      try{ if(typeof window.renderProfile==='function') window.renderProfile(); }catch(_e){}
-    }
-    return true;
-  }
-  window.PKLAdminApplyUserRealtimePatch=updateLoadedUser;
-
-  async function readSupabaseConfig(){
-    var candidates=['/api/supabase-config','/api/pkl-supabase-config'];
-    for(var i=0;i<candidates.length;i++){
-      try{
-        var res=await fetch(candidates[i],{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
-        if(!res.ok) continue;
-        var data=await res.json().catch(function(){return {};});
-        var url=data.url||data.supabaseUrl||data.SUPABASE_URL||data.projectUrl||data.publicUrl;
-        var key=data.anonKey||data.supabaseAnonKey||data.SUPABASE_ANON_KEY||data.key||data.publicAnonKey;
-        if(url&&key) return {url:String(url).replace(/\/$/,''),key:String(key)};
-      }catch(e){}
-    }
-    var url=window.PKL_SUPABASE_URL||window.SUPABASE_URL||localStorage.getItem('PKL_SUPABASE_URL')||localStorage.getItem('SUPABASE_URL');
-    var key=window.PKL_SUPABASE_ANON_KEY||window.SUPABASE_ANON_KEY||localStorage.getItem('PKL_SUPABASE_ANON_KEY')||localStorage.getItem('SUPABASE_ANON_KEY');
-    return (url&&key)?{url:String(url).replace(/\/$/,''),key:String(key)}:null;
-  }
-  function openRealtime(cfg){
-    if(!cfg||!cfg.url||!cfg.key) return;
-    var wsUrl=cfg.url.replace(/^http/i,'ws')+'/realtime/v1/websocket?apikey='+encodeURIComponent(cfg.key)+'&vsn=1.0.0';
-    var ws, ref=1, hb=null, reconnect=null, closed=false;
-    function send(topic,event,payload){
-      if(!ws || ws.readyState!==1) return;
-      ws.send(JSON.stringify({topic:topic,event:event,payload:payload||{},ref:String(ref++)}));
-    }
-    function connect(){
-      if(closed) return;
-      try{ws=new WebSocket(wsUrl);}catch(e){scheduleReconnect();return;}
-      ws.onopen=function(){
-        send('realtime:public:users','phx_join',{config:{broadcast:{self:false},presence:{key:''},postgres_changes:[{event:'UPDATE',schema:'public',table:'users'},{event:'INSERT',schema:'public',table:'users'}]},access_token:cfg.key});
-        clearInterval(hb);
-        hb=setInterval(function(){send('phoenix','heartbeat',{});},25000);
-      };
-      ws.onmessage=function(ev){
-        var msg; try{msg=JSON.parse(ev.data);}catch(e){return;}
-        if(msg.event!=='postgres_changes') return;
-        var p=msg.payload||{};
-        var row=p.record || p.new || (p.data&&(p.data.record||p.data.new)) || null;
-        if(row) updateLoadedUser(row);
-      };
-      ws.onclose=scheduleReconnect;
-      ws.onerror=function(){try{ws.close();}catch(e){scheduleReconnect();}};
-    }
-    function scheduleReconnect(){
-      clearInterval(hb); hb=null;
-      clearTimeout(reconnect);
-      if(closed) return;
-      reconnect=setTimeout(connect,3000);
-    }
-    window.addEventListener('beforeunload',function(){closed=true;clearInterval(hb);try{ws&&ws.close();}catch(e){}});
-    connect();
-  }
-  document.addEventListener('DOMContentLoaded',function(){
-    readSupabaseConfig().then(openRealtime).catch(function(e){console.warn('PKL admin users realtime skipped',e);});
-  });
 })();
 </script>
 
