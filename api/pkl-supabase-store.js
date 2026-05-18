@@ -526,24 +526,58 @@ async function canonicalizeDuplicateDiscordRows(discordId, keepBody){
 function rowToUser(r){
   r = r || {};
   const raw = r.raw && typeof r.raw === 'object' ? r.raw : {};
-  return normalizeUser({
+  // Supabase row columns are canonical. raw is kept for history only and must not override
+  // current nickname/tier/role/banned values coming from the users table.
+  const rowNick = cleanNickname(r.nickname || '');
+  const rowPubg = clean(r.pubg_id || '');
+  const rowTier = normalizeTier(r.tier);
+  const rowRole = normalizeRole(r.role || r.member_role || (r.is_admin ? 'admin' : raw.role));
+  const normalized = normalizeUser({
     ...raw,
     discordId: r.discord_id,
+    discord_id: r.discord_id,
     discordUsername: r.discord_username,
-    nickname: r.nickname,
-    pubgId: r.pubg_id,
-    memberTier: r.tier,
-    tier: r.tier,
+    discord_username: r.discord_username,
+    nickname: rowNick || raw.nickname,
+    nick: rowNick || raw.nick,
+    name: rowNick || raw.name,
+    displayName: rowNick || raw.displayName,
+    _supabaseNickname: rowNick,
+    supabaseNickname: rowNick,
+    pubgId: rowPubg || raw.pubgId,
+    pubg_id: rowPubg || raw.pubg_id,
+    memberTier: rowTier,
+    gradeRole: rowTier,
+    tierRole: rowTier,
+    baseRole: rowTier,
+    tier: rowTier,
     prime: r.prime ?? r.points,
     points: r.points ?? r.prime,
     warnings: r.warnings,
     jailed: r.jailed,
     banned: r.banned,
-    role: r.role || r.member_role || (r.is_admin ? 'admin' : raw.role),
+    role: rowRole,
+    memberRole: rowRole,
+    userRole: rowRole,
+    authRole: rowRole,
     created_at: r.created_at,
     updated_at: r.updated_at,
     raw
   });
+  if(rowNick){
+    normalized.nickname = rowNick;
+    normalized.nick = rowNick;
+    normalized.name = rowNick;
+    normalized.displayName = rowNick;
+    normalized._supabaseNickname = rowNick;
+    normalized.supabaseNickname = rowNick;
+  }
+  if(rowPubg){ normalized.pubgId = rowPubg; normalized.gameId = rowPubg; normalized.pubgName = rowPubg; normalized.ref = rowPubg; }
+  normalized.role = rowRole; normalized.memberRole = rowRole; normalized.userRole = rowRole; normalized.authRole = rowRole;
+  normalized.memberTier = rowTier; normalized.gradeRole = rowTier; normalized.tierRole = rowTier; normalized.baseRole = rowTier;
+  normalized.tier = rowTier === 'none' ? '없음' : rowTier;
+  normalized.banned = r.banned === true || r.banned === 'true' || raw.banned === true || raw.isBanned === true;
+  return normalized;
 }
 async function supabaseFetch(path, options={}){
   if(!configured()) throw new Error('Supabase 설정 없음');
@@ -634,7 +668,7 @@ async function readUserDocs(options={}){
   const rawUsers = json
     .map(rowToUser)
     .filter(u => !!u.discordId)
-    .filter(u => !(u.banned === true || String(u.role || u.memberRole || '').toLowerCase() === 'banned' || String(u.raw && (u.raw.banned || u.raw.isBanned) || '').toLowerCase() === 'true'));
+    .filter(u => !(u.banned === true || String(u.banned).toLowerCase() === 'true' || String(u.role || u.memberRole || '').toLowerCase() === 'banned' || String(u.raw && (u.raw.banned || u.raw.isBanned) || '').toLowerCase() === 'true'));
   // Supabase users is the only source, but the API also normalizes the page result once here.
   // This prevents the client pages from each doing their own cache/nickname merge and creating duplicate visible users.
   const seenDiscord = new Set();
