@@ -6590,6 +6590,124 @@ body.pkl-team-compose-edit-mode .record-table th.pkl-team-compose-edit-head{
 body.pkl-team-compose-edit-mode #teamGrid .member-row{
   cursor:default !important;
 }
+
+/* Team member replace panel: keep MATCH RECORD columns normal-sized */
+body.pkl-team-compose-edit-mode .record-table th.pkl-team-compose-edit-head{
+  min-width:190px !important;
+  overflow:visible !important;
+}
+.pkl-team-replace-btn{
+  width:100% !important;
+  min-height:34px !important;
+  padding:4px 8px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:6px !important;
+  border-radius:11px !important;
+  border:1px solid rgba(168,85,247,.40) !important;
+  background:linear-gradient(180deg,rgba(168,85,247,.13),rgba(0,0,0,.25)) !important;
+  color:#fff !important;
+  cursor:pointer !important;
+  font-weight:1000 !important;
+  white-space:nowrap !important;
+}
+.pkl-team-replace-btn:hover{
+  border-color:rgba(216,180,254,.75) !important;
+  box-shadow:0 0 18px rgba(168,85,247,.22) !important;
+  filter:brightness(1.06) !important;
+}
+.pkl-team-replace-btn .user-role-line{
+  min-width:0 !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:5px !important;
+}
+.pkl-team-replace-btn .user-name{
+  max-width:120px !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}
+.pkl-team-replace-btn em{
+  flex:0 0 auto !important;
+  padding:2px 6px !important;
+  border-radius:999px !important;
+  border:1px solid rgba(216,180,254,.28) !important;
+  background:rgba(255,255,255,.06) !important;
+  color:#d8b4fe !important;
+  font-size:10px !important;
+  font-style:normal !important;
+  font-weight:1000 !important;
+}
+.pkl-team-replace-panel{
+  position:fixed;
+  left:50%;
+  bottom:132px;
+  z-index:2147482100;
+  width:min(520px,calc(100vw - 32px));
+  display:none;
+  padding:14px;
+  border-radius:20px;
+  border:1px solid rgba(216,180,254,.42);
+  background:linear-gradient(180deg,rgba(21,12,42,.98),rgba(5,5,14,.99));
+  box-shadow:0 24px 70px rgba(0,0,0,.66),0 0 36px rgba(168,85,247,.28),inset 0 1px 0 rgba(255,255,255,.10);
+  transform:translateX(-50%);
+}
+.pkl-team-replace-panel.show{display:block;}
+.pkl-team-replace-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+  color:#fff;
+  font-size:13px;
+  font-weight:1000;
+}
+.pkl-team-replace-head small{
+  display:block;
+  margin-top:3px;
+  color:rgba(216,180,254,.70);
+  font-size:11px;
+  font-weight:850;
+}
+.pkl-team-replace-close{
+  width:32px;
+  height:32px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.07);
+  color:#fff;
+  cursor:pointer;
+  font-size:18px;
+  font-weight:1000;
+}
+.pkl-team-replace-search{
+  width:100% !important;
+  height:44px !important;
+  padding:0 14px !important;
+  border-radius:14px !important;
+  border:1px solid rgba(216,180,254,.42) !important;
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(0,0,0,.38)) !important;
+  color:#fff !important;
+  outline:none !important;
+  font-size:15px !important;
+  font-weight:1000 !important;
+}
+.pkl-team-replace-results{
+  margin-top:10px;
+  max-height:260px;
+  overflow-y:auto;
+  display:grid;
+  gap:6px;
+}
+.pkl-team-replace-results .pkl-team-edit-option{
+  min-height:46px;
+  padding:8px 10px;
+}
+
 </style>
 </head>
 <body>
@@ -8154,7 +8272,7 @@ function renderSheet(){
     const m=view.members[i];
     h.classList.toggle('pkl-team-compose-edit-head', !!(teamEditMode && m && m.name));
     if(teamEditMode && m && m.name){
-      h.innerHTML = `<div class="pkl-team-header-edit-wrap" data-pkl-team-edit-row="1" data-real-team="${realId}" data-member-index="${offset+i}"><input class="pkl-team-member-edit-input pkl-team-header-edit-input" type="text" value="${escape(m.name||'')}" placeholder="교체 선수 검색" data-pkl-team-edit-input="1" data-real-team="${realId}" data-member-index="${offset+i}" autocomplete="off"><div class="pkl-team-edit-suggest" data-pkl-team-edit-suggest="1"></div></div>`;
+      h.innerHTML = `<button type="button" class="pkl-team-replace-btn" data-real-team="${realId}" data-member-index="${offset+i}" data-current-name="${escape(m.name||'')}">${pklSheetHeaderNameHtml(m)}<em>교체</em></button>`;
     }else{
       h.innerHTML = m && m.name ? pklSheetHeaderNameHtml(m) : '';
     }
@@ -14330,6 +14448,54 @@ window.addEventListener('DOMContentLoaded',()=>{
     box.__pklUsers=matches;
     box.classList.add('show');
   }
+  function ensureReplacePanel(){
+    var panel=document.getElementById('pklTeamReplacePanel');
+    if(panel) return panel;
+    panel=document.createElement('div');
+    panel.id='pklTeamReplacePanel';
+    panel.className='pkl-team-replace-panel';
+    panel.innerHTML='<div class="pkl-team-replace-head"><div><b id="pklTeamReplaceTitle">선수 교체</b><small>닉네임, 배그ID, 초성으로 검색 후 선택하세요.</small></div><button type="button" class="pkl-team-replace-close" id="pklTeamReplaceClose">×</button></div><input type="text" class="pkl-team-replace-search" id="pklTeamReplaceInput" placeholder="교체할 선수 검색 예: 민혁 / szz / ㅁㅎ" autocomplete="off"><div class="pkl-team-replace-results" id="pklTeamReplaceResults"></div>';
+    document.body.appendChild(panel);
+    return panel;
+  }
+  function closeReplacePanel(){
+    var panel=document.getElementById('pklTeamReplacePanel');
+    if(panel){ panel.classList.remove('show'); panel.__pklSlot=null; }
+  }
+  async function showReplaceResults(){
+    var panel=ensureReplacePanel();
+    var input=document.getElementById('pklTeamReplaceInput');
+    var box=document.getElementById('pklTeamReplaceResults');
+    if(!input || !box) return;
+    var q=input.value;
+    var users=await loadAllUsers();
+    var matches=users.filter(function(u){return userName(u) && matchUser(u,q);}).slice(0,12);
+    if(!matches.length){
+      box.innerHTML='<div class="pkl-team-edit-option"><span><strong>검색 결과 없음</strong><em>닉네임/배그ID/초성으로 검색하세요</em></span></div>';
+      box.__pklUsers=[];
+      return;
+    }
+    box.innerHTML=matches.map(function(u,i){
+      var name=userName(u);
+      var pubg=userPubg(u);
+      var sub=[pubg && ('배그ID '+pubg), userTier(u)].filter(Boolean).join(' · ');
+      return '<button type="button" class="pkl-team-edit-option'+(i===0?' is-active':'')+'" data-pkl-team-user-index="'+i+'"><span><strong>'+esc(name)+'</strong><em>'+esc(sub||'Supabase users')+'</em></span>'+badgeForUser(u)+'</button>';
+    }).join('');
+    box.__pklUsers=matches;
+  }
+  function openReplacePanel(btn){
+    if(!btn) return;
+    var panel=ensureReplacePanel();
+    var title=document.getElementById('pklTeamReplaceTitle');
+    var input=document.getElementById('pklTeamReplaceInput');
+    var name=btn.getAttribute('data-current-name')||'선수';
+    panel.__pklSlot={ realTeam:btn.getAttribute('data-real-team'), memberIndex:btn.getAttribute('data-member-index') };
+    if(title) title.textContent=name+' 교체';
+    if(input){ input.value=''; }
+    panel.classList.add('show');
+    showReplaceResults();
+    setTimeout(function(){ try{ input && input.focus(); }catch(e){} },30);
+  }
   function ensureToast(){
     var toast=document.getElementById('pklTeamComposeToast');
     if(toast) return toast;
@@ -14346,6 +14512,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     }
     window.__PKL_TEAM_COMPOSE_EDIT_MODE=!!on;
     document.body.classList.toggle('pkl-team-compose-edit-mode',!!on);
+    if(!on) closeReplacePanel();
     var toast=ensureToast();
     toast.classList.toggle('show',!!on);
     closeSuggest();
@@ -14365,8 +14532,20 @@ window.addEventListener('DOMContentLoaded',()=>{
       setEditMode(true);
       return;
     }
+    var replaceBtn=e.target && e.target.closest && e.target.closest('.pkl-team-replace-btn');
+    if(replaceBtn){
+      e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      openReplacePanel(replaceBtn);
+      return;
+    }
+    if(e.target && e.target.id==='pklTeamReplaceClose'){
+      e.preventDefault();
+      closeReplacePanel();
+      return;
+    }
     if(e.target && e.target.id==='pklTeamComposeDone'){
       e.preventDefault();
+      closeReplacePanel();
       setEditMode(false);
       try{ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast('팀 구성 수정이 완료되었습니다.'); }catch(_e){}
       return;
@@ -14374,6 +14553,16 @@ window.addEventListener('DOMContentLoaded',()=>{
     var opt=e.target && e.target.closest && e.target.closest('.pkl-team-edit-option[data-pkl-team-user-index]');
     if(opt){
       e.preventDefault(); e.stopPropagation();
+      var panel=opt.closest('#pklTeamReplacePanel');
+      if(panel){
+        var resultBox=document.getElementById('pklTeamReplaceResults');
+        var slot=panel.__pklSlot || {};
+        var fakeInput={ dataset:{ realTeam:slot.realTeam, memberIndex:slot.memberIndex } };
+        var panelUsers=resultBox && resultBox.__pklUsers || [];
+        applyUserToSlot(fakeInput, panelUsers[Number(opt.dataset.pklTeamUserIndex)]);
+        closeReplacePanel();
+        return;
+      }
       var box=opt.closest('[data-pkl-team-edit-suggest]');
       var row=opt.closest('[data-pkl-team-edit-row]');
       var input=row && row.querySelector('[data-pkl-team-edit-input]');
@@ -14391,7 +14580,21 @@ window.addEventListener('DOMContentLoaded',()=>{
     var input=e.target && e.target.matches && e.target.matches('[data-pkl-team-edit-input]') ? e.target : null;
     if(input) showSuggest(input);
   },true);
+  document.addEventListener('input',function(e){
+    if(e.target && e.target.id==='pklTeamReplaceInput') showReplaceResults();
+  },true);
   document.addEventListener('keydown',function(e){
+    if(e.target && e.target.id==='pklTeamReplaceInput'){
+      if(e.key==='Escape'){ e.preventDefault(); closeReplacePanel(); return; }
+      if(e.key==='Enter'){
+        var panel=document.getElementById('pklTeamReplacePanel');
+        var resultBox=document.getElementById('pklTeamReplaceResults');
+        var users=resultBox && resultBox.__pklUsers || [];
+        var slot=panel && panel.__pklSlot || {};
+        if(users[0]){ e.preventDefault(); applyUserToSlot({dataset:{realTeam:slot.realTeam,memberIndex:slot.memberIndex}},users[0]); closeReplacePanel(); }
+        return;
+      }
+    }
     var input=e.target && e.target.matches && e.target.matches('[data-pkl-team-edit-input]') ? e.target : null;
     if(!input) return;
     if(e.key==='Escape'){ closeSuggest(); return; }
