@@ -1325,16 +1325,20 @@ button{cursor:pointer}
 
 <style id="pkl-result-sheet-tier-badge-style">
 .record-table thead th .result-sheet-member-head{
-  min-height:48px;
-  display:flex;
-  flex-direction:column;
+  min-height:38px;
+  width:100%;
+  display:inline-flex;
+  flex-direction:row;
   align-items:center;
   justify-content:center;
-  gap:4px;
+  gap:6px;
   padding:4px 2px;
+  box-sizing:border-box;
+  white-space:nowrap;
 }
 .record-table thead th .result-sheet-member-name{
-  max-width:100%;
+  min-width:0;
+  max-width:calc(100% - 58px);
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
@@ -1344,12 +1348,14 @@ button{cursor:pointer}
   line-height:1.05;
 }
 .record-table thead th .result-sheet-tier-badge.pkl-tier-badge{
-  min-width:58px !important;
-  height:22px !important;
-  min-height:22px !important;
-  padding:0 8px !important;
+  flex:0 0 auto !important;
+  min-width:42px !important;
+  height:20px !important;
+  min-height:20px !important;
+  padding:0 6px !important;
   font-size:10px !important;
-  line-height:22px !important;
+  line-height:20px !important;
+  vertical-align:middle !important;
 }
 </style>
 <link rel="stylesheet" href="./pkl-horizontal-scroll-only.css?v=20260515-scroll-only-root">
