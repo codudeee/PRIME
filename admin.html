@@ -5,7 +5,6 @@
 <html lang="ko">
 <head>
 <script src="pkl-boot-fix.js?v=20260513b"></script>
-<script src="pkl-supabase-config.js?v=20260518a"></script>
 
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -8972,27 +8971,6 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     window.render();
     updateAdminUsersLoadHint();
   }
-  function applyRealtimeUserPatch(row){
-    try{
-      var u=normalize(row);
-      var d=didOf(u);
-      if(!d) return false;
-      var list=adminUsers();
-      var idx=list.findIndex(function(x){return didOf(x)===d;});
-      if(idx<0) return false; // 아직 20명 페이지에 로드되지 않은 유저는 무한스크롤 목록을 흔들지 않는다.
-      list[idx]=Object.assign({},list[idx],u);
-      if(typeof state!=='undefined' && state && Array.isArray(state.users)) state.users=list;
-      window.state=state;
-      try{ if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers(list.slice(),false); }catch(e){}
-      try{ bumpUsersCacheVersion(); }catch(e){}
-      try{ window.render(); }catch(e){}
-      return true;
-    }catch(e){console.warn('PKL admin realtime user patch skipped',e); return false;}
-  }
-  window.addEventListener('pkl-admin-single-user-updated', function(ev){
-    var row=ev&&ev.detail&&ev.detail.user;
-    if(row) applyRealtimeUserPatch(row);
-  });
   function updateAdminUsersLoadHint(){
     var wrap=document.getElementById('userList'); if(!wrap) return;
     var old=wrap.querySelector('.pkl-admin-users-more-hint'); if(old) old.remove();
@@ -9045,10 +9023,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       var page=await fetchAdminUsersPage(offset);
       var merged=append ? mergeAdminUserPages(adminUsers(),page) : unique(page);
       __pklAdminUsersOffset=offset+page.length;
-      /* Admin-only 복구: 서버 count가 현재 페이지 수(20)로 내려와도 목록을 끝으로 확정하지 않는다.
-         기존처럼 다음 페이지 요청은 실제 page 길이로 판단한다. */
-      __pklAdminUsersHasMore=page.length>=__pklAdminUsersPageSize;
-      if(page.length===0) __pklAdminUsersHasMore=false;
+      __pklAdminUsersHasMore=page.length>=__pklAdminUsersPageSize && (__pklAdminUsersTotal==null || __pklAdminUsersOffset<__pklAdminUsersTotal);
       setAdminUsers(merged);
     }catch(err){
       console.error('PKL admin canonical users load failed',err);
@@ -9063,28 +9038,10 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     if(__pklAdminUsersScrollBound) return;
     var wrap=document.getElementById('userList'); if(!wrap) return;
     __pklAdminUsersScrollBound=true;
-    var ticking=false;
-    function nearUserListBottom(){
-      if(!wrap) return false;
-      var listScrollable=wrap.scrollHeight>wrap.clientHeight+4;
-      if(listScrollable && wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 160) return true;
-      var rect=wrap.getBoundingClientRect();
-      var viewport=window.innerHeight||document.documentElement.clientHeight||0;
-      return rect.bottom <= viewport + 180;
-    }
-    function requestMore(){
-      if(ticking) return;
-      ticking=true;
-      requestAnimationFrame(function(){
-        ticking=false;
-        if(__pklAdminUsersLoadInFlight || !__pklAdminUsersHasMore) return;
-        if(nearUserListBottom()) load(true);
-      });
-    }
-    wrap.addEventListener('scroll',requestMore,{passive:true});
-    wrap.addEventListener('wheel',requestMore,{passive:true});
-    window.addEventListener('scroll',requestMore,{passive:true});
-    window.addEventListener('resize',requestMore,{passive:true});
+    wrap.addEventListener('scroll',function(){
+      if(__pklAdminUsersLoadInFlight || !__pklAdminUsersHasMore) return;
+      if(wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 140) load(true);
+    },{passive:true});
   }
   document.addEventListener('DOMContentLoaded',function(){
     var users=document.getElementById('userManageTab');
@@ -9098,67 +9055,122 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
 })();
 </script>
 
-<script id="pkl-admin-users-realtime-page-safe-fix">
+
+
+<script id="pkl-admin-users-discord-nickname-realtime-minimal-20260518">
 (function(){
   'use strict';
-  if(window.__PKL_ADMIN_USERS_REALTIME_PAGE_SAFE_FIX__) return;
-  window.__PKL_ADMIN_USERS_REALTIME_PAGE_SAFE_FIX__=true;
-  var socket=null, joined=false, channelRef='', heartbeat=0, reconnect=0;
-  function clean(v){return String(v==null?'':v).trim();}
-  function didOf(row){
-    row=row||{}; var raw=row.raw&&typeof row.raw==='object'?row.raw:{};
-    var v=clean(row.discord_id||row.discordId||raw.discord_id||raw.discordId||row.uid||row.id||row.userId).replace(/^discord-/i,'');
-    return v;
+  if(window.__PKL_ADMIN_USERS_DISCORD_NICK_REALTIME_MINIMAL__) return;
+  window.__PKL_ADMIN_USERS_DISCORD_NICK_REALTIME_MINIMAL__ = true;
+
+  function clean(v){ return String(v == null ? '' : v).trim(); }
+  function didOf(u){
+    u = u || {};
+    var raw = clean(u.discord_id || u.discordId || (u.raw && (u.raw.discord_id || u.raw.discordId)) || '');
+    if(!raw){
+      ['uid','id','userId','key'].some(function(k){
+        var v = clean(u[k] || (u.raw && u.raw[k]) || '');
+        if(/^discord-/i.test(v)){ raw = v.replace(/^discord-/i,''); return true; }
+        return false;
+      });
+    }
+    return clean(raw).replace(/^discord-/i,'');
   }
-  function cfg(){
-    var c=window.PKL_SUPABASE_CONFIG||{};
-    var url=clean(c.url||c.supabaseUrl||c.SUPABASE_URL||localStorage.getItem('SUPABASE_URL')||localStorage.getItem('PKL_SUPABASE_URL')).replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');
-    var key=clean(c.anonKey||c.supabaseAnonKey||c.SUPABASE_ANON_KEY||localStorage.getItem('SUPABASE_ANON_KEY')||localStorage.getItem('PKL_SUPABASE_ANON_KEY'));
-    return {url:url,key:key};
+  function serverNicknameFrom(row){
+    row = row || {};
+    var raw = (row.raw && typeof row.raw === 'object') ? row.raw : {};
+    var v = clean(raw.discordGuildNick || raw.guildNick || raw.discordServerNickname || row.discordGuildNick || row.guildNick || row.discordServerNickname || row.nickname || row.name || row.nick || '');
+    v = v.split('/')[0] || v;
+    v = v.normalize ? v.normalize('NFKC') : v;
+    v = v.replace(/^[\s\u00a0\u200b\u200c\u200d\ufeff]+/g,'').replace(/^(?:[^\p{L}\p{N}_-]|[\uFE0E\uFE0F\u200D])+/u,'').trim();
+    var m = v.match(/[가-힣][가-힣0-9A-Za-z_\-\s]{0,18}/);
+    return clean(m ? m[0] : v);
   }
-  function send(o){try{if(socket&&socket.readyState===1)socket.send(JSON.stringify(o));}catch(e){}}
-  async function fetchOne(discordId){
-    if(!discordId) return null;
-    var res=await fetch('/api/pkl-users?limit=1&offset=0&discordId='+encodeURIComponent(discordId),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
-    var data=await res.json().catch(function(){return {};});
-    return res.ok&&data.ok&&Array.isArray(data.users)&&data.users[0]?data.users[0]:null;
+  function mergeVisibleUser(row){
+    var did = didOf(row);
+    if(!did || typeof state === 'undefined' || !state || !Array.isArray(state.users)) return false;
+    var changed = false;
+    var nick = serverNicknameFrom(row);
+    state.users = state.users.map(function(u){
+      if(didOf(u) !== did) return u;
+      var next = Object.assign({}, u, row || {});
+      next.discord_id = did;
+      next.discordId = did;
+      if(nick){
+        next.nickname = nick;
+        next.name = nick;
+        next.nick = nick;
+        next.displayName = nick;
+      }
+      if(row && row.raw && typeof row.raw === 'object'){
+        next.raw = Object.assign({}, (u && u.raw) || {}, row.raw);
+      }
+      changed = true;
+      return next;
+    });
+    if(!changed) return false;
+    try{ window.state = state; }catch(e){}
+    try{ if(typeof window.PKLAdminInvalidateUsersRenderCache === 'function') window.PKLAdminInvalidateUsersRenderCache(); }catch(e){}
+    try{ if(typeof window.renderUserList === 'function') window.renderUserList(); }catch(e){}
+    try{ if(typeof window.renderProfile === 'function') window.renderProfile(); }catch(e){}
+    try{ if(typeof window.renderStats === 'function') window.renderStats(); }catch(e){}
+    return true;
   }
-  function emitUser(row){
-    if(!row) return;
-    try{window.dispatchEvent(new CustomEvent('pkl-admin-single-user-updated',{detail:{user:row,source:'supabase-users-realtime'}}));}catch(e){}
+
+  async function fetchConfig(){
+    var cached = window.PKL_SUPABASE_CONFIG || window.__PKL_SUPABASE_CONFIG || null;
+    if(cached && (cached.url || cached.supabaseUrl) && (cached.anonKey || cached.key || cached.supabaseAnonKey)) return cached;
+    var res = await fetch('/api/supabase-config', {cache:'no-store', headers:{Accept:'application/json'}});
+    var data = await res.json().catch(function(){ return {}; });
+    return data.config || data.supabase || data;
   }
-  function join(){
-    if(!socket||socket.readyState!==1||joined) return;
-    channelRef=String(Date.now())+Math.random().toString(16).slice(2);
-    send({topic:'realtime:public:users',event:'phx_join',payload:{config:{broadcast:{self:false},presence:{key:''},postgres_changes:[{event:'*',schema:'public',table:'users'}]}},ref:channelRef});
-    joined=true;
-  }
+  function configUrl(c){ return clean(c && (c.url || c.supabaseUrl || c.SUPABASE_URL)); }
+  function configKey(c){ return clean(c && (c.anonKey || c.key || c.supabaseAnonKey || c.SUPABASE_ANON_KEY)); }
+
+  var ws = null;
+  var heartbeat = null;
+  var reconnectTimer = null;
+  var joinRef = 1;
+  function stopHeartbeat(){ if(heartbeat){ clearInterval(heartbeat); heartbeat = null; } }
   function scheduleReconnect(){
-    clearInterval(heartbeat); heartbeat=0; joined=false; clearTimeout(reconnect); reconnect=setTimeout(connect,1800);
+    stopHeartbeat();
+    if(reconnectTimer) return;
+    reconnectTimer = setTimeout(function(){ reconnectTimer = null; connect(); }, 2500);
   }
-  function handle(msg){
-    if(!msg||!msg.event) return;
-    if(msg.event!=='postgres_changes') return;
-    var payload=msg.payload||{};
-    var row=payload.record||payload.new||payload.old||{};
-    var did=didOf(row);
-    if(did){ fetchOne(did).then(function(full){emitUser(full||row);}).catch(function(){emitUser(row);}); }
-    else emitUser(row);
+  async function connect(){
+    try{
+      if(ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      var cfg = await fetchConfig();
+      var url = configUrl(cfg), key = configKey(cfg);
+      if(!url || !key) return;
+      var wsUrl = url.replace(/^http/i,'ws').replace(/\/$/,'') + '/realtime/v1/websocket?apikey=' + encodeURIComponent(key) + '&vsn=1.0.0';
+      ws = new WebSocket(wsUrl);
+      ws.onopen = function(){
+        var ref = String(joinRef++);
+        ws.send(JSON.stringify({topic:'realtime:public:users',event:'phx_join',payload:{config:{postgres_changes:[{event:'UPDATE',schema:'public',table:'users'},{event:'INSERT',schema:'public',table:'users'}]}},ref:ref}));
+        stopHeartbeat();
+        heartbeat = setInterval(function(){
+          try{ if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({topic:'phoenix',event:'heartbeat',payload:{},ref:String(joinRef++)})); }catch(e){}
+        }, 25000);
+      };
+      ws.onmessage = function(ev){
+        try{
+          var msg = JSON.parse(ev.data || '{}');
+          var p = msg.payload || {};
+          var row = p.record || p.new || (p.data && (p.data.record || p.data.new)) || null;
+          if(row) mergeVisibleUser(row);
+        }catch(e){}
+      };
+      ws.onclose = scheduleReconnect;
+      ws.onerror = function(){ try{ ws.close(); }catch(e){} scheduleReconnect(); };
+    }catch(e){ scheduleReconnect(); }
   }
-  function connect(){
-    var c=cfg(); if(!c.url||!c.key||!window.WebSocket) return;
-    try{if(socket)socket.close();}catch(e){}
-    socket=new WebSocket(c.url.replace(/^http/i,'ws')+'/realtime/v1/websocket?apikey='+encodeURIComponent(c.key)+'&vsn=1.0.0');
-    socket.onopen=function(){join();clearInterval(heartbeat);heartbeat=setInterval(function(){send({topic:'phoenix',event:'heartbeat',payload:{},ref:String(Date.now())});},25000);};
-    socket.onmessage=function(ev){try{handle(JSON.parse(ev.data));}catch(e){}};
-    socket.onclose=scheduleReconnect; socket.onerror=scheduleReconnect;
-  }
-  function start(){
-    if(window.PKL_SUPABASE_READY&&typeof window.PKL_SUPABASE_READY.then==='function') window.PKL_SUPABASE_READY.then(connect).catch(connect);
-    else connect();
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true}); else start();
-  window.addEventListener('pkl-supabase-config-ready',connect);
+
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(connect, 800); });
+  window.addEventListener('focus', function(){
+    if(!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) connect();
+  });
+  window.PKLAdminApplyUserRealtimePatch = mergeVisibleUser;
 })();
 </script>
 
