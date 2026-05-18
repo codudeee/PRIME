@@ -19,7 +19,7 @@
     }
     return '';
   }
-  function nick(u){ u = u || {}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var sn=clean(raw.discordServerNickname||raw.discordGuildNick||raw.guildNick||u.discordServerNickname||u.discordGuildNick||u.guildNick); if(sn.indexOf('/')>=0) sn=sn.split('/')[0]; sn=sn.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); return clean(sn || raw.registeredNickname || raw.pklNickname || u.registeredNickname || u.pklNickname || u.nickname || u.nick || u.name); }
+  function nick(u){ u = u || {}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var current=clean(u.nickname || raw.nickname || u.nick || raw.nick || u.name || raw.name); if(current) return current; var registered=clean(raw.registeredNickname || raw.pklNickname || u.registeredNickname || u.pklNickname); if(registered) return registered; var sn=clean(raw.discordServerNickname||raw.discordGuildNick||raw.guildNick||u.discordServerNickname||u.discordGuildNick||u.guildNick); if(sn.indexOf('/')>=0) sn=sn.split('/')[0]; sn=sn.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); return clean(sn); }
   function pubg(u){ u = u || {}; return clean(u.pubgId || u.pubg_id || u.pubgID || u.gameId || u.pubgName || u.ref || u.pubg); }
   function role(v){
     var raw = clean(v), l = raw.toLowerCase();
@@ -37,6 +37,7 @@
   }
   function tierLabel(t){ return (window.PKLTierBadge && window.PKLTierBadge.label) ? window.PKLTierBadge.label(t) : (t && t !== 'none' ? t : '없음'); }
   function roleLabel(r){ r = role(r); return r === 'admin' ? '관리자' : (r === 'operator' ? '운영자' : (r === 'prisoner' ? '수감자' : (r === 'guest' ? '임시' : '일반'))); }
+  function isBannedUser(u){ u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var r=low(u.role||u.memberRole||raw.role||raw.memberRole); var b=low(u.banned||raw.banned||raw.isBanned); return u.banned===true || raw.banned===true || r==='banned' || b==='true'; }
   function normalize(raw){
     var src = Object.assign({}, raw && raw.raw && typeof raw.raw === 'object' ? raw.raw : {}, raw || {});
     var did = id(src), n = nick(src), p = pubg(src);
@@ -163,7 +164,7 @@
     var range = res.headers.get('content-range') || '';
     var count = Number((range.split('/')[1] || '').replace('*',''));
     meta.source = 'browser'; meta.limit = limit; meta.offset = offset; meta.q = q; meta.count = Number.isFinite(count) ? count : (Array.isArray(rows) ? rows.length : 0); meta.loadedAt = Date.now();
-    return Array.isArray(rows) ? rows.map(rowToUser).filter(function(u){ return !!id(u); }) : [];
+    return Array.isArray(rows) ? rows.map(rowToUser).filter(function(u){ return !!id(u) && !isBannedUser(u); }) : [];
   }
   async function fetchViaApi(options){
     options = options || {};
@@ -179,7 +180,7 @@
     }
     var data = await res.json();
     meta.source = 'api'; meta.limit = limit; meta.offset = offset; meta.q = q; meta.count = Number(data.count || 0); meta.loadedAt = Date.now();
-    return Array.isArray(data.users) ? data.users : [];
+    return Array.isArray(data.users) ? data.users.map(normalize).filter(function(u){ return !!id(u) && !isBannedUser(u); }) : [];
   }
   async function fetchPage(options){
     try { return await fetchViaApi(options); }
@@ -276,6 +277,7 @@
     /* 3차 청소: discord_id 없는 유저 객체는 화면 캐시에 append하지 않는다.
        닉네임만 있는 이벤트 객체가 들어오면 Supabase의 실제 유저와 별개 항목으로 떠서 중복이 된다. */
     if(!id(normalized)) return cache.slice();
+    if(isBannedUser(normalized)){ cache = cache.filter(function(x){ return !same(x, normalized); }); return cache.slice(); }
     var idx = cache.findIndex(function(x){ return same(x, normalized); });
     if(idx >= 0) cache[idx] = Object.assign({}, cache[idx], normalized);
     else cache.push(normalized);

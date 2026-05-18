@@ -19,6 +19,7 @@
   function getDiscordId(u){ u = u || {}; return stripDiscord(u.discord_id || u.discordId || u.discordID || u.uid || u.id || u.userId || u.key); }
   function getNick(u){ u = u || {}; return clean(u.nickname || u.nick || u.name || u.discordServerNickname || u.discordGuildNick || u.discord_username || u.discordUsername || u.displayName); }
   function getPubg(u){ u = u || {}; return clean(u.pubg_id || u.pubgId || u.pubgID || u.gameId || u.pubgName || u.pubg || u.ref); }
+  function isBannedUser(u){ u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var r=low(u.role||u.memberRole||raw.role||raw.memberRole); var b=low(u.banned||raw.banned||raw.isBanned); return u.banned===true || raw.banned===true || r==='banned' || b==='true'; }
   function normalizeTier(v){
     if(window.PKLTierBadge && typeof window.PKLTierBadge.normalize === 'function') return window.PKLTierBadge.normalize(v);
     var raw = clean(v); if(!raw || raw === '없음' || low(raw) === 'none') return 'none';
@@ -63,6 +64,8 @@
   }
   function applyUsers(users, meta){
     users = (Array.isArray(users) ? users : []).map(normalizeUser).filter(function(u){ return !!getDiscordId(u); });
+    users.forEach(function(u){ if(isBannedUser(u)){ var did=getDiscordId(u); cache = cache.filter(function(x){ return getDiscordId(x) !== did; }); if(did) delete byDiscord[did]; } });
+    users = users.filter(function(u){ return !isBannedUser(u); });
     if(!users.length) return cache.slice();
     users.forEach(function(u){
       var idx = cache.findIndex(function(x){ return sameUser(x,u); });
