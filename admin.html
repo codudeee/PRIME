@@ -6,7 +6,6 @@
 <head>
 <script src="pkl-boot-fix.js?v=20260513b"></script>
 <script src="pkl-supabase-config.js?v=20260518a"></script>
-<script src="pkl-users-realtime.js?v=20260518a"></script>
 
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -8973,28 +8972,26 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     window.render();
     updateAdminUsersLoadHint();
   }
-  window.addEventListener('pkl-users-updated', function(ev){
+  function applyRealtimeUserPatch(row){
     try{
-      var detail=(ev&&ev.detail)||{};
-      var meta=detail.meta||{};
-      var reason=String(meta.reason||meta.source||'');
-      if(reason.indexOf('realtime')<0) return;
-      var changed=Array.isArray(detail.changedUsers)?detail.changedUsers:[];
-      if(!changed.length) return;
-      var currentList=adminUsers();
-      var map=new Map();
-      currentList.forEach(function(u){var d=didOf(u); if(d) map.set(d,normalize(u));});
-      var touched=false;
-      changed.forEach(function(row){
-        var u=normalize(row);
-        var d=didOf(u);
-        if(!d || !map.has(d)) return;
-        map.set(d,Object.assign({},map.get(d),u));
-        touched=true;
-      });
-      if(!touched) return;
-      setAdminUsers(Array.from(map.values()).sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});}));
-    }catch(e){console.warn('PKL admin realtime user update skipped',e);}
+      var u=normalize(row);
+      var d=didOf(u);
+      if(!d) return false;
+      var list=adminUsers();
+      var idx=list.findIndex(function(x){return didOf(x)===d;});
+      if(idx<0) return false; // 아직 20명 페이지에 로드되지 않은 유저는 무한스크롤 목록을 흔들지 않는다.
+      list[idx]=Object.assign({},list[idx],u);
+      if(typeof state!=='undefined' && state && Array.isArray(state.users)) state.users=list;
+      window.state=state;
+      try{ if(window.PKLUserProfile&&typeof window.PKLUserProfile.setUsers==='function') window.PKLUserProfile.setUsers(list.slice(),false); }catch(e){}
+      try{ bumpUsersCacheVersion(); }catch(e){}
+      try{ window.render(); }catch(e){}
+      return true;
+    }catch(e){console.warn('PKL admin realtime user patch skipped',e); return false;}
+  }
+  window.addEventListener('pkl-admin-single-user-updated', function(ev){
+    var row=ev&&ev.detail&&ev.detail.user;
+    if(row) applyRealtimeUserPatch(row);
   });
   function updateAdminUsersLoadHint(){
     var wrap=document.getElementById('userList'); if(!wrap) return;
@@ -9077,6 +9074,70 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   });
   window.PKLAdminReloadSupabaseUsers=function(){__pklAdminUsersOffset=0;__pklAdminUsersTotal=null;__pklAdminUsersHasMore=true;return load(false);};
   window.PKLAdminLoadMoreSupabaseUsers=function(){return load(true);};
+})();
+</script>
+
+<script id="pkl-admin-users-realtime-page-safe-fix">
+(function(){
+  'use strict';
+  if(window.__PKL_ADMIN_USERS_REALTIME_PAGE_SAFE_FIX__) return;
+  window.__PKL_ADMIN_USERS_REALTIME_PAGE_SAFE_FIX__=true;
+  var socket=null, joined=false, channelRef='', heartbeat=0, reconnect=0;
+  function clean(v){return String(v==null?'':v).trim();}
+  function didOf(row){
+    row=row||{}; var raw=row.raw&&typeof row.raw==='object'?row.raw:{};
+    var v=clean(row.discord_id||row.discordId||raw.discord_id||raw.discordId||row.uid||row.id||row.userId).replace(/^discord-/i,'');
+    return v;
+  }
+  function cfg(){
+    var c=window.PKL_SUPABASE_CONFIG||{};
+    var url=clean(c.url||c.supabaseUrl||c.SUPABASE_URL||localStorage.getItem('SUPABASE_URL')||localStorage.getItem('PKL_SUPABASE_URL')).replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');
+    var key=clean(c.anonKey||c.supabaseAnonKey||c.SUPABASE_ANON_KEY||localStorage.getItem('SUPABASE_ANON_KEY')||localStorage.getItem('PKL_SUPABASE_ANON_KEY'));
+    return {url:url,key:key};
+  }
+  function send(o){try{if(socket&&socket.readyState===1)socket.send(JSON.stringify(o));}catch(e){}}
+  async function fetchOne(discordId){
+    if(!discordId) return null;
+    var res=await fetch('/api/pkl-users?limit=1&offset=0&discordId='+encodeURIComponent(discordId),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
+    var data=await res.json().catch(function(){return {};});
+    return res.ok&&data.ok&&Array.isArray(data.users)&&data.users[0]?data.users[0]:null;
+  }
+  function emitUser(row){
+    if(!row) return;
+    try{window.dispatchEvent(new CustomEvent('pkl-admin-single-user-updated',{detail:{user:row,source:'supabase-users-realtime'}}));}catch(e){}
+  }
+  function join(){
+    if(!socket||socket.readyState!==1||joined) return;
+    channelRef=String(Date.now())+Math.random().toString(16).slice(2);
+    send({topic:'realtime:public:users',event:'phx_join',payload:{config:{broadcast:{self:false},presence:{key:''},postgres_changes:[{event:'*',schema:'public',table:'users'}]}},ref:channelRef});
+    joined=true;
+  }
+  function scheduleReconnect(){
+    clearInterval(heartbeat); heartbeat=0; joined=false; clearTimeout(reconnect); reconnect=setTimeout(connect,1800);
+  }
+  function handle(msg){
+    if(!msg||!msg.event) return;
+    if(msg.event!=='postgres_changes') return;
+    var payload=msg.payload||{};
+    var row=payload.record||payload.new||payload.old||{};
+    var did=didOf(row);
+    if(did){ fetchOne(did).then(function(full){emitUser(full||row);}).catch(function(){emitUser(row);}); }
+    else emitUser(row);
+  }
+  function connect(){
+    var c=cfg(); if(!c.url||!c.key||!window.WebSocket) return;
+    try{if(socket)socket.close();}catch(e){}
+    socket=new WebSocket(c.url.replace(/^http/i,'ws')+'/realtime/v1/websocket?apikey='+encodeURIComponent(c.key)+'&vsn=1.0.0');
+    socket.onopen=function(){join();clearInterval(heartbeat);heartbeat=setInterval(function(){send({topic:'phoenix',event:'heartbeat',payload:{},ref:String(Date.now())});},25000);};
+    socket.onmessage=function(ev){try{handle(JSON.parse(ev.data));}catch(e){}};
+    socket.onclose=scheduleReconnect; socket.onerror=scheduleReconnect;
+  }
+  function start(){
+    if(window.PKL_SUPABASE_READY&&typeof window.PKL_SUPABASE_READY.then==='function') window.PKL_SUPABASE_READY.then(connect).catch(connect);
+    else connect();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true}); else start();
+  window.addEventListener('pkl-supabase-config-ready',connect);
 })();
 </script>
 
