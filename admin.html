@@ -9045,7 +9045,10 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
       var page=await fetchAdminUsersPage(offset);
       var merged=append ? mergeAdminUserPages(adminUsers(),page) : unique(page);
       __pklAdminUsersOffset=offset+page.length;
-      __pklAdminUsersHasMore=page.length>=__pklAdminUsersPageSize && (__pklAdminUsersTotal==null || __pklAdminUsersOffset<__pklAdminUsersTotal);
+      /* Admin-only 복구: 서버 count가 현재 페이지 수(20)로 내려와도 목록을 끝으로 확정하지 않는다.
+         기존처럼 다음 페이지 요청은 실제 page 길이로 판단한다. */
+      __pklAdminUsersHasMore=page.length>=__pklAdminUsersPageSize;
+      if(page.length===0) __pklAdminUsersHasMore=false;
       setAdminUsers(merged);
     }catch(err){
       console.error('PKL admin canonical users load failed',err);
@@ -9060,10 +9063,28 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     if(__pklAdminUsersScrollBound) return;
     var wrap=document.getElementById('userList'); if(!wrap) return;
     __pklAdminUsersScrollBound=true;
-    wrap.addEventListener('scroll',function(){
-      if(__pklAdminUsersLoadInFlight || !__pklAdminUsersHasMore) return;
-      if(wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 140) load(true);
-    },{passive:true});
+    var ticking=false;
+    function nearUserListBottom(){
+      if(!wrap) return false;
+      var listScrollable=wrap.scrollHeight>wrap.clientHeight+4;
+      if(listScrollable && wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 160) return true;
+      var rect=wrap.getBoundingClientRect();
+      var viewport=window.innerHeight||document.documentElement.clientHeight||0;
+      return rect.bottom <= viewport + 180;
+    }
+    function requestMore(){
+      if(ticking) return;
+      ticking=true;
+      requestAnimationFrame(function(){
+        ticking=false;
+        if(__pklAdminUsersLoadInFlight || !__pklAdminUsersHasMore) return;
+        if(nearUserListBottom()) load(true);
+      });
+    }
+    wrap.addEventListener('scroll',requestMore,{passive:true});
+    wrap.addEventListener('wheel',requestMore,{passive:true});
+    window.addEventListener('scroll',requestMore,{passive:true});
+    window.addEventListener('resize',requestMore,{passive:true});
   }
   document.addEventListener('DOMContentLoaded',function(){
     var users=document.getElementById('userManageTab');
