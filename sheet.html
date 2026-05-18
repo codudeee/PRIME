@@ -12956,16 +12956,17 @@ function pklBuildFrozenResultScores(st){
 function pklAttachFrozenResultSnapshot(snap){
   if(!snap || typeof snap!=='object') return snap;
   /*
-    결과 저장 전송이 막히던 원인: 저장 snapshot 안에 frozen score를
-    pklFrozenScores/savedScores 두 이름으로 중복 저장하면서 payload가 불필요하게 커졌다.
-    결과표는 snap.pklFrozenScores 하나만 있어도 저장 당시 점수 고정 표시가 가능하므로
-    중복 필드는 만들지 않는다.
+    문제 원인:
+    결과 저장 시 pklFrozenScores/savedScores를 snapshot 안에 추가하면서
+    PKL_RESULT_MATCHES_V1 전체 배열 POST 용량이 커져 경기저장 이후 흐름이 멈췄다.
+
+    해결 기준:
+    결과표는 저장 당시 snapshot의 teams/rounds/tierScoreConfig만으로
+    같은 점수를 다시 표시할 수 있으므로, 별도 frozen score 복사본은 만들지 않는다.
+    이미 들어가 있던 legacy frozen 필드도 제거해 다음 저장 payload를 정상 크기로 되돌린다.
   */
-  var frozen=pklBuildFrozenResultScores(snap);
-  snap.pklFrozenScores=frozen;
-  if(Object.prototype.hasOwnProperty.call(snap,'savedScores')){
-    try{ delete snap.savedScores; }catch(_e){ snap.savedScores=null; }
-  }
+  try{ if(Object.prototype.hasOwnProperty.call(snap,'pklFrozenScores')) delete snap.pklFrozenScores; }catch(_e){ snap.pklFrozenScores=null; }
+  try{ if(Object.prototype.hasOwnProperty.call(snap,'savedScores')) delete snap.savedScores; }catch(_e2){ snap.savedScores=null; }
   return snap;
 }
 function pklPruneResultMatchForShared(match){
@@ -12984,10 +12985,12 @@ function pklPruneResultMatchForShared(match){
   var copy;
   try{ copy=JSON.parse(JSON.stringify(match)); }catch(_e){ copy=Object.assign({}, match); }
   try{
-    if(copy.snapshot && typeof copy.snapshot==='object' && Object.prototype.hasOwnProperty.call(copy.snapshot,'savedScores')){
-      delete copy.snapshot.savedScores;
+    if(copy.snapshot && typeof copy.snapshot==='object'){
+      if(Object.prototype.hasOwnProperty.call(copy.snapshot,'savedScores')) delete copy.snapshot.savedScores;
+      if(Object.prototype.hasOwnProperty.call(copy.snapshot,'pklFrozenScores')) delete copy.snapshot.pklFrozenScores;
     }
     if(Object.prototype.hasOwnProperty.call(copy,'savedScores')) delete copy.savedScores;
+    if(Object.prototype.hasOwnProperty.call(copy,'pklFrozenScores')) delete copy.pklFrozenScores;
   }catch(_cleanErr){}
   return copy;
 }
@@ -13187,7 +13190,18 @@ async function saveMatch(kind){
   if(!Array.isArray(matches))matches=[];
   var idNumber=pklNextSavedMatchNumber(matches,kind);
   var id='pkl-'+(kind==='normal'?'normal':'match')+'-'+idNumber+'-'+Date.now();
-  var maps=(Array.isArray(st.rounds)?st.rounds.map(function(r){return String(r.map||'').trim();}).filter(Boolean):[]);
+  var maps=[];
+  if(Array.isArray(st.rounds)){
+    st.rounds.forEach(function(r){
+      var base=String(r&&r.map||'').trim();
+      if(base) maps.push(base);
+      var teamsMap=r&&r.teams&&typeof r.teams==='object'?r.teams:{};
+      Object.keys(teamsMap).forEach(function(tid){
+        var tm=String(teamsMap[tid]&&teamsMap[tid].map||'').trim();
+        if(tm) maps.push(tm);
+      });
+    });
+  }
   maps=[...new Set(maps)];
   var teams=Array.isArray(st.teams)?st.teams.filter(function(t){return Array.isArray(t.members)&&t.members.some(function(m){return String(m&&m.name||'').trim();});}).length:0;
   var snap=JSON.parse(JSON.stringify(st));
