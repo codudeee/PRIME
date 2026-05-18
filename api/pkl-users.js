@@ -23,16 +23,8 @@ module.exports = async function handler(req, res) {
       const q = String((req.query && req.query.q) || '').trim();
       const discordId = String((req.query && (req.query.discordId || req.query.discord_id)) || '').trim();
       let result = await supabaseStore.readUserDocs({ limit, offset, q, discordId, tierOnly });
-      // admin/user list and current-user checks should reflect the Discord server profile nickname/roles from Supabase.
-      // Do not do this on tierOnly bulk calls because that can fetch hundreds of Discord members and cause lag.
-      if (!tierOnly && supabaseStore.syncDiscordGuildRoles && Array.isArray(result.users) && result.users.length) {
-        const synced = [];
-        for (const u of result.users) {
-          try { synced.push(await supabaseStore.syncDiscordGuildRoles(u) || u); }
-          catch (_) { synced.push(u); }
-        }
-        result = Object.assign({}, result, { users: synced });
-      }
+      // GET /api/pkl-users 는 Supabase에 저장된 현재 값을 읽기만 한다.
+      // 여기서 디스코드 길드 정보를 다시 조회/저장하면 admin 진입이 느려지고, 예전 서버닉/raw 값이 최신 nickname/tier를 되돌릴 수 있다.
       let bans = [];
       if (!tierOnly && typeof supabaseStore.readBanRecords === 'function') {
         try { bans = await supabaseStore.readBanRecords({ limit: 500 }); } catch (_) { bans = []; }
