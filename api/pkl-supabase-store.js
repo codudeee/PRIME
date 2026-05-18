@@ -564,26 +564,18 @@ async function supabaseFetch(path, options={}){
   return { json, headers: res.headers };
 }
 async function readUserDocs(options={}){
-  // GET /api/pkl-users 는 read-only여야 한다.
-  // 조회 중 duplicate cleanup/Discord resync를 실행하면 admin 진입이 느려지고,
-  // Supabase users.nickname/tier 최신값이 raw의 옛 값으로 되돌아가는 문제가 생긴다.
+  if(!options.tierOnly && options.cleanup !== false){
+    try{ await cleanupDuplicateUsersByDiscordId(2000); }catch(e){}
+  }
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
   const offset = Math.max(0, Number(options.offset || 0));
   const q = clean(options.q || '');
   const discordId = cleanId(options.discordId || options.discord_id || '');
   const tierOnly = !!options.tierOnly;
 
-  function isVisibleUser(u){
-    if(!u || !u.discordId) return false;
-    const role = String(u.role || u.memberRole || '').toLowerCase();
-    const raw = u.raw && typeof u.raw === 'object' ? u.raw : {};
-    const bannedText = String(raw.banned || raw.isBanned || '').toLowerCase();
-    return !(u.banned === true || role === 'banned' || bannedText === 'true');
-  }
-
   if(discordId){
     const rows = await findUserRowsByDiscordId(discordId);
-    const rawUsers = (Array.isArray(rows) ? rows : []).map(rowToUser).filter(isVisibleUser);
+    const rawUsers = (Array.isArray(rows) ? rows : []).map(rowToUser).filter(u => !!u.discordId);
     const seenDiscord = new Set();
     const users = [];
     for (const u of rawUsers) {
@@ -595,77 +587,65 @@ async function readUserDocs(options={}){
     return { users, count: users.length, limit, offset, q, discordId };
   }
 
-  // 티어표도 admin과 같은 Supabase users 기준을 보도록 banned/raw 컬럼까지 같이 읽는다.
+  // 티어표 전용 요청은 화면에 필요한 컬럼만 가져오고 count=exact를 쓰지 않는다.
+  // count=exact + select=* 는 유저가 늘수록 티어표 유저칸 표시를 늦춘다.
   const select = tierOnly
-    ? 'discord_id,discord_username,nickname,pubg_id,tier,role,banned,raw,created_at,updated_at'
+    ? 'discord_id,discord_username,nickname,pubg_id,tier,role,created_at,updated_at'
     : '*';
-
-  const filterQuery = q ? (() => {
-    const term = encodeURIComponent(`*${escapeLike(q)}*`);
-    return `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
-  })() : '';
-
-  let count = NaN;
-  const seenDiscord = new Set();
-  const normalized = [];
-
+  let path = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
   if(tierOnly){
-    let path = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
     path += `&tier=not.is.null&tier=neq.%EC%97%86%EC%9D%8C&tier=neq.none`;
-    path += filterQuery;
-    const result = await supabaseFetch(path);
-    const json = Array.isArray(result.json) ? result.json : [];
-    const range = result.headers.get('content-range') || '';
-    count = Number((range.split('/')[1] || '').replace('*',''));
-    for (const row of json) {
-      const u = rowToUser(row);
-      if(!isVisibleUser(u)) continue;
-      const did = cleanId(u.discordId || u.discord_id);
-      if(!did || seenDiscord.has(did)) continue;
-      seenDiscord.add(did);
-      normalized.push(u);
+  }
+  if(q){
+    const term = encodeURIComponent(`*${escapeLike(q)}*`);
+    path += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
+  }
+
+  // Admin user list must paginate ACTIVE users, not raw Supabase rows.
+  // After permanent-ban support was added, banned rows were filtered only AFTER offset/limit.
+  // Example: API fetched 20 raw rows, 2 were banned, browser received 18 and decided there was no next page.
+  // For normal admin requests, read a safe raw window, filter banned rows, then apply the requested visible offset/limit.
+  let json = [];
+  let headers = new Headers();
+  let count = NaN;
+  if(!tierOnly){
+    let allPath = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&limit=5000`;
+    if(q){
+      const term = encodeURIComponent(`*${escapeLike(q)}*`);
+      allPath += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
     }
+    const result = await supabaseFetch(allPath);
+    json = Array.isArray(result.json) ? result.json : [];
+  }else{
+    const result = await supabaseFetch(path);
+    json = Array.isArray(result.json) ? result.json : [];
+    headers = result.headers;
+    const range = headers.get('content-range') || '';
+    count = Number((range.split('/')[1] || '').replace('*',''));
     if(!Number.isFinite(count)){
       const pageLength = json.length;
       count = offset + pageLength + (pageLength >= limit ? 1 : 0);
     }
-    return { users: normalized, count: Number.isFinite(count) ? count : normalized.length, limit, offset, q };
   }
 
-  // admin 목록은 "보이는 유저" 기준으로 페이지네이션한다.
-  // banned 행 때문에 20개 미만으로 끊기지 않도록 raw page를 조금씩 읽어 필요한 만큼만 채운다.
-  const rawPageSize = Math.max(80, Math.min(500, limit * 5));
-  let rawOffset = 0;
-  let visibleIndex = 0;
-  let hasMoreRaw = true;
-  const users = [];
-
-  while(hasMoreRaw && users.length < limit){
-    let path = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${rawOffset}&limit=${rawPageSize}`;
-    path += filterQuery;
-    const result = await supabaseFetch(path);
-    const json = Array.isArray(result.json) ? result.json : [];
-    hasMoreRaw = json.length >= rawPageSize;
-    rawOffset += json.length;
-
-    for (const row of json) {
-      const u = rowToUser(row);
-      if(!isVisibleUser(u)) continue;
-      const did = cleanId(u.discordId || u.discord_id);
-      if(!did || seenDiscord.has(did)) continue;
-      seenDiscord.add(did);
-
-      if(visibleIndex >= offset && users.length < limit) users.push(u);
-      visibleIndex++;
-    }
-
-    if(json.length === 0) hasMoreRaw = false;
+  const rawUsers = json
+    .map(rowToUser)
+    .filter(u => !!u.discordId)
+    .filter(u => !(u.banned === true || String(u.role || u.memberRole || '').toLowerCase() === 'banned' || String(u.raw && (u.raw.banned || u.raw.isBanned) || '').toLowerCase() === 'true'));
+  // Supabase users is the only source, but the API also normalizes the page result once here.
+  // This prevents the client pages from each doing their own cache/nickname merge and creating duplicate visible users.
+  const seenDiscord = new Set();
+  const normalized = [];
+  for (const u of rawUsers) {
+    const did = cleanId(u.discordId || u.discord_id);
+    if (!did || seenDiscord.has(did)) continue;
+    // 화면 노출/병합은 오직 discord_id 기준. 닉네임 이모지 정리 후에도 다른 유저와 섞이지 않게 nickname 기준 dedupe 금지.
+    seenDiscord.add(did);
+    normalized.push(u);
   }
-
-  // 다음 페이지 존재 여부만 admin이 판단할 수 있게 보수적으로 count를 내려준다.
-  // exact count를 위해 전체 테이블을 매번 읽지 않는다.
-  count = offset + users.length + (hasMoreRaw ? 1 : 0);
-  return { users, count, limit, offset, q };
+  const users = tierOnly ? normalized : normalized.slice(offset, offset + limit);
+  if(!tierOnly) count = normalized.length;
+  return { users, count: Number.isFinite(count) ? count : normalized.length, limit, offset, q };
 }
 async function writeUserDoc(user, forceAdmin=false){
   let input = (user && typeof user === 'object') ? user : {};
@@ -821,7 +801,7 @@ async function hasActiveBanRecord(identity={}){
 async function readBanRecords(options={}){
   const limit = Math.max(1, Math.min(500, Number(options.limit || 200)));
   const { json } = await supabaseFetch(`ban_records?select=*&order=created_at.desc.nullslast&limit=${limit}`);
-  return (Array.isArray(json) ? json : []).map(r => ({
+  const records = (Array.isArray(json) ? json : []).map(r => ({
     id: clean(r.id || ''),
     discordId: clean(r.discord_id || ''),
     discord_id: clean(r.discord_id || ''),
@@ -836,6 +816,45 @@ async function readBanRecords(options={}){
     permanent: true,
     raw: r.raw || r
   }));
+
+  // ban_records가 과거 패치/수동 작업으로 비어 있어도 users.banned=true / role=banned 상태라면
+  // 관리자 추방 기록 탭에는 반드시 보이게 한다. 이 값은 삭제 버튼을 누르면 deleteBanRecord()가 users까지 해제한다.
+  try{
+    const { json: bannedRows } = await supabaseFetch('users?select=id,discord_id,nickname,pubg_id,role,banned,raw,updated_at,created_at&or=(banned.eq.true,role.eq.banned)&order=updated_at.desc.nullslast&limit=500');
+    const hasKey = (r) => {
+      const did = cleanId(r.discordId || r.discord_id || '');
+      const pubg = clean(r.pubgId || r.pubg_id || '').toLowerCase();
+      const nick = clean(r.nickname || '').toLowerCase();
+      return records.some(x => {
+        const xdid = cleanId(x.discordId || x.discord_id || '');
+        const xpubg = clean(x.pubgId || x.pubg_id || '').toLowerCase();
+        const xnick = clean(x.nickname || '').toLowerCase();
+        return (did && xdid && did === xdid) || (pubg && xpubg && pubg === xpubg) || (nick && xnick && nick === xnick);
+      });
+    };
+    (Array.isArray(bannedRows) ? bannedRows : []).forEach(row => {
+      const raw = row.raw && typeof row.raw === 'object' ? row.raw : {};
+      const rec = {
+        id: `users-banned-${clean(row.id || row.discord_id || row.nickname || '')}`,
+        discordId: clean(row.discord_id || raw.discordId || raw.discord_id || ''),
+        discord_id: clean(row.discord_id || raw.discordId || raw.discord_id || ''),
+        nickname: clean(row.nickname || raw.nickname || raw.nick || raw.name || ''),
+        pubgId: clean(row.pubg_id || raw.pubgId || raw.pubg_id || raw.gameId || ''),
+        pubg_id: clean(row.pubg_id || raw.pubgId || raw.pubg_id || raw.gameId || ''),
+        reason: clean(raw.banReason || raw.reason || '영구추방'),
+        admin: clean(raw.banAdmin || raw.admin || 'ADMIN'),
+        actor: clean(raw.banAdmin || raw.admin || 'ADMIN'),
+        date: raw.banDate || row.updated_at || row.created_at || '',
+        created_at: raw.banDate || row.updated_at || row.created_at || '',
+        permanent: true,
+        synthetic: true,
+        raw: Object.assign({}, raw, { syntheticBanRecord:true, userRowId: row.id })
+      };
+      if(!hasKey(rec)) records.push(rec);
+    });
+  }catch(_e){}
+  records.sort((a,b) => String(b.created_at || b.date || '').localeCompare(String(a.created_at || a.date || '')));
+  return records.slice(0, limit);
 }
 async function insertAdminLogSafe(payload){
   try{
