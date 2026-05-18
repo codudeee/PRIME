@@ -601,38 +601,52 @@ async function readUserDocs(options={}){
     const term = encodeURIComponent(`*${escapeLike(q)}*`);
     path += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
   }
-  const { json, headers } = await supabaseFetch(path, tierOnly ? {} : { headers: { Prefer: 'count=exact' } });
-  const range = headers.get('content-range') || '';
-  const rawPageLength = Array.isArray(json) ? json.length : 0;
-  let count = Number((range.split('/')[1] || '').replace('*',''));
 
-  // Admin user list pagination must not trust a missing or clipped Content-Range count.
-  // When Supabase/Vercel does not expose an exact total, the old fallback returned only
-  // the current page length (usually 20). Then admin believed there were no more users
-  // and stopped requesting offset=20, 40, ... even though the server could return them.
-  // Keep the original offset/limit API, but report "there may be another page" whenever
-  // the raw Supabase page is full. If it is a false positive, the next request returns 0
-  // and the admin list naturally stops.
-  if(!Number.isFinite(count) || (rawPageLength >= limit && count <= offset + rawPageLength)){
-    count = offset + rawPageLength + (rawPageLength >= limit ? 1 : 0);
+  // Admin user list must paginate ACTIVE users, not raw Supabase rows.
+  // After permanent-ban support was added, banned rows were filtered only AFTER offset/limit.
+  // Example: API fetched 20 raw rows, 2 were banned, browser received 18 and decided there was no next page.
+  // For normal admin requests, read a safe raw window, filter banned rows, then apply the requested visible offset/limit.
+  let json = [];
+  let headers = new Headers();
+  let count = NaN;
+  if(!tierOnly){
+    let allPath = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&limit=5000`;
+    if(q){
+      const term = encodeURIComponent(`*${escapeLike(q)}*`);
+      allPath += `&or=(nickname.ilike.${term},pubg_id.ilike.${term},discord_id.ilike.${term},discord_username.ilike.${term},role.ilike.${term},tier.ilike.${term})`;
+    }
+    const result = await supabaseFetch(allPath);
+    json = Array.isArray(result.json) ? result.json : [];
+  }else{
+    const result = await supabaseFetch(path);
+    json = Array.isArray(result.json) ? result.json : [];
+    headers = result.headers;
+    const range = headers.get('content-range') || '';
+    count = Number((range.split('/')[1] || '').replace('*',''));
+    if(!Number.isFinite(count)){
+      const pageLength = json.length;
+      count = offset + pageLength + (pageLength >= limit ? 1 : 0);
+    }
   }
 
-  const rawUsers = (Array.isArray(json) ? json : [])
+  const rawUsers = json
     .map(rowToUser)
     .filter(u => !!u.discordId)
     .filter(u => !(u.banned === true || String(u.role || u.memberRole || '').toLowerCase() === 'banned' || String(u.raw && (u.raw.banned || u.raw.isBanned) || '').toLowerCase() === 'true'));
   // Supabase users is the only source, but the API also normalizes the page result once here.
   // This prevents the client pages from each doing their own cache/nickname merge and creating duplicate visible users.
   const seenDiscord = new Set();
-  const users = [];
+  const normalized = [];
   for (const u of rawUsers) {
     const did = cleanId(u.discordId || u.discord_id);
     if (!did || seenDiscord.has(did)) continue;
     // 화면 노출/병합은 오직 discord_id 기준. 닉네임 이모지 정리 후에도 다른 유저와 섞이지 않게 nickname 기준 dedupe 금지.
     seenDiscord.add(did);
-    users.push(u);
+    normalized.push(u);
   }
-  return { users, count: Number.isFinite(count) ? count : users.length, limit, offset, q };
+  const users = tierOnly ? normalized : normalized.slice(offset, offset + limit);
+  if(!tierOnly) count = normalized.length;
+  return { users, count: Number.isFinite(count) ? count : normalized.length, limit, offset, q };
 }
 async function writeUserDoc(user, forceAdmin=false){
   let input = (user && typeof user === 'object') ? user : {};
