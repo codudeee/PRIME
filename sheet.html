@@ -14380,7 +14380,9 @@ window.addEventListener('DOMContentLoaded',()=>{
     try{
       if(window.PKLSheetLiveBridge && typeof window.PKLSheetLiveBridge.getState==='function'){
         var bridged=window.PKLSheetLiveBridge.getState();
-        if(bridged && Array.isArray(bridged.teams)) return cloneState(bridged);
+        // 팀 구성 교체는 화면에 떠 있는 실제 시트 state를 바로 바꿔야 한다.
+        // clone을 수정한 뒤 applyState로 되돌리면 local-edit 가드에 막혀 선택해도 교체가 안 보일 수 있다.
+        if(bridged && Array.isArray(bridged.teams)) return bridged;
       }
     }catch(e){}
     try{
@@ -14399,7 +14401,13 @@ window.addEventListener('DOMContentLoaded',()=>{
       try{ sessionStorage.setItem(PKL_TEAM_EDIT_SESSION_BACKUP_KEY,localJson); sessionStorage.setItem(PKL_TEAM_EDIT_STORAGE_KEY,localJson); localStorage.setItem(PKL_TEAM_EDIT_STORAGE_KEY,localJson); }catch(e){}
     }
     try{ if(window.PKLSheetLiveBridge && typeof window.PKLSheetLiveBridge.markLocalEdit==='function') window.PKLSheetLiveBridge.markLocalEdit(); }catch(e){}
-    try{ if(window.PKLSheetLiveBridge && typeof window.PKLSheetLiveBridge.applyState==='function') window.PKLSheetLiveBridge.applyState(st); }catch(e){}
+    // applyState는 원격 상태 수신용이라 local-edit 가드에 막힐 수 있다.
+    // 이미 실제 state를 수정했으므로 바로 render/save 흐름을 탄다.
+    try{
+      if(typeof render==='function') render();
+      else if(typeof renderSheet==='function') { renderSheet(); if(typeof renderBoard==='function') renderBoard(); if(typeof save==='function') save(); }
+      else if(typeof save==='function') save();
+    }catch(e){ try{ if(typeof save==='function') save(); }catch(_e){} }
     var shared=cloneState(st);
     try{ shared.selectedTeamId=''; }catch(e){}
     try{
@@ -14426,7 +14434,10 @@ window.addEventListener('DOMContentLoaded',()=>{
     }
     var team=findTeamInState(st,input.dataset.realTeam);
     var index=Number(input.dataset.memberIndex);
-    if(!team || !Array.isArray(team.members) || !Number.isFinite(index)) return;
+    if(!team || !Array.isArray(team.members) || !Number.isFinite(index)){
+      try{ if(typeof pklSheetPermissionToast==='function') pklSheetPermissionToast('교체할 팀 슬롯을 찾지 못했습니다. 팀 구성 수정 모드를 다시 켜주세요.'); }catch(e){}
+      return;
+    }
     while(team.members.length<=index) team.members.push({name:'',tier:''});
     var name=userName(user);
     var tier=userTier(user);
