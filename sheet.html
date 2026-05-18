@@ -12887,6 +12887,79 @@ function pklSavedMatchTitle(roundNo,kind,st){
   if(kind==='normal') title+=' - 일반';
   return title;
 }
+
+function pklBuildFrozenResultScores(st){
+  var frozen={version:1,savedAt:new Date().toISOString(),byViewId:{},byTeamId:{}};
+  if(!st || !Array.isArray(st.teams) || !Array.isArray(st.rounds)) return frozen;
+  var prevState=state;
+  try{
+    state=st;
+    var views=visibleTeams();
+    views.forEach(function(view){
+      if(!view || !view.viewId) return;
+      var total=calcView(view);
+      var memberScores=(view.members||[]).map(function(member,i){
+        return Number((total.kills||[])[i]||0) + pklMemberDeathPenalty(member, Number((total.deaths||[])[i]||0));
+      });
+      var rounds=[];
+      (st.rounds||[]).forEach(function(r,ri){
+        var d=teamData(r, view.id);
+        var a=Number(view.memberOffset||0);
+        var len=(view.members||[]).length || 4;
+        var localKills=(Array.isArray(d.kills)?d.kills:[]).slice(a,a+len).map(function(v){return Number(v||0);});
+        var localDeaths=(Array.isArray(d.deaths)?d.deaths:[]).slice(a,a+len).map(function(v){return Number(v||0);});
+        var fireBlocked=false;
+        try{ fireBlocked=!!isFireRoundActive(view.viewId, ri); }catch(_e){}
+        var deathPenalty=localDeaths.reduce(function(sum,death,i){return sum + pklMemberDeathPenalty((view.members||[])[i], death);},0);
+        var chicken=fireBlocked ? 0 : pklChickenScore(r,d);
+        var stop=fireBlocked ? 0 : Number(d.stop||0);
+        var rowTotal=fireBlocked ? 0 : localKills.reduce(function(a,b){return a+Number(b||0);},0)+chicken+deathPenalty+stop;
+        rounds[ri]={
+          round:Number((r&&r.no)||ri+1),
+          map:String((d&&d.map)||(r&&r.map)||''),
+          kills:localKills,
+          deaths:localDeaths,
+          chicken:Number(d&&d.chicken||0),
+          stop:Number(d&&d.stop||0),
+          deathPenalty:deathPenalty,
+          total:rowTotal,
+          fireBlocked:fireBlocked
+        };
+      });
+      var item={
+        viewId:String(view.viewId),
+        teamId:String(view.id||view.realId||''),
+        target:Number(total.target||0),
+        score:Number(total.score||0),
+        percent:Number(total.target)>0?Math.round(Number(total.score||0)/Number(total.target||1)*100):(Number(total.score||0)<0?-100:(Number(total.score||0)>0?100:0)),
+        kills:(total.kills||[]).map(function(v){return Number(v||0);}),
+        deaths:(total.deaths||[]).map(function(v){return Number(v||0);}),
+        memberScores:memberScores,
+        pureKills:Number(total.pureKills||0),
+        totalDeaths:Number(total.totalDeaths||0),
+        chicken:Number(total.chicken||0),
+        stop:Number(total.stop||0),
+        deathPenalty:Number(total.deathPenalty||0),
+        rounds:rounds
+      };
+      frozen.byViewId[String(view.viewId)]=item;
+      if(view.id && !frozen.byTeamId[String(view.id)]) frozen.byTeamId[String(view.id)]=item;
+      if(view.realId && !frozen.byTeamId[String(view.realId)]) frozen.byTeamId[String(view.realId)]=item;
+    });
+  }catch(err){
+    console.warn('[PKL] frozen result score build failed', err);
+  }finally{
+    state=prevState;
+  }
+  return frozen;
+}
+function pklAttachFrozenResultSnapshot(snap){
+  if(!snap || typeof snap!=='object') return snap;
+  var frozen=pklBuildFrozenResultScores(snap);
+  snap.pklFrozenScores=frozen;
+  snap.savedScores=frozen;
+  return snap;
+}
 async function pklSaveResultMatches(matches){
   matches=Array.isArray(matches)?matches:[];
   var result=await pklDirectSharedSet(RESULT_KEY,matches,true);
@@ -13078,21 +13151,20 @@ async function saveMatch(kind){
   if(!Array.isArray(matches))matches=[];
   var idNumber=pklNextSavedMatchNumber(matches,kind);
   var id='pkl-'+(kind==='normal'?'normal':'match')+'-'+idNumber+'-'+Date.now();
-  var maps=[];
-  if(Array.isArray(st.rounds)){
-    st.rounds.forEach(function(r){
-      var base=String(r&&r.map||'').trim();
-      if(base) maps.push(base);
-      var teamsMap=r&&r.teams&&typeof r.teams==='object'?r.teams:{};
-      Object.keys(teamsMap).forEach(function(tid){
-        var tm=String(teamsMap[tid]&&teamsMap[tid].map||'').trim();
-        if(tm) maps.push(tm);
-      });
-    });
-  }
+  var maps=(Array.isArray(st.rounds)?st.rounds.map(function(r){return String(r.map||'').trim();}).filter(Boolean):[]);
   maps=[...new Set(maps)];
   var teams=Array.isArray(st.teams)?st.teams.filter(function(t){return Array.isArray(t.members)&&t.members.some(function(m){return String(m&&m.name||'').trim();});}).length:0;
   var snap=JSON.parse(JSON.stringify(st));
+  try{
+    /* 결과표는 저장 이후 절대 현재 티어표/admin 값으로 재계산하지 않는다.
+       저장 버튼을 누른 이 순간의 목표점수/다이 감점/최종점수/라운드별 합계를 snapshot에 고정한다. */
+    snap.tierScoreConfig = JSON.parse(JSON.stringify(window.__PKL_TIER_SCORE_CONFIG || {}));
+    snap.pklTierScoreConfig = snap.tierScoreConfig;
+  }catch(_tierCfgErr){
+    snap.tierScoreConfig = window.__PKL_TIER_SCORE_CONFIG || {};
+    snap.pklTierScoreConfig = snap.tierScoreConfig;
+  }
+  snap=pklAttachFrozenResultSnapshot(snap);
   var matchTitle=pklSavedMatchTitle(idNumber,kind,snap);
   matches.unshift({
     id:id,
@@ -13105,6 +13177,8 @@ async function saveMatch(kind){
     kind:kind==='normal'?'normal':'league',
     teamCount:teams||10,
     snapshot:snap,
+    tierScoreConfig:snap.tierScoreConfig || {},
+    pklTierScoreConfig:snap.pklTierScoreConfig || snap.tierScoreConfig || {},
     savedAt:new Date().toISOString()
   });
   await pklSaveResultMatches(matches);
