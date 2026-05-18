@@ -603,11 +603,20 @@ async function readUserDocs(options={}){
   }
   const { json, headers } = await supabaseFetch(path, tierOnly ? {} : { headers: { Prefer: 'count=exact' } });
   const range = headers.get('content-range') || '';
+  const rawPageLength = Array.isArray(json) ? json.length : 0;
   let count = Number((range.split('/')[1] || '').replace('*',''));
-  if(tierOnly && !Number.isFinite(count)){
-    const pageLength = Array.isArray(json) ? json.length : 0;
-    count = offset + pageLength + (pageLength >= limit ? 1 : 0);
+
+  // Admin user list pagination must not trust a missing or clipped Content-Range count.
+  // When Supabase/Vercel does not expose an exact total, the old fallback returned only
+  // the current page length (usually 20). Then admin believed there were no more users
+  // and stopped requesting offset=20, 40, ... even though the server could return them.
+  // Keep the original offset/limit API, but report "there may be another page" whenever
+  // the raw Supabase page is full. If it is a false positive, the next request returns 0
+  // and the admin list naturally stops.
+  if(!Number.isFinite(count) || (rawPageLength >= limit && count <= offset + rawPageLength)){
+    count = offset + rawPageLength + (rawPageLength >= limit ? 1 : 0);
   }
+
   const rawUsers = (Array.isArray(json) ? json : [])
     .map(rowToUser)
     .filter(u => !!u.discordId)
