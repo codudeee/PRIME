@@ -17,16 +17,7 @@
   function emit(name, detail){ try{ window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(e){} }
   function cfgValue(k){ try{ return clean(localStorage.getItem(k) || ''); }catch(e){ return ''; } }
   function getDiscordId(u){ u = u || {}; return stripDiscord(u.discord_id || u.discordId || u.discordID || u.uid || u.id || u.userId || u.key); }
-  function stripNick(v){ v=clean(v); if(v.indexOf('/')>=0) v=v.split('/')[0]; return v.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); }
-  function getNick(u){
-    u = u || {};
-    // users.nickname 우선. 디코 서버닉/raw 값은 fallback 전용.
-    return clean(stripNick(u.nickname || u.nick || u.name) || stripNick(u.registeredNickname || u.pklNickname || u.pkl_nickname) || stripNick(u.discordServerNickname || u.discordGuildNick || u.guildNick) || u.discord_username || u.discordUsername || u.displayName);
-  }
-  function isBannedUser(u){
-    u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
-    return u.banned===true || raw.banned===true || raw.isBanned===true || low(u.role||u.memberRole||raw.role||raw.memberRole)==='banned';
-  }
+  function getNick(u){ u = u || {}; return clean(u.nickname || u.nick || u.name || u.discordServerNickname || u.discordGuildNick || u.discord_username || u.discordUsername || u.displayName); }
   function getPubg(u){ u = u || {}; return clean(u.pubg_id || u.pubgId || u.pubgID || u.gameId || u.pubgName || u.pubg || u.ref); }
   function normalizeTier(v){
     if(window.PKLTierBadge && typeof window.PKLTierBadge.normalize === 'function') return window.PKLTierBadge.normalize(v);
@@ -48,6 +39,12 @@
     if(['prisoner','jail','banned','blocked'].indexOf(l) >= 0 || ['수감자','차단','정지'].indexOf(raw) >= 0) return 'prisoner';
     if(['guest','temp','temporary'].indexOf(l) >= 0 || ['임시','준회원'].indexOf(raw) >= 0) return 'guest';
     return raw || 'user';
+  }
+  function isBannedUser(u){
+    u = u || {};
+    var raw = u.raw && typeof u.raw === 'object' ? u.raw : {};
+    var r = low(u.role || u.memberRole || raw.role || raw.memberRole);
+    return u.banned === true || raw.banned === true || raw.isBanned === true || r === 'banned' || r === 'blocked';
   }
   function normalizeUser(row){
     row = row || {};
@@ -71,35 +68,28 @@
     var an = low(getNick(a)), bn = low(getNick(b)); return !!(an && bn && an === bn);
   }
   function applyUsers(users, meta){
-    var incoming = (Array.isArray(users) ? users : []).map(normalizeUser).filter(function(u){ return !!getDiscordId(u); });
-    var removed = [];
-    incoming.filter(isBannedUser).forEach(function(u){
-      var did = getDiscordId(u);
-      if(!did) return;
-      var before = cache.length;
-      cache = cache.filter(function(x){ return getDiscordId(x) !== did; });
-      delete byDiscord[did];
-      if(cache.length !== before) removed.push(u);
-    });
-    users = incoming.filter(function(u){ return !isBannedUser(u); });
-    if(!users.length){
-      if(removed.length){
-        emit('pkl-users-updated', { users: cache.slice(), changedUsers: [], removedUsers: removed.slice(), meta: meta || {} });
-        emit('pkl-role-data-updated', { users: cache.slice(), changedUsers: [], removedUsers: removed.slice(), meta: meta || {} });
-      }
-      return cache.slice();
-    }
+    users = (Array.isArray(users) ? users : []).map(normalizeUser).filter(function(u){ return !!getDiscordId(u); });
+    if(!users.length) return cache.slice();
+    var changed=[];
     users.forEach(function(u){
+      var did = getDiscordId(u);
       var idx = cache.findIndex(function(x){ return sameUser(x,u); });
-      if(idx >= 0) cache[idx] = Object.assign({}, cache[idx], u); else cache.push(u);
-      var did = getDiscordId(u); if(did) byDiscord[did] = cache[idx >= 0 ? idx : cache.length - 1];
+      if(isBannedUser(u)){
+        if(idx >= 0) cache.splice(idx,1);
+        if(did) delete byDiscord[did];
+        changed.push(u);
+        return;
+      }
+      if(idx >= 0) cache[idx] = Object.assign({}, cache[idx], u); else { cache.push(u); idx = cache.length - 1; }
+      if(did) byDiscord[did] = cache[idx];
+      changed.push(u);
       try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === 'function') window.PKLUserProfile.upsert(u, true); }catch(e){}
       try{ if(typeof window.PKLApplySingleUserTierSync === 'function') window.PKLApplySingleUserTierSync(u); }catch(e){}
       try{ if(typeof window.PKLJoinApplySingleTierSync === 'function') window.PKLJoinApplySingleTierSync(u); }catch(e){}
       try{ if(typeof window.PKLTeamApplySingleTierSync === 'function') window.PKLTeamApplySingleTierSync(u); }catch(e){}
     });
-    emit('pkl-users-updated', { users: cache.slice(), changedUsers: users.slice(), meta: meta || {} });
-    emit('pkl-role-data-updated', { users: cache.slice(), changedUsers: users.slice(), meta: meta || {} });
+    emit('pkl-users-updated', { users: cache.slice(), changedUsers: changed.slice(), meta: meta || {} });
+    emit('pkl-role-data-updated', { users: cache.slice(), changedUsers: changed.slice(), meta: meta || {} });
     return cache.slice();
   }
   async function fetchUsers(options){

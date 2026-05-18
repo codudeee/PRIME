@@ -145,8 +145,7 @@ async function discordRolePatchForUser(user){
     patch.discordGuildRoleIds = roleIds;
     patch.discordGuildNick = guildNickRaw;
     patch.discordServerNickname = guildNick;
-    // 역할/티어 동기화는 nickname(row.nickname)을 절대 수정하지 않는다.
-    // 디코 닉네임 변경은 봇의 중복검사 통과 후 users.nickname PATCH에서만 반영한다.
+    if(guildNick){ patch.nickname = guildNick; patch.nick = guildNick; patch.name = guildNick; patch.displayName = guildNick; }
     patch.lastDiscordGuildSyncAt = new Date().toISOString();
   }
   return patch;
@@ -164,10 +163,9 @@ async function syncDiscordGuildRoles(user, options={}){
   const nextTier = patch.memberTier ? normalizeTier(patch.memberTier) : normalizeTier(row.tier || raw.memberTier || raw.tier || 'none');
   const serverNick = discordServerNickname(patch.discordGuildNick || patch.discordServerNickname || raw.discordGuildNick || raw.discordServerNickname || '');
   const mergedRaw = {...raw, ...patch, role:nextRole, memberRole:nextRole, userRole:nextRole, authRole:nextRole, adminRole:nextRole==='admin'?'관리자':(nextRole==='operator'?'운영자':(nextRole==='prisoner'?'수감자':'일반')), memberRoleName:nextRole==='admin'?'관리자':(nextRole==='operator'?'운영자':(nextRole==='prisoner'?'수감자':'일반')), tier:nextTier==='none'?'없음':nextTier, memberTier:nextTier, gradeRole:nextTier, tierRole:nextTier};
-  if(serverNick){ mergedRaw.discordServerNickname = serverNick; }
-  // users.nickname은 Supabase의 단일 표시 닉네임이다.
-  // 역할/티어 sync가 예전 디코 서버닉으로 nickname을 되돌리지 않도록 body.nickname은 쓰지 않는다.
+  if(serverNick){ mergedRaw.nickname = serverNick; mergedRaw.nick = serverNick; mergedRaw.name = serverNick; mergedRaw.displayName = serverNick; mergedRaw.discordServerNickname = serverNick; }
   const body = { role: nextRole, tier: nextTier, raw: mergedRaw, updated_at: new Date().toISOString() };
+  if(serverNick) body.nickname = serverNick;
   const { json } = await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, { method:'PATCH', headers:{Prefer:'return=representation'}, body:JSON.stringify(body) });
   return Array.isArray(json) && json[0] ? rowToUser(json[0]) : rowToUser({...row, ...body});
 }
@@ -194,11 +192,15 @@ async function syncDiscordGuildNicknames(options={}){
       raw.discordGuildNick = serverNickRaw;
       raw.guildNick = serverNickRaw;
       raw.discordServerNickname = serverNick;
+      raw.nickname = serverNick;
+      raw.nick = serverNick;
+      raw.name = serverNick;
+      raw.displayName = serverNick;
       raw.lastDiscordGuildSyncAt = new Date().toISOString();
       await supabaseFetch(`users?id=eq.${encodeURIComponent(row.id)}`, {
         method:'PATCH',
         headers:{Prefer:'return=minimal'},
-        body:JSON.stringify({ raw, updated_at:raw.lastDiscordGuildSyncAt })
+        body:JSON.stringify({ nickname:serverNick, raw, updated_at:raw.lastDiscordGuildSyncAt })
       });
       result.updated++;
     }catch(e){
@@ -562,7 +564,10 @@ async function supabaseFetch(path, options={}){
   return { json, headers: res.headers };
 }
 async function readUserDocs(options={}){
-  if(!options.tierOnly && options.cleanup !== false){
+  // Read APIs must be read-only and fast.
+  // Duplicate cleanup / Discord re-sync must never run during admin/tier list loading,
+  // because it can make admin slow and can re-merge old raw nickname/tier values.
+  if(options.cleanup === true){
     try{ await cleanupDuplicateUsersByDiscordId(2000); }catch(e){}
   }
   const limit = Math.max(1, Math.min(100, Number(options.limit || 20)));
@@ -588,7 +593,7 @@ async function readUserDocs(options={}){
   // 티어표 전용 요청은 화면에 필요한 컬럼만 가져오고 count=exact를 쓰지 않는다.
   // count=exact + select=* 는 유저가 늘수록 티어표 유저칸 표시를 늦춘다.
   const select = tierOnly
-    ? 'discord_id,discord_username,nickname,pubg_id,tier,role,created_at,updated_at'
+    ? 'discord_id,discord_username,nickname,pubg_id,tier,role,banned,raw,created_at,updated_at'
     : '*';
   let path = `users?select=${select}&discord_id=not.is.null&discord_id=neq.&order=nickname.asc.nullslast&offset=${offset}&limit=${limit}`;
   if(tierOnly){
@@ -798,22 +803,58 @@ async function hasActiveBanRecord(identity={}){
 }
 async function readBanRecords(options={}){
   const limit = Math.max(1, Math.min(500, Number(options.limit || 200)));
-  const { json } = await supabaseFetch(`ban_records?select=*&order=created_at.desc.nullslast&limit=${limit}`);
-  return (Array.isArray(json) ? json : []).map(r => ({
-    id: clean(r.id || ''),
-    discordId: clean(r.discord_id || ''),
-    discord_id: clean(r.discord_id || ''),
-    nickname: clean(r.nickname || ''),
-    pubgId: clean(r.pubg_id || ''),
-    pubg_id: clean(r.pubg_id || ''),
-    reason: clean(r.reason || (r.raw && r.raw.reason) || '영구추방'),
-    admin: clean(r.actor || (r.raw && r.raw.admin) || 'ADMIN'),
-    actor: clean(r.actor || (r.raw && r.raw.admin) || 'ADMIN'),
-    date: r.created_at || (r.raw && r.raw.date) || '',
-    created_at: r.created_at || '',
-    permanent: true,
-    raw: r.raw || r
-  }));
+  const seen = new Set();
+  const out = [];
+  function pushRecord(r, fallback={}){
+    r = r || {};
+    const raw = r.raw && typeof r.raw === 'object' ? r.raw : (fallback.raw && typeof fallback.raw === 'object' ? fallback.raw : {});
+    const did = clean(r.discord_id || fallback.discord_id || fallback.discordId || '');
+    const pubg = clean(r.pubg_id || fallback.pubg_id || fallback.pubgId || raw.pubg_id || raw.pubgId || '');
+    const nick = cleanNickname(r.nickname || fallback.nickname || raw.nickname || raw.nick || raw.name || '');
+    const key = did ? `did:${cleanId(did)}` : (pubg ? `pubg:${pubg.toLowerCase()}` : `nick:${nick.toLowerCase()}`);
+    if(!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({
+      id: clean(r.id || fallback.id || ''),
+      discordId: did,
+      discord_id: did,
+      nickname: nick,
+      pubgId: pubg,
+      pubg_id: pubg,
+      reason: clean(r.reason || raw.banReason || raw.reason || '영구추방'),
+      admin: clean(r.actor || raw.admin || raw.banActor || 'ADMIN'),
+      actor: clean(r.actor || raw.admin || raw.banActor || 'ADMIN'),
+      date: r.created_at || raw.banDate || raw.date || fallback.updated_at || fallback.created_at || '',
+      created_at: r.created_at || raw.banDate || fallback.updated_at || fallback.created_at || '',
+      permanent: true,
+      raw: raw && Object.keys(raw).length ? raw : (r.raw || r)
+    });
+  }
+
+  try{
+    const { json } = await supabaseFetch(`ban_records?select=*&order=created_at.desc.nullslast&limit=${limit}`);
+    (Array.isArray(json) ? json : []).forEach(r => pushRecord(r));
+  }catch(e){}
+
+  // Safety net: if a past ban failed to keep ban_records but users.banned=true / role=banned remains,
+  // admin's ban tab should still show that banned user instead of losing the record.
+  try{
+    const { json: bannedRows } = await supabaseFetch(`users?select=*&or=(banned.eq.true,role.eq.banned)&order=updated_at.desc.nullslast&limit=${limit}`);
+    (Array.isArray(bannedRows) ? bannedRows : []).forEach(row => {
+      const u = rowToUser(row);
+      pushRecord({
+        id: row.id || '',
+        discord_id: row.discord_id || u.discordId || '',
+        nickname: row.nickname || u.nickname || '',
+        pubg_id: row.pubg_id || u.pubgId || '',
+        reason: (row.raw && (row.raw.banReason || row.raw.reason)) || '영구추방',
+        actor: (row.raw && (row.raw.banActor || row.raw.admin)) || 'ADMIN',
+        created_at: (row.raw && row.raw.banDate) || row.updated_at || row.created_at || '',
+        raw: row.raw || {}
+      }, row);
+    });
+  }catch(e){}
+  return out.slice(0, limit);
 }
 async function insertAdminLogSafe(payload){
   try{

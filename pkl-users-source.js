@@ -19,19 +19,19 @@
     }
     return '';
   }
-  function stripNick(v){ v=clean(v); if(v.indexOf('/')>=0) v=v.split('/')[0]; return v.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim(); }
   function nick(u){
-    u = u || {}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
-    // Supabase users.nickname(row.nickname)이 단일 표시 기준이다.
-    // raw.discordGuildNick/raw.discordServerNickname은 row.nickname이 비어 있을 때만 fallback으로 사용한다.
-    var rowNick=stripNick(u.nickname||u.nick||u.name);
-    var registered=stripNick(raw.registeredNickname||raw.pklNickname||raw.pkl_nickname||u.registeredNickname||u.pklNickname||u.pkl_nickname);
-    var server=stripNick(raw.discordServerNickname||raw.discordGuildNick||raw.guildNick||u.discordServerNickname||u.discordGuildNick||u.guildNick);
-    return clean(rowNick || registered || server);
-  }
-  function isBannedUser(u){
-    u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
-    return u.banned===true || raw.banned===true || raw.isBanned===true || low(u.role||u.memberRole||raw.role||raw.memberRole)==='banned';
+    u = u || {};
+    var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
+    // Supabase users.nickname is the single display source.
+    // Old Discord guild nick/raw fields are fallback only and must never overwrite nickname.
+    var n=clean(u.nickname || raw.nickname || u.nick || raw.nick || u.name || raw.name);
+    if(n) return n;
+    var registered=clean(raw.registeredNickname || raw.pklNickname || u.registeredNickname || u.pklNickname);
+    if(registered) return registered;
+    var sn=clean(raw.discordServerNickname||raw.discordGuildNick||raw.guildNick||u.discordServerNickname||u.discordGuildNick||u.guildNick);
+    if(sn.indexOf('/')>=0) sn=sn.split('/')[0];
+    sn=sn.replace(/^[^가-힣A-Za-z0-9]+/g,'').trim();
+    return clean(sn);
   }
   function pubg(u){ u = u || {}; return clean(u.pubgId || u.pubg_id || u.pubgID || u.gameId || u.pubgName || u.ref || u.pubg); }
   function role(v){
@@ -50,6 +50,12 @@
   }
   function tierLabel(t){ return (window.PKLTierBadge && window.PKLTierBadge.label) ? window.PKLTierBadge.label(t) : (t && t !== 'none' ? t : '없음'); }
   function roleLabel(r){ r = role(r); return r === 'admin' ? '관리자' : (r === 'operator' ? '운영자' : (r === 'prisoner' ? '수감자' : (r === 'guest' ? '임시' : '일반'))); }
+  function isBannedUser(u){
+    u = u || {};
+    var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
+    var r=low(u.role || u.memberRole || raw.role || raw.memberRole);
+    return u.banned === true || raw.banned === true || raw.isBanned === true || r === 'banned' || r === 'blocked';
+  }
   function normalize(raw){
     var src = Object.assign({}, raw && raw.raw && typeof raw.raw === 'object' ? raw.raw : {}, raw || {});
     var did = id(src), n = nick(src), p = pubg(src);
@@ -192,7 +198,7 @@
     }
     var data = await res.json();
     meta.source = 'api'; meta.limit = limit; meta.offset = offset; meta.q = q; meta.count = Number(data.count || 0); meta.loadedAt = Date.now();
-    return Array.isArray(data.users) ? data.users.map(normalize).filter(function(u){ return !!id(u) && !isBannedUser(u); }) : [];
+    return Array.isArray(data.users) ? data.users : [];
   }
   async function fetchPage(options){
     try { return await fetchViaApi(options); }
@@ -203,13 +209,7 @@
   }
   function applyUsers(users, options){
     options = options || {};
-    var incoming = (Array.isArray(users) ? users : []).map(normalize).filter(function(u){ return !!id(u); });
-    var bannedIds = incoming.filter(isBannedUser).map(id).filter(Boolean);
-    if(bannedIds.length){
-      cache = cache.filter(function(u){ return bannedIds.indexOf(id(u)) < 0; });
-    }
-    var active = incoming.filter(function(u){ return !isBannedUser(u); });
-    cache = sortUsers(options.append ? mergeLists(cache, active) : mergeLists(active));
+    cache = sortUsers(options.append ? mergeLists(cache, users) : mergeLists(users));
     if(!window.state || typeof window.state !== 'object') window.state = { users: [], pending: [], bans: [], warningRecords: [] };
     window.state.users = cache.slice();
     if(!Array.isArray(window.state.pending)) window.state.pending = [];
