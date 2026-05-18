@@ -13232,7 +13232,13 @@ async function saveMatch(kind){
     savedAt:new Date().toISOString()
   });
   await pklSaveResultMatches(matches);
-  await pklDirectMatchSave(matches[0]);
+  /*
+    결과표(result.html)는 PKL_RESULT_MATCHES_V1 공유 목록을 원본으로 읽는다.
+    아래 match_logs 개별 저장은 백업/로그 성격이라 여기서 await 하면
+    큰 snapshot 저장 시 결과표 이동과 join 초기화가 불필요하게 늦어진다.
+    원래 저장 흐름은 유지하되, 보조 로그 저장만 비동기로 분리한다.
+  */
+  try{ pklDirectMatchSave(matches[0]).catch(function(err){ console.warn('[PKL] direct match log save failed', err); }); }catch(_directErr){}
   if(kind!=='normal') pklUpsertMatchUserStats(id,matchTitle,snap);
 
   /* 결과표 저장이 성공한 뒤에는 초기화 보조 저장이 일부 실패/지연돼도

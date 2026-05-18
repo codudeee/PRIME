@@ -1993,6 +1993,10 @@ function pklResultFrozenRound(team, roundIndex){
   if(!item || !Array.isArray(item.rounds)) return null;
   return item.rounds[Number(roundIndex)] || null;
 }
+function pklResultRoundMap(team, round, data, roundIndex){
+  const frozenRound=pklResultFrozenRound(team, roundIndex);
+  return String((frozenRound&&frozenRound.map)||(data&&data.map)||(round&&round.map)||'').trim();
+}
 function pklNormalizeFrozenTeamScore(item){
   if(!item || typeof item!=='object') return null;
   const score=Number(item.score||0);
@@ -2127,7 +2131,7 @@ function calcTeam(team){
       kills[i]+=Number(d.kills && d.kills[i] || 0);
       deaths[i]+=Number(d.deaths && d.deaths[i] || 0);
     });
-    chicken+=chickenScore(r,d);
+    chicken+=chickenScore(Object.assign({},r,{map:String((d&&d.map)||(r&&r.map)||'')}),d);
     stop+=Number(d.stop||0);
   });
   const memberScores=team.members.map((m,i)=>Number(kills[i]||0)+deathPenalty(m,deaths[i]));
@@ -2262,13 +2266,14 @@ function renderSheet(){
     const rowKills=[0,1,2,3].map(i=>Number(d.kills && d.kills[i] || 0));
     const rowDeaths=[0,1,2,3].map(i=>Number(d.deaths && d.deaths[i] || 0));
     const frozenRound=pklResultFrozenRound(team,ri);
-    const total=(frozenRound && Number.isFinite(Number(frozenRound.total))) ? Number(frozenRound.total) : rowKills.reduce((a,b)=>a+b,0)+chickenScore(r,d)+Number(d.stop||0)+rowDeaths.reduce((a,b,i)=>a+pklMemberDeathPenalty(team.members[i],b),0);
+    const mapValue=pklResultRoundMap(team,r,d,ri);
+    const total=(frozenRound && Number.isFinite(Number(frozenRound.total))) ? Number(frozenRound.total) : rowKills.reduce((a,b)=>a+b,0)+chickenScore(Object.assign({},r,{map:mapValue}),d)+Number(d.stop||0)+rowDeaths.reduce((a,b,i)=>a+pklMemberDeathPenalty(team.members[i],b),0);
     const fireUsed=resultIsFireActive(team.viewId, ri);
     const status=fireUsed ? '<span class="result-status-pill fire">불판</span>' : (surrendered ? '<span class="result-status-pill surrender">서렌</span>' : `<span class="stop-pill">${Number(d.stop||0)||''}</span>`);
     if(resultSheetEditMode){
       return `<tr class="result-edit-row ${fireUsed?'is-fire-used-row':''} ${surrendered?'is-surrender-row':''}" data-round="${ri}" data-team="${esc(team.id)}">
         <td><b>${esc(r.no||ri+1)}</b></td>
-        <td><select class="result-sheet-map" data-field="map">${resultMapOptions(r.map||'')}</select></td>
+        <td><select class="result-sheet-map" data-field="map">${resultMapOptions(mapValue)}</select></td>
         ${[0,1,2,3].map(i=>`<td><div class="kill-box"><input type="number" inputmode="numeric" value="${rowKills[i]||''}" data-field="kill" data-player="${i}"><i class="death-check ${rowDeaths[i]?'checked':''}" data-field="death" data-player="${i}"></i></div></td>`).join('')}
         <td><i class="death-check ${Number(d.chicken||0)?'checked':''}" data-field="chicken"></i></td>
         <td><input class="result-sheet-stop" type="number" inputmode="numeric" value="${Number(d.stop||0)||''}" data-field="stop"></td>
@@ -2277,7 +2282,7 @@ function renderSheet(){
     }
     return `<tr class="result-view-row ${fireUsed?'is-fire-used-row':''} ${surrendered?'is-surrender-row':''}">
       <td><b>${esc(r.no||ri+1)}</b></td>
-      <td><span class="map-pill">${esc(r.map||'')}</span></td>
+      <td><span class="map-pill">${esc(mapValue)}</span></td>
       ${[0,1,2,3].map(i=>`<td><span class="result-view-killbox"><span class="result-view-kill">${rowKills[i]||0}</span><i class="death-check result-view-check ${rowDeaths[i]?'checked':''}" aria-hidden="true"></i></span></td>`).join('')}
       <td><i class="death-check result-view-check ${Number(d.chicken||0)?'checked':''}" aria-hidden="true"></i></td>
       <td>${status}</td>
@@ -2339,7 +2344,7 @@ function resultHandleSheetInput(e){
   const field=e.target.getAttribute('data-field');
   const d=resultEnsureRoundTeamData(round, teamId);
   if(field==='map'){
-    round.map=e.target.value;
+    d.map=String(e.target.value||'').trim();
   }else if(field==='kill'){
     const i=Number(e.target.getAttribute('data-player'));
     d.kills[i]=Number(e.target.value||0);
