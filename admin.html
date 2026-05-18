@@ -8844,11 +8844,10 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   function normalize(u){
     u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var did=didOf(u)||didOf(raw); if(!did) return null;
     var serverNick=discordServerNickname(raw.discordGuildNick||raw.guildNick||raw.discordServerNickname||u.discordGuildNick||u.guildNick||u.discordServerNickname||'');
-    var currentNick=stripLeadingNicknameDecorations(u.nickname||u.nick||u.name||raw.nickname||raw.nick||raw.name||'');
+    var currentNick=stripLeadingNicknameDecorations(u.nickname||raw.nickname||u.name||u.nick||raw.name||raw.nick||'');
     var registeredNick=stripLeadingNicknameDecorations(raw.registeredNickname||raw.pklNickname||raw.pkl_nickname||raw.signupNickname||raw.signup_nickname||u.registeredNickname||u.pklNickname||u.signupNickname||'');
-    // admin 표시는 Supabase users.nickname을 최우선으로 사용한다.
-    // 디코 서버닉(raw.discordGuildNick)은 nickname이 비어 있을 때만 fallback으로 쓴다.
-    // 그래야 봇/관리자 수정으로 Supabase nickname이 바뀌면 admin과 tier가 같은 이름을 보여준다.
+    // admin 표시명은 Supabase users.nickname을 최우선으로 사용한다.
+    // 디스코드 서버닉(raw.discordGuildNick)은 nickname이 비어 있을 때만 보조 fallback으로 쓴다.
     var nick=currentNick || registeredNick || serverNick || ('회원-'+did.slice(-4));
     var pubg=clean(u.pubgId||u.pubg_id||u.gameId||u.pubgName||raw.pubgId||raw.pubg_id||raw.gameId);
     var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||raw.memberTier||raw.gradeRole||raw.tierRole||raw.tier||'none');
@@ -9004,7 +9003,9 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     }catch(e){ console.warn('Discord 서버닉 동기화 실패', e); }
   }
   async function fetchAdminUsersPage(offset){
-    if(!offset){ await runDuplicateCleanupOnce(); await runDiscordGuildNicknameSyncOnce(); }
+    // admin 진입/페이지 로드 시에는 Supabase users를 수정하는 자동 동기화를 실행하지 않는다.
+    // 자동 cleanup/Discord 닉 동기화가 최신 users.nickname/memberTier 값을 되돌리는 원인이 될 수 있으므로,
+    // admin은 조회만 하고 수정은 사용자가 저장 버튼을 눌렀을 때만 수행한다.
     var res=await fetch('/api/pkl-users?limit='+encodeURIComponent(__pklAdminUsersPageSize)+'&offset='+encodeURIComponent(offset),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}});
     var data=await res.json().catch(function(){return {};});
     if(!res.ok||!data.ok||!Array.isArray(data.users)) throw new Error((data&&data.message)||('users API failed '+res.status));
