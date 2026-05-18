@@ -2119,8 +2119,33 @@ function resultSaveSheetSnapshot(){
   const m=resultCurrentMatch();
   if(!m) return;
   m.snapshot=JSON.parse(JSON.stringify(state));
+  pklResultSyncMatchMapsText();
   pklResultSaveMatches();
   try{var __pklResultStateText=JSON.stringify(state);pklResultSharedSet(STORAGE_KEY,__pklResultStateText);}catch(e){}
+}
+function pklResultRoundMapForTeam(round, teamId){
+  const d=round && round.teams && round.teams[teamId] ? round.teams[teamId] : null;
+  return String((d && d.map) || (round && round.map) || '').trim();
+}
+function pklResultMapsTextFromSnapshot(snap){
+  const maps=[];
+  (Array.isArray(snap && snap.rounds) ? snap.rounds : []).forEach(function(r){
+    const base=String(r && r.map || '').trim();
+    if(base) maps.push(base);
+    const teams=r && r.teams && typeof r.teams==='object' ? r.teams : {};
+    Object.keys(teams).forEach(function(tid){
+      const tm=String(teams[tid] && teams[tid].map || '').trim();
+      if(tm) maps.push(tm);
+    });
+  });
+  const uniq=[];
+  maps.forEach(function(m){ if(m && uniq.indexOf(m)<0) uniq.push(m); });
+  return uniq.length ? uniq.join(' / ') : '-';
+}
+function pklResultSyncMatchMapsText(){
+  const m=resultCurrentMatch();
+  if(!m) return;
+  m.maps=pklResultMapsTextFromSnapshot(m.snapshot || state || {});
 }
 function resultMapOptions(selected){
   const maps=['에','미','태','론','사'];
@@ -2146,7 +2171,7 @@ function renderSheet(){
     if(resultSheetEditMode){
       return `<tr class="result-edit-row ${fireUsed?'is-fire-used-row':''} ${surrendered?'is-surrender-row':''}" data-round="${ri}" data-team="${esc(team.id)}">
         <td><b>${esc(r.no||ri+1)}</b></td>
-        <td><select class="result-sheet-map" data-field="map">${resultMapOptions(r.map||'')}</select></td>
+        <td><select class="result-sheet-map" data-field="map">${resultMapOptions(pklResultRoundMapForTeam(r,team.id))}</select></td>
         ${[0,1,2,3].map(i=>`<td><div class="kill-box"><input type="number" inputmode="numeric" value="${rowKills[i]||''}" data-field="kill" data-player="${i}"><i class="death-check ${rowDeaths[i]?'checked':''}" data-field="death" data-player="${i}"></i></div></td>`).join('')}
         <td><i class="death-check ${Number(d.chicken||0)?'checked':''}" data-field="chicken"></i></td>
         <td><input class="result-sheet-stop" type="number" inputmode="numeric" value="${Number(d.stop||0)||''}" data-field="stop"></td>
@@ -2155,7 +2180,7 @@ function renderSheet(){
     }
     return `<tr class="result-view-row ${fireUsed?'is-fire-used-row':''} ${surrendered?'is-surrender-row':''}">
       <td><b>${esc(r.no||ri+1)}</b></td>
-      <td><span class="map-pill">${esc(r.map||'')}</span></td>
+      <td><span class="map-pill">${esc(pklResultRoundMapForTeam(r,team.id))}</span></td>
       ${[0,1,2,3].map(i=>`<td><span class="result-view-killbox"><span class="result-view-kill">${rowKills[i]||0}</span><i class="death-check result-view-check ${rowDeaths[i]?'checked':''}" aria-hidden="true"></i></span></td>`).join('')}
       <td><i class="death-check result-view-check ${Number(d.chicken||0)?'checked':''}" aria-hidden="true"></i></td>
       <td>${status}</td>
@@ -2217,7 +2242,8 @@ function resultHandleSheetInput(e){
   const field=e.target.getAttribute('data-field');
   const d=resultEnsureRoundTeamData(round, teamId);
   if(field==='map'){
-    round.map=e.target.value;
+    d.map=String(e.target.value||'').trim();
+    round.map=String(e.target.value||'').trim();
   }else if(field==='kill'){
     const i=Number(e.target.getAttribute('data-player'));
     d.kills[i]=Number(e.target.value||0);
@@ -2311,7 +2337,7 @@ function renderSide(){
   }
   info.innerHTML=`
     <div class="info-row"><div class="info-label">회차 이름</div><div class="info-value">${esc(m.title)}</div></div>
-    <div class="info-row"><div class="info-label">맵 종류</div><div class="info-value">${esc(m.maps||'-')}</div></div>
+    <div class="info-row"><div class="info-label">맵 종류</div><div class="info-value">${esc(pklResultMapsTextFromSnapshot((m&&m.snapshot)||state)||m.maps||'-')}</div></div>
     <div class="info-row team-count-row"><div class="info-label">참가 팀</div><div class="info-value">${Number(m.teamCount||visibleTeams().length)||visibleTeams().length}팀</div></div>`;
 }
 
@@ -3230,11 +3256,62 @@ window.addEventListener('load', restoreDiscordSession);
   function filterDeletedMatches(){var ids=deletedIds();if(!ids.length)return false;var list=readJSON(MATCH_KEY,[]);if(!Array.isArray(list))return false;var next=list.filter(function(m){return ids.indexOf(String(m&&m.id))<0;});if(next.length!==list.length){writeJSON(MATCH_KEY,next);return true;}return false;}
   document.addEventListener('click',function(e){var yes=e.target&&e.target.closest&&e.target.closest('#resultDeleteYesBtn');if(yes){var active=document.querySelector('#adminMatchList .admin-match-item.active');var id=active&&active.getAttribute('data-admin-match');markDeleted(id);setTimeout(filterDeletedMatches,60);setTimeout(filterDeletedMatches,420);}},true);
   /* 2차 청소: 삭제 필터는 저장/삭제 처리 시 직접 적용하고, storage/supabase 이벤트 감시는 하지 않는다. */
-  function getMatches(){return readJSON(MATCH_KEY,[]);} function currentMatch(){var id=(document.getElementById('matchSelect')||{}).value||'';var list=getMatches();return list.find(function(m){return String(m&&m.id)===String(id);})||list[0]||null;}
-  function fmtTime(t){if(!t)return '-';var d=new Date(Number(t)||t);if(String(d)==='Invalid Date')return String(t);return d.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
+  function getMatches(){
+    try{ if(window.PKLResultGetMatches){ var live=window.PKLResultGetMatches(); if(Array.isArray(live)) return live; } }catch(e){}
+    return readJSON(MATCH_KEY,[]);
+  }
+  function currentMatch(){var id=(document.getElementById('matchSelect')||{}).value||'';var list=getMatches();return list.find(function(m){return String(m&&m.id)===String(id);})||list[0]||null;}
+  function fmtTime(t){
+    if(!t)return '-';
+    var d=new Date(Number(t)||t);
+    if(String(d)==='Invalid Date')return String(t);
+    var h=d.getHours(), ap=h<12?'오전':'오후', hh=(h%12)||12, mm=String(d.getMinutes()).padStart(2,'0');
+    return ap+' '+hh+'시 '+mm+'분';
+  }
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
-  function feedRows(snap){var rows=[];var feeds=Array.isArray(snap&&snap.feeds)?snap.feeds:[];feeds.forEach(function(f){var type=String(f&&f.type||'이용');if(type==='치킨'||type==='올다이'||type==='사이드') return;rows.push({type:type||'이용', text:String(f&&f.text||''), time:f&&f.time});});return rows;}
-  function openUsage(){var m=currentMatch();var modal=document.getElementById('resultUsageHistoryModal');var list=document.getElementById('resultUsageHistoryList');if(!modal||!list)return;var snap=(m&&m.snapshot)||{};var rows=feedRows(snap);if(!rows.length){list.innerHTML='<div class="pkl-usage-empty">이 회차에 저장된 불판/서렌 이용내역이 없습니다.</div>';}else{list.innerHTML=rows.map(function(r){return '<div class="pkl-usage-item"><div class="pkl-usage-type">'+esc(r.type)+'</div><div class="pkl-usage-text">'+esc(r.text)+'</div><div class="pkl-usage-time">'+esc(fmtTime(r.time))+'</div></div>';}).join('');}try{document.body.appendChild(modal);}catch(e){}modal.classList.add('open');modal.setAttribute('aria-hidden','false');}
+  function normTeam(name){name=String(name||'').trim(); if(!name) return '해당 팀'; return name.endsWith('팀')?name:name+'팀';}
+  function viewRows(snap){
+    var teams=Array.isArray(snap&&snap.teams)?snap.teams:[], mode=String(snap&&snap.mode||'squad'), out=[];
+    teams.forEach(function(t,i){
+      var id=t.id||('team'+(i+1)), members=Array.isArray(t.members)?t.members:[];
+      if(mode==='duo'){
+        var a=(members[0]&&members[0].name)||((i+1)+'팀 A');
+        var b=(members[2]&&members[2].name)||((i+1)+'팀 B');
+        out.push({viewId:id+'a',realId:id,name:a+' A'}); out.push({viewId:id+'b',realId:id,name:b+' B'});
+      }else{
+        out.push({viewId:id,realId:id,name:(members[0]&&members[0].name)||t.name||((i+1)+'팀')});
+      }
+    });
+    return out;
+  }
+  function findView(views,id){id=String(id||''); return views.find(function(v){return String(v.viewId)===id||String(v.realId)===id;})||null;}
+  function teamFromFeed(f,views){
+    var key=String(f&&f.key||''), id=(key.split(':')[1]||'');
+    var v=findView(views,id); if(v) return normTeam(v.name);
+    var text=String(f&&f.text||''), m=text.match(/^(.+?팀)\s/);
+    return normTeam(m&&m[1]||'해당 팀');
+  }
+  function feedRows(snap){
+    var rows=[], seen={}, views=viewRows(snap);
+    function push(type,team,time,key,roundIndex){
+      type=String(type||''); if(type!=='불판'&&type!=='서렌') return;
+      team=normTeam(team); time=Number(time||0);
+      var minute=time?Math.floor(time/60000):0;
+      var dedupe=[type,team.replace(/\s+/g,''),Number.isFinite(Number(roundIndex))&&Number(roundIndex)>=0?('round'+Number(roundIndex)):('minute'+minute)].join(':');
+      key=String(key||dedupe);
+      if(seen[dedupe]||seen[key]) return; seen[dedupe]=seen[key]=1;
+      rows.push({type:type,team:team,time:time,key:key,text:team+' '+fmtTime(time)+' '+(type==='불판'?'불판사용':'서렌')});
+    }
+    (Array.isArray(snap&&snap.itemHistory)?snap.itemHistory:[]).forEach(function(h){push(h&&h.type,h&&h.team,h&&h.time,h&&h.key,h&&h.roundIndex);});
+    (Array.isArray(snap&&snap.feeds)?snap.feeds:[]).forEach(function(f){if(!f||(f.type!=='불판'&&f.type!=='서렌'))return;push(f.type,teamFromFeed(f,views),f.time,f.key);});
+    var fires=snap&&snap.fires&&typeof snap.fires==='object'?snap.fires:{};
+    views.forEach(function(v){[v.viewId,v.realId].forEach(function(id){var rec=fires[id]; if(!rec)return; var sessions=Array.isArray(rec.sessions)?rec.sessions:((rec.done||rec.checked)?[rec]:[]); sessions.forEach(function(ss,si){if(ss&&ss.done)push('불판',v.name,ss.time,'fire-store:'+id+':'+si+':'+(ss.time||0),ss.roundIndex);});});});
+    var surr=snap&&snap.surrenders&&typeof snap.surrenders==='object'?snap.surrenders:{};
+    views.forEach(function(v){[v.viewId,v.realId].forEach(function(id){var rec=surr[id]; if(rec&&rec.done)push('서렌',v.name,rec.time,'surrender-store:'+id+':'+(rec.time||0));});});
+    rows.sort(function(a,b){return Number(b.time||0)-Number(a.time||0);});
+    return rows;
+  }
+  function openUsage(){var m=currentMatch();var modal=document.getElementById('resultUsageHistoryModal');var list=document.getElementById('resultUsageHistoryList');if(!modal||!list)return;var snap=(m&&m.snapshot)||{};var checks=snap.itemHistoryChecks&&typeof snap.itemHistoryChecks==='object'?snap.itemHistoryChecks:{};var rows=feedRows(snap);if(!rows.length){list.innerHTML='<div class="pkl-usage-empty">이 회차에 저장된 불판/서렌 이용내역이 없습니다.</div>';}else{list.innerHTML=rows.map(function(r){var checked=checks[String(r.key)]?' 확인완료':'';return '<div class="pkl-usage-item"><div class="pkl-usage-type">'+esc(r.type)+'</div><div class="pkl-usage-text">'+esc(r.text)+'</div><div class="pkl-usage-time">'+esc(checked||fmtTime(r.time))+'</div></div>';}).join('');}try{document.body.appendChild(modal);}catch(e){}modal.classList.add('open');modal.setAttribute('aria-hidden','false');}
   function closeUsage(){var modal=document.getElementById('resultUsageHistoryModal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}}
   document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('#resultUsageHistoryBtn')){e.preventDefault();openUsage();}if(e.target&&e.target.closest&&e.target.closest('#resultUsageCloseBtn')){e.preventDefault();closeUsage();}if(e.target&&e.target.id==='resultUsageHistoryModal'){closeUsage();}},true);
 })();

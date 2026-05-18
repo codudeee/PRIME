@@ -13078,7 +13078,18 @@ async function saveMatch(kind){
   if(!Array.isArray(matches))matches=[];
   var idNumber=pklNextSavedMatchNumber(matches,kind);
   var id='pkl-'+(kind==='normal'?'normal':'match')+'-'+idNumber+'-'+Date.now();
-  var maps=(Array.isArray(st.rounds)?st.rounds.map(function(r){return String(r.map||'').trim();}).filter(Boolean):[]);
+  var maps=[];
+  if(Array.isArray(st.rounds)){
+    st.rounds.forEach(function(r){
+      var base=String(r&&r.map||'').trim();
+      if(base) maps.push(base);
+      var teamsMap=r&&r.teams&&typeof r.teams==='object'?r.teams:{};
+      Object.keys(teamsMap).forEach(function(tid){
+        var tm=String(teamsMap[tid]&&teamsMap[tid].map||'').trim();
+        if(tm) maps.push(tm);
+      });
+    });
+  }
   maps=[...new Set(maps)];
   var teams=Array.isArray(st.teams)?st.teams.filter(function(t){return Array.isArray(t.members)&&t.members.some(function(m){return String(m&&m.name||'').trim();});}).length:0;
   var snap=JSON.parse(JSON.stringify(st));
