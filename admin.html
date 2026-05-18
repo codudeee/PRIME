@@ -5,6 +5,8 @@
 <html lang="ko">
 <head>
 <script src="pkl-boot-fix.js?v=20260513b"></script>
+<script src="pkl-supabase-config.js?v=20260518a"></script>
+<script src="pkl-users-realtime.js?v=20260518a"></script>
 
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -8971,6 +8973,29 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     window.render();
     updateAdminUsersLoadHint();
   }
+  window.addEventListener('pkl-users-updated', function(ev){
+    try{
+      var detail=(ev&&ev.detail)||{};
+      var meta=detail.meta||{};
+      var reason=String(meta.reason||meta.source||'');
+      if(reason.indexOf('realtime')<0) return;
+      var changed=Array.isArray(detail.changedUsers)?detail.changedUsers:[];
+      if(!changed.length) return;
+      var currentList=adminUsers();
+      var map=new Map();
+      currentList.forEach(function(u){var d=didOf(u); if(d) map.set(d,normalize(u));});
+      var touched=false;
+      changed.forEach(function(row){
+        var u=normalize(row);
+        var d=didOf(u);
+        if(!d || !map.has(d)) return;
+        map.set(d,Object.assign({},map.get(d),u));
+        touched=true;
+      });
+      if(!touched) return;
+      setAdminUsers(Array.from(map.values()).sort(function(a,b){return clean(a.nickname).localeCompare(clean(b.nickname),'ko-KR',{numeric:true,sensitivity:'base'});}));
+    }catch(e){console.warn('PKL admin realtime user update skipped',e);}
+  });
   function updateAdminUsersLoadHint(){
     var wrap=document.getElementById('userList'); if(!wrap) return;
     var old=wrap.querySelector('.pkl-admin-users-more-hint'); if(old) old.remove();
