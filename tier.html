@@ -3105,28 +3105,39 @@ document.addEventListener("DOMContentLoaded", function(){
     window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:scoreConfig}}));
   }
   async function fetchSharedConfig(){
-    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
-      const v = await window.PKLSupabaseDataSync.getShared(SCORE_KEY);
-      if(v && typeof v === 'object' && Object.keys(v).length) return v;
-    }
+    const serverValues = [];
+    const readLocal = () => {
+      try{
+        const raw = localStorage.getItem(SCORE_KEY);
+        const value = raw ? JSON.parse(raw) : null;
+        return value && typeof value === 'object' ? value : {};
+      }catch(_e){ return {}; }
+    };
+    const pushValue = value => {
+      if(value && typeof value === 'object' && Object.keys(value).length) serverValues.push(value);
+    };
+    try{
+      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
+        pushValue(await window.PKLSupabaseDataSync.getShared(SCORE_KEY));
+      }
+    }catch(_e){}
     try{
       const res = await fetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent(SCORE_KEY) + '&t=' + Date.now(), {cache:'no-store', headers:{Accept:'application/json'}});
       const data = await res.json().catch(() => ({}));
-      const value = data && data.item ? data.item.value : null;
-      if(value && typeof value === 'object' && Object.keys(value).length) return value;
+      pushValue(data && data.item ? data.item.value : null);
     }catch(_e){}
     try{
       const res = await fetch('/api/pkl-shared?key=' + encodeURIComponent(SCORE_KEY) + '&t=' + Date.now(), {cache:'no-store', headers:{Accept:'application/json'}});
       const data = await res.json().catch(() => ({}));
-      const value = data && data.item ? data.item.value : null;
-      if(value && typeof value === 'object' && Object.keys(value).length) return value;
+      pushValue(data && data.item ? data.item.value : null);
     }catch(_e){}
-    try{
-      const raw = localStorage.getItem(SCORE_KEY);
-      const value = raw ? JSON.parse(raw) : null;
-      if(value && typeof value === 'object' && Object.keys(value).length) return value;
-    }catch(_e){}
-    return {};
+
+    // PKL 20260522: 서버에 예전 0~4티어 설정만 남아 있으면 5티어 입력값이 새로고침 때 기본값으로 덮였다.
+    // 서버값 + 현재 브라우저 저장값을 병합하고, 로컬 최신 입력값을 마지막에 얹어서 5티어 상/중/하도 유지한다.
+    const merged = {};
+    serverValues.forEach(v => Object.assign(merged, normalizeConfig(v)));
+    Object.assign(merged, normalizeConfig(readLocal()));
+    return merged;
   }
   async function loadConfig(){
     try{
@@ -3170,8 +3181,11 @@ document.addEventListener("DOMContentLoaded", function(){
       try{ localStorage.setItem(SCORE_KEY, JSON.stringify(payload)); }catch(_e){}
       if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function'){
         await window.PKLSupabaseDataSync.setShared(SCORE_KEY, payload);
+        try{ await postJson('/api/pkl-data-store', {type:'shared', key:SCORE_KEY, value:payload}, keepalive); }catch(_e){}
+        try{ await postJson('/api/pkl-shared', {key:SCORE_KEY, value:payload}, keepalive); }catch(_e){}
       }else{
         await postJson('/api/pkl-data-store', {type:'shared', key:SCORE_KEY, value:payload}, keepalive);
+        try{ await postJson('/api/pkl-shared', {key:SCORE_KEY, value:payload}, keepalive); }catch(_e){}
       }
       try{ localStorage.setItem('pklTierScoreLastSync', new Date().toISOString()); }catch(_e){}
     }catch(e1){
