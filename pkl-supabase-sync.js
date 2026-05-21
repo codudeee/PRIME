@@ -20,6 +20,9 @@
     pklUsers:true, PKL_USERS:true, pklAdminUsers:true, PKL_ADMIN_USERS:true, pklUserList:true,
     pklAdminState_v3:true, pklPendingUsers:true, pklBannedUsers:true, PKL_DELETED_USER_KEYS_V1:true
   };
+  // 티어 목표점수/감점은 서버 저장 실패/지연이 있어도 새로고침에서 절대 사라지면 안 된다.
+  // 이 두 키는 Supabase 단일원본 가로채기 대상이지만 브라우저 디스크 localStorage에도 남긴다.
+  var LOCAL_PERSIST_KEYS={ pklTierScoreConfig:true, pklTierScoreLastSync:true };
   var RESULT_MATCH_KEY="PKL_RESULT_MATCHES_V1";
   var SHEET_LIVE_KEY="PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1";
   var originalGet=Storage.prototype.getItem;
@@ -45,6 +48,7 @@
   function raw(k){
     k=String(k||"");
     if(BLOCKED_LOCAL_KEYS[k]) return null;
+    if(LOCAL_PERSIST_KEYS[k]){ try{return originalGet.call(localStorage,k);}catch(e){return null;} }
     if(Object.prototype.hasOwnProperty.call(memoryStore,k)) return memoryStore[k];
     try{return originalGet.call(localStorage,k);}catch(e){return null;}
   }
@@ -52,6 +56,7 @@
     key=String(key||"");
     var text=typeof val==="string"?val:JSON.stringify(val);
     if(raw(key)===text) return;
+    if(LOCAL_PERSIST_KEYS[key]){ try{ originalSet.call(localStorage,key,text); }catch(e){} return; }
     memoryStore[key]=text;
   }
   function forgetDiskKey(key){try{originalRemove.call(localStorage,String(key||""));}catch(e){}}
@@ -60,7 +65,16 @@
   function rememberShared(key,value){
     key=String(key||""); if(!key) return;
     if(BLOCKED_LOCAL_KEYS[key]){ forgetDiskKey(key); delete memoryStore[key]; delete sharedCache[key]; return; }
-    sharedCache[key]=value; silentSet(key, value); forgetDiskKey(key); emitKey(key);
+    sharedCache[key]=value;
+    // pklTierScoreConfig는 로컬 입력값이 새로고침 직후 서버의 예전 값으로 덮이면 안 된다.
+    // 로컬 값이 이미 있으면 유지하고, 로컬이 비어 있을 때만 서버값을 디스크에 채운다.
+    if(LOCAL_PERSIST_KEYS[key]){
+      var existing = raw(key);
+      if(existing == null || existing === "" || existing === "{}") silentSet(key, value);
+      emitKey(key);
+      return;
+    }
+    silentSet(key, value); forgetDiskKey(key); emitKey(key);
   }
 
   function isTier(v){var c=clean(v).replace(/[\s_-]+/g,"").toLowerCase();return /^(tier[0-4](high|mid|low)?|[0-4]티어(상|중|하)?|beast(high|low)?|짐승(상|하)?|temp|임시|prisoner|수감자)$/.test(c);}
@@ -171,6 +185,7 @@
   Storage.prototype.getItem=function(key){
     key=String(key||"");
     if(this===localStorage && BLOCKED_LOCAL_KEYS[key]) return null;
+    if(this===localStorage && LOCAL_PERSIST_KEYS[key]) return raw(key);
     if(this===localStorage && isKey(key)) return raw(key);
     return originalGet.apply(this,arguments);
   };
@@ -178,6 +193,12 @@
     key=String(key||"");
     if(this===localStorage && BLOCKED_LOCAL_KEYS[key]){
       delete memoryStore[key]; delete sharedCache[key]; forgetDiskKey(key);
+      return undefined;
+    }
+    if(this===localStorage && LOCAL_PERSIST_KEYS[key]){
+      var localText=typeof value==="string"?value:JSON.stringify(value);
+      try{ originalSet.call(localStorage,key,localText); }catch(e){}
+      if(!applying){ queueSave(key,localText); emitKey(key); }
       return undefined;
     }
     if(this===localStorage && isKey(key)){
@@ -194,6 +215,9 @@
   };
   Storage.prototype.removeItem=function(key){
     key=String(key||"");
+    if(this===localStorage && LOCAL_PERSIST_KEYS[key]){
+      delete memoryStore[key]; delete sharedCache[key]; try{ originalRemove.call(localStorage,key); }catch(e){} emitKey(key); return undefined;
+    }
     if(this===localStorage && isKey(key)){
       delete memoryStore[key]; delete sharedCache[key]; forgetDiskKey(key); emitKey(key); return undefined;
     }

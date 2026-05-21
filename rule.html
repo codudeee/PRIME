@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-  <script src="./pkl-supabase-sync.js?v=20260513b"></script>
+  <script src="./pkl-supabase-sync.js?v=20260522-tier-score-localfix"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PKL 킬내기룰</title>
@@ -116,10 +116,14 @@ body.rule-admin .rule-add-category-btn{display:flex;align-items:center;justify-c
 .rule-detail-head{position:relative;}
 .rule-admin-actions{position:absolute;right:30px;top:26px;display:none;gap:8px;align-items:center;}
 body.rule-admin .rule-admin-actions{display:flex;}
-.rule-edit-btn,.rule-save-btn,.rule-cancel-btn{appearance:none;height:34px;padding:0 14px;border-radius:12px;border:1px solid rgba(216,180,254,.30);background:linear-gradient(180deg,rgba(155,92,255,.28),rgba(155,92,255,.10));color:#fff;font-size:12px;font-weight:1000;letter-spacing:-.2px;box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 12px 24px rgba(0,0,0,.24);transition:filter .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;}
+.rule-edit-btn,.rule-delete-category-btn,.rule-save-btn,.rule-cancel-btn{appearance:none;height:34px;padding:0 14px;border-radius:12px;border:1px solid rgba(216,180,254,.30);background:linear-gradient(180deg,rgba(155,92,255,.28),rgba(155,92,255,.10));color:#fff;font-size:12px;font-weight:1000;letter-spacing:-.2px;box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 12px 24px rgba(0,0,0,.24);transition:filter .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;}
 .rule-save-btn{border-color:rgba(255,214,90,.40);background:linear-gradient(180deg,rgba(255,214,90,.34),rgba(155,92,255,.18));}
 .rule-cancel-btn{background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.025));color:rgba(255,255,255,.82);}
-.rule-edit-btn:hover,.rule-save-btn:hover,.rule-cancel-btn:hover{filter:brightness(1.10);border-color:rgba(216,180,254,.58);box-shadow:0 0 20px rgba(155,92,255,.22),inset 0 1px 0 rgba(255,255,255,.14);transform:translateY(-1px);}
+.rule-delete-category-btn{border-color:rgba(255,78,104,.40);background:linear-gradient(180deg,rgba(255,78,104,.24),rgba(255,78,104,.08));color:#ffd7de;}
+.rule-delete-category-btn[hidden]{display:none !important;}
+.rule-delete-category-btn:disabled{opacity:.42;filter:grayscale(.25);cursor:not-allowed;transform:none !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 18px rgba(0,0,0,.18) !important;}
+.rule-delete-category-btn.confirming{border-color:rgba(255,120,140,.72);background:linear-gradient(180deg,rgba(255,78,104,.42),rgba(255,78,104,.16));color:#fff;}
+.rule-edit-btn:hover,.rule-delete-category-btn:hover,.rule-save-btn:hover,.rule-cancel-btn:hover{filter:brightness(1.10);border-color:rgba(216,180,254,.58);box-shadow:0 0 20px rgba(155,92,255,.22),inset 0 1px 0 rgba(255,255,255,.14);transform:translateY(-1px);}
 .rule-edit-form{display:none;margin:0 0 18px;padding:16px;border-radius:18px;border:1px solid rgba(216,180,254,.22);background:linear-gradient(135deg,rgba(255,255,255,.065),rgba(255,255,255,.018)),rgba(8,8,18,.78);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 14px 30px rgba(0,0,0,.20);}
 .rule-detail.editing .rule-edit-form{display:grid;grid-template-columns:1fr;gap:10px;}
 .rule-edit-form label{display:grid;gap:7px;color:#c4b5fd;font-size:11px;font-weight:1000;letter-spacing:1.5px;}
@@ -258,6 +262,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
           <p class="rule-detail-desc" id="ruleDetailDesc">경기 시작 전 확인해야 하는 기본 진행 안내입니다.</p>
           <div class="rule-admin-actions" aria-label="룰 관리자 편집">
             <button type="button" class="rule-edit-btn" id="ruleEditBtn" data-min-role="admin">수정</button>
+            <button type="button" class="rule-delete-category-btn" id="ruleDeleteCategoryBtn" data-min-role="admin" hidden>삭제</button>
             <button type="button" class="rule-save-btn" id="ruleSaveBtn" hidden>저장</button>
             <button type="button" class="rule-cancel-btn" id="ruleCancelBtn" hidden>취소</button>
           </div>
@@ -362,6 +367,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
   var desc=document.getElementById("ruleDetailDesc");
   var content=document.getElementById("ruleContent");
   var editBtn=document.getElementById("ruleEditBtn");
+  var deleteCategoryBtn=document.getElementById("ruleDeleteCategoryBtn");
   var saveBtn=document.getElementById("ruleSaveBtn");
   var cancelBtn=document.getElementById("ruleCancelBtn");
   var editTitle=document.getElementById("ruleEditTitle");
@@ -492,6 +498,28 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     if(!tab) return;
     tab.innerHTML=escapeHtml(title||"새 룰 카테고리")+' <small>'+escapeHtml(tabSmallText(kicker))+'</small>';
   }
+  function isCustomCategory(id){
+    var saved=loadSaved();
+    return Array.isArray(saved.__categories) && saved.__categories.some(function(cat){return cat && cat.id===id;});
+  }
+  var deleteCategoryArmed=false;
+  var deleteCategoryTimer=null;
+  function resetDeleteCategoryButton(){
+    deleteCategoryArmed=false;
+    if(deleteCategoryTimer){clearTimeout(deleteCategoryTimer);deleteCategoryTimer=null;}
+    if(deleteCategoryBtn){
+      deleteCategoryBtn.classList.remove("confirming");
+      deleteCategoryBtn.textContent="삭제";
+    }
+  }
+  function syncDeleteCategoryButton(){
+    if(!deleteCategoryBtn) return;
+    resetDeleteCategoryButton();
+    var canDelete=isRuleAdmin() && isCustomCategory(activeId) && !detail.classList.contains("editing");
+    deleteCategoryBtn.hidden=!canDelete;
+    deleteCategoryBtn.disabled=!canDelete;
+    deleteCategoryBtn.title=canDelete ? "현재 추가 카테고리 삭제" : "추가한 카테고리만 삭제할 수 있습니다.";
+  }
   function ensureAddBlockButton(panel){
     if(!panel) return null;
     var btn=panel.querySelector(":scope > .rule-add-block-btn");
@@ -598,6 +626,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     beforeEdit=null;
     detail.classList.remove("editing");
     editBtn.hidden=false;
+    if(deleteCategoryBtn) deleteCategoryBtn.hidden=!(isRuleAdmin() && isCustomCategory(activeId));
     saveBtn.hidden=true;
     cancelBtn.hidden=true;
     setRule(activeId,true);
@@ -611,6 +640,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     editDesc.value=beforeEdit.desc;
     detail.classList.add("editing");
     editBtn.hidden=true;
+    if(deleteCategoryBtn) deleteCategoryBtn.hidden=true;
     saveBtn.hidden=false;
     cancelBtn.hidden=false;
     setEditable(true);
@@ -639,12 +669,14 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     beforeEdit=null;
     detail.classList.remove("editing");
     editBtn.hidden=false;
+    if(deleteCategoryBtn) deleteCategoryBtn.hidden=!(isRuleAdmin() && isCustomCategory(activeId));
     saveBtn.hidden=true;
     cancelBtn.hidden=true;
     setRule(activeId,true);
   }
   function setRule(id,skipCancel){
     refreshNodes();
+    resetDeleteCategoryButton();
     if(detail.classList.contains("editing") && !skipCancel) stopEdit(false);
     activeId=id;
     tabs.forEach(function(tab){tab.classList.toggle("active",tab.getAttribute("data-rule-tab")===id);});
@@ -660,6 +692,34 @@ body:not(.pkl-rule-ready) .rule-hero::after{
       }
     });
     if(content && !detail.classList.contains("editing")) content.scrollTop=0;
+    syncDeleteCategoryButton();
+  }
+
+  async function deleteActiveCategory(){
+    if(!isRuleAdmin() || !isCustomCategory(activeId) || detail.classList.contains("editing")) return;
+    if(!deleteCategoryArmed){
+      deleteCategoryArmed=true;
+      if(deleteCategoryBtn){
+        deleteCategoryBtn.classList.add("confirming");
+        deleteCategoryBtn.textContent="삭제확인";
+      }
+      deleteCategoryTimer=setTimeout(resetDeleteCategoryButton,2600);
+      return;
+    }
+    var deleteId=activeId;
+    var saved=loadSaved();
+    var categories=Array.isArray(saved.__categories)?saved.__categories:[];
+    saved.__categories=categories.filter(function(cat){return cat && cat.id!==deleteId;});
+    delete saved[deleteId];
+    var tab=document.querySelector('[data-rule-tab="'+deleteId+'"]');
+    var panel=document.querySelector('[data-rule-panel="'+deleteId+'"]');
+    if(tab) tab.remove();
+    if(panel) panel.remove();
+    await saveAll(saved);
+    refreshNodes();
+    var next=(tabs[0] && tabs[0].getAttribute("data-rule-tab")) || "basic";
+    activeId=next;
+    setRule(next,true);
   }
 
   function addCategory(){
@@ -687,6 +747,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
   syncAdmin();
   tabs.forEach(function(tab){tab.addEventListener("click",function(){setRule(tab.getAttribute("data-rule-tab"));});});
   if(addCategoryBtn) addCategoryBtn.addEventListener("click",addCategory);
+  if(deleteCategoryBtn) deleteCategoryBtn.addEventListener("click",deleteActiveCategory);
   if(editBtn) editBtn.addEventListener("click",startEdit);
   if(saveBtn) saveBtn.addEventListener("click",saveEdit);
   if(cancelBtn) cancelBtn.addEventListener("click",function(){stopEdit(true);});
