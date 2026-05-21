@@ -8,7 +8,7 @@
     tier2_high:"2티어 상",tier2_mid:"2티어 중",tier2_low:"2티어 하",
     tier3_high:"3티어 상",tier3_mid:"3티어 중",tier3_low:"3티어 하",
     tier4_high:"4티어 상",tier4_mid:"4티어 중",tier4_low:"4티어 하",
-    beast:"5티어 하",beast_high:"5티어 상",beast_low:"5티어 하",tier5_high:"5티어 상",tier5_low:"5티어 하"
+    beast:"5티어 하",beast_high:"5티어 상",beast_mid:"5티어 중",beast_low:"5티어 하",tier5_high:"5티어 상",tier5_mid:"5티어 중",tier5_low:"5티어 하"
   };
   var TIER_KEYS=Object.keys(TIER_LABELS);
 
@@ -38,7 +38,7 @@
       "2티어":"tier2_mid","2티어상":"tier2_high","2티어중":"tier2_mid","2티어하":"tier2_low",
       "3티어":"tier3_mid","3티어상":"tier3_high","3티어중":"tier3_mid","3티어하":"tier3_low",
       "4티어":"tier4_mid","4티어상":"tier4_high","4티어중":"tier4_mid","4티어하":"tier4_low",
-      beast:"tier5_low",beasthigh:"tier5_high",beastlow:"tier5_low","짐승":"tier5_low","짐승상":"tier5_high","짐승하":"tier5_low","5상":"tier5_high","5하":"tier5_low","5티어상":"tier5_high","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 하":"tier5_low"
+      beast:"tier5_low",beasthigh:"tier5_high",beastmid:"tier5_mid",beastlow:"tier5_low","짐승":"tier5_low","짐승상":"tier5_high","짐승중":"tier5_mid","짐승하":"tier5_low","5상":"tier5_high","5중":"tier5_mid","5하":"tier5_low","5티어상":"tier5_high","5티어중":"tier5_mid","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 중":"tier5_mid","5티어 하":"tier5_low"
     };
     return map[key]||"none";
   }
