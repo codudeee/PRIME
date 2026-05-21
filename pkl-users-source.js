@@ -24,7 +24,7 @@
     var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
     // Supabase users.nickname is the single display source.
     // Old Discord guild nick/raw fields are fallback only and must never overwrite nickname.
-    var n=clean(u.nickname || raw.nickname || u.nick || raw.nick || u.name || raw.name);
+    var n=clean(u._supabaseNickname || u.supabaseNickname || u.nickname || raw.nickname || u.nick || raw.nick || u.name || raw.name);
     if(n) return n;
     var registered=clean(raw.registeredNickname || raw.pklNickname || u.registeredNickname || u.pklNickname);
     if(registered) return registered;
@@ -54,7 +54,7 @@
     u = u || {};
     var raw=(u.raw&&typeof u.raw==='object')?u.raw:{};
     var r=low(u.role || u.memberRole || raw.role || raw.memberRole);
-    return u.banned === true || raw.banned === true || raw.isBanned === true || r === 'banned' || r === 'blocked';
+    return u.banned === true || String(u.banned).toLowerCase() === 'true' || raw.banned === true || String(raw.banned).toLowerCase() === 'true' || raw.isBanned === true || String(raw.isBanned).toLowerCase() === 'true' || r === 'banned' || r === 'blocked';
   }
   function normalize(raw){
     var src = Object.assign({}, raw && raw.raw && typeof raw.raw === 'object' ? raw.raw : {}, raw || {});
@@ -131,6 +131,8 @@
       discordId: r.discord_id || raw.discordId,
       discordUsername: r.discord_username || raw.discordUsername,
       nickname: r.nickname || raw.nickname,
+      _supabaseNickname: r.nickname || '',
+      supabaseNickname: r.nickname || '',
       pubgId: r.pubg_id || raw.pubgId,
       memberTier: (r.tier != null ? r.tier : raw.memberTier),
       gradeRole: (r.tier != null ? r.tier : raw.gradeRole),

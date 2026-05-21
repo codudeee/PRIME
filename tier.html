@@ -3060,6 +3060,7 @@ document.addEventListener("DOMContentLoaded", function(){
 <script id="pklTierScoreSyncScript">
 (function(){
   const SCORE_KEY = "pklTierScoreConfig";
+  const SCORE_LOCAL_KEY = "PKL_TIER_SCORE_CONFIG_LOCAL_V2";
   const ROLE_TO_LANE = {
     tier0_high:"0상", tier0_mid:"0중", tier0_low:"0하",
     tier1_high:"1상", tier1_mid:"1중", tier1_low:"1하",
@@ -3102,16 +3103,21 @@ document.addEventListener("DOMContentLoaded", function(){
     scoreConfig = normalizeConfig(value || {});
     window.__PKL_TIER_SCORE_CONFIG = scoreConfig;
     try{ localStorage.setItem(SCORE_KEY, JSON.stringify(scoreConfig)); }catch(_e){}
+    try{ localStorage.setItem(SCORE_LOCAL_KEY, JSON.stringify(scoreConfig)); }catch(_e){}
     window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:scoreConfig}}));
   }
   async function fetchSharedConfig(){
     const serverValues = [];
     const readLocal = () => {
-      try{
-        const raw = localStorage.getItem(SCORE_KEY);
-        const value = raw ? JSON.parse(raw) : null;
-        return value && typeof value === 'object' ? value : {};
-      }catch(_e){ return {}; }
+      const mergedLocal = {};
+      [SCORE_KEY, SCORE_LOCAL_KEY].forEach(key => {
+        try{
+          const raw = localStorage.getItem(key);
+          const value = raw ? JSON.parse(raw) : null;
+          if(value && typeof value === 'object') Object.assign(mergedLocal, normalizeConfig(value));
+        }catch(_e){}
+      });
+      return mergedLocal;
     };
     const pushValue = value => {
       if(value && typeof value === 'object' && Object.keys(value).length) serverValues.push(value);
@@ -3158,6 +3164,8 @@ document.addEventListener("DOMContentLoaded", function(){
       if(!lane) return;
       const target = normalizeNumber(inputs[0].value, normalizeNumber(inputs[0].getAttribute("value"), 0));
       const death = normalizeNumber(inputs[1].value, normalizeNumber(inputs[1].getAttribute("value"), 0));
+      inputs[0].setAttribute("value", String(target));
+      inputs[1].setAttribute("value", String(death));
       config[lane] = { target, death };
       const role = roleFromLane(lane);
       if(role) config[role] = { target, death, lane };
@@ -3179,6 +3187,7 @@ document.addEventListener("DOMContentLoaded", function(){
     savingNow = true;
     try{
       try{ localStorage.setItem(SCORE_KEY, JSON.stringify(payload)); }catch(_e){}
+      try{ localStorage.setItem(SCORE_LOCAL_KEY, JSON.stringify(payload)); }catch(_e){}
       if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function'){
         await window.PKLSupabaseDataSync.setShared(SCORE_KEY, payload);
         try{ await postJson('/api/pkl-data-store', {type:'shared', key:SCORE_KEY, value:payload}, keepalive); }catch(_e){}
@@ -3211,8 +3220,8 @@ document.addEventListener("DOMContentLoaded", function(){
       const lane = String(list.dataset.tier || "").trim();
       const saved = config[lane];
       if(!saved) return;
-      if(saved.target !== undefined && saved.target !== null && String(saved.target) !== "") inputs[0].value = saved.target;
-      if(saved.death !== undefined && saved.death !== null && String(saved.death) !== "") inputs[1].value = saved.death;
+      if(saved.target !== undefined && saved.target !== null && String(saved.target) !== ""){ inputs[0].value = saved.target; inputs[0].setAttribute("value", String(saved.target)); }
+      if(saved.death !== undefined && saved.death !== null && String(saved.death) !== ""){ inputs[1].value = saved.death; inputs[1].setAttribute("value", String(saved.death)); }
     });
   }
   function bind(){
