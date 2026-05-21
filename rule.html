@@ -505,13 +505,30 @@ body:not(.pkl-rule-ready) .rule-hero::after{
   function tabSmallText(kicker){
     return String(kicker||"RULE").replace(/^RULE\s*/i,"").trim();
   }
+  function visibleRuleNo(id){
+    refreshNodes();
+    id=String(id||"");
+    var index=tabs.findIndex(function(tab){ return tab.getAttribute("data-rule-tab")===id; });
+    if(index < 0) index=panels.findIndex(function(panel){ return panel.getAttribute("data-rule-panel")===id; });
+    return String((index >= 0 ? index + 1 : tabs.length + 1)).padStart(2,"0");
+  }
+  function visibleRuleKicker(id,kicker){
+    return "RULE " + visibleRuleNo(id);
+  }
+  function renumberRuleTabs(){
+    refreshNodes();
+    tabs.forEach(function(tab,idx){
+      var small=tab.querySelector("small");
+      if(small) small.textContent=String(idx+1).padStart(2,"0");
+    });
+  }
   function setTabLabel(id,title,kicker){
     var tab=document.querySelector('[data-rule-tab="'+id+'"]');
     if(!tab) return;
     var custom=isCustomCategory(id);
     tab.setAttribute("data-custom-rule", custom ? "1" : "0");
     var label='<span class="rule-tab-label">'+escapeHtml(title||"새 룰 카테고리")+'</span>';
-    var side='<span class="rule-tab-side"><small>'+escapeHtml(tabSmallText(kicker))+'</small>';
+    var side='<span class="rule-tab-side"><small>'+escapeHtml(visibleRuleNo(id))+'</small>';
     side+='<span class="rule-tab-delete-btn" role="button" tabindex="0" data-rule-delete-tab="'+escapeAttr(id)+'" title="이 카테고리 삭제">삭제</span>';
     side+='</span>';
     tab.innerHTML=label+side;
@@ -641,6 +658,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
       stripBadges(panel);
     });
     refreshNodes();
+    renumberRuleTabs();
     if(!panelOf(activeId) && tabs[0]) activeId=tabs[0].getAttribute("data-rule-tab");
   }
   function setEditable(on){
@@ -728,7 +746,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
       panel.classList.toggle("active",active);
       if(active){
         title.textContent=panel.getAttribute("data-title")||"킬내기룰";
-        kicker.textContent=panel.getAttribute("data-kicker")||"PKL RULE";
+        kicker.textContent=visibleRuleKicker(id,panel.getAttribute("data-kicker")||"PKL RULE");
         desc.textContent=panel.getAttribute("data-desc")||"";
         setTabLabel(id,panel.getAttribute("data-title")||"킬내기룰",panel.getAttribute("data-kicker")||"PKL RULE");
         if(detail.classList.contains("editing")) ensureAddBlockButton(panel);
@@ -773,6 +791,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     if(panel) panel.remove();
 
     refreshNodes();
+    renumberRuleTabs();
     var next=(tabs[0] && tabs[0].getAttribute("data-rule-tab")) || "";
     activeId=next;
     if(next) setRule(next,true);
@@ -815,6 +834,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     saved[id]={title:title,desc:desc,html:html};
     saveAll(saved);
     refreshNodes();
+    renumberRuleTabs();
     setRule(id,true);
     startEdit();
   }
