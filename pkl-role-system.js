@@ -9,7 +9,7 @@
     tier2_high:"2티어 상",tier2_mid:"2티어 중",tier2_low:"2티어 하",
     tier3_high:"3티어 상",tier3_mid:"3티어 중",tier3_low:"3티어 하",
     tier4_high:"4티어 상",tier4_mid:"4티어 중",tier4_low:"4티어 하",
-    beast:"짐승하",beast_high:"짐승상",beast_low:"짐승하",temp:"임시"
+    beast:"5티어 하",beast_high:"5티어 상",beast_low:"5티어 하",tier5_high:"5티어 상",tier5_low:"5티어 하",temp:"임시"
   };
   var GRADE_KEYS=Object.keys(GRADE_LABELS);
 
@@ -40,7 +40,7 @@
       "2티어":"tier2_mid","2티어상":"tier2_high","2티어중":"tier2_mid","2티어하":"tier2_low",
       "3티어":"tier3_mid","3티어상":"tier3_high","3티어중":"tier3_mid","3티어하":"tier3_low",
       "4티어":"tier4_mid","4티어상":"tier4_high","4티어중":"tier4_mid","4티어하":"tier4_low",
-      "짐승":"beast_low","짐승상":"beast_high","짐승하":"beast_low","짐승 상":"beast_high","짐승 하":"beast_low","임시":"temp"
+      "짐승":"tier5_low","짐승상":"tier5_high","짐승하":"tier5_low","5상":"tier5_high","5하":"tier5_low","5티어상":"tier5_high","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 하":"tier5_low","임시":"temp"
     };
     var l=lower(raw).replace(/[\s_-]+/g,"");
     var aliases={
@@ -57,7 +57,7 @@
   function memberRoleName(role){return MEMBER_LABELS[normalizeMemberRole(role)]||MEMBER_LABELS.temp;}
   function memberRoleClass(role){return "member-role-"+normalizeMemberRole(role);}
   function gradeRoleName(role){return GRADE_LABELS[normalizeGradeRole(role)]||GRADE_LABELS.none;}
-  function gradeRoleClass(role){var r=normalizeGradeRole(role);if(r.indexOf("tier0")===0)return"role-tier0";if(r.indexOf("tier1")===0)return"role-tier1";if(r.indexOf("tier2")===0)return"role-tier2";if(r.indexOf("tier3")===0)return"role-tier3";if(r.indexOf("tier4")===0)return"role-tier4";return"role-"+r;}
+  function gradeRoleClass(role){var r=normalizeGradeRole(role);if(r.indexOf("tier0")===0)return"role-tier0";if(r.indexOf("tier1")===0)return"role-tier1";if(r.indexOf("tier2")===0)return"role-tier2";if(r.indexOf("tier3")===0)return"role-tier3";if(r.indexOf("tier4")===0)return"role-tier4";if(r.indexOf("tier5")===0)return"role-beast";return"role-"+r;}
 
   function readJson(key,fallback){try{var raw=localStorage.getItem(key);if(!raw)return fallback;var parsed=JSON.parse(raw);return parsed==null?fallback:parsed;}catch(e){return fallback;}}
   function cleanKey(v){return String(v==null?"":v).trim().toLowerCase();}

@@ -2225,24 +2225,24 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
       <aside class="pkl-side-zone">
         <article class="pkl-beast-card tier-brown">
           <header class="pkl-beast-head">
-            <img src="emblems/emblem_5.webp" alt="짐승 엠블럼">
+            <img src="emblems/emblem_5.webp" alt="5티어 엠블럼">
           </header>
           <div class="pkl-beast-lanes">
           <section class="pkl-beast-line">
             <div class="pkl-lane-rank">상</div>
             <div class="pkl-lane-score">
-              <input type="number" value="0" aria-label="짐승 상 목표">
-              <input type="number" value="-1" aria-label="짐승 상 감점">
+              <input type="number" value="0" aria-label="5티어 상 목표">
+              <input type="number" value="-1" aria-label="5티어 상 감점">
             </div>
-            <div class="pkl-lane-list" data-tier="짐승상"></div>
+            <div class="pkl-lane-list" data-tier="5상"></div>
           </section>
           <section class="pkl-beast-line">
             <div class="pkl-lane-rank">하</div>
             <div class="pkl-lane-score">
-              <input type="number" value="-5" aria-label="짐승 하 목표">
-              <input type="number" value="-1" aria-label="짐승 하 감점">
+              <input type="number" value="-5" aria-label="5티어 하 목표">
+              <input type="number" value="-1" aria-label="5티어 하 감점">
             </div>
-            <div class="pkl-lane-list" data-tier="짐승하"></div>
+            <div class="pkl-lane-list" data-tier="5하"></div>
           </section>
           </div>
         </article>
@@ -2259,14 +2259,14 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
   if(window.__PKL_TIER_ULTRA_EARLY_RENDER__) return;
   window.__PKL_TIER_ULTRA_EARLY_RENDER__ = true;
 
-  var ROLE_TO_LANE={tier0_high:'0상',tier0_mid:'0중',tier0_low:'0하',tier1_high:'1상',tier1_mid:'1중',tier1_low:'1하',tier2_high:'2상',tier2_mid:'2중',tier2_low:'2하',tier3_high:'3상',tier3_mid:'3중',tier3_low:'3하',tier4_high:'4상',tier4_mid:'4중',tier4_low:'4하',beast:'짐승하', beast_high:'짐승상', beast_low:'짐승하'};
-  var LABEL={tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',tier2_high:'2티어 상',tier2_mid:'2티어 중',tier2_low:'2티어 하',tier3_high:'3티어 상',tier3_mid:'3티어 중',tier3_low:'3티어 하',tier4_high:'4티어 상',tier4_mid:'4티어 중',tier4_low:'4티어 하',beast:'짐승하', beast_high:'짐승상', beast_low:'짐승하'};
+  var ROLE_TO_LANE={tier0_high:'0상',tier0_mid:'0중',tier0_low:'0하',tier1_high:'1상',tier1_mid:'1중',tier1_low:'1하',tier2_high:'2상',tier2_mid:'2중',tier2_low:'2하',tier3_high:'3상',tier3_mid:'3중',tier3_low:'3하',tier4_high:'4상',tier4_mid:'4중',tier4_low:'4하',beast:'5하', beast_high:'5상', beast_low:'5하', tier5_high:'5상', tier5_low:'5하'};
+  var LABEL={tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',tier2_high:'2티어 상',tier2_mid:'2티어 중',tier2_low:'2티어 하',tier3_high:'3티어 상',tier3_mid:'3티어 중',tier3_low:'3티어 하',tier4_high:'4티어 상',tier4_mid:'4티어 중',tier4_low:'4티어 하',beast:'5티어 하', beast_high:'5티어 상', beast_low:'5티어 하', tier5_high:'5티어 상', tier5_low:'5티어 하'};
   var CACHE_KEY='PKL_TIER_RENDER_PREVIEW_V2';
   var TTL=1000*60*10;
   function clean(v){return String(v==null?'':v).trim();}
   function didOf(u){u=u||{};var did=clean(u.discordId||u.discord_id||u.discordID);if(did)return did.replace(/^discord-/i,'');var keys=['uid','id','userId','user_id','key'];for(var i=0;i<keys.length;i++){var raw=clean(u[keys[i]]);if(/^discord-/i.test(raw))return raw.replace(/^discord-/i,'');}return '';}
   function nickOf(u){return clean(u&&(u.nickname||u.name||u.nick||u.pubgId||u.pubgID||u.discordUsername||u.discord_username||u.username));}
-  function normalizeTier(v){var raw=clean(v);if(!raw||raw==='없음'||raw.toLowerCase()==='none')return 'none';var compact=raw.replace(/\s+/g,'');var byText={'0티어상':'tier0_high','0상':'tier0_high','0티어중':'tier0_mid','0중':'tier0_mid','0티어하':'tier0_low','0하':'tier0_low','1티어상':'tier1_high','1상':'tier1_high','1티어중':'tier1_mid','1중':'tier1_mid','1티어하':'tier1_low','1하':'tier1_low','2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low','3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low','4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low','짐승':'beast_low', '짐승상':'beast_high', '짐승하':'beast_low', '짐승 상':'beast_high', '짐승 하':'beast_low','beast':'beast_low','beasthigh':'beast_high','beastlow':'beast_low'};if(ROLE_TO_LANE[raw])return raw;if(byText[compact])return byText[compact];if(raw==='tier0')return'tier0_mid';if(raw==='tier1')return'tier1_mid';if(raw==='tier2')return'tier2_mid';if(raw==='tier3')return'tier3_mid';if(raw==='tier4')return'tier4_mid';return raw;}
+  function normalizeTier(v){var raw=clean(v);if(!raw||raw==='없음'||raw.toLowerCase()==='none')return 'none';var compact=raw.replace(/\s+/g,'');var byText={'0티어상':'tier0_high','0상':'tier0_high','0티어중':'tier0_mid','0중':'tier0_mid','0티어하':'tier0_low','0하':'tier0_low','1티어상':'tier1_high','1상':'tier1_high','1티어중':'tier1_mid','1중':'tier1_mid','1티어하':'tier1_low','1하':'tier1_low','2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low','3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low','4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low','5티어상':'tier5_high','5상':'tier5_high','5티어하':'tier5_low','5하':'tier5_low','짐승':'tier5_low', '짐승상':'tier5_high', '짐승하':'tier5_low', '짐승 상':'tier5_high', '짐승 하':'tier5_low', '5티어 상':'tier5_high', '5티어 하':'tier5_low','beast':'beast_low','beasthigh':'beast_high','beastlow':'beast_low'};if(ROLE_TO_LANE[raw])return raw;if(byText[compact])return byText[compact];if(raw==='tier0')return'tier0_mid';if(raw==='tier1')return'tier1_mid';if(raw==='tier2')return'tier2_mid';if(raw==='tier3')return'tier3_mid';if(raw==='tier4')return'tier4_mid';return raw;}
   function tierOf(u){u=u||{};var fields=[u.memberTier,u.gradeRole,u.tierRole,u.tier,u.memberTierName,u.tierName,u.roleName,u.baseRole,u.originalRole];for(var i=0;i<fields.length;i++){if(clean(fields[i])){var t=normalizeTier(fields[i]);if(t&&t!=='none')return t;}}return'none';}
   function keyOf(u){return didOf(u);} function labelOf(t){t=normalizeTier(t);return LABEL[t]||t||'없음';}
   function normalizeUsers(list){var seenDid=new Set(),out=[];(Array.isArray(list)?list:[]).forEach(function(row){var did=didOf(row),nick=nickOf(row),tier=tierOf(row);if(!did||!nick||!ROLE_TO_LANE[tier])return;var dk=did.toLowerCase();if(seenDid.has(dk))return;seenDid.add(dk);out.push(Object.assign({},row,{discordId:did,nickname:nick,memberTier:tier,gradeRole:tier,tierRole:tier,tier:tier==='none'?'없음':labelOf(tier),memberTierName:labelOf(tier)}));});out.sort(function(a,b){return nickOf(a).localeCompare(nickOf(b),'ko-KR',{numeric:true,sensitivity:'base'});});return out;}
@@ -2656,7 +2656,8 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
     tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
     tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
     tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
-    beast:"짐승하", beast_high:"짐승상", beast_low:"짐승하"
+    tier5_high:"5상", tier5_low:"5하",
+    beast:"5하", beast_high:"5상", beast_low:"5하", tier5_high:"5상", tier5_low:"5하"
   };
 
   const PKL_TIER_LANE_TO_ROLE = {
@@ -2665,7 +2666,8 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
     "2상":"tier2_high", "2중":"tier2_mid", "2하":"tier2_low",
     "3상":"tier3_high", "3중":"tier3_mid", "3하":"tier3_low",
     "4상":"tier4_high", "4중":"tier4_mid", "4하":"tier4_low",
-    "짐승":"beast_low", "짐승상":"beast_high", "짐승하":"beast_low", "짐승 상":"beast_high", "짐승 하":"beast_low"
+    "5상":"tier5_high", "5하":"tier5_low",
+    "짐승":"tier5_low", "짐승상":"tier5_high", "짐승하":"tier5_low", "짐승 상":"tier5_high", "짐승 하":"tier5_low", "5티어 상":"tier5_high", "5티어 하":"tier5_low"
   };
 
   const PKL_TIER_ROLE_LABELS = {
@@ -2675,7 +2677,8 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
     tier2_high:"2티어 상", tier2_mid:"2티어 중", tier2_low:"2티어 하",
     tier3_high:"3티어 상", tier3_mid:"3티어 중", tier3_low:"3티어 하",
     tier4_high:"4티어 상", tier4_mid:"4티어 중", tier4_low:"4티어 하",
-    beast:"짐승하", beast_high:"짐승상", beast_low:"짐승하"
+    tier5_high:"5티어 상", tier5_low:"5티어 하",
+    beast:"5티어 하", beast_high:"5티어 상", beast_low:"5티어 하", tier5_high:"5티어 상", tier5_low:"5티어 하"
   };
 
   function pklTierReadAdminState(){
@@ -2740,7 +2743,8 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
       "4티어상":"tier4_high", "4상":"tier4_high",
       "4티어중":"tier4_mid", "4중":"tier4_mid",
       "4티어하":"tier4_low", "4하":"tier4_low",
-      "짐승":"beast_low", "짐승상":"beast_high", "짐승하":"beast_low", "짐승 상":"beast_high", "짐승 하":"beast_low"
+      "5티어상":"tier5_high", "5상":"tier5_high", "5티어하":"tier5_low", "5하":"tier5_low",
+      "짐승":"tier5_low", "짐승상":"tier5_high", "짐승하":"tier5_low", "짐승 상":"tier5_high", "짐승 하":"tier5_low", "5티어 상":"tier5_high", "5티어 하":"tier5_low"
     };
     return map[text] || "";
   }
@@ -3053,7 +3057,8 @@ document.addEventListener("DOMContentLoaded", function(){
     tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
     tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
     tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
-    beast:"짐승하", beast_high:"짐승상", beast_low:"짐승하"
+    tier5_high:"5상", tier5_low:"5하",
+    beast:"5하", beast_high:"5상", beast_low:"5하", tier5_high:"5상", tier5_low:"5하"
   };
   let scoreConfig = {};
   let saveTimer = null;
@@ -3415,7 +3420,8 @@ document.addEventListener("DOMContentLoaded", function(){
     tier2_high:'2상', tier2_mid:'2중', tier2_low:'2하',
     tier3_high:'3상', tier3_mid:'3중', tier3_low:'3하',
     tier4_high:'4상', tier4_mid:'4중', tier4_low:'4하',
-    beast:'짐승하', beast_high:'짐승상', beast_low:'짐승하'
+    tier5_high:'5상', tier5_low:'5하',
+    beast:'5하', beast_high:'5상', beast_low:'5하', tier5_high:'5상', tier5_low:'5하'
   };
   var LANE_TO_ROLE = {
     '0상':'tier0_high', '0중':'tier0_mid', '0하':'tier0_low',
@@ -3423,7 +3429,8 @@ document.addEventListener("DOMContentLoaded", function(){
     '2상':'tier2_high', '2중':'tier2_mid', '2하':'tier2_low',
     '3상':'tier3_high', '3중':'tier3_mid', '3하':'tier3_low',
     '4상':'tier4_high', '4중':'tier4_mid', '4하':'tier4_low',
-    '짐승':'beast_low', '짐승상':'beast_high', '짐승하':'beast_low', '짐승 상':'beast_high', '짐승 하':'beast_low'
+    '5상':'tier5_high', '5하':'tier5_low',
+    '짐승':'tier5_low', '짐승상':'tier5_high', '짐승하':'tier5_low', '짐승 상':'tier5_high', '짐승 하':'tier5_low', '5티어 상':'tier5_high', '5티어 하':'tier5_low'
   };
   var LABEL = {
     none:'없음',
@@ -3432,7 +3439,8 @@ document.addEventListener("DOMContentLoaded", function(){
     tier2_high:'2티어 상', tier2_mid:'2티어 중', tier2_low:'2티어 하',
     tier3_high:'3티어 상', tier3_mid:'3티어 중', tier3_low:'3티어 하',
     tier4_high:'4티어 상', tier4_mid:'4티어 중', tier4_low:'4티어 하',
-    beast:'짐승하', beast_high:'짐승상', beast_low:'짐승하'
+    tier5_high:'5티어 상', tier5_low:'5티어 하',
+    beast:'5티어 하', beast_high:'5티어 상', beast_low:'5티어 하', tier5_high:'5티어 상', tier5_low:'5티어 하'
   };
 
   var cache = [];
@@ -3494,7 +3502,8 @@ document.addEventListener("DOMContentLoaded", function(){
       '2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low',
       '3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low',
       '4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low',
-      '짐승':'beast_low', '짐승상':'beast_high', '짐승하':'beast_low', '짐승 상':'beast_high', '짐승 하':'beast_low','beast':'beast_low','beasthigh':'beast_high','beastlow':'beast_low'
+      '5티어상':'tier5_high','5상':'tier5_high','5티어하':'tier5_low','5하':'tier5_low',
+      '짐승':'tier5_low', '짐승상':'tier5_high', '짐승하':'tier5_low', '짐승 상':'tier5_high', '짐승 하':'tier5_low', '5티어 상':'tier5_high', '5티어 하':'tier5_low','beast':'beast_low','beasthigh':'beast_high','beastlow':'beast_low'
     };
     if(ROLE_TO_LANE[raw]) return raw;
     if(byText[compact]) return byText[compact];
