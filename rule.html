@@ -433,7 +433,9 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   }
   function loadSaved(){
-    return Object.assign({}, savedRulesCache || {});
+    var local={};
+    try{ local=normalizeRules(localStorage.getItem(STORAGE_KEY)); }catch(e){ local={}; }
+    return Object.assign({}, local || {}, savedRulesCache || {});
   }
   function markRuleReady(){
     try{document.body.classList.add("pkl-rule-ready");}catch(e){}
@@ -452,7 +454,9 @@ body:not(.pkl-rule-ready) .rule-hero::after{
             next=normalizeRules(data && data.item ? data.item.value : null);
           }
         }
-        savedRulesCache=next;
+        var local=normalizeRules(localStorage.getItem(STORAGE_KEY));
+        savedRulesCache=Object.assign({}, local || {}, next || {});
+        if(Object.keys(savedRulesCache).length){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(savedRulesCache)); }catch(e){} }
         rulesHydrated=true;
       }catch(e){
         if(!rulesHydrated) savedRulesCache={};
@@ -467,15 +471,17 @@ body:not(.pkl-rule-ready) .rule-hero::after{
   async function saveAll(data){
     var safe=data && typeof data === "object" && !Array.isArray(data) ? data : {};
     savedRulesCache=safe;
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(safe)); }catch(e){}
     try{
       if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === "function") await window.PKLSupabaseDataSync.setShared(STORAGE_KEY, safe);
       else if(typeof window.saveSharedData === "function") await window.saveSharedData(STORAGE_KEY, safe);
       else await fetch("/api/pkl-data-store",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"shared",key:STORAGE_KEY,value:safe})});
     }catch(e){
       alert("Supabase 저장에 실패했습니다. 새로고침하지 말고 다시 저장해주세요.");
-      return;
+      return false;
     }
     try{window.dispatchEvent(new CustomEvent("pkl-supabase-data-updated",{detail:{key:STORAGE_KEY,local:true}}));}catch(e){}
+    return true;
   }
 
   function refreshNodes(){
@@ -550,6 +556,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
         e.stopPropagation();
         if(!isRuleAdmin() || !detail.classList.contains("editing")) return;
         block.remove();
+        if(saveBtn){ saveBtn.textContent="저장"; saveBtn.hidden=false; }
       });
       block.appendChild(btn);
     });
@@ -696,26 +703,23 @@ body:not(.pkl-rule-ready) .rule-hero::after{
   }
 
   async function deleteActiveCategory(){
-    if(!isRuleAdmin() || !isCustomCategory(activeId) || detail.classList.contains("editing")) return;
-    if(!deleteCategoryArmed){
-      deleteCategoryArmed=true;
-      if(deleteCategoryBtn){
-        deleteCategoryBtn.classList.add("confirming");
-        deleteCategoryBtn.textContent="삭제확인";
-      }
-      deleteCategoryTimer=setTimeout(resetDeleteCategoryButton,2600);
-      return;
-    }
+    if(!isRuleAdmin() || detail.classList.contains("editing")) return;
     var deleteId=activeId;
+    if(!isCustomCategory(deleteId)) return;
+
     var saved=loadSaved();
     var categories=Array.isArray(saved.__categories)?saved.__categories:[];
     saved.__categories=categories.filter(function(cat){return cat && cat.id!==deleteId;});
     delete saved[deleteId];
+
     var tab=document.querySelector('[data-rule-tab="'+deleteId+'"]');
     var panel=document.querySelector('[data-rule-panel="'+deleteId+'"]');
     if(tab) tab.remove();
     if(panel) panel.remove();
+
     await saveAll(saved);
+    savedRulesCache=saved;
+    applySaved();
     refreshNodes();
     var next=(tabs[0] && tabs[0].getAttribute("data-rule-tab")) || "basic";
     activeId=next;
