@@ -7,7 +7,7 @@
     { id: 'tier2', label: '2티어', weight: 4, badgeClass: 'grade-role-tier2' },
     { id: 'tier3', label: '3티어', weight: 3, badgeClass: 'grade-role-tier3' },
     { id: 'tier4', label: '4티어', weight: 2, badgeClass: 'grade-role-tier4' },
-    { id: 'beast', label: '짐승', weight: 1, badgeClass: 'grade-role-beast' }
+    { id: 'beast', label: '5티어', weight: 1, badgeClass: 'grade-role-beast' }
   ];
 
   const TEAM_COUNT = 20;
@@ -1562,7 +1562,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function getTierNumericIndex(tierId) {
     if (tierId === 'beast') return 5;
-    const match = String(tierId || '').match(/^tier([0-4])$/);
+    const match = String(tierId || '').match(/^tier([0-5])$/);
     return match ? Number(match[1]) : Number.NaN;
   }
 
@@ -1717,8 +1717,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
       }
       const text = String(value || '').trim();
       if (!text) continue;
-      if (/^tier[0-4]_(high|mid|low)$/i.test(text) || /^tier[0-4](high|mid|low)$/i.test(text.replace(/[\s_-]+/g, ''))) return text;
-      if (/[0-4]\s*티어\s*[상중하]/.test(text) || /[0-4]\s*[상중하]/.test(text) || text === '짐승' || /^beast$/i.test(text)) return text;
+      if (/^tier[0-5]_(high|mid|low)$/i.test(text) || /^tier[0-5](high|mid|low)$/i.test(text.replace(/[\s_-]+/g, ''))) return text;
+      if (/[0-5]\s*티어\s*[상중하]/.test(text) || /[0-5]\s*[상중하]/.test(text) || text === '짐승' || text === '5티어' || /^beast$/i.test(text) || /^tier5$/i.test(text)) return text;
       if (normalizeTierKey(text) !== 'none') return text;
     }
     return '';
@@ -1753,13 +1753,13 @@ const teamIndex = Number(slot.dataset.teamIndex);
     const idTier = TIERS.find(item => item.id.toLowerCase() === compact || item.label.replace(/\s+/g, '').toLowerCase() === compact);
     if (idTier) return idTier.id;
 
-    if (compact === '짐승' || compact === 'beast' || compact === 'animal') return 'beast';
+    if (compact === '짐승' || compact === '5티어' || compact === '5tier' || compact === 'tier5' || compact === 'beast' || compact === 'animal') return 'beast';
 
-    const koreanTier = compact.match(/([0-4])티어/);
-    if (koreanTier) return `tier${koreanTier[1]}`;
+    const koreanTier = compact.match(/([0-5])티어/);
+    if (koreanTier) return koreanTier[1] === '5' ? 'beast' : `tier${koreanTier[1]}`;
 
-    const idMatch = normalizedCompact.match(/^tier([0-4])(high|mid|low|상|중|하)?$/);
-    if (idMatch) return `tier${idMatch[1]}`;
+    const idMatch = normalizedCompact.match(/^tier([0-5])(high|mid|low|상|중|하)?$/);
+    if (idMatch) return idMatch[1] === '5' ? 'beast' : `tier${idMatch[1]}`;
 
     return 'none';
   }

@@ -4737,7 +4737,8 @@ body .modal-layer [class*="streak"]{
 
 .tier-mark.role-beast,
 .grade-role-beast,
-.member-role-badge[data-pkl-grade="짐승"]{
+.member-role-badge[data-pkl-grade="짐승"],
+.member-role-badge[data-pkl-grade="5티어"]{
   color:#d9a36c !important;
   border-color:rgba(210,150,95,.38) !important;
   background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018)),linear-gradient(135deg,rgba(78,47,24,.78),rgba(20,12,7,.92)) !important;
