@@ -3164,7 +3164,7 @@ document.addEventListener("DOMContentLoaded", function(){
     });
     setConfig(config);
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveConfig, 60);
+    saveTimer = setTimeout(saveConfig, 180);
   }
   async function postJson(url, body, keepalive){
     const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, cache:'no-store', keepalive:!!keepalive, body:JSON.stringify(body)});
@@ -3211,8 +3211,8 @@ document.addEventListener("DOMContentLoaded", function(){
       const lane = String(list.dataset.tier || "").trim();
       const saved = config[lane];
       if(!saved) return;
-      if(saved.target !== undefined && saved.target !== null && String(saved.target) !== "") { inputs[0].value = saved.target; inputs[0].setAttribute("value", saved.target); }
-      if(saved.death !== undefined && saved.death !== null && String(saved.death) !== "") { inputs[1].value = saved.death; inputs[1].setAttribute("value", saved.death); }
+      if(saved.target !== undefined && saved.target !== null && String(saved.target) !== "") inputs[0].value = saved.target;
+      if(saved.death !== undefined && saved.death !== null && String(saved.death) !== "") inputs[1].value = saved.death;
     });
   }
   function bind(){

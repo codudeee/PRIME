@@ -6,7 +6,7 @@
     "pklNoticeBoardItems","pklPatchNotes_v2","PKL_RULE_PAGE_CONTENT_V1",
     "PKL_RESULT_MATCHES_V1","PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1","PKL_USER_MATCH_STATS_V1","PKL_TIER_DATA_V1",
     "PKL_SURRENDER_CONSENT_STORE_V1","PKL_FIRE_CONSENT_STORE_V1","PKL_SHEET_RESET_LOCK_V2",
-    "pklTeamBuilderState.v1",
+    "pklTeamBuilderState.v1","pklTierScoreConfig","pklTierScoreLastSync",
     "pklSideListItems","pklSideList","pklSideBets","pklItemHistoryCounts",
     "pklUsers","PKL_USERS","pklAdminState_v3","pklAdminUsers","PKL_ADMIN_USERS","pklUserList",
     "pklPendingUsers","pklBannedUsers","PKL_DELETED_USER_KEYS_V1",
