@@ -709,22 +709,36 @@ body:not(.pkl-rule-ready) .rule-hero::after{
 
   async function deleteActiveCategory(e){
     if(e){ e.preventDefault(); e.stopPropagation(); }
-    if(!isRuleAdmin() || detail.classList.contains("editing")) return;
+    if(!isRuleAdmin() || !deleteCategoryBtn) return;
+    if(detail.classList.contains("editing")) return;
+
     var deleteId=String(activeId||"");
     if(!isCustomCategory(deleteId)) return;
 
-    if(!window.confirm("현재 룰 카테고리를 삭제할까요?")) return;
+    // 기본 confirm 창 대신 PKL식 2단계 삭제로 처리한다.
+    // 일부 브라우저/레이어에서 confirm 또는 disabled 상태가 클릭 흐름을 끊어
+    // 실제 삭제 함수가 끝까지 실행되지 않던 문제를 피한다.
+    if(!deleteCategoryArmed){
+      deleteCategoryArmed=true;
+      deleteCategoryBtn.classList.add("confirming");
+      deleteCategoryBtn.textContent="한번 더 삭제";
+      if(deleteCategoryTimer) clearTimeout(deleteCategoryTimer);
+      deleteCategoryTimer=setTimeout(resetDeleteCategoryButton,2600);
+      return;
+    }
+
+    resetDeleteCategoryButton();
 
     var saved=loadSaved();
     var categories=Array.isArray(saved.__categories)?saved.__categories:[];
-    saved.__categories=categories.filter(function(cat){return cat && cat.id!==deleteId;});
+
+    // __categories에 누락된 구버전 추가 카테고리라도 현재 패널 id 기준으로 확실히 제거한다.
+    saved.__categories=categories.filter(function(cat){
+      return !(cat && String(cat.id)===deleteId);
+    });
     delete saved[deleteId];
 
-    // 먼저 저장해서 새로고침 후에도 복구되지 않게 한다.
-    var ok=await saveAll(saved);
-    if(!ok) return;
-
-    savedRulesCache=saved;
+    // DOM을 먼저 제거해서 클릭 즉시 화면에서 빠지게 한다.
     var tab=document.querySelector('[data-rule-tab="'+deleteId+'"]');
     var panel=document.querySelector('[data-rule-panel="'+deleteId+'"]');
     if(tab) tab.remove();
@@ -734,6 +748,14 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     var next=(tabs[0] && tabs[0].getAttribute("data-rule-tab")) || "basic";
     activeId=next;
     setRule(next,true);
+
+    var ok=await saveAll(saved);
+    if(!ok){
+      // 저장 실패 시에는 새로고침하면 다시 살아날 수 있으니 바로 다시 동기화한다.
+      await hydrateRules(true);
+      return;
+    }
+    savedRulesCache=saved;
   }
 
   function addCategory(){
