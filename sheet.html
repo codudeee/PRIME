@@ -7245,7 +7245,7 @@ function pklMergeTierScoreConfig(base, saved){
       const target=Number(value.target);
       const death=Number(value.death);
       const lane=pklTierScoreLaneFromRole(key) || key;
-      if(!base[lane]) base[lane]={target:0, death:0};
+      if(!base[lane]) return;
       base[lane]={
         target:Number.isFinite(target)?target:Number(base[lane]?.target||0),
         death:Number.isFinite(death)?death:Number(base[lane]?.death||0)
@@ -7283,10 +7283,6 @@ async function pklLoadTierScoreConfig(){
     }
     let localValue={};
     try{ localValue=JSON.parse(localStorage.getItem('pklTierScoreConfig')||'{}')||{}; }catch(_e){ localValue={}; }
-    try{
-      const localValue2=JSON.parse(localStorage.getItem('PKL_TIER_SCORE_CONFIG_LOCAL_V2')||'{}')||{};
-      localValue = pklMergeTierScoreConfig(pklMergeTierScoreConfig({}, localValue), localValue2);
-    }catch(_e){}
     // 서버에 5티어 설정이 아직 없거나 예전 형식이면 로컬 저장값과 병합해 시트지 점수 계산도 같은 값을 사용한다.
     window.__PKL_TIER_SCORE_CONFIG = pklMergeTierScoreConfig({}, value && typeof value === 'object' ? value : {});
     window.__PKL_TIER_SCORE_CONFIG = pklMergeTierScoreConfig(window.__PKL_TIER_SCORE_CONFIG, localValue);
@@ -9853,7 +9849,7 @@ window.addEventListener('resize', refreshPklMapPopupPosition);
     tier4_high:"4티어 상",
     tier4_mid:"4티어 중",
     tier4_low:"4티어 하",
-    beast:"5하",beast_high:"5상",beast_low:"5하",tier5_high:"5상",tier5_low:"5하",
+    beast:"5하",beast_high:"5상",beast_mid:"5중",beast_low:"5하",tier5_high:"5상",tier5_mid:"5중",tier5_low:"5하",
     prisoner:"수감자",
     temp:"임시"
   };
@@ -9961,7 +9957,7 @@ window.addEventListener('resize', refreshPklMapPopupPosition);
       "4티어 상":"tier4_high",
       "4티어 중":"tier4_mid",
       "4티어 하":"tier4_low",
-      "짐승":"tier5_low","짐승상":"tier5_high","짐승하":"tier5_low","5상":"tier5_high","5하":"tier5_low","5티어상":"tier5_high","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 하":"tier5_low"
+      "짐승":"tier5_low","짐승상":"tier5_high","짐승중":"tier5_mid","짐승하":"tier5_low","5상":"tier5_high","5중":"tier5_mid","5하":"tier5_low","5티어상":"tier5_high","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 하":"tier5_low"
     };
     return map[text] || "none";
   }
@@ -11185,7 +11181,7 @@ window.addEventListener('resize', refreshPklMapPopupPosition);
       tier2_high:"2티어 상", tier2_mid:"2티어 중", tier2_low:"2티어 하",
       tier3_high:"3티어 상", tier3_mid:"3티어 중", tier3_low:"3티어 하",
       tier4_high:"4티어 상", tier4_mid:"4티어 중", tier4_low:"4티어 하",
-      beast:"5하",beast_high:"5상",beast_low:"5하",tier5_high:"5상",tier5_low:"5하", none:""
+      beast:"5하",beast_high:"5상",beast_mid:"5중",beast_low:"5하",tier5_high:"5상",tier5_mid:"5중",tier5_low:"5하", none:""
     };
     return map[raw] !== undefined ? map[raw] : raw;
   }

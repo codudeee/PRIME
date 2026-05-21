@@ -1948,7 +1948,7 @@ function pklTierScoreDefaults(){
     "2상":{target:40,death:-3},"2중":{target:35,death:-2},"2하":{target:30,death:-2},
     "3상":{target:25,death:-2},"3중":{target:20,death:-2},"3하":{target:15,death:-1},
     "4상":{target:10,death:-1},"4중":{target:5,death:-1},"4하":{target:0,death:-1},
-    "5상":{target:0,death:-1},"5중":{target:-5,death:-1},"5하":{target:-10,death:-1},"짐승":{target:-10,death:-1}
+    "5하":{target:-5,death:-1},"5상":{target:0,death:-1},"짐승":{target:-5,death:-1}
   };
 }
 function pklMergeResultTierScoreConfig(base, saved){
@@ -1959,7 +1959,7 @@ function pklMergeResultTierScoreConfig(base, saved){
       const target=Number(value.target);
       const death=Number(value.death);
       const lane=pklTierScoreLaneFromRole(key) || key;
-      if(!base[lane]) base[lane]={target:0, death:0};
+      if(!base[lane]) return;
       base[lane]={
         target:Number.isFinite(target)?target:Number(base[lane]?.target||0),
         death:Number.isFinite(death)?death:Number(base[lane]?.death||0)
@@ -2033,10 +2033,7 @@ async function pklLoadResultTierScoreConfig(){
     const res=await fetch('/api/pkl-shared?key=' + encodeURIComponent('pklTierScoreConfig') + '&t=' + Date.now(), {cache:'no-store', headers:{Accept:'application/json'}});
     const data=await res.json().catch(()=>({}));
     const value=data && data.item ? data.item.value : null;
-    let localValue={};
-    try{ localValue=JSON.parse(localStorage.getItem('pklTierScoreConfig')||'{}')||{}; }catch(_e){}
-    try{ localValue=pklMergeResultTierScoreConfig(pklMergeResultTierScoreConfig({}, localValue), JSON.parse(localStorage.getItem('PKL_TIER_SCORE_CONFIG_LOCAL_V2')||'{}')||{}); }catch(_e){}
-    window.__PKL_RESULT_TIER_SCORE_CONFIG = pklMergeResultTierScoreConfig(pklMergeResultTierScoreConfig({}, value && typeof value === 'object' ? value : {}), localValue);
+    window.__PKL_RESULT_TIER_SCORE_CONFIG = value && typeof value === 'object' ? value : {};
     try{ renderAll(); }catch(e){}
   }catch(e){
     console.warn('[PKL RESULT] tier score config load failed', e);
