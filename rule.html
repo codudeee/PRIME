@@ -121,7 +121,7 @@ body.rule-admin .rule-admin-actions{display:flex;}
 .rule-cancel-btn{background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.025));color:rgba(255,255,255,.82);}
 .rule-delete-category-btn{border-color:rgba(255,78,104,.40);background:linear-gradient(180deg,rgba(255,78,104,.24),rgba(255,78,104,.08));color:#ffd7de;}
 .rule-delete-category-btn[hidden]{display:none !important;}
-.rule-delete-category-btn:disabled{opacity:.42;filter:grayscale(.25);cursor:not-allowed;transform:none !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 18px rgba(0,0,0,.18) !important;}
+.rule-delete-category-btn:disabled{opacity:.95;filter:none;cursor:pointer;transform:none !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 18px rgba(0,0,0,.18) !important;}
 .rule-delete-category-btn.confirming{border-color:rgba(255,120,140,.72);background:linear-gradient(180deg,rgba(255,78,104,.42),rgba(255,78,104,.16));color:#fff;}
 .rule-edit-btn:hover,.rule-delete-category-btn:hover,.rule-save-btn:hover,.rule-cancel-btn:hover{filter:brightness(1.10);border-color:rgba(216,180,254,.58);box-shadow:0 0 20px rgba(155,92,255,.22),inset 0 1px 0 rgba(255,255,255,.14);transform:translateY(-1px);}
 .rule-edit-form{display:none;margin:0 0 18px;padding:16px;border-radius:18px;border:1px solid rgba(216,180,254,.22);background:linear-gradient(135deg,rgba(255,255,255,.065),rgba(255,255,255,.018)),rgba(8,8,18,.78);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 14px 30px rgba(0,0,0,.20);}
@@ -505,8 +505,12 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     tab.innerHTML=escapeHtml(title||"새 룰 카테고리")+' <small>'+escapeHtml(tabSmallText(kicker))+'</small>';
   }
   function isCustomCategory(id){
-    var saved=loadSaved();
-    return Array.isArray(saved.__categories) && saved.__categories.some(function(cat){return cat && cat.id===id;});
+    // 기본 6개 룰 외에는 모두 사용자가 추가한 카테고리로 판단한다.
+    // 기존 버전에서 __categories 저장이 누락된 경우에도 custom_ 패널/탭은 삭제 가능해야 한다.
+    var fixed={basic:true,score:true,surrender:true,fire:true,penalty:true,admin:true};
+    id=String(id||"");
+    if(!id || fixed[id]) return false;
+    return true;
   }
   var deleteCategoryArmed=false;
   var deleteCategoryTimer=null;
@@ -523,7 +527,8 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     resetDeleteCategoryButton();
     var canDelete=isRuleAdmin() && isCustomCategory(activeId) && !detail.classList.contains("editing");
     deleteCategoryBtn.hidden=!canDelete;
-    deleteCategoryBtn.disabled=!canDelete;
+    // hidden으로만 제어한다. disabled를 걸면 브라우저가 click 이벤트를 막아 삭제가 안 된다.
+    deleteCategoryBtn.disabled=false;
     deleteCategoryBtn.title=canDelete ? "현재 추가 카테고리 삭제" : "추가한 카테고리만 삭제할 수 있습니다.";
   }
   function ensureAddBlockButton(panel){
@@ -702,24 +707,29 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     syncDeleteCategoryButton();
   }
 
-  async function deleteActiveCategory(){
+  async function deleteActiveCategory(e){
+    if(e){ e.preventDefault(); e.stopPropagation(); }
     if(!isRuleAdmin() || detail.classList.contains("editing")) return;
-    var deleteId=activeId;
+    var deleteId=String(activeId||"");
     if(!isCustomCategory(deleteId)) return;
+
+    if(!window.confirm("현재 룰 카테고리를 삭제할까요?")) return;
 
     var saved=loadSaved();
     var categories=Array.isArray(saved.__categories)?saved.__categories:[];
     saved.__categories=categories.filter(function(cat){return cat && cat.id!==deleteId;});
     delete saved[deleteId];
 
+    // 먼저 저장해서 새로고침 후에도 복구되지 않게 한다.
+    var ok=await saveAll(saved);
+    if(!ok) return;
+
+    savedRulesCache=saved;
     var tab=document.querySelector('[data-rule-tab="'+deleteId+'"]');
     var panel=document.querySelector('[data-rule-panel="'+deleteId+'"]');
     if(tab) tab.remove();
     if(panel) panel.remove();
 
-    await saveAll(saved);
-    savedRulesCache=saved;
-    applySaved();
     refreshNodes();
     var next=(tabs[0] && tabs[0].getAttribute("data-rule-tab")) || "basic";
     activeId=next;
@@ -751,7 +761,10 @@ body:not(.pkl-rule-ready) .rule-hero::after{
   syncAdmin();
   tabs.forEach(function(tab){tab.addEventListener("click",function(){setRule(tab.getAttribute("data-rule-tab"));});});
   if(addCategoryBtn) addCategoryBtn.addEventListener("click",addCategory);
-  if(deleteCategoryBtn) deleteCategoryBtn.addEventListener("click",deleteActiveCategory);
+  if(deleteCategoryBtn){
+    deleteCategoryBtn.addEventListener("click",deleteActiveCategory);
+    deleteCategoryBtn.onclick=deleteActiveCategory;
+  }
   if(editBtn) editBtn.addEventListener("click",startEdit);
   if(saveBtn) saveBtn.addEventListener("click",saveEdit);
   if(cancelBtn) cancelBtn.addEventListener("click",function(){stopEdit(true);});
