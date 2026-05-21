@@ -3814,5 +3814,135 @@ document.addEventListener("DOMContentLoaded", function(){
 })();
 </script>
 
+
+<script id="pklTierScoreHardPersistFix20260522">
+(function(){
+  "use strict";
+  if(window.__PKL_TIER_SCORE_HARD_PERSIST_20260522) return;
+  window.__PKL_TIER_SCORE_HARD_PERSIST_20260522 = true;
+
+  var SCORE_KEY = "pklTierScoreConfig";
+  var BACKUP_KEY = "PKL_TIER_SCORE_INPUT_BACKUP_V1";
+  var ROLE_TO_LANE = {
+    tier0_high:"0상", tier0_mid:"0중", tier0_low:"0하",
+    tier1_high:"1상", tier1_mid:"1중", tier1_low:"1하",
+    tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
+    tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
+    tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
+    tier5_high:"5상", tier5_mid:"5중", tier5_low:"5하",
+    beast:"5하", beast_high:"5상", beast_mid:"5중", beast_low:"5하"
+  };
+
+  function num(v, fb){
+    var n = Number(String(v == null ? "" : v).replace(/[^0-9-]/g, ""));
+    return Number.isFinite(n) ? n : (fb || 0);
+  }
+  function roleFromLane(lane){
+    if(lane === "5상") return "tier5_high";
+    if(lane === "5중") return "tier5_mid";
+    if(lane === "5하") return "tier5_low";
+    for(var k in ROLE_TO_LANE){
+      if(ROLE_TO_LANE[k] === lane && /^tier\d_/.test(k)) return k;
+    }
+    return "";
+  }
+  function parse(raw){
+    try{ var v = JSON.parse(String(raw || "{}")); return v && typeof v === "object" ? v : {}; }catch(_e){ return {}; }
+  }
+  function normalize(config){
+    var out = {};
+    if(!config || typeof config !== "object") return out;
+    Object.keys(config).forEach(function(key){
+      var value = config[key];
+      if(!value || typeof value !== "object") return;
+      var lane = ROLE_TO_LANE[key] || key;
+      var target = num(value.target, 0);
+      var death = num(value.death, 0);
+      out[lane] = { target: target, death: death };
+      var role = roleFromLane(lane);
+      if(role) out[role] = { target: target, death: death, lane: lane };
+    });
+    return out;
+  }
+  function readBackup(){
+    try{ return normalize(parse(localStorage.getItem(BACKUP_KEY))); }catch(_e){ return {}; }
+  }
+  function readMain(){
+    try{ return normalize(parse(localStorage.getItem(SCORE_KEY))); }catch(_e){ return {}; }
+  }
+  function writeBoth(config){
+    var fixed = normalize(config);
+    try{ localStorage.setItem(BACKUP_KEY, JSON.stringify(fixed)); }catch(_e){}
+    try{ localStorage.setItem(SCORE_KEY, JSON.stringify(fixed)); }catch(_e){}
+    window.__PKL_TIER_SCORE_CONFIG = fixed;
+    return fixed;
+  }
+  function collect(){
+    var config = Object.assign({}, readMain(), readBackup());
+    document.querySelectorAll(".pkl-tier-lane").forEach(function(laneEl){
+      var list = laneEl.querySelector(".pkl-lane-list[data-tier]");
+      var inputs = laneEl.querySelectorAll(".pkl-lane-score input");
+      if(!list || inputs.length < 2) return;
+      var lane = String(list.dataset.tier || "").trim();
+      if(!lane) return;
+      var target = num(inputs[0].value, num(inputs[0].getAttribute("value"), 0));
+      var death = num(inputs[1].value, num(inputs[1].getAttribute("value"), 0));
+      config[lane] = { target: target, death: death };
+      var role = roleFromLane(lane);
+      if(role) config[role] = { target: target, death: death, lane: lane };
+    });
+    return writeBoth(config);
+  }
+  function apply(config){
+    config = normalize(config || Object.assign({}, readMain(), readBackup()));
+    document.querySelectorAll(".pkl-tier-lane").forEach(function(laneEl){
+      var list = laneEl.querySelector(".pkl-lane-list[data-tier]");
+      var inputs = laneEl.querySelectorAll(".pkl-lane-score input");
+      if(!list || inputs.length < 2) return;
+      var lane = String(list.dataset.tier || "").trim();
+      var saved = config[lane];
+      if(!saved) return;
+      inputs[0].value = saved.target;
+      inputs[1].value = saved.death;
+    });
+  }
+  function saveServer(config){
+    config = normalize(config || readBackup());
+    if(!Object.keys(config).length) return;
+    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === "function"){
+      try{ window.PKLSupabaseDataSync.setShared(SCORE_KEY, config); }catch(_e){}
+    }
+    try{
+      fetch("/api/pkl-data-store", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({type:"shared", key:SCORE_KEY, value:config})
+      }).catch(function(){});
+    }catch(_e){}
+  }
+  var timer = null;
+  function persistSoon(){
+    var config = collect();
+    clearTimeout(timer);
+    timer = setTimeout(function(){ saveServer(config); }, 220);
+  }
+  function bind(){
+    apply();
+    document.querySelectorAll(".pkl-lane-score input").forEach(function(input){
+      if(input.dataset.pklTierScoreHardPersist === "1") return;
+      input.dataset.pklTierScoreHardPersist = "1";
+      input.addEventListener("input", persistSoon);
+      input.addEventListener("change", persistSoon);
+      input.addEventListener("blur", persistSoon);
+    });
+    // 기존 Supabase 로더가 뒤늦게 예전 기본값을 입혀도, 디스크 백업값을 마지막에 다시 입힌다.
+    [80, 350, 900, 1800].forEach(function(ms){ setTimeout(function(){ apply(readBackup()); }, ms); });
+  }
+  window.addEventListener("pkl-tier-score-config-updated", function(){ setTimeout(function(){ apply(readBackup()); }, 0); });
+  window.addEventListener("beforeunload", function(){ try{ saveServer(collect()); }catch(_e){} });
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
+  else bind();
+})();
+</script>
+
 </body>
 </html>
