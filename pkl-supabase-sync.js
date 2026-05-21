@@ -22,7 +22,7 @@
   };
   // 티어 목표점수/감점은 서버 저장 실패/지연이 있어도 새로고침에서 절대 사라지면 안 된다.
   // 이 두 키는 Supabase 단일원본 가로채기 대상이지만 브라우저 디스크 localStorage에도 남긴다.
-  var LOCAL_PERSIST_KEYS={ pklTierScoreConfig:true, pklTierScoreLastSync:true };
+  var LOCAL_PERSIST_KEYS={ pklTierScoreConfig:true, pklTierScoreLastSync:true, PKL_RULE_PAGE_CONTENT_V1:true };
   var RESULT_MATCH_KEY="PKL_RESULT_MATCHES_V1";
   var SHEET_LIVE_KEY="PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1";
   var originalGet=Storage.prototype.getItem;
@@ -66,7 +66,7 @@
     key=String(key||""); if(!key) return;
     if(BLOCKED_LOCAL_KEYS[key]){ forgetDiskKey(key); delete memoryStore[key]; delete sharedCache[key]; return; }
     sharedCache[key]=value;
-    // pklTierScoreConfig는 로컬 입력값이 새로고침 직후 서버의 예전 값으로 덮이면 안 된다.
+    // pklTierScoreConfig/룰 카테고리는 로컬 입력값이 새로고침 직후 서버의 예전 값으로 덮이면 안 된다.
     // 로컬 값이 이미 있으면 유지하고, 로컬이 비어 있을 때만 서버값을 디스크에 채운다.
     if(LOCAL_PERSIST_KEYS[key]){
       var existing = raw(key);

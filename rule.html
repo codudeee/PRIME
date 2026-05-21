@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-  <script src="./pkl-supabase-sync.js?v=20260522-tier-score-localfix"></script>
+  <script src="./pkl-supabase-sync.js?v=20260522-rule-delete-persistfix"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>PKL 킬내기룰</title>
@@ -709,40 +709,35 @@ body:not(.pkl-rule-ready) .rule-hero::after{
 
   async function deleteActiveCategory(e){
     if(e){ e.preventDefault(); e.stopPropagation(); }
-    if(!isRuleAdmin() || !deleteCategoryBtn) return;
-    if(detail.classList.contains("editing")) return;
+    if(!deleteCategoryBtn || detail.classList.contains("editing")) return;
 
     var deleteId=String(activeId||"");
-    if(!isCustomCategory(deleteId)) return;
-
-    // 기본 confirm 창 대신 PKL식 2단계 삭제로 처리한다.
-    // 일부 브라우저/레이어에서 confirm 또는 disabled 상태가 클릭 흐름을 끊어
-    // 실제 삭제 함수가 끝까지 실행되지 않던 문제를 피한다.
-    if(!deleteCategoryArmed){
-      deleteCategoryArmed=true;
-      deleteCategoryBtn.classList.add("confirming");
-      deleteCategoryBtn.textContent="한번 더 삭제";
-      if(deleteCategoryTimer) clearTimeout(deleteCategoryTimer);
-      deleteCategoryTimer=setTimeout(resetDeleteCategoryButton,2600);
+    if(!isCustomCategory(deleteId)){
+      syncDeleteCategoryButton();
       return;
     }
 
     resetDeleteCategoryButton();
+    deleteCategoryBtn.disabled=true;
+    deleteCategoryBtn.textContent="삭제중";
 
     var saved=loadSaved();
     var categories=Array.isArray(saved.__categories)?saved.__categories:[];
 
-    // __categories에 누락된 구버전 추가 카테고리라도 현재 패널 id 기준으로 확실히 제거한다.
+    // 현재 선택된 추가 카테고리를 저장 데이터와 화면 DOM 양쪽에서 동시에 제거한다.
+    // __categories에 누락된 예전 추가 카테고리도 id 기준으로 반드시 제거한다.
     saved.__categories=categories.filter(function(cat){
       return !(cat && String(cat.id)===deleteId);
     });
     delete saved[deleteId];
 
-    // DOM을 먼저 제거해서 클릭 즉시 화면에서 빠지게 한다.
     var tab=document.querySelector('[data-rule-tab="'+deleteId+'"]');
     var panel=document.querySelector('[data-rule-panel="'+deleteId+'"]');
     if(tab) tab.remove();
     if(panel) panel.remove();
+
+    savedRulesCache=saved;
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); }catch(err){}
 
     refreshNodes();
     var next=(tabs[0] && tabs[0].getAttribute("data-rule-tab")) || "basic";
@@ -751,11 +746,11 @@ body:not(.pkl-rule-ready) .rule-hero::after{
 
     var ok=await saveAll(saved);
     if(!ok){
-      // 저장 실패 시에는 새로고침하면 다시 살아날 수 있으니 바로 다시 동기화한다.
-      await hydrateRules(true);
+      deleteCategoryBtn.disabled=false;
+      deleteCategoryBtn.textContent="삭제";
       return;
     }
-    savedRulesCache=saved;
+    syncDeleteCategoryButton();
   }
 
   function addCategory(){
