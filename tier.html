@@ -987,7 +987,7 @@ body.pkl-logged-out .profile-dropdown{
   width:100% !important;
   height:auto !important;
   display:grid;
-  grid-template-columns:minmax(0,1fr) 190px !important;
+  grid-template-columns:minmax(0,1fr) !important;
   gap:14px;
   align-items:stretch !important;
   flex:1 !important;
@@ -996,7 +996,7 @@ body.pkl-logged-out .profile-dropdown{
 .pkl-tier-cards{
   width:100% !important;
   display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  grid-template-columns:repeat(6,minmax(0,1fr)) !important;
   gap:10px;
   align-items:stretch !important;
 }
@@ -1190,10 +1190,10 @@ body.pkl-logged-out .profile-dropdown{
 }
 
 .pkl-beast-card{
-  height:100% !important;
+  height:auto !important;
   min-height:0 !important;
   align-self:stretch !important;
-  padding:12px;
+  padding:0 !important;
 }
 
 .pkl-beast-head{
@@ -1224,23 +1224,26 @@ body.pkl-logged-out .profile-dropdown{
   display:none !important;
 }
 
-/* PKL 20260522: 짐승 티어를 상/하 2줄로 분리 */
+/* PKL 20260522: 5티어를 다른 티어처럼 한 줄 상/하 칸으로 배치 */
 .pkl-beast-lanes{
   display:grid !important;
-  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   gap:8px !important;
+  padding:0 10px 10px !important;
+  margin-top:0 !important;
   flex:1 1 auto !important;
+  align-items:stretch !important;
   min-height:0 !important;
 }
 .pkl-beast-lanes .pkl-beast-line{
   margin-top:0 !important;
-  min-height:0 !important;
-  height:auto !important;
+  min-height:560px !important;
+  height:100% !important;
   flex:1 1 auto !important;
 }
 .pkl-beast-lanes .pkl-lane-list{
-  min-height:150px !important;
-  flex:1 1 auto !important;
+  min-height:420px !important;
+  flex:1 0 auto !important;
 }
 
 
@@ -2220,9 +2223,7 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
           </section>
           </div>
         </article>
-      </div>
 
-      <aside class="pkl-side-zone">
         <article class="pkl-beast-card tier-brown">
           <header class="pkl-beast-head">
             <img src="emblems/emblem_5.webp" alt="5티어 엠블럼">
@@ -2246,7 +2247,7 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
           </section>
           </div>
         </article>
-</aside>
+      </div>
     </div>
   </section>
 </div>
