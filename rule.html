@@ -97,7 +97,7 @@ body.rule-admin .rule-add-category-btn{display:flex;align-items:center;justify-c
 .rule-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .rule-tab-side{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;}
 .rule-tab-delete-btn{display:none;align-items:center;justify-content:center;height:24px;min-width:42px;padding:0 9px;border-radius:999px;border:1px solid rgba(255,78,104,.46);background:linear-gradient(180deg,rgba(255,78,104,.30),rgba(255,78,104,.10));color:#ffd7de;font-size:10px;font-weight:1000;line-height:1;box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 0 14px rgba(255,78,104,.12);}
-body.rule-admin .rule-tab[data-custom-rule="1"] .rule-tab-delete-btn{display:inline-flex;}
+body.rule-admin .rule-tab .rule-tab-delete-btn{display:inline-flex;}
 .rule-tab-delete-btn:hover{filter:brightness(1.12);border-color:rgba(255,120,140,.75);color:#fff;box-shadow:0 0 16px rgba(255,78,104,.22),inset 0 1px 0 rgba(255,255,255,.14);}
 .rule-tab:hover,.rule-tab.active{color:#fff;transform:translateX(2px);border-color:rgba(216,180,254,.50);background:radial-gradient(circle at 0% 0%,rgba(155,92,255,.22),transparent 60%),linear-gradient(135deg,rgba(255,255,255,.080),rgba(255,255,255,.016));box-shadow:0 0 24px rgba(155,92,255,.15),inset 0 1px 0 rgba(255,255,255,.10);}
 .rule-detail{min-height:650px;display:flex;flex-direction:column;overflow:hidden;}
@@ -125,6 +125,7 @@ body.rule-admin .rule-admin-actions{display:flex;}
 .rule-save-btn{border-color:rgba(255,214,90,.40);background:linear-gradient(180deg,rgba(255,214,90,.34),rgba(155,92,255,.18));}
 .rule-cancel-btn{background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.025));color:rgba(255,255,255,.82);}
 .rule-delete-category-btn{border-color:rgba(255,78,104,.40);background:linear-gradient(180deg,rgba(255,78,104,.24),rgba(255,78,104,.08));color:#ffd7de;}
+.rule-delete-category-btn{display:none !important;}
 .rule-delete-category-btn[hidden]{display:none !important;}
 .rule-delete-category-btn:disabled{opacity:.95;filter:none;cursor:pointer;transform:none !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 18px rgba(0,0,0,.18) !important;}
 .rule-delete-category-btn.confirming{border-color:rgba(255,120,140,.72);background:linear-gradient(180deg,rgba(255,78,104,.42),rgba(255,78,104,.16));color:#fff;}
@@ -511,9 +512,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     tab.setAttribute("data-custom-rule", custom ? "1" : "0");
     var label='<span class="rule-tab-label">'+escapeHtml(title||"새 룰 카테고리")+'</span>';
     var side='<span class="rule-tab-side"><small>'+escapeHtml(tabSmallText(kicker))+'</small>';
-    if(custom){
-      side+='<span class="rule-tab-delete-btn" role="button" tabindex="0" data-rule-delete-tab="'+escapeAttr(id)+'" title="이 카테고리 삭제">삭제</span>';
-    }
+    side+='<span class="rule-tab-delete-btn" role="button" tabindex="0" data-rule-delete-tab="'+escapeAttr(id)+'" title="이 카테고리 삭제">삭제</span>';
     side+='</span>';
     tab.innerHTML=label+side;
   }
@@ -538,11 +537,9 @@ body:not(.pkl-rule-ready) .rule-hero::after{
   function syncDeleteCategoryButton(){
     if(!deleteCategoryBtn) return;
     resetDeleteCategoryButton();
-    var canDelete=isRuleAdmin() && isCustomCategory(activeId) && !detail.classList.contains("editing");
-    deleteCategoryBtn.hidden=!canDelete;
-    // hidden으로만 제어한다. disabled를 걸면 브라우저가 click 이벤트를 막아 삭제가 안 된다.
+    // 우측 본문 상단 삭제 버튼은 사용하지 않는다. 삭제는 좌측 룰 카테고리 목록 버튼으로 통일한다.
+    deleteCategoryBtn.hidden=true;
     deleteCategoryBtn.disabled=false;
-    deleteCategoryBtn.title=canDelete ? "현재 추가 카테고리 삭제" : "추가한 카테고리만 삭제할 수 있습니다.";
   }
   function ensureAddBlockButton(panel){
     if(!panel) return null;
@@ -608,13 +605,32 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     stripBadges(document);
     var saved=loadSaved();
     var categories=Array.isArray(saved.__categories)?saved.__categories:[];
+    var deleted=Array.isArray(saved.__deleted)?saved.__deleted.map(function(v){return String(v);}):[];
+    var deletedMap={};
+    deleted.forEach(function(id){ deletedMap[id]=true; });
+
+    // 삭제된 기본 카테고리는 HTML에 남아 있어도 화면에서 제거한다.
+    deleted.forEach(function(id){
+      var tab=document.querySelector('[data-rule-tab="'+id+'"]');
+      var panel=document.querySelector('[data-rule-panel="'+id+'"]');
+      if(tab) tab.remove();
+      if(panel) panel.remove();
+    });
+
     categories.forEach(function(cat){
+      if(!cat || deletedMap[String(cat.id||"")]) return;
       createTab(cat.id,cat.title||"새 룰",cat.kicker||("RULE "+nextRuleNo()));
       createPanel(cat.id,cat.title||"새 룰",cat.kicker||("RULE "+nextRuleNo()),cat.desc||"",cat.html||"");
     });
     refreshNodes();
     panels.forEach(function(panel){
       var id=panel.getAttribute("data-rule-panel");
+      if(deletedMap[id]){
+        var tab=document.querySelector('[data-rule-tab="'+id+'"]');
+        if(tab) tab.remove();
+        panel.remove();
+        return;
+      }
       if(saved[id]){
         if(saved[id].title) panel.setAttribute("data-title",saved[id].title);
         if(saved[id].desc!=null) panel.setAttribute("data-desc",saved[id].desc);
@@ -625,6 +641,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
       stripBadges(panel);
     });
     refreshNodes();
+    if(!panelOf(activeId) && tabs[0]) activeId=tabs[0].getAttribute("data-rule-tab");
   }
   function setEditable(on){
     var panel=panelOf(activeId);
@@ -652,7 +669,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     beforeEdit=null;
     detail.classList.remove("editing");
     editBtn.hidden=false;
-    if(deleteCategoryBtn) deleteCategoryBtn.hidden=!(isRuleAdmin() && isCustomCategory(activeId));
+    if(deleteCategoryBtn) deleteCategoryBtn.hidden=true;
     saveBtn.hidden=true;
     cancelBtn.hidden=true;
     setRule(activeId,true);
@@ -695,7 +712,7 @@ body:not(.pkl-rule-ready) .rule-hero::after{
     beforeEdit=null;
     detail.classList.remove("editing");
     editBtn.hidden=false;
-    if(deleteCategoryBtn) deleteCategoryBtn.hidden=!(isRuleAdmin() && isCustomCategory(activeId));
+    if(deleteCategoryBtn) deleteCategoryBtn.hidden=true;
     saveBtn.hidden=true;
     cancelBtn.hidden=true;
     setRule(activeId,true);
@@ -724,31 +741,41 @@ body:not(.pkl-rule-ready) .rule-hero::after{
   async function deleteCategoryById(deleteId){
     if(detail.classList.contains("editing")) return false;
     deleteId=String(deleteId||activeId||"");
-    if(!isRuleAdmin() || !isCustomCategory(deleteId)){
+    if(!isRuleAdmin() || !deleteId){
       syncDeleteCategoryButton();
+      return false;
+    }
+    refreshNodes();
+    if(tabs.length<=1){
+      alert("룰 카테고리는 최소 1개가 필요합니다.");
       return false;
     }
 
     var saved=loadSaved();
     var categories=Array.isArray(saved.__categories)?saved.__categories:[];
+    var deleted=Array.isArray(saved.__deleted)?saved.__deleted.map(function(v){return String(v);}):[];
 
-    // 저장 데이터에서 먼저 완전히 제거한다. __categories에 없는 예전 추가 카테고리도 키 기준으로 제거한다.
+    // 추가 카테고리는 __categories와 본문 저장값에서 제거하고,
+    // 기본 카테고리는 __deleted에 기록해서 새로고침 후에도 다시 생성되지 않게 한다.
     saved.__categories=categories.filter(function(cat){ return !(cat && String(cat.id)===deleteId); });
     delete saved[deleteId];
+    if(!isCustomCategory(deleteId) && deleted.indexOf(deleteId)===-1){
+      deleted.push(deleteId);
+    }
+    saved.__deleted=deleted;
 
     savedRulesCache=saved;
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); }catch(err){}
 
-    // 화면에서도 즉시 제거한다. header 삭제 버튼/사이드바 삭제 버튼 모두 같은 경로를 쓴다.
     var tab=document.querySelector('[data-rule-tab="'+deleteId+'"]');
     var panel=document.querySelector('[data-rule-panel="'+deleteId+'"]');
     if(tab) tab.remove();
     if(panel) panel.remove();
 
     refreshNodes();
-    var next=(tabs[0] && tabs[0].getAttribute("data-rule-tab")) || "basic";
+    var next=(tabs[0] && tabs[0].getAttribute("data-rule-tab")) || "";
     activeId=next;
-    setRule(next,true);
+    if(next) setRule(next,true);
 
     var ok=await saveAll(saved);
     if(!ok){
