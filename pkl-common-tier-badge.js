@@ -8,7 +8,7 @@
     tier2_high:"2티어 상",tier2_mid:"2티어 중",tier2_low:"2티어 하",
     tier3_high:"3티어 상",tier3_mid:"3티어 중",tier3_low:"3티어 하",
     tier4_high:"4티어 상",tier4_mid:"4티어 중",tier4_low:"4티어 하",
-    beast:"짐승"
+    beast:"짐승하",beast_high:"짐승상",beast_low:"짐승하"
   };
   var TIER_KEYS=Object.keys(TIER_LABELS);
 
@@ -38,7 +38,7 @@
       "2티어":"tier2_mid","2티어상":"tier2_high","2티어중":"tier2_mid","2티어하":"tier2_low",
       "3티어":"tier3_mid","3티어상":"tier3_high","3티어중":"tier3_mid","3티어하":"tier3_low",
       "4티어":"tier4_mid","4티어상":"tier4_high","4티어중":"tier4_mid","4티어하":"tier4_low",
-      beast:"beast","짐승":"beast"
+      beast:"beast_low",beasthigh:"beast_high",beastlow:"beast_low","짐승":"beast_low","짐승상":"beast_high","짐승하":"beast_low","짐승 상":"beast_high","짐승 하":"beast_low"
     };
     return map[key]||"none";
   }
@@ -52,7 +52,7 @@
     if(key.indexOf("tier2")===0) return "role-tier2";
     if(key.indexOf("tier3")===0) return "role-tier3";
     if(key.indexOf("tier4")===0) return "role-tier4";
-    if(key==="beast") return "role-beast";
+    if(key==="beast"||key.indexOf("beast_")===0) return "role-beast";
     return "role-none";
   }
   function group(value){
@@ -62,6 +62,7 @@
     if(key.indexOf("tier2")===0) return "tier2";
     if(key.indexOf("tier3")===0) return "tier3";
     if(key.indexOf("tier4")===0) return "tier4";
+    if(key==="beast"||key.indexOf("beast_")===0) return "beast";
     return key||"none";
   }
   function hasValue(v){

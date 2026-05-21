@@ -1922,7 +1922,7 @@ function pklTierScoreRoleFromText(text){
     "4티어상":"tier4_high","4상":"tier4_high",
     "4티어중":"tier4_mid","4중":"tier4_mid",
     "4티어하":"tier4_low","4하":"tier4_low",
-    "짐승":"beast",
+    "짐승":"beast_low","짐승상":"beast_high","짐승하":"beast_low","짐승 상":"beast_high","짐승 하":"beast_low",
     "beast":"beast"
   };
   if(map[compact]) return map[compact];
@@ -1936,7 +1936,7 @@ function pklTierScoreLaneFromRole(role){
     tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
     tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
     tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
-    beast:"짐승"
+    beast:"짐승하",beast_high:"짐승상",beast_low:"짐승하"
   };
   return map[role] || "";
 }
@@ -1947,7 +1947,7 @@ function pklTierScoreDefaults(){
     "2상":{target:40,death:-3},"2중":{target:35,death:-2},"2하":{target:30,death:-2},
     "3상":{target:25,death:-2},"3중":{target:20,death:-2},"3하":{target:15,death:-1},
     "4상":{target:10,death:-1},"4중":{target:5,death:-1},"4하":{target:0,death:-1},
-    "짐승":{target:0,death:-1}
+    "짐승하":{target:-5,death:-1},"짐승상":{target:0,death:-1},"짐승":{target:-5,death:-1}
   };
 }
 function pklMergeResultTierScoreConfig(base, saved){

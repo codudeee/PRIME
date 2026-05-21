@@ -1224,6 +1224,26 @@ body.pkl-logged-out .profile-dropdown{
   display:none !important;
 }
 
+/* PKL 20260522: 짐승 티어를 상/하 2줄로 분리 */
+.pkl-beast-lanes{
+  display:grid !important;
+  grid-template-rows:repeat(2,minmax(0,1fr)) !important;
+  gap:8px !important;
+  flex:1 1 auto !important;
+  min-height:0 !important;
+}
+.pkl-beast-lanes .pkl-beast-line{
+  margin-top:0 !important;
+  min-height:0 !important;
+  height:auto !important;
+  flex:1 1 auto !important;
+}
+.pkl-beast-lanes .pkl-lane-list{
+  min-height:150px !important;
+  flex:1 1 auto !important;
+}
+
+
 /* PKL TIER ADMIN STATE SYNC */
 .pkl-tier-member{
   width:100%;
@@ -2207,14 +2227,24 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
           <header class="pkl-beast-head">
             <img src="emblems/emblem_5.webp" alt="짐승 엠블럼">
           </header>
+          <div class="pkl-beast-lanes">
           <section class="pkl-beast-line">
-            <div class="pkl-lane-rank">짐승</div>
+            <div class="pkl-lane-rank">상</div>
             <div class="pkl-lane-score">
-              <input type="number" value="0" aria-label="짐승 목표">
-              <input type="number" value="-1" aria-label="짐승 감점">
+              <input type="number" value="0" aria-label="짐승 상 목표">
+              <input type="number" value="-1" aria-label="짐승 상 감점">
             </div>
-            <div class="pkl-lane-list" data-tier="짐승"></div>
+            <div class="pkl-lane-list" data-tier="짐승상"></div>
           </section>
+          <section class="pkl-beast-line">
+            <div class="pkl-lane-rank">하</div>
+            <div class="pkl-lane-score">
+              <input type="number" value="-5" aria-label="짐승 하 목표">
+              <input type="number" value="-1" aria-label="짐승 하 감점">
+            </div>
+            <div class="pkl-lane-list" data-tier="짐승하"></div>
+          </section>
+          </div>
         </article>
 </aside>
     </div>
@@ -2229,14 +2259,14 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
   if(window.__PKL_TIER_ULTRA_EARLY_RENDER__) return;
   window.__PKL_TIER_ULTRA_EARLY_RENDER__ = true;
 
-  var ROLE_TO_LANE={tier0_high:'0상',tier0_mid:'0중',tier0_low:'0하',tier1_high:'1상',tier1_mid:'1중',tier1_low:'1하',tier2_high:'2상',tier2_mid:'2중',tier2_low:'2하',tier3_high:'3상',tier3_mid:'3중',tier3_low:'3하',tier4_high:'4상',tier4_mid:'4중',tier4_low:'4하',beast:'짐승'};
-  var LABEL={tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',tier2_high:'2티어 상',tier2_mid:'2티어 중',tier2_low:'2티어 하',tier3_high:'3티어 상',tier3_mid:'3티어 중',tier3_low:'3티어 하',tier4_high:'4티어 상',tier4_mid:'4티어 중',tier4_low:'4티어 하',beast:'짐승'};
+  var ROLE_TO_LANE={tier0_high:'0상',tier0_mid:'0중',tier0_low:'0하',tier1_high:'1상',tier1_mid:'1중',tier1_low:'1하',tier2_high:'2상',tier2_mid:'2중',tier2_low:'2하',tier3_high:'3상',tier3_mid:'3중',tier3_low:'3하',tier4_high:'4상',tier4_mid:'4중',tier4_low:'4하',beast:'짐승하', beast_high:'짐승상', beast_low:'짐승하'};
+  var LABEL={tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',tier2_high:'2티어 상',tier2_mid:'2티어 중',tier2_low:'2티어 하',tier3_high:'3티어 상',tier3_mid:'3티어 중',tier3_low:'3티어 하',tier4_high:'4티어 상',tier4_mid:'4티어 중',tier4_low:'4티어 하',beast:'짐승하', beast_high:'짐승상', beast_low:'짐승하'};
   var CACHE_KEY='PKL_TIER_RENDER_PREVIEW_V2';
   var TTL=1000*60*10;
   function clean(v){return String(v==null?'':v).trim();}
   function didOf(u){u=u||{};var did=clean(u.discordId||u.discord_id||u.discordID);if(did)return did.replace(/^discord-/i,'');var keys=['uid','id','userId','user_id','key'];for(var i=0;i<keys.length;i++){var raw=clean(u[keys[i]]);if(/^discord-/i.test(raw))return raw.replace(/^discord-/i,'');}return '';}
   function nickOf(u){return clean(u&&(u.nickname||u.name||u.nick||u.pubgId||u.pubgID||u.discordUsername||u.discord_username||u.username));}
-  function normalizeTier(v){var raw=clean(v);if(!raw||raw==='없음'||raw.toLowerCase()==='none')return 'none';var compact=raw.replace(/\s+/g,'');var byText={'0티어상':'tier0_high','0상':'tier0_high','0티어중':'tier0_mid','0중':'tier0_mid','0티어하':'tier0_low','0하':'tier0_low','1티어상':'tier1_high','1상':'tier1_high','1티어중':'tier1_mid','1중':'tier1_mid','1티어하':'tier1_low','1하':'tier1_low','2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low','3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low','4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low','짐승':'beast','beast':'beast'};if(ROLE_TO_LANE[raw])return raw;if(byText[compact])return byText[compact];if(raw==='tier0')return'tier0_mid';if(raw==='tier1')return'tier1_mid';if(raw==='tier2')return'tier2_mid';if(raw==='tier3')return'tier3_mid';if(raw==='tier4')return'tier4_mid';return raw;}
+  function normalizeTier(v){var raw=clean(v);if(!raw||raw==='없음'||raw.toLowerCase()==='none')return 'none';var compact=raw.replace(/\s+/g,'');var byText={'0티어상':'tier0_high','0상':'tier0_high','0티어중':'tier0_mid','0중':'tier0_mid','0티어하':'tier0_low','0하':'tier0_low','1티어상':'tier1_high','1상':'tier1_high','1티어중':'tier1_mid','1중':'tier1_mid','1티어하':'tier1_low','1하':'tier1_low','2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low','3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low','4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low','짐승':'beast_low', '짐승상':'beast_high', '짐승하':'beast_low', '짐승 상':'beast_high', '짐승 하':'beast_low','beast':'beast_low','beasthigh':'beast_high','beastlow':'beast_low'};if(ROLE_TO_LANE[raw])return raw;if(byText[compact])return byText[compact];if(raw==='tier0')return'tier0_mid';if(raw==='tier1')return'tier1_mid';if(raw==='tier2')return'tier2_mid';if(raw==='tier3')return'tier3_mid';if(raw==='tier4')return'tier4_mid';return raw;}
   function tierOf(u){u=u||{};var fields=[u.memberTier,u.gradeRole,u.tierRole,u.tier,u.memberTierName,u.tierName,u.roleName,u.baseRole,u.originalRole];for(var i=0;i<fields.length;i++){if(clean(fields[i])){var t=normalizeTier(fields[i]);if(t&&t!=='none')return t;}}return'none';}
   function keyOf(u){return didOf(u);} function labelOf(t){t=normalizeTier(t);return LABEL[t]||t||'없음';}
   function normalizeUsers(list){var seenDid=new Set(),out=[];(Array.isArray(list)?list:[]).forEach(function(row){var did=didOf(row),nick=nickOf(row),tier=tierOf(row);if(!did||!nick||!ROLE_TO_LANE[tier])return;var dk=did.toLowerCase();if(seenDid.has(dk))return;seenDid.add(dk);out.push(Object.assign({},row,{discordId:did,nickname:nick,memberTier:tier,gradeRole:tier,tierRole:tier,tier:tier==='none'?'없음':labelOf(tier),memberTierName:labelOf(tier)}));});out.sort(function(a,b){return nickOf(a).localeCompare(nickOf(b),'ko-KR',{numeric:true,sensitivity:'base'});});return out;}
@@ -2626,7 +2656,7 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
     tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
     tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
     tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
-    beast:"짐승"
+    beast:"짐승하", beast_high:"짐승상", beast_low:"짐승하"
   };
 
   const PKL_TIER_LANE_TO_ROLE = {
@@ -2635,7 +2665,7 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
     "2상":"tier2_high", "2중":"tier2_mid", "2하":"tier2_low",
     "3상":"tier3_high", "3중":"tier3_mid", "3하":"tier3_low",
     "4상":"tier4_high", "4중":"tier4_mid", "4하":"tier4_low",
-    "짐승":"beast"
+    "짐승":"beast_low", "짐승상":"beast_high", "짐승하":"beast_low", "짐승 상":"beast_high", "짐승 하":"beast_low"
   };
 
   const PKL_TIER_ROLE_LABELS = {
@@ -2645,7 +2675,7 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
     tier2_high:"2티어 상", tier2_mid:"2티어 중", tier2_low:"2티어 하",
     tier3_high:"3티어 상", tier3_mid:"3티어 중", tier3_low:"3티어 하",
     tier4_high:"4티어 상", tier4_mid:"4티어 중", tier4_low:"4티어 하",
-    beast:"짐승"
+    beast:"짐승하", beast_high:"짐승상", beast_low:"짐승하"
   };
 
   function pklTierReadAdminState(){
@@ -2710,7 +2740,7 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
       "4티어상":"tier4_high", "4상":"tier4_high",
       "4티어중":"tier4_mid", "4중":"tier4_mid",
       "4티어하":"tier4_low", "4하":"tier4_low",
-      "짐승":"beast"
+      "짐승":"beast_low", "짐승상":"beast_high", "짐승하":"beast_low", "짐승 상":"beast_high", "짐승 하":"beast_low"
     };
     return map[text] || "";
   }
@@ -3023,7 +3053,7 @@ document.addEventListener("DOMContentLoaded", function(){
     tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
     tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
     tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
-    beast:"짐승"
+    beast:"짐승하", beast_high:"짐승상", beast_low:"짐승하"
   };
   let scoreConfig = {};
   let saveTimer = null;
@@ -3385,7 +3415,7 @@ document.addEventListener("DOMContentLoaded", function(){
     tier2_high:'2상', tier2_mid:'2중', tier2_low:'2하',
     tier3_high:'3상', tier3_mid:'3중', tier3_low:'3하',
     tier4_high:'4상', tier4_mid:'4중', tier4_low:'4하',
-    beast:'짐승'
+    beast:'짐승하', beast_high:'짐승상', beast_low:'짐승하'
   };
   var LANE_TO_ROLE = {
     '0상':'tier0_high', '0중':'tier0_mid', '0하':'tier0_low',
@@ -3393,7 +3423,7 @@ document.addEventListener("DOMContentLoaded", function(){
     '2상':'tier2_high', '2중':'tier2_mid', '2하':'tier2_low',
     '3상':'tier3_high', '3중':'tier3_mid', '3하':'tier3_low',
     '4상':'tier4_high', '4중':'tier4_mid', '4하':'tier4_low',
-    '짐승':'beast'
+    '짐승':'beast_low', '짐승상':'beast_high', '짐승하':'beast_low', '짐승 상':'beast_high', '짐승 하':'beast_low'
   };
   var LABEL = {
     none:'없음',
@@ -3402,7 +3432,7 @@ document.addEventListener("DOMContentLoaded", function(){
     tier2_high:'2티어 상', tier2_mid:'2티어 중', tier2_low:'2티어 하',
     tier3_high:'3티어 상', tier3_mid:'3티어 중', tier3_low:'3티어 하',
     tier4_high:'4티어 상', tier4_mid:'4티어 중', tier4_low:'4티어 하',
-    beast:'짐승'
+    beast:'짐승하', beast_high:'짐승상', beast_low:'짐승하'
   };
 
   var cache = [];
@@ -3464,7 +3494,7 @@ document.addEventListener("DOMContentLoaded", function(){
       '2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low',
       '3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low',
       '4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low',
-      '짐승':'beast','beast':'beast'
+      '짐승':'beast_low', '짐승상':'beast_high', '짐승하':'beast_low', '짐승 상':'beast_high', '짐승 하':'beast_low','beast':'beast_low','beasthigh':'beast_high','beastlow':'beast_low'
     };
     if(ROLE_TO_LANE[raw]) return raw;
     if(byText[compact]) return byText[compact];

@@ -6378,7 +6378,7 @@ tier3_low:"3티어 하",
 tier4_high:"4티어 상",
 tier4_mid:"4티어 중",
 tier4_low:"4티어 하",
-beast:"짐승",
+beast:"짐승하",beast_high:"짐승상",beast_low:"짐승하",
 prisoner:"수감자",
 temp:"임시"
 };
@@ -6702,7 +6702,7 @@ function gradeRoleFromTierText(text){
   const sys=pklRoleSystem();
   if(typeof sys.normalizeGradeRole==="function") return sys.normalizeGradeRole(text);
   text=String(text||"");
-  const map={"0티어 상":"tier0_high","0티어 중":"tier0_mid","0티어 하":"tier0_low","1티어 상":"tier1_high","1티어 중":"tier1_mid","1티어 하":"tier1_low","2티어 상":"tier2_high","2티어 중":"tier2_mid","2티어 하":"tier2_low","3티어 상":"tier3_high","3티어 중":"tier3_mid","3티어 하":"tier3_low","4티어 상":"tier4_high","4티어 중":"tier4_mid","4티어 하":"tier4_low","짐승":"beast"};
+  const map={"0티어 상":"tier0_high","0티어 중":"tier0_mid","0티어 하":"tier0_low","1티어 상":"tier1_high","1티어 중":"tier1_mid","1티어 하":"tier1_low","2티어 상":"tier2_high","2티어 중":"tier2_mid","2티어 하":"tier2_low","3티어 상":"tier3_high","3티어 중":"tier3_mid","3티어 하":"tier3_low","4티어 상":"tier4_high","4티어 중":"tier4_mid","4티어 하":"tier4_low","짐승":"beast_low","짐승상":"beast_high","짐승하":"beast_low","짐승 상":"beast_high","짐승 하":"beast_low"};
   return pklGradeRoles.includes(text)?text:(map[text]||"none");
 }
 function gradeRole(u){
@@ -6750,7 +6750,7 @@ function normalizeUserGradeAndMemberRole(u){
   u.tierRole=grade||"none";
   u.memberTier=grade||"none";
   u.memberTierName=grade&&grade!=="none"?gradeRoleName(u):"없음";
-  u.role=u.memberRole==="prisoner"?"prisoner":(grade&&grade!=="none"?grade:(u.memberRole||"guest"));
+  u.role=u.memberRole==="prisoner"?"prisoner":(u.memberRole||"guest");
   u.baseRole=grade&&grade!=="none"?grade:"none";
   u.tier=grade&&grade!=="none"?gradeRoleName(u):"없음";
 }
@@ -7424,7 +7424,7 @@ function autoClearTempRoleWhenGradeSet(u){
   u.tierRole=grade||"none";
   u.memberTier=grade||"none";
   u.memberTierName=grade&&grade!=="none"?gradeRoleName(u):"없음";
-  u.role=u.memberRole==="prisoner"?"prisoner":(grade&&grade!=="none"?grade:(memberRole||"guest"));
+  u.role=u.memberRole==="prisoner"?"prisoner":(memberRole||"guest");
   u.baseRole=grade||"none";
   u.tier=grade&&grade!=="none"?gradeRoleName(u):"없음";
 }
@@ -8361,11 +8361,10 @@ function getVisibleAdminScreenId(){
   }
   function mergeCurrentAdminUser(user){
     if(!user||typeof user!=="object") return null;
+    // Supabase 조회 결과를 localStorage에 다시 저장하지 않는다.
+    // 예전 로그인 캐시가 최신 users.nickname/tier/role을 되돌리는 원인이었다.
     var merged=Object.assign({}, window.__PKL_CURRENT_SUPABASE_USER||{}, user);
     window.__PKL_CURRENT_SUPABASE_USER=merged;
-    ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"].forEach(function(k){
-      try{ if(localStorage.getItem(k) || k==="pklLoginUser") localStorage.setItem(k,JSON.stringify(Object.assign({}, readUserKey(k)||{}, merged))); }catch(e){}
-    });
     try{ if(window.PKLRoleSystem&&typeof window.PKLRoleSystem.setCurrentUser==="function") window.PKLRoleSystem.setCurrentUser(merged); }catch(e){}
     return merged;
   }
@@ -8843,7 +8842,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
   }
   function normalize(u){
     u=u||{}; var raw=(u.raw&&typeof u.raw==='object')?u.raw:{}; var did=didOf(u)||didOf(raw); if(!did) return null;
-    var currentNick=stripLeadingNicknameDecorations(u.nickname||raw.nickname||u.name||u.nick||raw.name||raw.nick||'');
+    var currentNick=stripLeadingNicknameDecorations(u._supabaseNickname||u.supabaseNickname||u.nickname||raw.nickname||u.name||u.nick||raw.name||raw.nick||'');
     var registeredNick=stripLeadingNicknameDecorations(raw.registeredNickname||raw.pklNickname||raw.pkl_nickname||raw.signupNickname||raw.signup_nickname||u.registeredNickname||u.pklNickname||u.signupNickname||'');
     var serverNick=discordServerNickname(raw.discordGuildNick||raw.guildNick||raw.discordServerNickname||u.discordGuildNick||u.guildNick||u.discordServerNickname||'');
     // admin 표시는 Supabase users.nickname(row.nickname)을 단일 기준으로 사용한다.
@@ -8853,7 +8852,7 @@ window.PKLAdminIdentity={readPklUsers:function(){return []},savePklUsers:functio
     var tier=clean(u.memberTier||u.gradeRole||u.tierRole||u.tier||raw.memberTier||raw.gradeRole||raw.tierRole||raw.tier||'none');
     var role=clean(u.memberRole||u.role||u.userRole||u.authRole||raw.memberRole||raw.role||(u.is_admin?'admin':'user'))||'user';
     var prime=Number(u.prime??u.points??u.dia??raw.prime??raw.points??0)||0;
-    return Object.assign({}, raw, u, {discordId:did,discord_id:did,uid:'discord-'+did,id:'discord-'+did,userId:'discord-'+did,discordUsername:clean(u.discordUsername||u.discord_username||raw.discordUsername||raw.discord_username||''),discordDisplayName:clean(u.discordDisplayName||u.discordGlobalName||u.global_name||u.discord_username||raw.discordDisplayName||raw.discordGlobalName||raw.global_name||raw.discord_username||''),nickname:nick,name:nick,nick:nick,displayName:nick,pubgId:pubg,gameId:pubg,pubgName:pubg,ref:pubg,memberTier:tier,gradeRole:tier,tierRole:tier,baseRole:tier,memberRole:role,userRole:role,authRole:role,role:role,prime:prime,points:prime,dia:prime,warnings:Number(u.warnings??raw.warnings??0)||0,history:Array.isArray(u.history)?u.history:[],memoList:Array.isArray(u.memoList)?u.memoList:[]});
+    return Object.assign({}, raw, u, {discordId:did,discord_id:did,uid:'discord-'+did,id:'discord-'+did,userId:'discord-'+did,discordUsername:clean(u.discordUsername||u.discord_username||raw.discordUsername||raw.discord_username||''),discordDisplayName:clean(u.discordDisplayName||u.discordGlobalName||u.global_name||u.discord_username||raw.discordDisplayName||raw.discordGlobalName||raw.global_name||raw.discord_username||''),nickname:nick,name:nick,nick:nick,displayName:nick,_supabaseNickname:clean(u._supabaseNickname||u.supabaseNickname||u.nickname||''),supabaseNickname:clean(u._supabaseNickname||u.supabaseNickname||u.nickname||''),pubgId:pubg,gameId:pubg,pubgName:pubg,ref:pubg,memberTier:tier,gradeRole:tier,tierRole:tier,baseRole:tier,memberRole:role,userRole:role,authRole:role,role:role,prime:prime,points:prime,dia:prime,warnings:Number(u.warnings??raw.warnings??0)||0,history:Array.isArray(u.history)?u.history:[],memoList:Array.isArray(u.memoList)?u.memoList:[]});
   }
   function unique(list){
     var seenDid=new Set(), out=[];
