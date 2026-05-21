@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-  <script src="./pkl-supabase-sync.js?v=20260522-tier-score-localfix"></script>
+  <script src="./pkl-supabase-sync.js?v=20260513b"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PKL 티어표</title>
@@ -3078,7 +3078,8 @@ document.addEventListener("DOMContentLoaded", function(){
     return Number.isFinite(n) ? n : fallback;
   }
   function roleFromLane(lane){
-    if(lane === "5중") return "tier5_mid";
+    const direct = {"5상":"tier5_high", "5중":"tier5_mid", "5하":"tier5_low"};
+    if(direct[lane]) return direct[lane];
     return Object.keys(ROLE_TO_LANE).find(k => ROLE_TO_LANE[k] === lane && /^tier\d_/.test(k)) || "";
   }
   function normalizeConfig(config){
@@ -3113,6 +3114,10 @@ document.addEventListener("DOMContentLoaded", function(){
         return value && typeof value === 'object' ? value : {};
       }catch(_e){ return {}; }
     };
+    // Supabase 단일원본 스크립트가 getShared() 과정에서 localStorage 캐시를 서버값으로 덮을 수 있으므로
+    // fetch 전에 현재 브라우저 입력값을 먼저 확보한다. 특히 5티어 상/중/하 로컬 최신값 보호용.
+    const localBeforeFetch = normalizeConfig(readLocal());
+    const domBeforeFetch = normalizeConfig(collectConfigFromDom(false));
     const pushValue = value => {
       if(value && typeof value === 'object' && Object.keys(value).length) serverValues.push(value);
     };
@@ -3136,21 +3141,14 @@ document.addEventListener("DOMContentLoaded", function(){
     // 서버값 + 현재 브라우저 저장값을 병합하고, 로컬 최신 입력값을 마지막에 얹어서 5티어 상/중/하도 유지한다.
     const merged = {};
     serverValues.forEach(v => Object.assign(merged, normalizeConfig(v)));
+    Object.assign(merged, localBeforeFetch);
     Object.assign(merged, normalizeConfig(readLocal()));
+    Object.assign(merged, domBeforeFetch);
     return merged;
   }
-  async function loadConfig(){
-    try{
-      const value = await fetchSharedConfig();
-      setConfig(value);
-      applyConfig();
-    }catch(e){
-      console.error('PKL tier score config load failed', e);
-    }
-  }
-  function collectConfig(){
-    const config = readConfig();
-    document.querySelectorAll(".pkl-tier-lane").forEach(laneEl => {
+  function collectConfigFromDom(includeCurrent){
+    const config = includeCurrent ? readConfig() : {};
+    document.querySelectorAll(".pkl-tier-lane, .pkl-beast-line").forEach(laneEl => {
       const list = laneEl.querySelector(".pkl-lane-list[data-tier]");
       const inputs = laneEl.querySelectorAll(".pkl-lane-score input");
       if(!list || inputs.length < 2) return;
@@ -3162,6 +3160,19 @@ document.addEventListener("DOMContentLoaded", function(){
       const role = roleFromLane(lane);
       if(role) config[role] = { target, death, lane };
     });
+    return config;
+  }
+  async function loadConfig(){
+    try{
+      const value = await fetchSharedConfig();
+      setConfig(value);
+      applyConfig();
+    }catch(e){
+      console.error('PKL tier score config load failed', e);
+    }
+  }
+  function collectConfig(){
+    const config = collectConfigFromDom(true);
     setConfig(config);
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveConfig, 180);
@@ -3204,7 +3215,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function applyConfig(){
     const config = readConfig();
-    document.querySelectorAll(".pkl-tier-lane").forEach(laneEl => {
+    document.querySelectorAll(".pkl-tier-lane, .pkl-beast-line").forEach(laneEl => {
       const list = laneEl.querySelector(".pkl-lane-list[data-tier]");
       const inputs = laneEl.querySelectorAll(".pkl-lane-score input");
       if(!list || inputs.length < 2) return;
@@ -3216,6 +3227,11 @@ document.addEventListener("DOMContentLoaded", function(){
     });
   }
   function bind(){
+    try{
+      const raw = localStorage.getItem(SCORE_KEY);
+      if(raw) setConfig(JSON.parse(raw));
+      applyConfig();
+    }catch(_e){}
     document.querySelectorAll(".pkl-lane-score input").forEach(input => {
       if(input.dataset.pklTierScoreSync === "1") return;
       input.dataset.pklTierScoreSync = "1";
@@ -3811,136 +3827,6 @@ document.addEventListener("DOMContentLoaded", function(){
       renderTier(false);
     });
   });
-})();
-</script>
-
-
-<script id="pklTierScoreHardPersistFix20260522">
-(function(){
-  "use strict";
-  if(window.__PKL_TIER_SCORE_HARD_PERSIST_20260522) return;
-  window.__PKL_TIER_SCORE_HARD_PERSIST_20260522 = true;
-
-  var SCORE_KEY = "pklTierScoreConfig";
-  var BACKUP_KEY = "PKL_TIER_SCORE_INPUT_BACKUP_V1";
-  var ROLE_TO_LANE = {
-    tier0_high:"0상", tier0_mid:"0중", tier0_low:"0하",
-    tier1_high:"1상", tier1_mid:"1중", tier1_low:"1하",
-    tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
-    tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
-    tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
-    tier5_high:"5상", tier5_mid:"5중", tier5_low:"5하",
-    beast:"5하", beast_high:"5상", beast_mid:"5중", beast_low:"5하"
-  };
-
-  function num(v, fb){
-    var n = Number(String(v == null ? "" : v).replace(/[^0-9-]/g, ""));
-    return Number.isFinite(n) ? n : (fb || 0);
-  }
-  function roleFromLane(lane){
-    if(lane === "5상") return "tier5_high";
-    if(lane === "5중") return "tier5_mid";
-    if(lane === "5하") return "tier5_low";
-    for(var k in ROLE_TO_LANE){
-      if(ROLE_TO_LANE[k] === lane && /^tier\d_/.test(k)) return k;
-    }
-    return "";
-  }
-  function parse(raw){
-    try{ var v = JSON.parse(String(raw || "{}")); return v && typeof v === "object" ? v : {}; }catch(_e){ return {}; }
-  }
-  function normalize(config){
-    var out = {};
-    if(!config || typeof config !== "object") return out;
-    Object.keys(config).forEach(function(key){
-      var value = config[key];
-      if(!value || typeof value !== "object") return;
-      var lane = ROLE_TO_LANE[key] || key;
-      var target = num(value.target, 0);
-      var death = num(value.death, 0);
-      out[lane] = { target: target, death: death };
-      var role = roleFromLane(lane);
-      if(role) out[role] = { target: target, death: death, lane: lane };
-    });
-    return out;
-  }
-  function readBackup(){
-    try{ return normalize(parse(localStorage.getItem(BACKUP_KEY))); }catch(_e){ return {}; }
-  }
-  function readMain(){
-    try{ return normalize(parse(localStorage.getItem(SCORE_KEY))); }catch(_e){ return {}; }
-  }
-  function writeBoth(config){
-    var fixed = normalize(config);
-    try{ localStorage.setItem(BACKUP_KEY, JSON.stringify(fixed)); }catch(_e){}
-    try{ localStorage.setItem(SCORE_KEY, JSON.stringify(fixed)); }catch(_e){}
-    window.__PKL_TIER_SCORE_CONFIG = fixed;
-    return fixed;
-  }
-  function collect(){
-    var config = Object.assign({}, readMain(), readBackup());
-    document.querySelectorAll(".pkl-tier-lane").forEach(function(laneEl){
-      var list = laneEl.querySelector(".pkl-lane-list[data-tier]");
-      var inputs = laneEl.querySelectorAll(".pkl-lane-score input");
-      if(!list || inputs.length < 2) return;
-      var lane = String(list.dataset.tier || "").trim();
-      if(!lane) return;
-      var target = num(inputs[0].value, num(inputs[0].getAttribute("value"), 0));
-      var death = num(inputs[1].value, num(inputs[1].getAttribute("value"), 0));
-      config[lane] = { target: target, death: death };
-      var role = roleFromLane(lane);
-      if(role) config[role] = { target: target, death: death, lane: lane };
-    });
-    return writeBoth(config);
-  }
-  function apply(config){
-    config = normalize(config || Object.assign({}, readMain(), readBackup()));
-    document.querySelectorAll(".pkl-tier-lane").forEach(function(laneEl){
-      var list = laneEl.querySelector(".pkl-lane-list[data-tier]");
-      var inputs = laneEl.querySelectorAll(".pkl-lane-score input");
-      if(!list || inputs.length < 2) return;
-      var lane = String(list.dataset.tier || "").trim();
-      var saved = config[lane];
-      if(!saved) return;
-      inputs[0].value = saved.target;
-      inputs[1].value = saved.death;
-    });
-  }
-  function saveServer(config){
-    config = normalize(config || readBackup());
-    if(!Object.keys(config).length) return;
-    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === "function"){
-      try{ window.PKLSupabaseDataSync.setShared(SCORE_KEY, config); }catch(_e){}
-    }
-    try{
-      fetch("/api/pkl-data-store", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({type:"shared", key:SCORE_KEY, value:config})
-      }).catch(function(){});
-    }catch(_e){}
-  }
-  var timer = null;
-  function persistSoon(){
-    var config = collect();
-    clearTimeout(timer);
-    timer = setTimeout(function(){ saveServer(config); }, 220);
-  }
-  function bind(){
-    apply();
-    document.querySelectorAll(".pkl-lane-score input").forEach(function(input){
-      if(input.dataset.pklTierScoreHardPersist === "1") return;
-      input.dataset.pklTierScoreHardPersist = "1";
-      input.addEventListener("input", persistSoon);
-      input.addEventListener("change", persistSoon);
-      input.addEventListener("blur", persistSoon);
-    });
-    // 기존 Supabase 로더가 뒤늦게 예전 기본값을 입혀도, 디스크 백업값을 마지막에 다시 입힌다.
-    [80, 350, 900, 1800].forEach(function(ms){ setTimeout(function(){ apply(readBackup()); }, ms); });
-  }
-  window.addEventListener("pkl-tier-score-config-updated", function(){ setTimeout(function(){ apply(readBackup()); }, 0); });
-  window.addEventListener("beforeunload", function(){ try{ saveServer(collect()); }catch(_e){} });
-  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
-  else bind();
 })();
 </script>
 

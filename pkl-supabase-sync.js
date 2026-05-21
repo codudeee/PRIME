@@ -77,7 +77,7 @@
     silentSet(key, value); forgetDiskKey(key); emitKey(key);
   }
 
-  function isTier(v){var c=clean(v).replace(/[\s_-]+/g,"").toLowerCase();return /^(tier[0-4](high|mid|low)?|[0-4]티어(상|중|하)?|beast(high|low)?|짐승(상|하)?|temp|임시|prisoner|수감자)$/.test(c);}
+  function isTier(v){var c=clean(v).replace(/[\s_-]+/g,"").toLowerCase();return /^(tier[0-5](high|mid|low)?|[0-5]티어(상|중|하)?|[0-5](상|중|하)?|beast(high|mid|low)?|짐승(상|중|하)?|temp|임시|prisoner|수감자)$/.test(c);}
   function roleKey(v){
     var r=clean(v),l=r.toLowerCase();
     if(!r||r==="없음"||l==="none"||isTier(r)) return "user";
