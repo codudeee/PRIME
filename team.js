@@ -61,6 +61,11 @@
   let supabaseUsersLoadedOnce = false;
   let supabaseTierRefreshTimer = null;
   let lastWaitingTierSignature = '';
+  let isPlayerDragActive = false;
+  let pendingTeamBackgroundSync = false;
+  let teamStateSaveTimer = null;
+  let lastSavedTeamStateJson = '';
+
 
   function pklTeamCanEdit(){
     if (window.PKLRoleSystem && typeof window.PKLRoleSystem.currentHasRole === "function") {
@@ -208,6 +213,28 @@
 
   document.addEventListener('DOMContentLoaded', init);
 
+  function queueTeamBackgroundSyncWork(work) {
+    if (isPlayerDragActive) {
+      pendingTeamBackgroundSync = true;
+      return false;
+    }
+    if (typeof work === 'function') work();
+    return true;
+  }
+
+  function flushPendingTeamBackgroundSync() {
+    if (!pendingTeamBackgroundSync || isPlayerDragActive) return;
+    pendingTeamBackgroundSync = false;
+    refreshWaitingTiersFromSupabase();
+  }
+
+  function renderBoardOnlyAndSave() {
+    renderTierPools();
+    renderTeams();
+    renderSummary();
+    saveState();
+  }
+
   function init() {
     fillTierSelect();
     bindControls();
@@ -261,17 +288,19 @@
 
   function refreshWaitingTiersFromSupabase() {
     if (document.hidden) return Promise.resolve(false);
+    if (isPlayerDragActive) {
+      pendingTeamBackgroundSync = true;
+      return Promise.resolve(false);
+    }
     const before = getWaitingTierSignature();
     return loadSupabaseUsersForJoinWaitListOnce(true).then(() => {
       syncJoinWaitListIntoTeamBoard(true);
       syncPlayersWithUserSources();
       const after = getWaitingTierSignature();
       if (before !== after) {
+        if (isPlayerDragActive) { pendingTeamBackgroundSync = true; return false; }
         hydratePlayersForDisplayOnly();
-        renderTierPools();
-        renderTeams();
-        renderSummary();
-        saveState();
+        renderBoardOnlyAndSave();
         return true;
       }
       return false;
@@ -282,25 +311,36 @@
     if (supabaseTierRefreshTimer) return;
     lastWaitingTierSignature = getWaitingTierSignature();
     supabaseTierRefreshTimer = setInterval(() => {
+      if (isPlayerDragActive) {
+        pendingTeamBackgroundSync = true;
+        return;
+      }
       refreshWaitingTiersFromSupabase();
-    }, 7000);
-    window.addEventListener('focus', () => refreshWaitingTiersFromSupabase());
+    }, 30000);
+    window.addEventListener('focus', () => {
+      if (isPlayerDragActive) { pendingTeamBackgroundSync = true; return; }
+      refreshWaitingTiersFromSupabase();
+    });
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) refreshWaitingTiersFromSupabase();
+      if (!document.hidden) {
+        if (isPlayerDragActive) { pendingTeamBackgroundSync = true; return; }
+        refreshWaitingTiersFromSupabase();
+      }
     });
   }
 
   function refreshJoinWaitListFromSupabaseOnce() {
+    if (isPlayerDragActive) {
+      pendingTeamBackgroundSync = true;
+      return;
+    }
     const realtime = window.PKLJoinRealtime;
     if (!realtime || typeof realtime.fetchNow !== 'function') return;
     realtime.fetchNow().then(() => loadSupabaseUsersForJoinWaitListOnce(true)).then(() => {
       syncJoinWaitListIntoTeamBoard(true);
       syncPlayersWithUserSources();
       applyTeamControlAccess();
-      renderTierPools();
-      renderTeams();
-      renderSummary();
-      saveState();
+      renderBoardOnlyAndSave();
     }).catch(() => {});
   }
 
@@ -671,7 +711,9 @@ if (rerollListModal) {
         if(!pklTeamCanEdit()){ event.preventDefault(); pklTeamDeny(); return; }
         
         if (isRerolling) { event.preventDefault(); return; }
-draggedPlayerId = card.dataset.playerId;
+        isPlayerDragActive = true;
+        draggedPlayerId = card.dataset.playerId;
+        card.classList.add('is-dragging');
         event.dataTransfer.setData('text/plain', draggedPlayerId);
         event.dataTransfer.effectAllowed = 'move';
       };
@@ -680,8 +722,12 @@ draggedPlayerId = card.dataset.playerId;
         suppressNextClick = true;
         card.classList.remove('is-dragging');
         draggedPlayerId = null;
+        isPlayerDragActive = false;
         clearDropStyles();
-        setTimeout(() => { suppressNextClick = false; }, 80);
+        setTimeout(() => {
+          suppressNextClick = false;
+          flushPendingTeamBackgroundSync();
+        }, 80);
       };
     });
   }
@@ -689,10 +735,9 @@ draggedPlayerId = card.dataset.playerId;
   function bindDropZones() {
     document.querySelectorAll('[data-drop-type]').forEach(zone => {
       zone.ondragover = event => {
-        
-        if (isRerolling) return;
-event.preventDefault();
-        zone.classList.add('is-over');
+        if (isRerolling || !draggedPlayerId) return;
+        event.preventDefault();
+        if (!zone.classList.contains('is-over')) zone.classList.add('is-over');
       };
 
       zone.ondragleave = () => {
@@ -716,6 +761,7 @@ event.preventDefault();
         }
 
         clearDropStyles();
+        isPlayerDragActive = false;
         render();
       };
     });
@@ -969,13 +1015,15 @@ const teamIndex = Number(slot.dataset.teamIndex);
       });
       if (sig === lastJoinStateSignature) return;
       lastJoinStateSignature = sig;
+      if (isPlayerDragActive) {
+        pendingTeamBackgroundSync = true;
+        return;
+      }
       loadSupabaseUsersForJoinWaitListOnce(false).finally(() => {
+        if (isPlayerDragActive) { pendingTeamBackgroundSync = true; return; }
         syncJoinWaitListIntoTeamBoard(true);
         syncPlayersWithUserSources();
-        renderTierPools();
-        renderTeams();
-        renderSummary();
-        saveState();
+        renderBoardOnlyAndSave();
       });
     });
     window.addEventListener('pkl-role-data-updated', event => {
@@ -988,15 +1036,17 @@ const teamIndex = Number(slot.dataset.teamIndex);
         });
         supabaseUsersLoadedOnce = true;
       }
+      if (isPlayerDragActive) {
+        pendingTeamBackgroundSync = true;
+        return;
+      }
       loadSupabaseUsersForJoinWaitListOnce(!changedUsers.length).finally(() => {
+        if (isPlayerDragActive) { pendingTeamBackgroundSync = true; return; }
         syncJoinWaitListIntoTeamBoard(true);
         syncPlayersWithUserSources();
         hydratePlayersForDisplayOnly();
         applyTeamControlAccess();
-        renderTierPools();
-        renderTeams();
-        renderSummary();
-        saveState();
+        renderBoardOnlyAndSave();
       });
     });
   }
@@ -1118,18 +1168,12 @@ const teamIndex = Number(slot.dataset.teamIndex);
         ]).then(() => {
           syncJoinWaitListIntoTeamBoard(true);
           syncPlayersWithUserSources();
-          renderTierPools();
-          renderTeams();
-          renderSummary();
-          saveState();
+          renderBoardOnlyAndSave();
           setStatus('현재 Supabase 모집 대기자를 팀구성 대기칸으로 불러왔습니다.');
         }).catch(() => {
           syncJoinWaitListIntoTeamBoard(true);
           syncPlayersWithUserSources();
-          renderTierPools();
-          renderTeams();
-          renderSummary();
-          saveState();
+          renderBoardOnlyAndSave();
           setStatus('대기자 명단을 불러왔습니다. 일부 사용자 정보는 다음 새로고침 후 보정됩니다.');
         });
       }
@@ -3856,11 +3900,18 @@ function startClock() {
     // 팀구성 운영 상태는 localStorage 디스크에 남기지 않는다.
     // 새로고침 직후 화면 깜빡임 방지용 session 백업만 유지하고, 실제 원본은 Supabase shared_data에 저장한다.
     try { sessionStorage.setItem(STORAGE_KEY, stateJson); } catch (error) {}
-    if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
-      window.PKLSupabaseDataSync.setShared(STORAGE_KEY, state).catch(() => directSaveTeamBuilderState(state));
-      return;
-    }
-    directSaveTeamBuilderState(state);
+    if (stateJson === lastSavedTeamStateJson) return;
+    lastSavedTeamStateJson = stateJson;
+    if (teamStateSaveTimer) clearTimeout(teamStateSaveTimer);
+    teamStateSaveTimer = setTimeout(() => {
+      teamStateSaveTimer = null;
+      const snapshot = parseTeamBuilderState(stateJson) || state;
+      if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
+        window.PKLSupabaseDataSync.setShared(STORAGE_KEY, snapshot).catch(() => directSaveTeamBuilderState(snapshot));
+        return;
+      }
+      directSaveTeamBuilderState(snapshot);
+    }, 700);
   }
 
   function directSaveTeamBuilderState(nextState) {
