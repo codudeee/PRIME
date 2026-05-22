@@ -2197,13 +2197,17 @@ if (!rerollModeDropdown) return;
 
     targets.forEach(({ teamIndex, slotIndex }, index) => {
       const slot = getTeamSlotElement(teamIndex, slotIndex);
-      if (!slot) return;
+      const finalId = finalIds[index];
+      if (!slot || !finalId) return;
 
+      // 핵심 수정:
+      // 리롤 종료 후 실제 카드 DOM을 다시 갈아끼우면 사용자가 "다 멈춘 뒤 한 칸씩 바뀜"으로 느낀다.
+      // 그래서 시작 순간에 실제 슬롯 카드는 이미 최종 결과로 바꿔두고,
+      // 그 위를 슬롯머신 릴이 3초 동안 덮는다. 끝날 때는 릴만 제거하므로 별도 교체감이 없다.
+      state.teams[teamIndex].slots[slotIndex] = finalId;
       slot.classList.add('is-slot-rolling');
       slot.classList.remove('is-slot-stopped', 'is-slot-relight');
-
-      const oldReel = slot.querySelector('.slot-machine-reel');
-      if (oldReel) oldReel.remove();
+      slot.innerHTML = renderPlayerCard(finalId);
 
       const reel = document.createElement('div');
       reel.className = 'slot-machine-reel';
@@ -2220,27 +2224,18 @@ if (!rerollModeDropdown) return;
         reel.classList.add('is-tick');
       }, spinSpeed));
 
-      runningSlots.push({ slot, reel, item, teamIndex, slotIndex, finalId: finalIds[index] });
+      runningSlots.push({ slot, reel, item, finalId });
       reel.dataset.spinTimer = String(spinTimer);
     });
 
     trackRerollTimeout(window.setTimeout(() => {
-      // 리롤 종료는 여기 한 곳에서만 처리한다.
-      // 버튼 복구, state 변경, 실제 슬롯 카드 반영이 서로 다른 타이머에서 따로 실행되면
-      // "다 돈 뒤 그대로 있다가 버튼이 사라질 때 갑자기 섞이는" 현상이 생긴다.
       clearRerollSchedules();
 
-      const finalSlotHtml = runningSlots.map(({ finalId }) => renderPlayerCard(finalId));
-
-      runningSlots.forEach(({ item, finalId }) => {
+      runningSlots.forEach(({ slot, reel, item, finalId }) => {
         if (item) item.textContent = getPlayerName(finalId);
-      });
-
-      runningSlots.forEach(({ slot, teamIndex, slotIndex, finalId }, index) => {
-        state.teams[teamIndex].slots[slotIndex] = finalId;
+        if (reel) reel.remove();
         slot.classList.remove('is-slot-rolling');
         slot.classList.add('is-slot-stopped', 'is-slot-relight');
-        slot.innerHTML = finalSlotHtml[index] || '';
       });
 
       state.selectedSlots = targets.map(({ teamIndex, slotIndex }) => ({ teamIndex, slotIndex }));
