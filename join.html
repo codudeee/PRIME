@@ -4829,6 +4829,50 @@ body.pkl-join-initializing #joinCancelCount{
 }
 </style>
 
+
+
+<style id="pklJoinModalCleanFitAndTierGuard20260522">
+/* JOIN 모달 정리: 화면에서 잘리지 않게 폭/높이와 목록 행을 안정화 */
+@media (min-width: 769px){
+  .join-modal.open{
+    padding:18px !important;
+  }
+  .join-modal-panel{
+    width:min(1160px, calc(100vw - 56px)) !important;
+    height:min(650px, calc(100vh - 44px)) !important;
+    max-width:calc(100vw - 56px) !important;
+    max-height:calc(100vh - 44px) !important;
+  }
+  .join-modal-body{
+    grid-template-columns:250px minmax(0, 1fr) 250px !important;
+    gap:12px !important;
+    padding:14px !important;
+  }
+  .join-wait-row{
+    min-height:42px !important;
+    grid-template-columns:34px auto minmax(0,1fr) auto !important;
+    gap:8px !important;
+  }
+  .join-wait-user,
+  .join-wait-name{
+    min-width:0 !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    white-space:nowrap !important;
+  }
+  .join-wait-stats{
+    flex:0 0 auto !important;
+    white-space:nowrap !important;
+  }
+}
+.join-admin-role-badge.role-none,
+.join-admin-role-badge[data-pkl-tier-badge="none"]{
+  color:#d8b4fe !important;
+  border-color:rgba(216,180,254,.34) !important;
+  background:linear-gradient(180deg,rgba(168,85,247,.18),rgba(24,12,46,.55)) !important;
+}
+</style>
+
 </head>
 <body class="pkl-recruit-loading pkl-join-initializing">
 <a class="back-home" onclick="history.back()">← 뒤로가기</a>
@@ -5529,9 +5573,13 @@ function safeJson(key, fallback){
     const item = hydrateItem(rawItem);
     const grade = item.gradeRole || item.tier || item.memberTier || item.tierRole || item.grade || "";
 
+    if(!hasValidMemberTier(item)){
+      return '<span class="tier-mark role-none join-admin-role-badge">티어미배정</span>';
+    }
+
     if(grade && window.PKLTierBadge && typeof window.PKLTierBadge.render === "function"){
       const badge = window.PKLTierBadge.render(grade, {extraClass:"join-admin-role-badge"});
-      if(badge) return badge;
+      if(badge && !/data-pkl-tier-badge=["']?none/i.test(String(badge))) return badge;
     }
 
     if(grade && window.PKLRoleSystem && typeof window.PKLRoleSystem.gradeBadge === "function"){
@@ -5544,7 +5592,7 @@ function safeJson(key, fallback){
       if(label) return '<span class="pkl-tier-badge tier-mark ' + gradeRoleClass(grade) + ' join-admin-role-badge" data-pkl-tier-badge="' + escapeHtml(grade) + '">' + escapeHtml(label) + '</span>';
     }
 
-    return '<span class="tier-mark role-none join-admin-role-badge">티어없음</span>';
+    return '<span class="tier-mark role-none join-admin-role-badge">티어미배정</span>';
   }
 
   function isManagerViewer(){
@@ -5793,6 +5841,7 @@ function safeJson(key, fallback){
   });
   seedJoinTierMap();
   fetchJoinTierMapOnce();
+  setTimeout(refreshMissingWaitListTiers, 250);
 
   function resetJoinPanel(){
     saveList(STORAGE_KEY, []);
@@ -6033,9 +6082,14 @@ function safeJson(key, fallback){
     seed = seed || {};
     const discordId = String(getUserDiscordId(seed) || '').replace(/^discord-/i,'').trim();
     const pubgId = String(getUserPubgId(seed) || '').trim();
+    const nickname = String(seed.nickname || seed.name || '').trim();
     const urls = [];
-    if(discordId) urls.push('/api/pkl-users?limit=5&discordId=' + encodeURIComponent(discordId));
-    else if(pubgId) urls.push('/api/pkl-users?limit=10&q=' + encodeURIComponent(pubgId));
+    if(discordId){
+      urls.push('/api/pkl-users?limit=5&discordId=' + encodeURIComponent(discordId));
+      urls.push('/api/pkl-users?limit=10&q=' + encodeURIComponent(discordId));
+    }
+    if(pubgId) urls.push('/api/pkl-users?limit=10&q=' + encodeURIComponent(pubgId));
+    if(nickname) urls.push('/api/pkl-users?limit=10&q=' + encodeURIComponent(nickname));
 
     for(const url of urls){
       try{
@@ -6043,7 +6097,15 @@ function safeJson(key, fallback){
         if(!res.ok) continue;
         const data = await res.json();
         const users = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
-        const found = users.find(function(u){ return identityMatches(seed, u); });
+        const found = users.find(function(u){
+          if(identityMatches(seed, u)) return true;
+          const seedPubg = String(getUserPubgId(seed) || '').trim().toLowerCase();
+          const userPubg = String(getUserPubgId(u) || '').trim().toLowerCase();
+          if(seedPubg && userPubg && seedPubg === userPubg) return true;
+          const seedNick = String(seed.nickname || seed.name || '').trim().toLowerCase();
+          const userNick = String(getUserNickname(u) || '').trim().toLowerCase();
+          return !!(seedNick && userNick && seedNick === userNick);
+        });
         if(found){
           rememberTierUser(found);
           try{ if(window.PKLUsersRealtime && typeof window.PKLUsersRealtime.applyUsers === 'function') window.PKLUsersRealtime.applyUsers([found], {source:'join-fresh-tier'}); }catch(e){}
@@ -6066,6 +6128,28 @@ function safeJson(key, fallback){
       item.tier = tier;
     }
     return item;
+  }
+
+  let joinMissingTierRefreshRunning = false;
+  async function refreshMissingWaitListTiers(){
+    if(joinMissingTierRefreshRunning) return;
+    joinMissingTierRefreshRunning = true;
+    try{
+      const list = readList(STORAGE_KEY);
+      let changed = false;
+      for(const item of list){
+        const before = getGradeRole(item);
+        if(hasValidMemberTier(item)) continue;
+        await ensureItemTier(item);
+        if(getGradeRole(item) && getGradeRole(item) !== before) changed = true;
+      }
+      if(changed){
+        saveList(STORAGE_KEY, list);
+        renderAll();
+      }
+    }catch(e){}finally{
+      joinMissingTierRefreshRunning = false;
+    }
   }
 
   async function addCurrentUser(){
