@@ -2031,6 +2031,13 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
 </style>
 
 <link rel="stylesheet" href="./pkl-horizontal-scroll-only.css?v=20260515-scroll-only-root">
+
+<style id="pkl-tier-single-source-20260523-css">
+.pkl-tier-member{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:24px!important;}
+.pkl-tier-member[data-can-drag="1"]{cursor:grab!important;}
+.pkl-tier-member.pkl-manual-drag-source{opacity:.38!important;}
+.pkl-lane-list.pkl-drop-ready{outline:1px solid rgba(168,85,247,.72)!important;box-shadow:inset 0 0 18px rgba(168,85,247,.18)!important;}
+</style>
 </head>
 <body>
 
@@ -3059,331 +3066,132 @@ document.addEventListener("DOMContentLoaded", function(){
 
 <script id="pklTierScoreSyncScript">
 (function(){
-  const SCORE_KEY = "pklTierScoreConfig";
+  'use strict';
+  const SCORE_KEY = 'pklTierScoreConfig';
   const ROLE_TO_LANE = {
-    tier0_high:"0상", tier0_mid:"0중", tier0_low:"0하",
-    tier1_high:"1상", tier1_mid:"1중", tier1_low:"1하",
-    tier2_high:"2상", tier2_mid:"2중", tier2_low:"2하",
-    tier3_high:"3상", tier3_mid:"3중", tier3_low:"3하",
-    tier4_high:"4상", tier4_mid:"4중", tier4_low:"4하",
-    tier5_high:"5상", tier5_mid:"5중", tier5_low:"5하",
-    beast:"5하", beast_high:"5상", beast_mid:"5중", beast_low:"5하"
+    tier0_high:'0상', tier0_mid:'0중', tier0_low:'0하',
+    tier1_high:'1상', tier1_mid:'1중', tier1_low:'1하',
+    tier2_high:'2상', tier2_mid:'2중', tier2_low:'2하',
+    tier3_high:'3상', tier3_mid:'3중', tier3_low:'3하',
+    tier4_high:'4상', tier4_mid:'4중', tier4_low:'4하',
+    tier5_high:'5상', tier5_mid:'5중', tier5_low:'5하',
+    beast:'5하', beast_high:'5상', beast_mid:'5중', beast_low:'5하'
   };
-  let scoreConfig = {};
-  let saveTimer = null;
-  let savingNow = false;
-
-  function normalizeNumber(value, fallback){
-    const n = Number(String(value ?? "").replace(/[^0-9-]/g,""));
-    return Number.isFinite(n) ? n : fallback;
-  }
-  function roleFromLane(lane){
-    const direct = {"5상":"tier5_high", "5중":"tier5_mid", "5하":"tier5_low"};
-    if(direct[lane]) return direct[lane];
-    return Object.keys(ROLE_TO_LANE).find(k => ROLE_TO_LANE[k] === lane && /^tier\d_/.test(k)) || "";
-  }
-  function normalizeConfig(config){
+  const LANE_TO_ROLE = {'0상':'tier0_high','0중':'tier0_mid','0하':'tier0_low','1상':'tier1_high','1중':'tier1_mid','1하':'tier1_low','2상':'tier2_high','2중':'tier2_mid','2하':'tier2_low','3상':'tier3_high','3중':'tier3_mid','3하':'tier3_low','4상':'tier4_high','4중':'tier4_mid','4하':'tier4_low','5상':'tier5_high','5중':'tier5_mid','5하':'tier5_low','짐승':'tier5_low'};
+  let config = {};
+  let saveTimer = 0;
+  let saving = false;
+  function num(v, fallback){ const n = Number(String(v ?? '').replace(/[^0-9.-]/g,'')); return Number.isFinite(n) ? n : fallback; }
+  function roleFromLane(lane){ return LANE_TO_ROLE[lane] || ''; }
+  function normalize(value){
     const out = {};
-    if(config && typeof config === "object"){
-      Object.keys(config).forEach(key => {
-        const value = config[key];
-        if(!value || typeof value !== "object") return;
+    if(value && typeof value === 'object'){
+      Object.keys(value).forEach(key => {
+        const row = value[key];
+        if(!row || typeof row !== 'object') return;
         const lane = ROLE_TO_LANE[key] || key;
-        const target = normalizeNumber(value.target, 0);
-        const death = normalizeNumber(value.death, 0);
-        out[lane] = { target, death };
+        const target = num(row.target, 0);
+        const death = num(row.death, 0);
+        out[lane] = {target, death};
         const role = roleFromLane(lane);
-        if(role) out[role] = { target, death, lane };
+        if(role) out[role] = {target, death, lane};
       });
     }
     return out;
   }
-  function readConfig(){ return normalizeConfig(scoreConfig || window.__PKL_TIER_SCORE_CONFIG || {}); }
-  function setConfig(value){
-    scoreConfig = normalizeConfig(value || {});
-    window.__PKL_TIER_SCORE_CONFIG = scoreConfig;
-    try{ localStorage.setItem(SCORE_KEY, JSON.stringify(scoreConfig)); }catch(_e){}
-    window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:scoreConfig}}));
-  }
-  async function fetchSharedConfig(){
-    const serverValues = [];
-    const readLocal = () => {
-      try{
-        const raw = localStorage.getItem(SCORE_KEY);
-        const value = raw ? JSON.parse(raw) : null;
-        return value && typeof value === 'object' ? value : {};
-      }catch(_e){ return {}; }
-    };
-    // Supabase 단일원본 스크립트가 getShared() 과정에서 localStorage 캐시를 서버값으로 덮을 수 있으므로
-    // fetch 전에 현재 브라우저 입력값을 먼저 확보한다. 특히 5티어 상/중/하 로컬 최신값 보호용.
-    const localBeforeFetch = normalizeConfig(readLocal());
-    const domBeforeFetch = normalizeConfig(collectConfigFromDom(false));
-    const pushValue = value => {
-      if(value && typeof value === 'object' && Object.keys(value).length) serverValues.push(value);
-    };
-    try{
-      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
-        pushValue(await window.PKLSupabaseDataSync.getShared(SCORE_KEY));
-      }
-    }catch(_e){}
-    try{
-      const res = await fetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent(SCORE_KEY) + '&t=' + Date.now(), {cache:'no-store', headers:{Accept:'application/json'}});
-      const data = await res.json().catch(() => ({}));
-      pushValue(data && data.item ? data.item.value : null);
-    }catch(_e){}
-    try{
-      const res = await fetch('/api/pkl-shared?key=' + encodeURIComponent(SCORE_KEY) + '&t=' + Date.now(), {cache:'no-store', headers:{Accept:'application/json'}});
-      const data = await res.json().catch(() => ({}));
-      pushValue(data && data.item ? data.item.value : null);
-    }catch(_e){}
-
-    // PKL 20260522: 서버에 예전 0~4티어 설정만 남아 있으면 5티어 입력값이 새로고침 때 기본값으로 덮였다.
-    // 서버값 + 현재 브라우저 저장값을 병합하고, 로컬 최신 입력값을 마지막에 얹어서 5티어 상/중/하도 유지한다.
-    const merged = {};
-    serverValues.forEach(v => Object.assign(merged, normalizeConfig(v)));
-    Object.assign(merged, localBeforeFetch);
-    Object.assign(merged, normalizeConfig(readLocal()));
-    Object.assign(merged, domBeforeFetch);
-    return merged;
-  }
-  function collectConfigFromDom(includeCurrent){
-    const config = includeCurrent ? readConfig() : {};
-    document.querySelectorAll(".pkl-tier-lane, .pkl-beast-line").forEach(laneEl => {
-      const list = laneEl.querySelector(".pkl-lane-list[data-tier]");
-      const inputs = laneEl.querySelectorAll(".pkl-lane-score input");
+  function collectFromDom(seed){
+    const out = Object.assign({}, normalize(seed || {}));
+    document.querySelectorAll('.pkl-tier-lane, .pkl-beast-line').forEach(laneEl => {
+      const list = laneEl.querySelector('.pkl-lane-list[data-tier]');
+      const inputs = laneEl.querySelectorAll('.pkl-lane-score input');
       if(!list || inputs.length < 2) return;
-      const lane = String(list.dataset.tier || "").trim();
+      const lane = String(list.dataset.tier || '').trim();
       if(!lane) return;
-      const target = normalizeNumber(inputs[0].value, normalizeNumber(inputs[0].getAttribute("value"), 0));
-      const death = normalizeNumber(inputs[1].value, normalizeNumber(inputs[1].getAttribute("value"), 0));
-      config[lane] = { target, death };
+      const target = num(inputs[0].value, num(inputs[0].getAttribute('value'), 0));
+      const death = num(inputs[1].value, num(inputs[1].getAttribute('value'), 0));
+      out[lane] = {target, death};
       const role = roleFromLane(lane);
-      if(role) config[role] = { target, death, lane };
+      if(role) out[role] = {target, death, lane};
     });
-    return config;
+    return out;
   }
-  async function loadConfig(){
-    try{
-      const value = await fetchSharedConfig();
-      setConfig(value);
-      applyConfig();
-    }catch(e){
-      console.error('PKL tier score config load failed', e);
-    }
+  function setConfig(next, silent){
+    config = normalize(next || {});
+    window.__PKL_TIER_SCORE_CONFIG = config;
+    try{ sessionStorage.setItem(SCORE_KEY, JSON.stringify(config)); }catch(e){}
+    if(!silent){ try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config}})); }catch(e){} }
   }
-  function collectConfig(){
-    const config = collectConfigFromDom(true);
-    setConfig(config);
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveConfig, 180);
+  function apply(){
+    const cfg = normalize(config);
+    document.querySelectorAll('.pkl-tier-lane, .pkl-beast-line').forEach(laneEl => {
+      const list = laneEl.querySelector('.pkl-lane-list[data-tier]');
+      const inputs = laneEl.querySelectorAll('.pkl-lane-score input');
+      if(!list || inputs.length < 2) return;
+      const lane = String(list.dataset.tier || '').trim();
+      const saved = cfg[lane];
+      if(!saved) return;
+      inputs[0].value = saved.target;
+      inputs[1].value = saved.death;
+    });
+  }
+  async function readServer(){
+    const found = [];
+    try{ if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){ const v = await window.PKLSupabaseDataSync.getShared(SCORE_KEY); if(v) found.push(v); } }catch(e){}
+    try{ const r = await fetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent(SCORE_KEY) + '&_=' + Date.now(), {cache:'no-store', headers:{Accept:'application/json'}}); const d = await r.json().catch(()=>({})); const row = d && (d.item || (Array.isArray(d.rows) && d.rows[0])); if(row && (row.value || row.payload)) found.push(row.value || row.payload); }catch(e){}
+    try{ const r = await fetch('/api/pkl-shared?key=' + encodeURIComponent(SCORE_KEY) + '&_=' + Date.now(), {cache:'no-store', headers:{Accept:'application/json'}}); const d = await r.json().catch(()=>({})); if(d && d.item && d.item.value) found.push(d.item.value); else if(d && d.value) found.push(d.value); }catch(e){}
+    const merged = {}; found.forEach(v => Object.assign(merged, normalize(v))); return merged;
   }
   async function postJson(url, body, keepalive){
     const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, cache:'no-store', keepalive:!!keepalive, body:JSON.stringify(body)});
-    const data = await res.json().catch(() => ({}));
-    if(!res.ok || (data && data.ok === false)) throw new Error(data.message || String(res.status));
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || data.ok === false) throw new Error(data.message || String(res.status));
     return data;
   }
-  async function saveConfig(keepalive){
-    const payload = normalizeConfig(scoreConfig);
+  async function save(keepalive){
+    const payload = normalize(config);
     if(!Object.keys(payload).length) return;
-    if(savingNow && !keepalive) return;
-    savingNow = true;
+    if(saving && !keepalive) return;
+    saving = true;
     try{
-      try{ localStorage.setItem(SCORE_KEY, JSON.stringify(payload)); }catch(_e){}
-      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function'){
-        await window.PKLSupabaseDataSync.setShared(SCORE_KEY, payload);
-        try{ await postJson('/api/pkl-data-store', {type:'shared', key:SCORE_KEY, value:payload}, keepalive); }catch(_e){}
-        try{ await postJson('/api/pkl-shared', {key:SCORE_KEY, value:payload}, keepalive); }catch(_e){}
-      }else{
-        await postJson('/api/pkl-data-store', {type:'shared', key:SCORE_KEY, value:payload}, keepalive);
-        try{ await postJson('/api/pkl-shared', {key:SCORE_KEY, value:payload}, keepalive); }catch(_e){}
-      }
-      try{ localStorage.setItem('pklTierScoreLastSync', new Date().toISOString()); }catch(_e){}
-    }catch(e1){
-      try{
-        await postJson('/api/pkl-data-store', {type:'shared', key:SCORE_KEY, value:payload}, keepalive);
-      }catch(e2){
-        try{ await postJson('/api/pkl-shared', {key:SCORE_KEY, value:payload}, keepalive); }
-        catch(e3){
-          console.error('PKL tier score config save failed', e3 || e2 || e1);
-          if(!keepalive && typeof window.pklAlert === 'function') window.pklAlert('티어 점수 저장에 실패했습니다. 네트워크 연결 후 다시 입력해주세요.', '저장 실패');
-        }
-      }
-    }finally{
-      savingNow = false;
-    }
+      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') await window.PKLSupabaseDataSync.setShared(SCORE_KEY, payload);
+      await postJson('/api/pkl-data-store', {type:'shared', key:SCORE_KEY, value:payload}, keepalive);
+      try{ await postJson('/api/pkl-shared', {key:SCORE_KEY, value:payload}, keepalive); }catch(e){}
+      try{ sessionStorage.setItem('pklTierScoreLastSync', new Date().toISOString()); }catch(e){}
+    }catch(err){
+      console.error('PKL tier score config save failed', err);
+      if(!keepalive && typeof window.pklAlert === 'function') window.pklAlert('티어 목표/감점 저장에 실패했습니다.', '저장 실패');
+    }finally{ saving = false; }
   }
-  function applyConfig(){
-    const config = readConfig();
-    document.querySelectorAll(".pkl-tier-lane, .pkl-beast-line").forEach(laneEl => {
-      const list = laneEl.querySelector(".pkl-lane-list[data-tier]");
-      const inputs = laneEl.querySelectorAll(".pkl-lane-score input");
-      if(!list || inputs.length < 2) return;
-      const lane = String(list.dataset.tier || "").trim();
-      const saved = config[lane];
-      if(!saved) return;
-      if(saved.target !== undefined && saved.target !== null && String(saved.target) !== "") inputs[0].value = saved.target;
-      if(saved.death !== undefined && saved.death !== null && String(saved.death) !== "") inputs[1].value = saved.death;
-    });
+  function collectAndSave(){ setConfig(collectFromDom(config)); clearTimeout(saveTimer); saveTimer = setTimeout(()=>save(false), 220); }
+  async function load(){
+    const domDefault = collectFromDom({});
+    let server = await readServer();
+    if(!Object.keys(server).length){ try{ server = normalize(JSON.parse(sessionStorage.getItem(SCORE_KEY) || '{}')); }catch(e){ server = {}; } }
+    setConfig(Object.keys(server).length ? server : domDefault, true);
+    apply();
+    if(!Object.keys(server).length){ setConfig(domDefault); save(false); }
   }
   function bind(){
-    try{
-      const raw = localStorage.getItem(SCORE_KEY);
-      if(raw) setConfig(JSON.parse(raw));
-      applyConfig();
-    }catch(_e){}
-    document.querySelectorAll(".pkl-lane-score input").forEach(input => {
-      if(input.dataset.pklTierScoreSync === "1") return;
-      input.dataset.pklTierScoreSync = "1";
-      input.addEventListener("input", collectConfig);
-      input.addEventListener("change", function(){ collectConfig(); saveConfig(false); });
-      input.addEventListener("blur", function(){ collectConfig(); saveConfig(false); });
+    document.querySelectorAll('.pkl-lane-score input').forEach(input => {
+      input.dataset.pklTierScoreSync = '1';
+      input.addEventListener('input', collectAndSave);
+      input.addEventListener('change', ()=>{ collectAndSave(); save(false); });
+      input.addEventListener('blur', ()=>{ collectAndSave(); save(false); });
     });
-    loadConfig().then(() => { if(!Object.keys(readConfig()).length){ collectConfig(); saveConfig(false); } });
+    load();
   }
-  window.addEventListener('beforeunload', function(){
-    try{ collectConfig(); saveConfig(true); }catch(_e){}
-  });
-  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
-  else bind();
-  window.pklTierCollectScoreConfig = collectConfig;
-  window.pklTierLoadScoreConfig = loadConfig;
-  window.pklTierSaveScoreConfig = saveConfig;
+  window.pklTierCollectScoreConfig = function(){ setConfig(collectFromDom(config)); return config; };
+  window.pklTierLoadScoreConfig = load;
+  window.pklTierSaveScoreConfig = save;
+  window.addEventListener('beforeunload', function(){ try{ setConfig(collectFromDom(config)); save(true); }catch(e){} });
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
 })();
 </script>
 
 
 <script id="pklTierManualDragFix">
 (function(){
-  let drag = null;
-
-  function canEdit(){
-    return typeof pklTierCanEdit === "function" && pklTierCanEdit();
-  }
-
-  function clearDropReady(){
-    document.querySelectorAll(".pkl-lane-list.pkl-drop-ready").forEach(el => {
-      el.classList.remove("pkl-drop-ready");
-    });
-  }
-
-  function getLaneUnderPoint(x, y){
-    const prev = drag && drag.ghost ? drag.ghost.style.pointerEvents : "";
-    if(drag && drag.ghost) drag.ghost.style.pointerEvents = "none";
-    const el = document.elementFromPoint(x, y);
-    if(drag && drag.ghost) drag.ghost.style.pointerEvents = prev;
-    return el ? el.closest(".pkl-lane-list[data-tier]") : null;
-  }
-
-  function startManualDrag(e){
-    const badge = e.target.closest(".pkl-tier-member");
-    if(!badge) return;
-    if(!canEdit()){
-      badge.setAttribute("draggable", "false");
-      badge.dataset.canDrag = "0";
-      return;
-    }
-    if(e.button !== 0) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    const rect = badge.getBoundingClientRect();
-    const ghost = badge.cloneNode(true);
-
-    ghost.classList.add("pkl-manual-drag-ghost");
-    ghost.style.position = "fixed";
-    ghost.style.left = rect.left + "px";
-    ghost.style.top = rect.top + "px";
-    ghost.style.width = rect.width + "px";
-    ghost.style.height = rect.height + "px";
-    ghost.style.zIndex = "999999";
-    ghost.style.pointerEvents = "none";
-    ghost.style.margin = "0";
-    ghost.style.transform = "scale(1.06)";
-    ghost.style.opacity = "0.96";
-
-    document.body.appendChild(ghost);
-
-    badge.classList.add("pkl-manual-drag-source");
-
-    drag = {
-      badge,
-      ghost,
-      offsetX:e.clientX - rect.left,
-      offsetY:e.clientY - rect.top,
-      userKey:badge.dataset.userKey,
-      from:badge.dataset.lane
-    };
-
-    document.body.classList.add("pkl-manual-dragging");
-    moveManualDrag(e);
-  }
-
-  function moveManualDrag(e){
-    if(!drag) return;
-
-    const x = e.clientX;
-    const y = e.clientY;
-
-    drag.ghost.style.left = (x - drag.offsetX) + "px";
-    drag.ghost.style.top = (y - drag.offsetY) + "px";
-
-    clearDropReady();
-    const lane = getLaneUnderPoint(x, y);
-    if(lane) lane.classList.add("pkl-drop-ready");
-  }
-
-  function endManualDrag(e){
-    if(!drag) return;
-
-    const targetLaneEl = getLaneUnderPoint(e.clientX, e.clientY);
-    const targetLane = targetLaneEl ? targetLaneEl.dataset.tier : "";
-
-    const userKey = drag.userKey;
-    const from = drag.from;
-
-    drag.badge.classList.remove("pkl-manual-drag-source");
-    drag.ghost.remove();
-    document.body.classList.remove("pkl-manual-dragging");
-    clearDropReady();
-
-    drag = null;
-
-    if(!targetLane || !userKey || targetLane === from) return;
-
-    try{
-      if(typeof pklTierSetUserRole === "function" && pklTierSetUserRole(userKey, targetLane)){
-        if(typeof renderPklTierMembers === "function") renderPklTierMembers();
-      }
-    }catch(err){
-      console.error("PKL tier manual drag failed", err);
-    }
-  }
-
-  document.addEventListener("mousedown", startManualDrag, true);
-  document.addEventListener("mousemove", function(e){
-    if(drag){
-      e.preventDefault();
-      moveManualDrag(e);
-    }
-  }, true);
-  document.addEventListener("mouseup", function(e){
-    if(drag){
-      e.preventDefault();
-      endManualDrag(e);
-    }
-  }, true);
-
-  document.addEventListener("keydown", function(e){
-    if(e.key === "Escape" && drag){
-      drag.badge.classList.remove("pkl-manual-drag-source");
-      drag.ghost.remove();
-      document.body.classList.remove("pkl-manual-dragging");
-      clearDropReady();
-      drag = null;
-    }
-  });
+  /* PKL 20260523: 이전 manual drag 핸들러는 Supabase 전용 렌더러와 중복되어 티어 이동 저장을 방해했다. */
 })();
 </script>
 
@@ -3505,328 +3313,42 @@ document.addEventListener("DOMContentLoaded", function(){
 <script id="pkl-tier-optimized-single-source-20260514">
 (function(){
   'use strict';
-
-  var ROLE_TO_LANE = {
-    tier0_high:'0상', tier0_mid:'0중', tier0_low:'0하',
-    tier1_high:'1상', tier1_mid:'1중', tier1_low:'1하',
-    tier2_high:'2상', tier2_mid:'2중', tier2_low:'2하',
-    tier3_high:'3상', tier3_mid:'3중', tier3_low:'3하',
-    tier4_high:'4상', tier4_mid:'4중', tier4_low:'4하',
-    tier5_high:'5상', tier5_mid:'5중', tier5_low:'5하',
-    beast:'5하', beast_high:'5상', beast_mid:'5중', beast_low:'5하', tier5_high:'5상', tier5_mid:'5중', tier5_low:'5하'
-  };
-  var LANE_TO_ROLE = {
-    '0상':'tier0_high', '0중':'tier0_mid', '0하':'tier0_low',
-    '1상':'tier1_high', '1중':'tier1_mid', '1하':'tier1_low',
-    '2상':'tier2_high', '2중':'tier2_mid', '2하':'tier2_low',
-    '3상':'tier3_high', '3중':'tier3_mid', '3하':'tier3_low',
-    '4상':'tier4_high', '4중':'tier4_mid', '4하':'tier4_low',
-    '5상':'tier5_high', '5중':'tier5_mid', '5하':'tier5_low',
-    '짐승':'tier5_low', '짐승상':'tier5_high', '짐승중':'tier5_mid', '짐승하':'tier5_low', '짐승 상':'tier5_high', '짐승 중':'tier5_mid', '짐승 하':'tier5_low', '5티어 상':'tier5_high', '5티어 중':'tier5_mid', '5티어 하':'tier5_low'
-  };
-  var LABEL = {
-    none:'없음',
-    tier0_high:'0티어 상', tier0_mid:'0티어 중', tier0_low:'0티어 하',
-    tier1_high:'1티어 상', tier1_mid:'1티어 중', tier1_low:'1티어 하',
-    tier2_high:'2티어 상', tier2_mid:'2티어 중', tier2_low:'2티어 하',
-    tier3_high:'3티어 상', tier3_mid:'3티어 중', tier3_low:'3티어 하',
-    tier4_high:'4티어 상', tier4_mid:'4티어 중', tier4_low:'4티어 하',
-    tier5_high:'5티어 상', tier5_mid:'5티어 중', tier5_low:'5티어 하',
-    beast:'5티어 하', beast_high:'5티어 상', beast_mid:'5티어 중', beast_low:'5티어 하', tier5_high:'5티어 상', tier5_mid:'5티어 중', tier5_low:'5티어 하'
-  };
-
-  var cache = [];
-  var loadingPromise = null;
-  var lastPaintSignature = '';
-  var pendingRender = 0;
-  var PREVIEW_CACHE_KEY = 'PKL_TIER_RENDER_PREVIEW_V2';
-  var PREVIEW_CACHE_TTL = 1000 * 60 * 5;
-
-  function readPreviewCache(){
-    try{
-      var raw = sessionStorage.getItem(PREVIEW_CACHE_KEY);
-      if(!raw) return [];
-      var box = JSON.parse(raw);
-      if(!box || !Array.isArray(box.users)) return [];
-      if(Date.now() - Number(box.time || 0) > PREVIEW_CACHE_TTL) return [];
-      return normalizeUsers(box.users);
-    }catch(e){ return []; }
-  }
-  function writePreviewCache(users){
-    try{
-      if(!Array.isArray(users) || !users.length) return;
-      sessionStorage.setItem(PREVIEW_CACHE_KEY, JSON.stringify({time:Date.now(), users:users.slice(0, 500)}));
-    }catch(e){}
-  }
-
+  if(window.__PKL_TIER_SINGLE_SOURCE_20260523__) return;
+  window.__PKL_TIER_SINGLE_SOURCE_20260523__ = true;
+  var ROLE_TO_LANE = {tier0_high:'0상',tier0_mid:'0중',tier0_low:'0하',tier1_high:'1상',tier1_mid:'1중',tier1_low:'1하',tier2_high:'2상',tier2_mid:'2중',tier2_low:'2하',tier3_high:'3상',tier3_mid:'3중',tier3_low:'3하',tier4_high:'4상',tier4_mid:'4중',tier4_low:'4하',tier5_high:'5상',tier5_mid:'5중',tier5_low:'5하',beast:'5하',beast_high:'5상',beast_mid:'5중',beast_low:'5하'};
+  var LANE_TO_ROLE = {'0상':'tier0_high','0중':'tier0_mid','0하':'tier0_low','1상':'tier1_high','1중':'tier1_mid','1하':'tier1_low','2상':'tier2_high','2중':'tier2_mid','2하':'tier2_low','3상':'tier3_high','3중':'tier3_mid','3하':'tier3_low','4상':'tier4_high','4중':'tier4_mid','4하':'tier4_low','5상':'tier5_high','5중':'tier5_mid','5하':'tier5_low','짐승':'tier5_low'};
+  var LABEL = {none:'없음',tier0_high:'0티어 상',tier0_mid:'0티어 중',tier0_low:'0티어 하',tier1_high:'1티어 상',tier1_mid:'1티어 중',tier1_low:'1티어 하',tier2_high:'2티어 상',tier2_mid:'2티어 중',tier2_low:'2티어 하',tier3_high:'3티어 상',tier3_mid:'3티어 중',tier3_low:'3티어 하',tier4_high:'4티어 상',tier4_mid:'4티어 중',tier4_low:'4티어 하',tier5_high:'5티어 상',tier5_mid:'5티어 중',tier5_low:'5티어 하',beast:'5티어 하',beast_high:'5티어 상',beast_mid:'5티어 중',beast_low:'5티어 하'};
+  var cache = [], loading = null, lastSig = '', drag = null;
   function clean(v){ return String(v == null ? '' : v).trim(); }
-  function escapeCss(v){
-    if(window.CSS && typeof CSS.escape === 'function') return CSS.escape(String(v));
-    return String(v).replace(/["\\]/g, '\\$&');
-  }
-  function didOf(u){
-    u = u || {};
-    var did = clean(u.discordId || u.discord_id || u.discordID);
-    if(did) return did.replace(/^discord-/i,'');
-    var keys = ['uid','id','userId','user_id','key'];
-    for(var i=0;i<keys.length;i++){
-      var raw = clean(u[keys[i]]);
-      if(/^discord-/i.test(raw)) return raw.replace(/^discord-/i,'');
-    }
-    return '';
-  }
-  function nickOf(u){
-    return clean(u && (u.nickname || u.name || u.nick || u.pubgId || u.pubgID || u.discordUsername || u.discord_username || u.username));
-  }
-  function normalizeTier(v){
-    var raw = clean(v);
-    if(!raw || raw === '없음' || raw.toLowerCase() === 'none') return 'none';
-    try{
-      if(window.PKLTierBadge && typeof window.PKLTierBadge.normalize === 'function'){
-        var n = window.PKLTierBadge.normalize(raw);
-        if(n) raw = n;
-      }
-    }catch(e){}
-    var compact = clean(raw).replace(/\s+/g,'');
-    var byText = {
-      '0티어상':'tier0_high','0상':'tier0_high','0티어중':'tier0_mid','0중':'tier0_mid','0티어하':'tier0_low','0하':'tier0_low',
-      '1티어상':'tier1_high','1상':'tier1_high','1티어중':'tier1_mid','1중':'tier1_mid','1티어하':'tier1_low','1하':'tier1_low',
-      '2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low',
-      '3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low',
-      '4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low',
-      '5티어상':'tier5_high','5상':'tier5_high','5티어중':'tier5_mid','5중':'tier5_mid','5티어하':'tier5_low','5하':'tier5_low',
-      '짐승':'tier5_low', '짐승상':'tier5_high', '짐승중':'tier5_mid', '짐승하':'tier5_low', '짐승 상':'tier5_high', '짐승 중':'tier5_mid', '짐승 하':'tier5_low', '5티어 상':'tier5_high', '5티어 중':'tier5_mid', '5티어 하':'tier5_low','beast':'beast_low','beastmid':'beast_mid','beasthigh':'beast_high','beastlow':'beast_low'
-    };
-    if(ROLE_TO_LANE[raw]) return raw;
-    if(byText[compact]) return byText[compact];
-    if(raw === 'tier0') return 'tier0_mid';
-    if(raw === 'tier1') return 'tier1_mid';
-    if(raw === 'tier2') return 'tier2_mid';
-    if(raw === 'tier3') return 'tier3_mid';
-    if(raw === 'tier4') return 'tier4_mid';
-    return raw;
-  }
-  function tierOf(u){
-    u = u || {};
-    var fields = [u.memberTier, u.gradeRole, u.tierRole, u.tier, u.memberTierName, u.tierName, u.roleName, u.baseRole, u.originalRole];
-    for(var i=0;i<fields.length;i++){
-      if(clean(fields[i])){
-        var t = normalizeTier(fields[i]);
-        if(t && t !== 'none') return t;
-      }
-    }
-    return 'none';
-  }
-  function keyOf(u){ return didOf(u); }
-  function labelOf(t){ t = normalizeTier(t); return LABEL[t] || t || '없음'; }
-  function canEdit(){ return typeof window.pklTierCanEdit === 'function' ? !!window.pklTierCanEdit() : false; }
-
-  function normalizeUsers(list){
-    var seenDid = new Set();
-    var seenNick = new Set();
-    var out = [];
-    (Array.isArray(list) ? list : []).forEach(function(row){
-      var did = didOf(row);
-      var nick = nickOf(row);
-      var tier = tierOf(row);
-      if(!did || !nick || !ROLE_TO_LANE[tier]) return;
-      var didKey = did.toLowerCase();
-      var nickKey = nick.replace(/\s+/g,'').toLowerCase();
-      if(seenDid.has(didKey)) return;
-      if(nickKey && seenNick.has(nickKey)) return;
-      seenDid.add(didKey);
-      if(nickKey) seenNick.add(nickKey);
-      out.push(Object.assign({}, row, {
-        discordId:did,
-        nickname:nick,
-        memberTier:tier,
-        gradeRole:tier,
-        tierRole:tier,
-        tier:tier === 'none' ? '없음' : labelOf(tier),
-        memberTierName:labelOf(tier)
-      }));
-    });
-    out.sort(function(a,b){ return nickOf(a).localeCompare(nickOf(b), 'ko-KR', {numeric:true, sensitivity:'base'}); });
-    return out;
-  }
-
-  function signatureOf(users){
-    return users.map(function(u){ return keyOf(u) + ':' + tierOf(u) + ':' + nickOf(u); }).join('|');
-  }
-
-  async function fetchTierUsers(force){
-    if(loadingPromise) return loadingPromise;
-    if(!force && cache.length) return Promise.resolve(cache.slice());
-    if(!force && window.__PKL_TIER_PREFETCH_PROMISE){
-      loadingPromise = window.__PKL_TIER_PREFETCH_PROMISE.then(function(users){
-        cache = normalizeUsers(users || window.__PKL_TIER_PREFETCH_DATA || []);
-        writePreviewCache(cache);
-        return cache.slice();
-      }).finally(function(){ loadingPromise = null; });
-      return loadingPromise;
-    }
-
-    loadingPromise = (async function(){
-      try{
-        var all = [];
-        var offset = 0;
-        var limit = 100;
-        while(offset < 1200){
-          var res = await fetch('/api/pkl-users?limit=' + limit + '&offset=' + offset + '&tierOnly=1', {
-            cache:'no-store',
-            headers:{Accept:'application/json'}
-          });
-          var data = await res.json().catch(function(){ return {}; });
-          if(!res.ok || !data.ok) throw new Error(data.message || 'tier users fetch failed');
-          var rows = Array.isArray(data.users) ? data.users : [];
-          all = all.concat(rows);
-
-          // 2차 최적화: 전체 페이지를 모두 기다리지 말고 첫 페이지가 도착하는 즉시 유저칸을 먼저 그린다.
-          // 이후 추가 페이지가 있으면 최종 결과만 한 번 더 보정한다.
-          if(offset === 0 && rows.length){
-            cache = normalizeUsers(all);
-            writePreviewCache(cache);
-            schedulePaint(cache.slice(), true);
-          }
-
-          if(rows.length < limit) break;
-          offset += limit;
-        }
-        cache = normalizeUsers(all);
-        writePreviewCache(cache);
-        return cache.slice();
-      }catch(err){
-        console.error('PKL tier users load failed', err);
-        return cache.slice();
-      }finally{
-        loadingPromise = null;
-      }
-    })();
-    return loadingPromise;
-  }
-
-  function paintTierUsers(users, force){
-    users = Array.isArray(users) ? users : [];
-    var sig = signatureOf(users) + '|edit:' + (canEdit() ? '1' : '0');
-    if(!force && sig === lastPaintSignature) return;
-    lastPaintSignature = sig;
-
-    var lists = Array.from(document.querySelectorAll('.pkl-lane-list[data-tier]'));
-    if(!lists.length) return;
-
-    var grouped = {};
-    users.forEach(function(u){
-      var lane = ROLE_TO_LANE[tierOf(u)];
-      if(!lane) return;
-      if(!grouped[lane]) grouped[lane] = [];
-      grouped[lane].push(u);
-    });
-
-    lists.forEach(function(list){
-      var lane = list.getAttribute('data-tier');
-      var frag = document.createDocumentFragment();
-      (grouped[lane] || []).forEach(function(u){
-        var badge = document.createElement('div');
-        badge.className = 'pkl-tier-member';
-        badge.textContent = nickOf(u) || '회원';
-        badge.dataset.userKey = keyOf(u);
-        badge.dataset.lane = lane;
-        badge.dataset.canDrag = canEdit() ? '1' : '0';
-        badge.setAttribute('draggable', canEdit() ? 'true' : 'false');
-        frag.appendChild(badge);
-      });
-      list.replaceChildren(frag);
-      list.classList.remove('pkl-drop-ready');
-    });
-
-    if(typeof window.pklTierBindDrag === 'function'){
-      try{ window.pklTierBindDrag(); }catch(e){}
-    }
-  }
-
-  function schedulePaint(users, force){
-    if(pendingRender) cancelAnimationFrame(pendingRender);
-    pendingRender = requestAnimationFrame(function(){
-      pendingRender = 0;
-      paintTierUsers(users || cache, !!force);
-    });
-  }
-
-  async function renderTier(force){
-    var users = await fetchTierUsers(!!force);
-    schedulePaint(users, !!force);
-  }
-
-  async function setUserTier(userKey, targetLane){
-    var role = LANE_TO_ROLE[targetLane];
-    if(!role || !canEdit()) return false;
-    var users = cache.length ? cache.slice() : await fetchTierUsers(true);
-    var idx = users.findIndex(function(u){ return keyOf(u) === userKey; });
-    if(idx < 0) return false;
-
-    var before = tierOf(users[idx]);
-    var target = Object.assign({}, users[idx], {
-      memberTier:role,
-      gradeRole:role,
-      tierRole:role,
-      baseRole:role,
-      tier:labelOf(role),
-      memberTierName:labelOf(role),
-      updatedAt:new Date().toISOString()
-    });
-
-    cache = users.map(function(u,i){ return i === idx ? target : u; });
-    schedulePaint(cache, true);
-
-    try{
-      var res = await fetch('/api/pkl-users', {
-        method:'PATCH',
-        headers:{'Content-Type':'application/json','Accept':'application/json'},
-        body:JSON.stringify({
-          action:'updateTier',
-          identity:{discordId:didOf(target)},
-          tier:role,
-          actor:'TIER'
-        })
-      });
-      var data = await res.json().catch(function(){ return {}; });
-      if(!res.ok || !data.ok) throw new Error(data.message || 'Supabase 티어 저장 실패');
-      try{ window.dispatchEvent(new CustomEvent('pkl-user-updated', {detail:{user:target}})); }catch(e){}
-      return true;
-    }catch(err){
-      console.error(err);
-      await renderTier(true);
-      if(typeof window.pklAlert === 'function') window.pklAlert(err.message || '티어 변경 저장에 실패했습니다.', '저장 실패');
-      return false;
-    }
-  }
-
-  window.renderPklTierMembers = function(){ renderTier(false); };
-  window.PKLTierReloadSupabaseUsers = function(){ renderTier(true); };
-  window.addEventListener('pkl-users-updated', function(){ renderTier(true); });
-  window.addEventListener('pkl-role-data-updated', function(){ renderTier(true); });
-  window.pklTierSetUserRole = function(userKey, targetLane){
-    setUserTier(userKey, targetLane);
-    return true;
-  };
-
-  window.addEventListener('pkl-tier-permission-updated', function(){
-    try{ schedulePaint(cache.length ? cache.slice() : (window.__PKL_TIER_PREFETCH_DATA || []), true); }catch(e){}
-  });
-  window.addEventListener('pkl-current-user-updated', function(){
-    try{ schedulePaint(cache.length ? cache.slice() : (window.__PKL_TIER_PREFETCH_DATA || []), true); }catch(e){}
-  });
-
-  document.addEventListener('DOMContentLoaded', function(){
-    requestAnimationFrame(function(){
-      var preview = readPreviewCache();
-      if(preview.length){
-        cache = preview;
-        schedulePaint(preview, true);
-      }
-      renderTier(false);
-    });
-  });
+  function didOf(u){ u=u||{}; var did=clean(u.discordId||u.discord_id||u.discordID||u.userDiscordId||u.discord); if(did) return did.replace(/^discord-/i,''); ['uid','id','userId','user_id','accountId','key'].some(function(k){ var raw=clean(u[k]); if(/^discord-/i.test(raw)){ did=raw.replace(/^discord-/i,''); return true; } return false; }); return did; }
+  function nickOf(u){ return clean(u && (u.nickname||u.nick||u.name||u.discord_username||u.discordUsername||u.pubgId||u.pubg_id||u.gameId)); }
+  function normalizeTier(v){ var raw=clean(v); if(!raw||raw==='없음'||raw.toLowerCase()==='none') return 'none'; try{ if(window.PKLTierBadge&&typeof window.PKLTierBadge.normalize==='function') raw=window.PKLTierBadge.normalize(raw)||raw; }catch(e){} var compact=raw.replace(/\s+/g,''); var map={'0티어상':'tier0_high','0상':'tier0_high','0티어중':'tier0_mid','0중':'tier0_mid','0티어하':'tier0_low','0하':'tier0_low','1티어상':'tier1_high','1상':'tier1_high','1티어중':'tier1_mid','1중':'tier1_mid','1티어하':'tier1_low','1하':'tier1_low','2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low','3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low','4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low','5티어상':'tier5_high','5상':'tier5_high','5티어중':'tier5_mid','5중':'tier5_mid','5티어하':'tier5_low','5하':'tier5_low','짐승':'tier5_low','짐승상':'tier5_high','짐승중':'tier5_mid','짐승하':'tier5_low'}; if(ROLE_TO_LANE[raw]) return raw; if(map[compact]) return map[compact]; if(raw==='tier0') return 'tier0_mid'; if(raw==='tier1') return 'tier1_mid'; if(raw==='tier2') return 'tier2_mid'; if(raw==='tier3') return 'tier3_mid'; if(raw==='tier4') return 'tier4_mid'; if(raw==='beast') return 'tier5_low'; return raw; }
+  function tierOf(u){ u=u||{}; var fields=[u.memberTier,u.gradeRole,u.tierRole,u.baseRole,u.tier,u.memberTierName,u.tierName,u.roleName]; for(var i=0;i<fields.length;i++){ var t=normalizeTier(fields[i]); if(t&&t!=='none'&&ROLE_TO_LANE[t]) return t; } return 'none'; }
+  function labelOf(t){ t=normalizeTier(t); return LABEL[t]||'없음'; }
+  function roleValue(u){ return clean(u&&(u.memberRole||u.role||u.userRole||u.authRole||u.permission||u.adminRole||u.memberRoleName)).toLowerCase(); }
+  function isAdminLike(u){ if(!u) return false; if(u.isAdmin||u.is_admin||u.admin||u.manager||u.isManager||u.operator||u.isOperator) return true; var r=roleValue(u); return r==='admin'||r==='administrator'||r==='owner'||r==='manager'||r==='operator'||r==='staff'||/관리자|운영/.test(r); }
+  function currentUser(){ var keys=['pklLoginUser','pklCurrentUser','pklLoggedInUser','pkl_current_user','discordUser','pklUser']; for(var i=0;i<keys.length;i++){ try{ var raw=sessionStorage.getItem(keys[i])||localStorage.getItem(keys[i]); if(raw){ var u=JSON.parse(raw); if(u&&typeof u==='object') return u; } }catch(e){} } return null; }
+  function canEdit(){ try{ if(window.PKLRoleSystem&&typeof window.PKLRoleSystem.currentHasRole==='function'&&(window.PKLRoleSystem.currentHasRole('admin')||window.PKLRoleSystem.currentHasRole('operator'))) return true; }catch(e){} try{ if(window.PKLPagePermissions&&((typeof window.PKLPagePermissions.isAdmin==='function'&&window.PKLPagePermissions.isAdmin())||(typeof window.PKLPagePermissions.isOperatorUp==='function'&&window.PKLPagePermissions.isOperatorUp()))) return true; }catch(e){} if(window.__PKL_TIER_CAN_EDIT_SERVER===true) return true; return isAdminLike(currentUser()); }
+  window.pklTierCanEdit = canEdit;
+  async function refreshPermission(){ var u=currentUser(), did=didOf(u); if(!did) return; try{ var res=await fetch('/api/pkl-users?discordId='+encodeURIComponent(did)+'&limit=20&_='+Date.now(),{cache:'no-store',headers:{Accept:'application/json'}}); var data=await res.json().catch(()=>({})); var list=Array.isArray(data.users)?data.users:[]; var found=list.find(function(x){return didOf(x)===did;}); if(found){ window.__PKL_TIER_CAN_EDIT_SERVER=isAdminLike(found); try{sessionStorage.setItem('pklLoginUser',JSON.stringify(Object.assign({},u||{},found)));}catch(e){} } }catch(e){ console.error('PKL tier permission refresh failed',e); } }
+  function normalizeUsers(list){ var seen=new Set(), out=[]; (Array.isArray(list)?list:[]).forEach(function(row){ var did=didOf(row), nick=nickOf(row), tier=tierOf(row); if(!did||!nick||!ROLE_TO_LANE[tier]) return; var key=did.toLowerCase(); if(seen.has(key)) return; seen.add(key); out.push(Object.assign({},row,{discordId:did,nickname:nick,memberTier:tier,gradeRole:tier,tierRole:tier,tier:labelOf(tier),memberTierName:labelOf(tier)})); }); out.sort(function(a,b){ return nickOf(a).localeCompare(nickOf(b),'ko-KR',{numeric:true,sensitivity:'base'}); }); return out; }
+  async function fetchUsers(force){ if(loading&&!force) return loading; loading=(async function(){ try{ var res=await fetch('/api/pkl-users?tierOnly=1&limit=500&_='+Date.now(),{cache:'no-store',headers:{Accept:'application/json'}}); var data=await res.json().catch(()=>({})); cache=normalizeUsers(Array.isArray(data.users)?data.users:[]); }catch(e){ console.error('PKL tier users load failed',e); } loading=null; return cache.slice(); })(); return loading; }
+  function signature(users){ return users.map(function(u){ return didOf(u)+':'+tierOf(u)+':'+nickOf(u); }).join('|')+'|edit:'+(canEdit()?'1':'0'); }
+  function render(users, force){ users=normalizeUsers(users||cache); var sig=signature(users); if(!force&&sig===lastSig) return; lastSig=sig; var grouped={}; users.forEach(function(u){ var lane=ROLE_TO_LANE[tierOf(u)]; if(lane) (grouped[lane]||(grouped[lane]=[])).push(u); }); document.querySelectorAll('.pkl-lane-list[data-tier]').forEach(function(list){ var lane=list.dataset.tier; var frag=document.createDocumentFragment(); (grouped[lane]||[]).forEach(function(u){ var badge=document.createElement('div'); badge.className='pkl-tier-member'; badge.textContent=nickOf(u)||'회원'; badge.dataset.userKey=didOf(u); badge.dataset.discordId=didOf(u); badge.dataset.lane=lane; badge.dataset.canDrag=canEdit()?'1':'0'; badge.setAttribute('draggable','false'); frag.appendChild(badge); }); list.replaceChildren(frag); list.classList.remove('pkl-drop-ready'); }); }
+  function setCacheUserTier(userKey,targetLane){ var role=LANE_TO_ROLE[targetLane]; cache=cache.map(function(u){ if(didOf(u)!==userKey) return u; return Object.assign({},u,{memberTier:role,gradeRole:role,tierRole:role,baseRole:role,tier:labelOf(role),memberTierName:labelOf(role),updatedAt:new Date().toISOString()}); }); }
+  async function setUserTier(userKey,targetLane){ var role=LANE_TO_ROLE[targetLane]; if(!role||!userKey||!canEdit()) return false; var before=cache.slice(); setCacheUserTier(userKey,targetLane); render(cache,true); try{ var res=await fetch('/api/pkl-users',{method:'PATCH',headers:{'Content-Type':'application/json','Accept':'application/json'},cache:'no-store',body:JSON.stringify({action:'updateTier',identity:{discordId:userKey,discord_id:userKey},tier:role,actor:'TIER'})}); var data=await res.json().catch(()=>({})); if(!res.ok||data.ok===false) throw new Error(data.message||'Supabase 티어 저장 실패'); try{ window.dispatchEvent(new CustomEvent('pkl-user-updated',{detail:{user:data.user||{discordId:userKey,memberTier:role}}})); }catch(e){} try{ window.dispatchEvent(new CustomEvent('pkl-role-data-updated',{detail:{source:'tier'}})); }catch(e){} return true; }catch(err){ console.error('PKL tier save failed',err); cache=before; render(cache,true); if(typeof window.pklAlert==='function') window.pklAlert(err.message||'티어 변경 저장에 실패했습니다.','저장 실패'); return false; } }
+  window.pklTierSetUserRole=function(userKey,targetLane){ setUserTier(String(userKey||'').replace(/^discord-/i,''),targetLane); return true; };
+  window.PKLTierReloadSupabaseUsers=function(){ fetchUsers(true).then(function(users){ render(users,true); }); };
+  window.renderPklTierMembers=function(){ render(cache,true); };
+  function laneAt(x,y){ var ghost=drag&&drag.ghost; var prev=ghost?ghost.style.pointerEvents:''; if(ghost) ghost.style.pointerEvents='none'; var el=document.elementFromPoint(x,y); if(ghost) ghost.style.pointerEvents=prev; return el&&el.closest?el.closest('.pkl-lane-list[data-tier]'):null; }
+  function clearDrop(){ document.querySelectorAll('.pkl-lane-list.pkl-drop-ready').forEach(function(el){el.classList.remove('pkl-drop-ready');}); }
+  function startDrag(e){ var badge=e.target&&e.target.closest&&e.target.closest('.pkl-tier-member'); if(!badge||!canEdit()||e.button!==0) return; e.preventDefault(); e.stopPropagation(); if(typeof e.stopImmediatePropagation==='function') e.stopImmediatePropagation(); var rect=badge.getBoundingClientRect(); var ghost=badge.cloneNode(true); ghost.classList.add('pkl-manual-drag-ghost'); Object.assign(ghost.style,{position:'fixed',left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',height:rect.height+'px',zIndex:'999999',pointerEvents:'none',margin:'0',transform:'scale(1.06)',opacity:'0.96'}); document.body.appendChild(ghost); badge.classList.add('pkl-manual-drag-source'); document.body.classList.add('pkl-manual-dragging'); drag={badge:badge,ghost:ghost,userKey:badge.dataset.userKey,from:badge.dataset.lane,offsetX:e.clientX-rect.left,offsetY:e.clientY-rect.top}; }
+  function moveDrag(e){ if(!drag) return; e.preventDefault(); e.stopPropagation(); if(typeof e.stopImmediatePropagation==='function') e.stopImmediatePropagation(); drag.ghost.style.left=(e.clientX-drag.offsetX)+'px'; drag.ghost.style.top=(e.clientY-drag.offsetY)+'px'; clearDrop(); var lane=laneAt(e.clientX,e.clientY); if(lane) lane.classList.add('pkl-drop-ready'); }
+  function endDrag(e){ if(!drag) return; e.preventDefault(); e.stopPropagation(); if(typeof e.stopImmediatePropagation==='function') e.stopImmediatePropagation(); var target=laneAt(e.clientX,e.clientY); var targetLane=target?target.dataset.tier:''; var userKey=drag.userKey, from=drag.from; drag.badge.classList.remove('pkl-manual-drag-source'); drag.ghost.remove(); document.body.classList.remove('pkl-manual-dragging'); clearDrop(); drag=null; if(targetLane&&userKey&&targetLane!==from) setUserTier(userKey,targetLane); }
+  document.addEventListener('mousedown',startDrag,true); document.addEventListener('mousemove',moveDrag,true); document.addEventListener('mouseup',endDrag,true); document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&drag){ drag.ghost.remove(); drag.badge.classList.remove('pkl-manual-drag-source'); document.body.classList.remove('pkl-manual-dragging'); clearDrop(); drag=null; }},true);
+  window.addEventListener('pkl-users-updated',function(){fetchUsers(true).then(function(users){render(users,true);});}); window.addEventListener('pkl-role-data-updated',function(){fetchUsers(true).then(function(users){render(users,true);});}); window.addEventListener('pkl-current-user-updated',function(){refreshPermission().then(function(){render(cache,true);});});
+  async function init(){ await refreshPermission(); var users=await fetchUsers(true); render(users,true); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 })();
 </script>
 
