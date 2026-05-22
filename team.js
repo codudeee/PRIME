@@ -2193,6 +2193,8 @@ if (!rerollModeDropdown) return;
     setRerollButtonMode(true);
     setStatus('슬롯머신 리롤 진행 중입니다.');
 
+    const runningSlots = [];
+
     targets.forEach(({ teamIndex, slotIndex }, index) => {
       const slot = getTeamSlotElement(teamIndex, slotIndex);
       if (!slot) return;
@@ -2218,33 +2220,44 @@ if (!rerollModeDropdown) return;
         reel.classList.add('is-tick');
       }, spinSpeed));
 
+      runningSlots.push({ slot, reel, item, teamIndex, slotIndex, finalId: finalIds[index] });
       reel.dataset.spinTimer = String(spinTimer);
     });
 
-    // 핵심 수정: 슬롯은 정확히 3초 동안만 돌고, 3초 시점에 모든 결과를 한 번에 반영한다.
-    // 이전처럼 슬롯별 감속 타이머/버튼 복구 타이머가 따로 돌면 6초 뒤 한 칸씩 바뀌는 느낌이 난다.
     trackRerollTimeout(window.setTimeout(() => {
-      targets.forEach(({ teamIndex, slotIndex }, index) => {
-        state.teams[teamIndex].slots[slotIndex] = finalIds[index];
+      // 리롤 종료는 여기 한 곳에서만 처리한다.
+      // 버튼 복구, state 변경, 실제 슬롯 카드 반영이 서로 다른 타이머에서 따로 실행되면
+      // "다 돈 뒤 그대로 있다가 버튼이 사라질 때 갑자기 섞이는" 현상이 생긴다.
+      clearRerollSchedules();
+
+      const finalSlotHtml = runningSlots.map(({ finalId }) => renderPlayerCard(finalId));
+
+      runningSlots.forEach(({ item, finalId }) => {
+        if (item) item.textContent = getPlayerName(finalId);
+      });
+
+      runningSlots.forEach(({ slot, teamIndex, slotIndex, finalId }, index) => {
+        state.teams[teamIndex].slots[slotIndex] = finalId;
+        slot.classList.remove('is-slot-rolling');
+        slot.classList.add('is-slot-stopped', 'is-slot-relight');
+        slot.innerHTML = finalSlotHtml[index] || '';
       });
 
       state.selectedSlots = targets.map(({ teamIndex, slotIndex }) => ({ teamIndex, slotIndex }));
       state.selected = state.selectedSlots[state.selectedSlots.length - 1] || null;
 
-      renderTeams();
       syncSelectedSlotClasses();
+      bindPlayerCards();
       renderSummary();
       saveState();
 
       isRerolling = false;
       rerollBackupTeams = null;
-      clearRerollSchedules();
       document.body.classList.remove('is-rerolling-locked');
       setRerollButtonMode(false);
       setStatus(`지정칸 ${targets.length}개 리롤 완료`);
     }, REROLL_SPIN_MS));
   }
-
 
   function getTeamSlotElement(teamIndex, slotIndex) {
     return document.querySelector(`.team-slot[data-team-index="${teamIndex}"][data-slot-index="${slotIndex}"]`);
