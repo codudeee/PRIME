@@ -695,7 +695,9 @@ if (rerollListModal) {
   }
 
   function canOpenRerollListViewer() {
-    return isTeamControlManager() || isCurrentUserInJoinWaitingList() || isCurrentUserInTeamBoardState();
+    // 리스트 모달은 팀구성 참가자/일반 유저도 열람 가능해야 한다.
+    // 수정 권한은 openRerollListModal/applyRerollListAccessMode에서 별도로 막는다.
+    return true;
   }
 
   function isCurrentUserInTeamBoardState() {
@@ -2975,10 +2977,7 @@ function saveMatchTimeSettings() {
 
   function openRerollListModal() {
     if (!rerollListModal) return;
-    if (!canOpenRerollListViewer()) {
-      pklTeamDeny();
-      return;
-    }
+    // 비관리자는 열람만 가능하다. 여기서 권한 제한 모달을 띄우지 않는다.
     applyTeamControlAccess();
     ensureRerollRequestState();
     const canManageList = isTeamControlManager();
