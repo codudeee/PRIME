@@ -693,6 +693,27 @@ if (rerollListModal) {
     return pklTeamCanEdit();
   }
 
+  function canOpenRerollListViewer() {
+    return isTeamControlManager() || isCurrentUserInJoinWaitingList();
+  }
+
+  function bindRerollListViewerOpenGuard() {
+    if (document.body && document.body.dataset.pklRerollListViewerGuardBound === 'true') return;
+    if (document.body) document.body.dataset.pklRerollListViewerGuardBound = 'true';
+
+    document.addEventListener('click', event => {
+      const button = event.target && event.target.closest && event.target.closest('#rerollListButton, [data-pkl-open-check]');
+      if (!button) return;
+
+      if (!canOpenRerollListViewer()) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+      openRerollListModal();
+    }, true);
+  }
+
   function isRerollListButtonTarget(target) {
     const listButton = document.getElementById('rerollListButton');
     return !!(listButton && (target === listButton || (target && target.closest && target.closest('#rerollListButton'))));
@@ -700,12 +721,13 @@ if (rerollListModal) {
 
   function applyTeamControlAccess() {
     const canManage = isTeamControlManager();
+    const canOpenList = canOpenRerollListViewer();
     document.body.classList.toggle('pkl-team-viewer-only', !canManage);
 
     const listButton = document.getElementById('rerollListButton');
     document.querySelectorAll('.control-panel button, .control-panel select, .control-panel input, .control-panel textarea, .control-panel .pkl-custom-select-trigger, .control-panel .pkl-custom-select, .control-panel .pkl-team-mode-dropdown').forEach(control => {
       const isListButton = control === listButton || control.id === 'rerollListButton';
-      if (canManage || isListButton) {
+      if (canManage || (isListButton && canOpenList)) {
         if ('disabled' in control) control.disabled = false;
         control.removeAttribute('aria-disabled');
         control.classList.remove('pkl-viewer-disabled-control');
@@ -717,9 +739,15 @@ if (rerollListModal) {
     });
 
     if (listButton) {
-      listButton.disabled = false;
-      listButton.removeAttribute('aria-disabled');
-      listButton.classList.remove('pkl-viewer-disabled-control');
+      if (canOpenList) {
+        listButton.disabled = false;
+        listButton.removeAttribute('aria-disabled');
+        listButton.classList.remove('pkl-viewer-disabled-control');
+      } else {
+        listButton.disabled = true;
+        listButton.setAttribute('aria-disabled', 'true');
+        listButton.classList.add('pkl-viewer-disabled-control');
+      }
     }
   }
 
@@ -2936,6 +2964,10 @@ function saveMatchTimeSettings() {
 
   function openRerollListModal() {
     if (!rerollListModal) return;
+    if (!canOpenRerollListViewer()) {
+      pklTeamDeny();
+      return;
+    }
     applyTeamControlAccess();
     ensureRerollRequestState();
     const canManageList = isTeamControlManager();
