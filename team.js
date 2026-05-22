@@ -499,6 +499,116 @@
         border:1px solid rgba(148,163,184,.28) !important;
         box-shadow:none !important;
       }
+
+      /* PKL admin reroll list: stable aligned columns, no position text */
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-list-modal{
+        width:min(1320px,calc(100vw - 56px)) !important;
+        min-width:min(980px,calc(100vw - 40px)) !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-layout{
+        grid-template-columns:minmax(760px,1fr) minmax(260px,300px) !important;
+        gap:18px !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-list-head{
+        display:grid !important;
+        grid-template-columns:minmax(190px,220px) minmax(420px,1fr) 112px 34px !important;
+        gap:10px !important;
+        align-items:center !important;
+        padding:0 12px 8px !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-list-head span:nth-child(1){grid-column:1 !important;text-align:left !important;}
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-list-head span:nth-child(2){grid-column:2 !important;text-align:center !important;}
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-list-head span:nth-child(3){grid-column:3 !important;text-align:center !important;}
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-entry{
+        grid-template-columns:minmax(190px,220px) minmax(420px,1fr) 112px 34px !important;
+        gap:10px !important;
+        align-items:center !important;
+        min-height:48px !important;
+        padding:8px 10px !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-user{
+        min-width:0 !important;
+        overflow:hidden !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-user-main{
+        display:grid !important;
+        grid-template-columns:auto minmax(72px,1fr) auto !important;
+        align-items:center !important;
+        gap:6px !important;
+        width:100% !important;
+        min-width:0 !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-tier-badge{
+        order:0 !important;
+        max-width:70px !important;
+        transform:scale(.84) !important;
+        transform-origin:left center !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-user-main strong{
+        order:0 !important;
+        max-width:none !important;
+        min-width:0 !important;
+        overflow:hidden !important;
+        text-overflow:ellipsis !important;
+        white-space:nowrap !important;
+        font-size:12px !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-total-badge{
+        order:0 !important;
+        justify-self:end !important;
+        min-width:26px !important;
+        height:18px !important;
+        padding:0 7px !important;
+        font-size:10px !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-position{
+        display:none !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-type-grid{
+        display:grid !important;
+        grid-template-columns:repeat(4,minmax(90px,1fr)) !important;
+        gap:7px !important;
+        width:100% !important;
+        min-width:0 !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-type-control{
+        grid-template-rows:13px 23px !important;
+        padding:5px 6px !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-mini-counter{
+        grid-template-columns:21px minmax(24px,1fr) 21px !important;
+        gap:4px !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-mini-counter button{
+        width:21px !important;
+        height:21px !important;
+        min-width:21px !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-mini-counter input{
+        height:21px !important;
+        font-size:11px !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-paid-check{
+        width:112px !important;
+        height:32px !important;
+        justify-self:center !important;
+        padding:0 8px !important;
+      }
+      #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-remove{
+        width:30px !important;
+        height:30px !important;
+        min-width:30px !important;
+        justify-self:center !important;
+      }
+      @media (max-width:1180px){
+        #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-layout{grid-template-columns:1fr !important;}
+        #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-calculator-panel{display:none !important;}
+        #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-list-head,
+        #rerollListModal:not(.pkl-reroll-view-only) .pkl-reroll-entry{
+          grid-template-columns:minmax(180px,210px) minmax(410px,1fr) 112px 34px !important;
+        }
+      }
+
     `;
     document.head.appendChild(style);
   }
