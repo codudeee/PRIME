@@ -2326,10 +2326,11 @@ function completeTeams() {
     sheetState.teamImportNonce = Date.now();
     sheetState.savedAt = new Date(sheetState.teamImportNonce).toISOString();
     const sheetJson = JSON.stringify(sheetState);
-    try { localStorage.setItem(SHEET_STORAGE_KEY, sheetJson); } catch (error) {}
+    // Supabase 단일 원본 수술: 팀구성 -> 시트지 전달은 브라우저 디스크 localStorage에 남기지 않는다.
+    // 같은 탭 이동 직후 sheet.html이 즉시 읽을 수 있도록 sessionStorage만 임시 전달용으로 사용하고,
+    // 실제 운영 원본은 아래 saveSheetStateToSupabaseNow()에서 shared/live_scores에 저장한다.
     try { sessionStorage.setItem(SHEET_STORAGE_KEY, sheetJson); } catch (error) {}
     try { sessionStorage.setItem(TEAM_IMPORT_KEY, sheetJson); } catch (error) {}
-    try { localStorage.setItem(TEAM_IMPORT_KEY, sheetJson); } catch (error) {}
     try { window.dispatchEvent(new StorageEvent('storage', { key: SHEET_STORAGE_KEY, newValue: sheetJson })); } catch (error) {}
     try {
       window.dispatchEvent(new CustomEvent('pkl-sheet-teams-imported', { detail: { state: sheetState, teams } }));
@@ -2399,8 +2400,10 @@ function completeTeams() {
   }
 
   function loadSheetStateForTeamExport() {
+    // 시트 기존 상태 병합도 localStorage가 아니라 현재 탭의 session 백업만 사용한다.
+    // Supabase의 최신 시트 상태는 sheet.html/저장 API가 담당하고, 팀구성 완료 시에는 새 팀 편성을 우선 적용한다.
     try {
-      const saved = JSON.parse(localStorage.getItem(SHEET_STORAGE_KEY) || 'null');
+      const saved = JSON.parse(sessionStorage.getItem(SHEET_STORAGE_KEY) || 'null');
       if (saved && typeof saved === 'object') return saved;
     } catch (error) {}
     return {
@@ -3850,9 +3853,25 @@ function startClock() {
 
   function saveState() {
     const stateJson = JSON.stringify(state);
-    localStorage.setItem(STORAGE_KEY, stateJson);
+    // 팀구성 운영 상태는 localStorage 디스크에 남기지 않는다.
+    // 새로고침 직후 화면 깜빡임 방지용 session 백업만 유지하고, 실제 원본은 Supabase shared_data에 저장한다.
+    try { sessionStorage.setItem(STORAGE_KEY, stateJson); } catch (error) {}
     if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
-      window.PKLSupabaseDataSync.setShared(STORAGE_KEY, state).catch(() => {});
+      window.PKLSupabaseDataSync.setShared(STORAGE_KEY, state).catch(() => directSaveTeamBuilderState(state));
+      return;
+    }
+    directSaveTeamBuilderState(state);
+  }
+
+  function directSaveTeamBuilderState(nextState) {
+    try {
+      return fetch('/api/pkl-data-store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'shared', key: STORAGE_KEY, value: nextState })
+      }).catch(() => null);
+    } catch (error) {
+      return Promise.resolve(null);
     }
   }
 
@@ -3944,7 +3963,12 @@ function startClock() {
   }
 
   function loadState() {
-    return normalizeTeamBuilderState(parseTeamBuilderState(localStorage.getItem(STORAGE_KEY)));
+    // localStorage 운영 데이터 복구 금지. 현재 탭 session 백업만 초기 렌더 보조로 사용한다.
+    try {
+      const sessionSaved = parseTeamBuilderState(sessionStorage.getItem(STORAGE_KEY));
+      if (sessionSaved) return normalizeTeamBuilderState(sessionSaved);
+    } catch (error) {}
+    return normalizeTeamBuilderState(null);
   }
 
   function loadTeamBuilderStateFromSupabaseOnce() {
