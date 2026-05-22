@@ -7809,7 +7809,8 @@ function renderWelcome(){
   }
 }
 function initActionPlaceholders(){document.querySelectorAll(".action-panel textarea").forEach(el=>{if(!el.dataset.placeholderText)el.dataset.placeholderText=el.getAttribute("placeholder")||"";const hide=()=>{el.setAttribute("placeholder","")};const show=()=>{if(!el.matches(":focus")&&!el.value.trim())el.setAttribute("placeholder",el.dataset.placeholderText)};el.addEventListener("mouseenter",hide);el.addEventListener("focus",hide);el.addEventListener("mouseleave",show);el.addEventListener("blur",show);});}
-tick();renderWelcome();initActionPlaceholders();save();render();
+tick();renderWelcome();initActionPlaceholders();save();
+try{ if(typeof window.render==="function") window.render(); }catch(e){ console.warn("PKL admin initial render skipped", e); }
 
 function pklSeoulTimeOnly(value){
   return String(value || '')
