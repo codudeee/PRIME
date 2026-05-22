@@ -4731,71 +4731,24 @@ body.pkl-join-initializing #joinCancelCount{
 
 
 <style id="pklJoinWaitListInnerScrollOnlyFix">
-/* JOIN 화면 잘림 수정: 모달 전체는 화면 안에 고정하고, 목록 박스 안쪽만 스크롤 */
-.join-modal.open{
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  overflow:hidden !important;
-}
-.join-modal-panel{
-  width:min(1220px,calc(100vw - 88px)) !important;
-  max-height:calc(100vh - 76px) !important;
-  display:grid !important;
-  grid-template-rows:auto minmax(0,1fr) !important;
-  overflow:hidden !important;
-}
-.join-modal-body{
+/* 대기자 리스트가 길어져도 참가/대기취소 버튼이 밀리지 않게 리스트 내부만 스크롤 */
+.join-wait-card{
   min-height:0 !important;
-  height:auto !important;
-  max-height:none !important;
-  display:grid !important;
-  grid-template-columns:270px minmax(0,1fr) 245px !important;
-  grid-template-rows:minmax(0,1fr) !important;
   overflow:hidden !important;
 }
-.join-card,
-.join-side-stack,
-.join-wait-card,
-.join-cancel-card{
-  min-height:0 !important;
-}
-.join-wait-card,
-.join-cancel-card{
-  display:flex !important;
-  flex-direction:column !important;
-  overflow:hidden !important;
-}
-.join-side-stack{
-  display:grid !important;
-  grid-template-rows:minmax(0,1fr) auto !important;
-  overflow:hidden !important;
-}
-.join-list-head{
-  flex:0 0 60px !important;
-}
-#joinWaitList,
-#joinCancelList{
-  flex:1 1 auto !important;
-  min-height:0 !important;
-  max-height:none !important;
+#joinWaitList{
+  flex:0 1 auto !important;
+  max-height:clamp(260px, 46vh, 520px) !important;
   overflow-y:auto !important;
   overflow-x:hidden !important;
   overscroll-behavior:contain !important;
   padding-right:8px !important;
 }
-#joinWaitList::-webkit-scrollbar,
-#joinCancelList::-webkit-scrollbar{width:7px;}
-#joinWaitList::-webkit-scrollbar-track,
-#joinCancelList::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:999px;}
-#joinWaitList::-webkit-scrollbar-thumb,
-#joinCancelList::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(168,85,247,.55),rgba(124,58,237,.28));border-radius:999px;border:1px solid rgba(216,180,254,.12);}
-@media (max-width:1100px){
-  .join-modal.open{align-items:flex-start !important;overflow-y:auto !important;}
-  .join-modal-panel{width:100% !important;max-height:none !important;margin:54px 0 12px !important;}
-  .join-modal-body{grid-template-columns:1fr !important;grid-template-rows:auto !important;overflow:visible !important;}
-  .join-side-stack{grid-template-rows:auto auto !important;overflow:visible !important;}
-  #joinWaitList,#joinCancelList{max-height:320px !important;}
+#joinWaitList::-webkit-scrollbar{width:7px;}
+#joinWaitList::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:999px;}
+#joinWaitList::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(168,85,247,.55),rgba(124,58,237,.28));border-radius:999px;border:1px solid rgba(216,180,254,.12);}
+@media (max-width:768px){
+  #joinWaitList{max-height:320px !important;}
 }
 </style>
 
@@ -5179,24 +5132,55 @@ function safeJson(key, fallback){
     return user.discord_id || user.discordId || user.discordID || user.userDiscordId || user.discord || "";
   }
 
+  function normalizeHardId(value){
+    return String(value || '').replace(/^discord-/i,'').trim().toLowerCase();
+  }
+
+  function normalizeExactName(value){
+    return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  function hasHardIdentity(user){
+    user = user || {};
+    return !!(normalizeHardId(getUserDiscordId(user)) || normalizeHardId(getUserIdentity(user)) || String(getUserPubgId(user) || '').trim());
+  }
+
+  function exactNicknameMatches(seed, target){
+    const a = normalizeExactName(getUserNickname(seed) || seed?.name || seed?.nickname);
+    const b = normalizeExactName(getUserNickname(target) || target?.name || target?.nickname);
+    return !!(a && b && a === b);
+  }
+
   function identityMatches(seed, target){
     if(!seed || !target) return false;
-    const seedDiscord = String(getUserDiscordId(seed) || '').replace(/^discord-/i,'').trim();
-    const targetDiscord = String(getUserDiscordId(target) || '').replace(/^discord-/i,'').trim();
+    const seedDiscord = normalizeHardId(getUserDiscordId(seed));
+    const targetDiscord = normalizeHardId(getUserDiscordId(target));
     if(seedDiscord && targetDiscord) return seedDiscord === targetDiscord;
     if(seedDiscord || targetDiscord) return false;
-    const seedId = String(getUserIdentity(seed) || '').trim();
-    const targetId = String(getUserIdentity(target) || '').trim();
-    if(/^discord-/i.test(seedId) && /^discord-/i.test(targetId)) return seedId.replace(/^discord-/i,'') === targetId.replace(/^discord-/i,'');
+
+    const seedId = normalizeHardId(getUserIdentity(seed));
+    const targetId = normalizeHardId(getUserIdentity(target));
+    if(seedId && targetId) return seedId === targetId;
+
     const seedPubg = String(getUserPubgId(seed) || seed.pubgId || '').trim().toLowerCase();
     const targetPubg = String(getUserPubgId(target) || target.pubgId || '').trim().toLowerCase();
     return !!(seedPubg && targetPubg && seedPubg === targetPubg);
   }
 
+  function findUniqueAdminUserByExactNickname(seed){
+    if(!seed || hasHardIdentity(seed)) return null;
+    const name = normalizeExactName(getUserNickname(seed) || seed.name || seed.nickname);
+    if(!name) return null;
+    const matches = readAdminUsers().filter(function(u){
+      return normalizeExactName(getUserNickname(u) || u.name || u.nickname) === name;
+    });
+    return matches.length === 1 ? matches[0] : null;
+  }
+
   function findAdminUser(seed){
     if(!seed) return null;
     const users = readAdminUsers();
-    return users.find(function(u){ return identityMatches(seed, u); }) || null;
+    return users.find(function(u){ return identityMatches(seed, u); }) || findUniqueAdminUserByExactNickname(seed) || null;
   }
 
   function findPklUser(seed){
@@ -5303,6 +5287,26 @@ function safeJson(key, fallback){
   function readList(key){
     const data = safeJson(key, []);
     return Array.isArray(data) ? data : [];
+  }
+
+  function repairStoredJoinIdentities(key){
+    const list = readList(key);
+    if(!list.length) return list;
+    let changed = false;
+    const next = list.map(function(item){
+      const fixed = hydrateItem(item);
+      if(!identityMatches(item, fixed) && (getUserDiscordId(fixed) || getUserIdentity(fixed))){
+        changed = true;
+        return Object.assign({}, item, fixed);
+      }
+      if((!getUserDiscordId(item) && getUserDiscordId(fixed)) || (!getUserIdentity(item) && getUserIdentity(fixed))){
+        changed = true;
+        return Object.assign({}, item, fixed);
+      }
+      return item;
+    });
+    if(changed) saveList(key, next);
+    return next;
   }
 
   function isActiveWaitItem(item){
@@ -5510,13 +5514,13 @@ function safeJson(key, fallback){
   function isCurrentUserWaiting(list){
     const userData = getCurrentUserData();
     list = Array.isArray(list) ? list : readList(STORAGE_KEY);
-    return list.some(function(item){ return identityMatches(userData, item) || item.key === userData.key || item.name === userData.name; });
+    return list.some(function(item){ return identityMatches(userData, hydrateItem(item)); });
   }
 
   function isCurrentUserCanceled(list){
     const userData = getCurrentUserData();
     list = Array.isArray(list) ? list : readList(CANCEL_KEY);
-    return list.some(function(item){ return identityMatches(userData, item) || item.key === userData.key || item.name === userData.name; });
+    return list.some(function(item){ return identityMatches(userData, hydrateItem(item)); });
   }
 
   function canPreviewJoinParticipants(list){
@@ -5708,6 +5712,8 @@ function safeJson(key, fallback){
   }
 
   function renderAll(){
+    repairStoredJoinIdentities(STORAGE_KEY);
+    repairStoredJoinIdentities(CANCEL_KEY);
     removePrisonersFromWaitList();
     renderWaitList();
     renderCancelList();
