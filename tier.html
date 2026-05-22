@@ -3067,17 +3067,19 @@ document.addEventListener("DOMContentLoaded", function(){
 <script id="pklTierScoreSyncScript">
 (function(){
   'use strict';
-  if(window.__PKL_TIER_SCORE_SYNC_20260523_V52__) return;
-  window.__PKL_TIER_SCORE_SYNC_20260523_V52__ = true;
+  if(window.__PKL_TIER_SCORE_SYNC_V53__) return;
+  window.__PKL_TIER_SCORE_SYNC_V53__ = true;
 
   /*
-    PKL tier score v52
-    - 목표점수/감점은 Supabase shared(pklTierScoreConfig)만 원본으로 사용한다.
-    - 페이지 진입 시 DOM 기본값을 서버에 자동 저장하지 않는다.
-    - 과거 localStorage 값이 서버값/입력값을 덮지 못하게 제거한다.
-    - 입력 변경 시 API 2경로 + PKLSupabaseDataSync 경로로 저장하고, 늦게 도착한 서버값은 입력값을 덮지 않는다.
+    PKL tier score v53
+    - 기존 pklTierScoreConfig가 여러 구버전 경로에서 기본값으로 덮이는 문제가 있어서
+      실제 원본 키를 pklTierScoreConfig_v2로 분리한다.
+    - 저장은 v2 + 기존 key 둘 다 수행해서 sheet/result 호환을 유지한다.
+    - 로드는 v2를 최우선으로 사용하고, v2가 없을 때만 기존 key를 1회 승격한다.
+    - 페이지 진입 시 기본값 자동 저장 없음. 입력 변경/blur/change 때만 저장.
   */
-  var SCORE_KEY = 'pklTierScoreConfig';
+  var MAIN_KEY = 'pklTierScoreConfig_v2';
+  var LEGACY_KEY = 'pklTierScoreConfig';
   var META_KEY = '__pklUpdatedAt';
   var ROLE_TO_LANE = {
     tier0_high:'0상', tier0_mid:'0중', tier0_low:'0하',
@@ -3099,17 +3101,17 @@ document.addEventListener("DOMContentLoaded", function(){
 
   var config = {};
   var saveTimer = 0;
-  var saveSeq = 0;
-  var lastInputAt = 0;
+  var lastUserInputAt = 0;
   var lastAppliedServerAt = 0;
   var loading = false;
+  var saving = false;
 
   function num(v, fallback){
     var n = Number(String(v == null ? '' : v).replace(/[^0-9.-]/g, ''));
     return Number.isFinite(n) ? n : fallback;
   }
-  function nowIso(){ return new Date().toISOString(); }
   function isObj(v){ return !!(v && typeof v === 'object' && !Array.isArray(v)); }
+  function nowIso(){ return new Date().toISOString(); }
   function boxOf(v){
     if(!isObj(v)) return {};
     if(isObj(v.value)) return v.value;
@@ -3120,12 +3122,12 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function stampOf(v){
     if(!isObj(v)) return 0;
-    var t = Date.parse(v[META_KEY] || v.updatedAt || v.updated_at || '');
-    if(Number.isFinite(t)) return t;
+    var direct = Date.parse(v[META_KEY] || v.updatedAt || v.updated_at || '');
+    if(Number.isFinite(direct)) return direct;
     var box = boxOf(v);
     if(box && box !== v){
-      t = Date.parse(box[META_KEY] || box.updatedAt || box.updated_at || '');
-      if(Number.isFinite(t)) return t;
+      var inner = Date.parse(box[META_KEY] || box.updatedAt || box.updated_at || '');
+      if(Number.isFinite(inner)) return inner;
     }
     return 0;
   }
@@ -3156,18 +3158,15 @@ document.addEventListener("DOMContentLoaded", function(){
     Object.keys(src).forEach(function(key){
       if(key === META_KEY || key === 'updatedAt' || key === 'updated_at') return;
       var row = src[key];
-      if(isObj(row) && (Object.prototype.hasOwnProperty.call(row,'target') || Object.prototype.hasOwnProperty.call(row,'death'))) out[key] = row;
+      if(isObj(row)) out[key] = row;
     });
     return out;
   }
   function rowCount(value){ return Object.keys(publicConfig(value)).length; }
   function clearOldLocal(){
-    try{ localStorage.removeItem(SCORE_KEY); }catch(e){}
+    try{ localStorage.removeItem(MAIN_KEY); }catch(e){}
+    try{ localStorage.removeItem(LEGACY_KEY); }catch(e){}
     try{ localStorage.removeItem('pklTierScoreLastSync'); }catch(e){}
-  }
-  function setWindow(value){
-    window.__PKL_TIER_SCORE_CONFIG = publicConfig(value || config);
-    try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', { detail:{ config:window.__PKL_TIER_SCORE_CONFIG } })); }catch(e){}
   }
   function eachScoreLane(fn){
     document.querySelectorAll('.pkl-tier-lane, .pkl-beast-line').forEach(function(laneEl){
@@ -3204,6 +3203,11 @@ document.addEventListener("DOMContentLoaded", function(){
       inputs[1].setAttribute('value', String(saved.death));
     });
   }
+  function setWindow(value){
+    window.__PKL_TIER_SCORE_CONFIG = publicConfig(value || config);
+    window.__PKL_TIER_SCORE_CONFIG_V2 = window.__PKL_TIER_SCORE_CONFIG;
+    try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', { detail:{ config:window.__PKL_TIER_SCORE_CONFIG } })); }catch(e){}
+  }
   function applyConfig(value, shouldApplyDom){
     var next = normalize(value || {});
     if(!rowCount(next)) return false;
@@ -3218,61 +3222,78 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
     return data;
   }
-  async function readDataStore(){
-    var res = await fetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent(SCORE_KEY) + '&_=' + Date.now(), { cache:'no-store', headers:{Accept:'application/json','Cache-Control':'no-store'} });
+  async function readDataStore(key){
+    var res = await fetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&_=' + Date.now(), { cache:'no-store', headers:{Accept:'application/json','Cache-Control':'no-store'} });
     var data = await res.json().catch(function(){ return {}; });
     if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
     var item = data.item || null;
     if(item && rowCount(item.value)) return { value:item.value, updated_at:item.updated_at || '' };
     return null;
   }
-  async function readSharedApi(){
-    var res = await fetch('/api/pkl-shared?key=' + encodeURIComponent(SCORE_KEY) + '&_=' + Date.now(), { cache:'no-store', headers:{Accept:'application/json','Cache-Control':'no-store'} });
+  async function readSharedApi(key){
+    var res = await fetch('/api/pkl-shared?key=' + encodeURIComponent(key) + '&_=' + Date.now(), { cache:'no-store', headers:{Accept:'application/json','Cache-Control':'no-store'} });
     var data = await res.json().catch(function(){ return {}; });
     if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
     var item = data.item || null;
     if(item && rowCount(item.value)) return { value:item.value, updated_at:item.updated_at || '' };
     return null;
   }
-  async function readSyncApi(){
+  async function readSyncApi(key){
     if(!window.PKLSupabaseDataSync || typeof window.PKLSupabaseDataSync.getShared !== 'function') return null;
-    var value = await window.PKLSupabaseDataSync.getShared(SCORE_KEY);
+    var value = await window.PKLSupabaseDataSync.getShared(key);
     if(rowCount(value)) return { value:value, updated_at:value && (value[META_KEY] || value.updatedAt) || '' };
     return null;
   }
-  async function readServer(){
+  async function readOneKey(key){
     var found = [];
-    for(var i=0, readers=[readDataStore, readSharedApi, readSyncApi]; i<readers.length; i++){
-      try{ var item = await readers[i](); if(item) found.push(item); }catch(e){ console.warn('PKL tier score read skipped', e); }
+    var readers = [readDataStore, readSharedApi, readSyncApi];
+    for(var i=0; i<readers.length; i++){
+      try{ var item = await readers[i](key); if(item) found.push(item); }catch(e){ console.warn('PKL tier score read skipped', key, e); }
     }
     found.sort(function(a,b){ return (Date.parse(b.updated_at || '') || stampOf(b.value) || 0) - (Date.parse(a.updated_at || '') || stampOf(a.value) || 0); });
     return found[0] || null;
+  }
+  async function readServer(){
+    var main = await readOneKey(MAIN_KEY);
+    if(main && rowCount(main.value)) return main;
+    var legacy = await readOneKey(LEGACY_KEY);
+    if(legacy && rowCount(legacy.value)) return legacy;
+    return null;
+  }
+  async function saveKey(key, payload, keepalive){
+    var ok = false, error = null;
+    try{ await postJson('/api/pkl-data-store', { type:'shared', key:key, value:payload }, keepalive); ok = true; }catch(e){ error = e; }
+    try{ await postJson('/api/pkl-shared', { key:key, value:payload }, keepalive); ok = true; }catch(e){ error = error || e; }
+    try{
+      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function'){
+        await window.PKLSupabaseDataSync.setShared(key, payload); ok = true;
+      }
+    }catch(e){ error = error || e; }
+    if(!ok) throw error || new Error('저장 실패');
   }
   async function save(keepalive){
     clearOldLocal();
     var payload = collectDom();
     config = normalize(payload);
     setWindow(config);
-    var ok = false, error = null;
-    var seq = ++saveSeq;
-    try{ await postJson('/api/pkl-data-store', { type:'shared', key:SCORE_KEY, value:payload }, keepalive); ok = true; }catch(e){ error = e; }
-    try{ await postJson('/api/pkl-shared', { key:SCORE_KEY, value:payload }, keepalive); ok = true; }catch(e){ error = error || e; }
+    saving = true;
     try{
-      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function'){
-        await window.PKLSupabaseDataSync.setShared(SCORE_KEY, payload); ok = true;
-      }
-    }catch(e){ error = error || e; }
-    clearOldLocal();
-    if(ok){
-      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-saved', { detail:{ config:publicConfig(config), seq:seq } })); }catch(e){}
+      await saveKey(MAIN_KEY, payload, keepalive);
+      // 기존 sheet/result 호환용. 구버전 경로가 이 key를 덮어도 다음 tier 로드는 MAIN_KEY를 우선한다.
+      await saveKey(LEGACY_KEY, payload, keepalive).catch(function(e){ console.warn('PKL tier legacy score mirror skipped', e); });
+      clearOldLocal();
+      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-saved', { detail:{ config:publicConfig(config) } })); }catch(e){}
       return true;
+    }catch(error){
+      console.error('PKL tier score save failed', error);
+      if(!keepalive && typeof window.pklAlert === 'function') window.pklAlert('티어 목표점수 저장에 실패했습니다. Supabase/API 설정을 확인해 주세요.', '저장 실패');
+      return false;
+    }finally{
+      saving = false;
     }
-    console.error('PKL tier score save failed', error);
-    if(!keepalive && typeof window.pklAlert === 'function') window.pklAlert('티어 목표점수 저장에 실패했습니다. Supabase/API 설정을 확인해 주세요.', '저장 실패');
-    return false;
   }
   function scheduleSave(immediate){
-    lastInputAt = Date.now();
+    lastUserInputAt = Date.now();
     applyConfig(collectDom(), false);
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function(){ save(false); }, immediate ? 20 : 120);
@@ -3286,21 +3307,22 @@ document.addEventListener("DOMContentLoaded", function(){
     loading = false;
     clearOldLocal();
     if(!server || !rowCount(server.value)){
-      // 저장값이 없으면 HTML 기본값을 화면에만 둔다. 자동 저장 금지.
-      applyConfig(collectDom(), false);
+      applyConfig(collectDom(), false); // 화면 기본값만 메모리 반영, 자동 저장 금지
       return;
     }
-    if(lastInputAt && (lastInputAt >= startedAt || Date.now() - lastInputAt < 1500)) return;
+    if(lastUserInputAt && (lastUserInputAt >= startedAt || Date.now() - lastUserInputAt < 1500)) return;
     var serverAt = Date.parse(server.updated_at || '') || stampOf(server.value) || Date.now();
     if(serverAt && serverAt < lastAppliedServerAt) return;
     lastAppliedServerAt = serverAt;
     applyConfig(server.value, true);
+    // 기존 key에서 읽은 값이면 v2로 승격만 한다. DOM 기본값 저장이 아니라 서버값 승격이다.
+    if(!server.value || !server.value.__fromMainKey){ saveKey(MAIN_KEY, Object.assign({}, normalize(server.value), {[META_KEY]:nowIso(), updatedAt:nowIso()}), false).catch(function(){}); }
   }
   function isScoreInput(target){ return !!(target && target.closest && target.closest('.pkl-lane-score input')); }
   function bind(){
     clearOldLocal();
     document.querySelectorAll('.pkl-lane-score input').forEach(function(input){
-      input.dataset.pklTierScoreSync = 'v52';
+      input.dataset.pklTierScoreSync = 'v53';
       input.addEventListener('input', function(){ scheduleSave(false); }, true);
       input.addEventListener('change', function(){ scheduleSave(true); }, true);
       input.addEventListener('blur', function(){ scheduleSave(true); }, true);
@@ -3312,7 +3334,7 @@ document.addEventListener("DOMContentLoaded", function(){
   window.pklTierCollectScoreConfig = function(){ applyConfig(collectDom(), false); return publicConfig(config); };
   window.pklTierLoadScoreConfig = function(){ return load(); };
   window.pklTierSaveScoreConfig = function(){ return save(false); };
-  window.addEventListener('beforeunload', function(){ if(lastInputAt) try{ save(true); }catch(e){} });
+  window.addEventListener('beforeunload', function(){ if(lastUserInputAt && !saving) try{ save(true); }catch(e){} });
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
 })();
 </script>
