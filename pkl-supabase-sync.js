@@ -20,9 +20,14 @@
     pklUsers:true, PKL_USERS:true, pklAdminUsers:true, PKL_ADMIN_USERS:true, pklUserList:true,
     pklAdminState_v3:true, pklPendingUsers:true, pklBannedUsers:true, PKL_DELETED_USER_KEYS_V1:true
   };
-  // 티어 목표점수/감점은 서버 저장 실패/지연이 있어도 새로고침에서 절대 사라지면 안 된다.
-  // 이 두 키는 Supabase 단일원본 가로채기 대상이지만 브라우저 디스크 localStorage에도 남긴다.
-  var LOCAL_PERSIST_KEYS={ pklTierScoreConfig:true, pklTierScoreLastSync:true, PKL_RULE_PAGE_CONTENT_V1:true };
+  /*
+    2026-05 localStorage 1차 수술
+    운영 데이터는 브라우저 디스크 localStorage에 남기지 않는다.
+    - localStorage API를 쓰는 기존 페이지 코드는 당장 깨지지 않도록 메모리 캐시로만 받는다.
+    - 실제 저장/조회 원본은 pkl_shared_data(Supabase)만 사용한다.
+    - 로그인 세션/임시 UI 값은 KEY_LIST 밖이므로 기존 브라우저 동작을 유지한다.
+  */
+  var LOCAL_PERSIST_KEYS={};
   var RESULT_MATCH_KEY="PKL_RESULT_MATCHES_V1";
   var SHEET_LIVE_KEY="PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1";
   var originalGet=Storage.prototype.getItem;
@@ -66,15 +71,9 @@
     key=String(key||""); if(!key) return;
     if(BLOCKED_LOCAL_KEYS[key]){ forgetDiskKey(key); delete memoryStore[key]; delete sharedCache[key]; return; }
     sharedCache[key]=value;
-    // pklTierScoreConfig/룰 카테고리는 로컬 입력값이 새로고침 직후 서버의 예전 값으로 덮이면 안 된다.
-    // 로컬 값이 이미 있으면 유지하고, 로컬이 비어 있을 때만 서버값을 디스크에 채운다.
-    if(LOCAL_PERSIST_KEYS[key]){
-      var existing = raw(key);
-      if(existing == null || existing === "" || existing === "{}") silentSet(key, value);
-      emitKey(key);
-      return;
-    }
-    silentSet(key, value); forgetDiskKey(key); emitKey(key);
+    silentSet(key, value);
+    forgetDiskKey(key);
+    emitKey(key);
   }
 
   function isTier(v){var c=clean(v).replace(/[\s_-]+/g,"").toLowerCase();return /^(tier[0-5](high|mid|low)?|[0-5]티어(상|중|하)?|[0-5](상|중|하)?|beast(high|mid|low)?|짐승(상|중|하)?|temp|임시|prisoner|수감자)$/.test(c);}
@@ -159,6 +158,17 @@
       return result;
     });
   }
+  function cleanOperationalDiskKeys(){
+    KEY_LIST.forEach(function(key){ forgetDiskKey(key); });
+    try{
+      for(var i=localStorage.length-1;i>=0;i--){
+        var key=localStorage.key(i);
+        if(/^pklJoinDepositRequested_/.test(String(key||""))) forgetDiskKey(key);
+      }
+    }catch(e){}
+  }
+  cleanOperationalDiskKeys();
+
   function saveUsers(users){writeUserAliases(users);return Promise.resolve({ok:true, skipped:true, reason:"Supabase users API is the only writable user source"});}
   function saveMatchList(list){
     list=Array.isArray(list)?list:parse(list,[]);
