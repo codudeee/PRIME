@@ -4730,25 +4730,102 @@ body.pkl-join-initializing #joinCancelCount{
 </style>
 
 
-<style id="pklJoinWaitListInnerScrollOnlyFix">
-/* 대기자 리스트가 길어져도 참가/대기취소 버튼이 밀리지 않게 리스트 내부만 스크롤 */
-.join-wait-card{
-  min-height:0 !important;
-  overflow:hidden !important;
-}
-#joinWaitList{
-  flex:0 1 auto !important;
-  max-height:clamp(260px, 46vh, 520px) !important;
-  overflow-y:auto !important;
-  overflow-x:hidden !important;
-  overscroll-behavior:contain !important;
-  padding-right:8px !important;
-}
-#joinWaitList::-webkit-scrollbar{width:7px;}
-#joinWaitList::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:999px;}
-#joinWaitList::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(168,85,247,.55),rgba(124,58,237,.28));border-radius:999px;border:1px solid rgba(216,180,254,.12);}
-@media (max-width:768px){
-  #joinWaitList{max-height:320px !important;}
+
+
+
+<style id="pklJoinViewportFitFix">
+/* JOIN 화면 잘림 수정: 모달 전체를 화면 안에 고정하고, 긴 목록만 카드 내부에서 스크롤 */
+@media (min-width: 769px){
+  body.join-modal-open{
+    overflow:hidden !important;
+  }
+
+  .join-modal.open{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    padding:22px !important;
+    overflow:hidden !important;
+  }
+
+  .join-modal-panel{
+    width:min(1240px, calc(100vw - 72px)) !important;
+    height:min(620px, calc(100vh - 56px)) !important;
+    max-height:calc(100vh - 56px) !important;
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+  }
+
+  .join-modal-head{
+    flex:0 0 auto !important;
+  }
+
+  .join-modal-body{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    height:auto !important;
+    display:grid !important;
+    grid-template-columns:0.72fr 1.9fr 0.72fr !important;
+    align-items:stretch !important;
+    gap:14px !important;
+    padding:16px !important;
+    overflow:hidden !important;
+  }
+
+  .join-card,
+  .join-info-card,
+  .join-wait-card,
+  .join-cancel-card,
+  .join-manager-card,
+  .join-side-stack{
+    min-height:0 !important;
+    max-height:none !important;
+  }
+
+  .join-info-card,
+  .join-wait-card,
+  .join-cancel-card{
+    display:flex !important;
+    flex-direction:column !important;
+    overflow:hidden !important;
+  }
+
+  .join-info-card{
+    overflow-y:auto !important;
+    overscroll-behavior:contain !important;
+    padding-right:10px !important;
+  }
+
+  .join-side-stack{
+    display:grid !important;
+    grid-template-rows:minmax(0, 1fr) auto !important;
+    gap:12px !important;
+    overflow:hidden !important;
+  }
+
+  .join-list-head{
+    flex:0 0 auto !important;
+  }
+
+  #joinWaitList,
+  #joinCancelList{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    overscroll-behavior:contain !important;
+    padding-right:8px !important;
+  }
+
+  .join-action-stack{
+    flex:0 0 auto !important;
+  }
+
+  .join-manager-card{
+    overflow:hidden !important;
+  }
 }
 </style>
 
