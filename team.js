@@ -84,18 +84,9 @@
   }
 
   function requestTeamBackgroundRefresh(delay) {
-    if (teamBackgroundRefreshTimer) clearTimeout(teamBackgroundRefreshTimer);
-    teamBackgroundRefreshTimer = setTimeout(() => {
-      teamBackgroundRefreshTimer = null;
-      if (isPlayerDragActive || isRerolling || document.hidden) {
-        pendingTeamBackgroundSync = true;
-        return;
-      }
-      const now = Date.now();
-      if (now - lastTeamBackgroundRefreshAt < 5000) return;
-      lastTeamBackgroundRefreshAt = now;
-      refreshWaitingTiersFromSupabase();
-    }, Math.max(0, Number(delay || 0)));
+    // 팀구성 화면은 드래그/hover가 많아서 자동 백그라운드 동기화가 잔렉의 원인이 된다.
+    // 참가자 불러오기 버튼을 눌렀을 때만 Supabase 대기자/티어를 다시 읽는다.
+    return false;
   }
 
   function requestTeamBoardRender(delay) {
@@ -268,9 +259,7 @@
   }
 
   function flushPendingTeamBackgroundSync() {
-    if (!pendingTeamBackgroundSync || isPlayerDragActive || isRerolling) return;
     pendingTeamBackgroundSync = false;
-    refreshWaitingTiersFromSupabase();
   }
 
   function renderBoardOnlyAndSave() {
@@ -284,7 +273,24 @@
     });
   }
 
+
+  function installTeamPerformanceStyle() {
+    if (document.getElementById('pkl-team-performance-style')) return;
+    const style = document.createElement('style');
+    style.id = 'pkl-team-performance-style';
+    style.textContent = `
+      .tier-box, .team-card { contain: layout paint; }
+      .tier-list, .team-slot { contain: layout paint; }
+      .player-card { will-change: transform; backface-visibility: hidden; }
+      body.is-player-dragging .player-card,
+      body.is-player-dragging .team-card,
+      body.is-player-dragging .tier-box { transition: none !important; }
+    `;
+    document.head.appendChild(style);
+  }
+
   function init() {
+    installTeamPerformanceStyle();
     fillTierSelect();
     bindControls();
     bindNewPlayerTierDropdown();
@@ -307,13 +313,8 @@
         // 진입 시 1000명 users 조회가 보드 첫 렌더를 막아 멈춘 것처럼 보이는 현상을 줄인다.
         applyTeamControlAccess();
         render();
-        // 자동 users 전체 조회/보드 재렌더는 team 페이지 진입 렉의 주 원인이라 끈다.
-        // 대기자 불러오기 버튼/수동 동기화 때만 Supabase users를 한 번 읽는다.
-        setTimeout(() => {
-          if (isPlayerDragActive || isRerolling) { pendingTeamBackgroundSync = true; return; }
-          refreshJoinWaitListFromSupabaseOnce();
-          scheduleSupabaseWaitingTierRefresh();
-        }, 1200);
+        // team 진입 직후 자동 Supabase 재조회/재분류는 잔렉과 티어 흔들림 원인이므로 실행하지 않는다.
+        // 참가자 갱신은 '대기자 불러오기' 버튼으로만 수동 실행한다.
       });
     });
   }
@@ -345,15 +346,9 @@
   }
 
   function scheduleSupabaseWaitingTierRefresh() {
-    // team 페이지는 마우스 hover/drag가 많은 화면이라 자동 폴링 렌더를 돌리지 않는다.
-    // 포커스 복귀/탭 복귀 때만 짧게 지연해서 1회 보정한다.
-    if (teamBackgroundRefreshBound) return;
-    teamBackgroundRefreshBound = true;
-    lastWaitingTierSignature = getWaitingTierSignature();
-    window.addEventListener('focus', () => requestTeamBackgroundRefresh(500));
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) requestTeamBackgroundRefresh(500);
-    });
+    // 자동 티어/대기자 동기화는 team 페이지 성능 때문에 완전히 끈다.
+    // 수동 대기자 불러오기만 허용한다.
+    return false;
   }
 
   function refreshJoinWaitListFromSupabaseOnce() {
@@ -742,6 +737,7 @@ if (rerollListModal) {
         
         if (isRerolling) { event.preventDefault(); return; }
         isPlayerDragActive = true;
+        document.body.classList.add('is-player-dragging');
         draggedPlayerId = card.dataset.playerId;
         card.classList.add('is-dragging');
         event.dataTransfer.setData('text/plain', draggedPlayerId);
@@ -753,6 +749,7 @@ if (rerollListModal) {
         card.classList.remove('is-dragging');
         draggedPlayerId = null;
         isPlayerDragActive = false;
+        document.body.classList.remove('is-player-dragging');
         clearDropStyles();
         setTimeout(() => {
           suppressNextClick = false;
@@ -792,6 +789,7 @@ event.preventDefault();
 
         clearDropStyles();
         isPlayerDragActive = false;
+        document.body.classList.remove('is-player-dragging');
         renderBoardOnlyAndSave();
       };
     });
@@ -992,43 +990,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function syncTemporaryPlayerToPklUsers(player, tier) {
-    const users = readAccountUsers();
-    const name = player.name;
-    const tierLabel = getTierLabel(tier);
-    const existingIndex = users.findIndex(user => isSameUserIdentity(player, user) || sameName(user, name));
-
-    const nextUser = existingIndex >= 0 ? { ...users[existingIndex] } : {
-      id: player.userUid || `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      uid: player.userUid || '',
-      nickname: name,
-      name,
-      status: 'approved',
-      role: 'member',
-      isTemporary: true
-    };
-
-    nextUser.uid = nextUser.uid || player.userUid || '';
-    nextUser.id = nextUser.id || player.userUid || player.id;
-    nextUser.pubgId = nextUser.pubgId || player.pubgId || '';
-    nextUser.nickname = nextUser.nickname || name;
-    nextUser.name = nextUser.name || nextUser.nickname || name;
-    if (!resolveUserTierKey(nextUser) || resolveUserTierKey(nextUser) === 'none') {
-      nextUser.tier = tier;
-      nextUser.grade = tierLabel;
-      nextUser.memberTier = tierLabel;
-      nextUser.memberGrade = tierLabel;
-      nextUser.pklTier = tierLabel;
-    }
-    nextUser.updatedAt = new Date().toISOString();
-
-    if (existingIndex >= 0) {
-      users[existingIndex] = nextUser;
-    } else {
-      users.push(nextUser);
-    }
-
-    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(users));
-    if (window.PKLTierBadge && typeof window.PKLTierBadge.syncStorage === 'function') window.PKLTierBadge.syncStorage();
+    // localStorage pklUsers 백업은 사용하지 않는다.
+    return false;
   }
 
 
@@ -1670,24 +1633,17 @@ const teamIndex = Number(slot.dataset.teamIndex);
     if (waitingSortDetailCache && waitingSortDetailCache.detailById.has(playerId)) return waitingSortDetailCache.detailById.get(playerId);
     const player = waitingSortDetailCache && waitingSortDetailCache.playerById
       ? waitingSortDetailCache.playerById.get(playerId)
-      : state.players.find(item => item.id === playerId);
-    if (!player) return normalizeTierDetail('tier0');
-    const displayName = resolvePlayerDisplayName(player);
-    const accountUser = resolvePlayerAccountUser(player, displayName);
-    const detail = resolvePlayerTierDetail(player, accountUser);
+      : getTeamPlayerById(playerId);
+    const detail = resolvePlayerTierDetail(player, null);
     if (waitingSortDetailCache) waitingSortDetailCache.detailById.set(playerId, detail);
     return detail;
   }
 
   function resolvePlayerTierDetail(player, accountUser) {
-    const user = accountUser || resolvePlayerAccountUser(player, resolvePlayerDisplayName(player));
-    const sources = user ? getUserTierFields(user) : [];
-    sources.push(player.tier);
-    for (const source of sources) {
-      const detail = normalizeTierDetail(source);
-      if (detail.id !== 'none') return detail;
-    }
-    return normalizeTierDetail('tier0');
+    // 정렬/렌더 중 외부 유저 DB를 다시 뒤지지 않는다. 티어 흔들림과 렉 방지.
+    if (!player) return normalizeTierDetail('tier0');
+    const detail = normalizeTierDetail(player.memberTier || player.tier);
+    return detail.id !== 'none' ? detail : normalizeTierDetail('tier0');
   }
 
   function getUserTierFields(user) {
@@ -1764,11 +1720,9 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
 
   function renderPlayerTierBadge(player, accountUser) {
-    const tierValue = (player && (player.memberTier || player.tier)) || (accountUser && resolveUserTierBadgeValue(accountUser)) || '';
-    if (window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function') {
-      const html = window.PKLTierBadge.render(tierValue, { extraClass: 'player-tier member-role-badge' });
-      if (html) return html;
-    }
+    // 카드 수가 많을 때 공통 배지 렌더러가 매 카드마다 외부 조회/계산을 수행해 잔렉이 생긴다.
+    // team 페이지에서는 현재 보드의 player.tier만 화면 기준으로 사용한다.
+    const tierValue = player && player.tier;
     const safeTier = isValidTierId(tierValue) ? getCanonicalTierId(tierValue) : 'tier0';
     return `<span class="player-tier member-role-badge ${escapeHtml(safeTier)}">${escapeHtml(getTierLabel(safeTier))}</span>`;
   }
@@ -3800,7 +3754,7 @@ function addManualRerollUser() {
 
   function getTeamScore(team) {
     return team.slots.reduce((sum, playerId) => {
-      const player = state.players.find(item => item.id === playerId);
+      const player = getTeamPlayerById(playerId);
       const tier = player ? TIERS.find(item => item.id === player.tier) : null;
       return sum + (tier ? tier.weight : 0);
     }, 0);
@@ -3811,7 +3765,7 @@ function addManualRerollUser() {
   }
 
   function getPlayerName(playerId) {
-    const player = state.players.find(item => item.id === playerId);
+    const player = getTeamPlayerById(playerId);
     return player ? resolvePlayerDisplayName(player) : '알 수 없음';
   }
 
@@ -3979,13 +3933,12 @@ function startClock() {
 
   function saveState() {
     const stateJson = JSON.stringify(state);
-    // 팀구성 운영 상태는 localStorage 디스크에 남기지 않는다.
-    // 새로고침 직후 화면 깜빡임 방지용 session 백업만 유지하고, 실제 원본은 Supabase shared_data에 저장한다.
-    try { sessionStorage.setItem(STORAGE_KEY, stateJson); } catch (error) {}
     if (stateJson === lastSavedTeamStateJson) return;
     lastSavedTeamStateJson = stateJson;
+    // sessionStorage 쓰기도 상태가 클 때 마우스/드래그 체감 렉이 될 수 있어 실제 변경 때만 지연 저장한다.
     if (teamStateSaveTimer) clearTimeout(teamStateSaveTimer);
     teamStateSaveTimer = setTimeout(() => {
+      try { sessionStorage.setItem(STORAGE_KEY, stateJson); } catch (error) {}
       teamStateSaveTimer = null;
       const snapshot = parseTeamBuilderState(stateJson) || state;
       if (window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function') {
@@ -3993,7 +3946,7 @@ function startClock() {
         return;
       }
       directSaveTeamBuilderState(snapshot);
-    }, 700);
+    }, 1400);
   }
 
   function directSaveTeamBuilderState(nextState) {
