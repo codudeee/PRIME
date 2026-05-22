@@ -2184,12 +2184,16 @@ if (!rerollModeDropdown) return;
 
     const originalIds = targets.map(({ teamIndex, slotIndex }) => state.teams[teamIndex].slots[slotIndex]);
     const finalIds = ensureDifferentOrder(originalIds, shuffleIds(originalIds));
-    const stopOrder = shuffleIds(targets.map((_, index) => index));
-    const locked = new Set();
     let completedSlots = 0;
 
     const finishRerollIfComplete = () => {
       if (completedSlots !== targets.length) return;
+
+      // 모든 슬롯의 감속/정지가 끝난 뒤에만 실제 state/DOM을 한 번에 반영한다.
+      // 기존 문제였던 "멈춘 뒤 슬롯 하나씩 카드가 바뀌는" 순차 교체 경로를 제거한다.
+      targets.forEach((target, index) => {
+        state.teams[target.teamIndex].slots[target.slotIndex] = finalIds[index];
+      });
 
       isRerolling = false;
       rerollBackupTeams = null;
@@ -2200,8 +2204,6 @@ if (!rerollModeDropdown) return;
       state.selected = state.selectedSlots[state.selectedSlots.length - 1] || null;
       setStatus(`지정칸 ${targets.length}개 리롤 완료`);
 
-      // 리롤이 멈춘 뒤 슬롯 하나하나 카드를 다시 갈아끼우던 경로를 제거하고,
-      // 최종 결과는 모든 슬롯의 감속/정지가 끝난 다음 한 번만 반영한다.
       renderTeams();
       syncSelectedSlotClasses();
       saveState();
@@ -2220,6 +2222,7 @@ if (!rerollModeDropdown) return;
 
       slot.classList.add('is-slot-rolling');
       slot.classList.remove('is-slot-stopped');
+      slot.classList.remove('is-slot-relight');
 
       const oldReel = slot.querySelector('.slot-machine-reel');
       if (oldReel) oldReel.remove();
@@ -2242,91 +2245,89 @@ if (!rerollModeDropdown) return;
       reel.dataset.spinTimer = String(spinTimer);
     });
 
-    stopOrder.forEach((targetIndex, orderIndex) => {
-      const __baseDelay = 2500;
-      const __slotFlowDuration = 900;
-      const stopDelay = __baseDelay + (orderIndex * __slotFlowDuration);
+    // 예전 느낌을 유지하기 위해 충분히 돌린 뒤, 모든 선택 슬롯이 동시에 감속/정지한다.
+    // 슬롯별 stopOrder 순차 정지는 제거한다.
+    const baseDelay = 4200;
+    const slowSteps = [70, 105, 150, 220, 320, 470, 650, 860, 1120, 1450, 1850];
 
-      trackRerollTimeout(window.setTimeout(() => {
-        const target = targets[targetIndex];
+    trackRerollTimeout(window.setTimeout(() => {
+      targets.forEach((target, index) => {
         const slot = getTeamSlotElement(target.teamIndex, target.slotIndex);
-        if (!slot) return;
+        if (!slot) {
+          completedSlots += 1;
+          finishRerollIfComplete();
+          return;
+        }
 
-        const finalId = finalIds[targetIndex];
+        const finalId = finalIds[index];
         const reel = slot.querySelector('.slot-machine-reel');
         const spinTimer = reel ? Number(reel.dataset.spinTimer) : 0;
         if (spinTimer) window.clearInterval(spinTimer);
 
-        state.teams[target.teamIndex].slots[target.slotIndex] = finalId;
-        locked.add(targetIndex);
-
-        if (reel) {
-          reel.classList.add('is-final-pass');
-          reel.classList.add('is-near-final');
-          reel.classList.add('is-decelerating');
-
-          const item = reel.querySelector('.slot-machine-item');
-          const finalName = getPlayerName(finalId);
-          const slowSteps = [70, 105, 150, 220, 320, 470, 650, 860, 1120, 1450, 1850];
-          let passCount = 0;
-
-          const runFinalPass = () => {
-            if (!item) return;
-
-            const nearEnd = passCount >= slowSteps.length - 5;
-            const teaseFinal = passCount === slowSteps.length - 5 || passCount === slowSteps.length - 3 || passCount >= slowSteps.length - 1;
-            const randomId = originalIds[Math.floor(Math.random() * originalIds.length)];
-            const passId = nearEnd && teaseFinal ? finalId : randomId;
-
-            item.textContent = passId === finalId ? finalName : getPlayerName(passId);
-
-            reel.classList.remove('is-final-pass-tick');
-            void reel.offsetWidth;
-            reel.classList.add('is-final-pass-tick');
-
-            passCount += 1;
-
-            if (passCount < slowSteps.length) {
-              trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[passCount]));
-              return;
-            }
-
-            item.textContent = finalName;
-            reel.classList.remove('is-tick');
-            reel.classList.remove('is-decelerating');
-            reel.classList.add('is-final-stop');
-
-            slot.classList.remove('is-slot-rolling');
-            slot.classList.add('is-slot-stopped');
-            slot.classList.add('is-slot-relight');
-
-            trackRerollTimeout(window.setTimeout(() => {
-              const doneSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
-              if (doneSlot) {
-                doneSlot.classList.remove('is-slot-stopped');
-                doneSlot.classList.remove('is-slot-relight');
-              }
-            }, 430));
-
-            completedSlots += 1;
-            finishRerollIfComplete();
-          };
-
-          trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[0]));
-        } else {
+        if (!reel) {
           completedSlots += 1;
           finishRerollIfComplete();
+          return;
         }
-      }, stopDelay));
-    });
+
+        reel.classList.add('is-final-pass');
+        reel.classList.add('is-near-final');
+        reel.classList.add('is-decelerating');
+
+        const item = reel.querySelector('.slot-machine-item');
+        const finalName = getPlayerName(finalId);
+        let passCount = 0;
+
+        const runFinalPass = () => {
+          if (!item) {
+            completedSlots += 1;
+            finishRerollIfComplete();
+            return;
+          }
+
+          const nearEnd = passCount >= slowSteps.length - 5;
+          const teaseFinal = passCount === slowSteps.length - 5 || passCount === slowSteps.length - 3 || passCount >= slowSteps.length - 1;
+          const randomId = originalIds[Math.floor(Math.random() * originalIds.length)];
+          const passId = nearEnd && teaseFinal ? finalId : randomId;
+
+          item.textContent = passId === finalId ? finalName : getPlayerName(passId);
+
+          reel.classList.remove('is-final-pass-tick');
+          void reel.offsetWidth;
+          reel.classList.add('is-final-pass-tick');
+
+          passCount += 1;
+
+          if (passCount < slowSteps.length) {
+            trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[passCount]));
+            return;
+          }
+
+          item.textContent = finalName;
+          reel.classList.remove('is-tick');
+          reel.classList.remove('is-decelerating');
+          reel.classList.add('is-final-stop');
+
+          slot.classList.remove('is-slot-rolling');
+          slot.classList.add('is-slot-stopped');
+          slot.classList.add('is-slot-relight');
+
+          trackRerollTimeout(window.setTimeout(() => {
+            const doneSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
+            if (doneSlot) {
+              doneSlot.classList.remove('is-slot-stopped');
+              doneSlot.classList.remove('is-slot-relight');
+            }
+          }, 430));
+
+          completedSlots += 1;
+          finishRerollIfComplete();
+        };
+
+        trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[0]));
+      });
+    }, baseDelay));
   }
-
-
-
-
-
-
-
 
 
 
