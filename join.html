@@ -4875,10 +4875,10 @@ body.pkl-join-initializing #joinCancelCount{
 
 
 
-<style id="pklJoinModalNoCutClean20260522b">
-/* JOIN 모달 2차 정리: 전체 잘림 방지 + 대기자 행 압축 + 티어미배정 배지 축소 */
+<style id="pklJoinModalFullscreenFit20260522c">
+/* JOIN 모달 3차 정리: 줄여서 욱여넣지 않고, 화면을 크게 써서 잘림 방지 */
 @media (min-width: 769px){
-  html, body{
+  body.join-modal-open{
     overflow:hidden !important;
   }
 
@@ -4886,16 +4886,16 @@ body.pkl-join-initializing #joinCancelCount{
     display:flex !important;
     align-items:center !important;
     justify-content:center !important;
-    padding:20px 28px !important;
+    padding:18px !important;
     box-sizing:border-box !important;
     overflow:hidden !important;
   }
 
   .join-modal-panel{
-    width:min(1220px, calc(100vw - 84px)) !important;
-    height:min(590px, calc(100vh - 74px)) !important;
-    max-width:calc(100vw - 84px) !important;
-    max-height:calc(100vh - 74px) !important;
+    width:min(1540px, calc(100vw - 36px)) !important;
+    height:min(900px, calc(100vh - 36px)) !important;
+    max-width:calc(100vw - 36px) !important;
+    max-height:calc(100vh - 36px) !important;
     display:flex !important;
     flex-direction:column !important;
     overflow:hidden !important;
@@ -4903,25 +4903,25 @@ body.pkl-join-initializing #joinCancelCount{
   }
 
   .join-modal-head{
-    min-height:58px !important;
-    height:58px !important;
-    padding:8px 16px !important;
-    flex:0 0 58px !important;
+    min-height:68px !important;
+    height:68px !important;
+    padding:12px 20px !important;
+    flex:0 0 68px !important;
     box-sizing:border-box !important;
   }
 
   .join-title-icon{
-    width:36px !important;
-    height:36px !important;
-    border-radius:12px !important;
+    width:44px !important;
+    height:44px !important;
+    border-radius:14px !important;
   }
   .join-title-icon img{
-    width:24px !important;
-    height:24px !important;
+    width:30px !important;
+    height:30px !important;
   }
   .join-title-text h2{
-    font-size:20px !important;
-    line-height:1.05 !important;
+    font-size:23px !important;
+    line-height:1.08 !important;
   }
 
   .join-modal-body{
@@ -4929,9 +4929,9 @@ body.pkl-join-initializing #joinCancelCount{
     min-height:0 !important;
     height:auto !important;
     display:grid !important;
-    grid-template-columns:220px minmax(430px,1fr) 230px !important;
-    gap:12px !important;
-    padding:12px !important;
+    grid-template-columns:minmax(230px, 0.76fr) minmax(0, 2.35fr) minmax(245px, 0.82fr) !important;
+    gap:14px !important;
+    padding:16px !important;
     overflow:hidden !important;
     box-sizing:border-box !important;
   }
@@ -4939,8 +4939,8 @@ body.pkl-join-initializing #joinCancelCount{
   .join-card{
     min-width:0 !important;
     min-height:0 !important;
-    padding:12px !important;
-    border-radius:16px !important;
+    padding:14px !important;
+    border-radius:18px !important;
     box-sizing:border-box !important;
     overflow:hidden !important;
   }
@@ -4955,7 +4955,7 @@ body.pkl-join-initializing #joinCancelCount{
 
   .join-info-card{
     overflow-y:auto !important;
-    padding-right:10px !important;
+    padding-right:12px !important;
   }
 
   .join-side-stack{
@@ -4963,20 +4963,20 @@ body.pkl-join-initializing #joinCancelCount{
     min-height:0 !important;
     display:grid !important;
     grid-template-rows:minmax(0,1fr) auto !important;
-    gap:10px !important;
+    gap:12px !important;
     overflow:hidden !important;
   }
 
   .join-list-head{
-    min-height:34px !important;
-    height:34px !important;
-    flex:0 0 34px !important;
-    padding:0 2px !important;
+    min-height:42px !important;
+    height:42px !important;
+    flex:0 0 42px !important;
+    padding:0 4px !important;
     box-sizing:border-box !important;
   }
   .join-list-head h3{
-    font-size:15px !important;
-    line-height:1 !important;
+    font-size:17px !important;
+    line-height:1.1 !important;
   }
 
   #joinWaitList,
@@ -4986,35 +4986,36 @@ body.pkl-join-initializing #joinCancelCount{
     max-height:none !important;
     overflow-y:auto !important;
     overflow-x:hidden !important;
-    padding:8px 6px 8px 6px !important;
-    gap:7px !important;
+    padding:8px 8px 10px 8px !important;
+    gap:8px !important;
+    box-sizing:border-box !important;
   }
 
   .join-wait-row{
-    min-height:36px !important;
-    height:36px !important;
-    grid-template-columns:22px 54px minmax(0,1fr) auto !important;
-    gap:6px !important;
-    padding:0 7px !important;
-    border-radius:10px !important;
+    min-height:44px !important;
+    height:44px !important;
+    grid-template-columns:28px 70px minmax(0,1fr) auto !important;
+    gap:8px !important;
+    padding:0 10px !important;
+    border-radius:12px !important;
     box-sizing:border-box !important;
   }
 
   .join-wait-number{
-    min-width:18px !important;
-    font-size:10px !important;
+    min-width:22px !important;
+    font-size:11px !important;
   }
 
   .join-wait-row .tier-mark,
   .join-wait-row .member-role-badge,
   .join-admin-role-badge{
-    min-width:48px !important;
-    width:48px !important;
-    height:18px !important;
-    line-height:18px !important;
-    padding:0 5px !important;
-    font-size:9px !important;
-    letter-spacing:-.25px !important;
+    min-width:62px !important;
+    width:62px !important;
+    height:22px !important;
+    line-height:22px !important;
+    padding:0 7px !important;
+    font-size:10px !important;
+    letter-spacing:-.2px !important;
     overflow:hidden !important;
     text-overflow:ellipsis !important;
     white-space:nowrap !important;
@@ -5024,16 +5025,18 @@ body.pkl-join-initializing #joinCancelCount{
   .join-admin-role-badge[data-pkl-tier-badge="none"],
   .join-wait-row .role-none,
   .join-wait-row [data-pkl-tier-badge="none"]{
-    min-width:42px !important;
-    width:42px !important;
-    max-width:42px !important;
+    min-width:48px !important;
+    width:48px !important;
+    max-width:48px !important;
+    height:18px !important;
+    line-height:18px !important;
     font-size:8.5px !important;
     padding:0 4px !important;
   }
 
   .join-wait-name{
-    font-size:12px !important;
-    line-height:1 !important;
+    font-size:13px !important;
+    line-height:1.05 !important;
     min-width:0 !important;
     overflow:hidden !important;
     text-overflow:ellipsis !important;
@@ -5041,35 +5044,58 @@ body.pkl-join-initializing #joinCancelCount{
   }
 
   .join-wait-stats{
-    gap:4px !important;
+    gap:5px !important;
+    flex:0 0 auto !important;
   }
   .join-stat-card{
-    min-width:42px !important;
-    width:42px !important;
-    height:24px !important;
-    padding:2px 4px !important;
-    border-radius:8px !important;
+    min-width:46px !important;
+    width:46px !important;
+    height:27px !important;
+    padding:2px 5px !important;
+    border-radius:9px !important;
   }
   .join-stat-card span{
     font-size:8.5px !important;
     line-height:1 !important;
   }
   .join-stat-card b{
-    font-size:10px !important;
+    font-size:10.5px !important;
     line-height:1 !important;
+  }
+
+  .join-cancel-row{
+    min-height:40px !important;
+    height:40px !important;
   }
 
   .join-manager-setting-buttons,
   .join-manager-actions{
-    gap:7px !important;
+    gap:8px !important;
   }
   .join-setting-btn,
   .join-mini-btn,
   .join-wide-danger{
-    height:32px !important;
-    min-height:32px !important;
-    font-size:11px !important;
-    border-radius:10px !important;
+    height:36px !important;
+    min-height:36px !important;
+    font-size:11.5px !important;
+    border-radius:11px !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1180px){
+  .join-modal-panel{
+    width:calc(100vw - 24px) !important;
+    height:calc(100vh - 24px) !important;
+    max-width:calc(100vw - 24px) !important;
+    max-height:calc(100vh - 24px) !important;
+  }
+  .join-modal.open{
+    padding:12px !important;
+  }
+  .join-modal-body{
+    grid-template-columns:210px minmax(0,1fr) 220px !important;
+    gap:10px !important;
+    padding:12px !important;
   }
 }
 </style>
