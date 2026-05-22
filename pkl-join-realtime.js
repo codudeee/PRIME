@@ -399,6 +399,37 @@
     Storage.prototype.__pklJoinRealtimePatched=true;
   }
   try{Storage.prototype.removeItem=function(k){var ret=originalRemove.apply(this,arguments);try{if(this===localStorage&&KEYS[String(k)]&&!applying){lastLocalEditAt=Date.now();localChanged=true;localActionUntil=Date.now()+PENDING_MS;queueSave(180);emit(stateFromLocal());}}catch(e){}return ret;};}catch(e){}
-  window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=((pendingWait.length || pendingCancel.length) && localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS)?stateFromLocal():(currentState||stateFromLocal());return applyPending(normalizeState(st));},apply:applyState,fetchNow:fetchNow,broadcast:sendJoinBroadcast,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
+  function commitPatch(patch, delay){
+    var base=currentState || stateFromLocal();
+    var next=normalizeStateRaw(base);
+    patch=patch||{};
+    if(Object.prototype.hasOwnProperty.call(patch,'waitList')) next.waitList=arr(patch.waitList);
+    if(Object.prototype.hasOwnProperty.call(patch,'cancelList')) next.cancelList=arr(patch.cancelList);
+    if(Object.prototype.hasOwnProperty.call(patch,'recruitState')) next.recruitState=(patch.recruitState&&typeof patch.recruitState==='object')?patch.recruitState:{state:'loading'};
+    next.updatedAt=now();
+    next=resolveWaitCancel(next);
+    currentState=next;
+    lastLocalEditAt=Date.now();
+    localChanged=true;
+    setLocal(WAIT_KEY,next.waitList);
+    setLocal(CANCEL_KEY,next.cancelList);
+    setLocal(RECRUIT_KEY,next.recruitState);
+    emit(next);
+    queueSave(delay==null?80:delay);
+    return next;
+  }
+  function setList(key, list){
+    key=String(key||'');
+    if(key===WAIT_KEY) return commitPatch({waitList:list},80);
+    if(key===CANCEL_KEY) return commitPatch({cancelList:list},80);
+    return null;
+  }
+  function setRecruitStateValue(value){
+    return commitPatch({recruitState:value||{state:'waiting'}},180);
+  }
+  function resetJoinState(){
+    return commitPatch({waitList:[],cancelList:[],recruitState:{state:'waiting',hostHtml:'',openTime:'',deadlineText:'모집대기중',feeText:'',feeInput:'',deadlineConfigured:false,resetAt:now(),resetNonce:Date.now()}},0);
+  }
+  window.PKLJoinRealtime={__pklJoinSupabase20260516:true,start:start,save:saveNow,flush:saveNow,queueSave:queueSave,state:stateFromLocal,getState:function(){var st=((pendingWait.length || pendingCancel.length) && localChanged && Date.now()-lastLocalEditAt<CONTROL_HOLD_MS)?stateFromLocal():(currentState||stateFromLocal());return applyPending(normalizeState(st));},apply:applyState,fetchNow:fetchNow,broadcast:sendJoinBroadcast,setList:setList,setRecruitState:setRecruitStateValue,reset:resetJoinState,markJoin:function(item){rememberPending('join',item);queueSave(0);},markCancel:function(item){rememberPending('cancel',item);queueSave(0);}};
   start();
 })();

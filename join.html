@@ -5618,7 +5618,22 @@ function safeJson(key, fallback){
     return enrichItemTier(merged);
   }
 
+  function getJoinRealtimeState(){
+    try{
+      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function"){
+        const st = window.PKLJoinRealtime.getState();
+        if(st && typeof st === "object") return st;
+      }
+    }catch(e){}
+    return null;
+  }
+
   function readList(key){
+    const st = getJoinRealtimeState();
+    if(st){
+      if(key === STORAGE_KEY) return Array.isArray(st.waitList) ? st.waitList : [];
+      if(key === CANCEL_KEY) return Array.isArray(st.cancelList) ? st.cancelList : [];
+    }
     const data = safeJson(key, []);
     return Array.isArray(data) ? data : [];
   }
@@ -5736,6 +5751,10 @@ function safeJson(key, fallback){
   }
 
   function saveList(key,list){
+    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.setList === "function"){
+      window.PKLJoinRealtime.setList(key, Array.isArray(list) ? list : []);
+      return;
+    }
     localStorage.setItem(key, JSON.stringify(list));
   }
 
@@ -5995,6 +6014,11 @@ function safeJson(key, fallback){
 
   function getRecruitStateForAction(){
     try{
+      const rt = getJoinRealtimeState();
+      const rs = rt && rt.recruitState;
+      if(rs && rs.state) return String(rs.state);
+    }catch(e){}
+    try{
       const st = JSON.parse(localStorage.getItem("pklJoinRecruitState") || "null");
       return st && st.state ? String(st.state) : "loading";
     }catch(e){
@@ -6071,17 +6095,21 @@ function safeJson(key, fallback){
   setTimeout(refreshMissingWaitListTiers, 250);
 
   function resetJoinPanel(){
-    saveList(STORAGE_KEY, []);
-    saveList(CANCEL_KEY, []);
-    localStorage.setItem("pklJoinRecruitState", JSON.stringify({
-      state:"waiting",
-      hostHtml:"",
-      openTime:"",
-      deadlineText:"모집대기중",
-      feeText:"",
-      feeInput:"",
-      deadlineConfigured:false
-    }));
+    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.reset === "function"){
+      window.PKLJoinRealtime.reset();
+    }else{
+      saveList(STORAGE_KEY, []);
+      saveList(CANCEL_KEY, []);
+      localStorage.setItem("pklJoinRecruitState", JSON.stringify({
+        state:"waiting",
+        hostHtml:"",
+        openTime:"",
+        deadlineText:"모집대기중",
+        feeText:"",
+        feeInput:"",
+        deadlineConfigured:false
+      }));
+    }
     localStorage.removeItem("pklJoinFeeInfo");
     Object.keys(localStorage).forEach(function(key){ if(key.indexOf("pklJoinDepositRequested_") === 0) localStorage.removeItem(key); });
     localStorage.removeItem("pklJoinDepositRequests");
@@ -6113,6 +6141,10 @@ function safeJson(key, fallback){
   }
 
   function readRecruitState(){
+    try{
+      const rt = getJoinRealtimeState();
+      if(rt && rt.recruitState && rt.recruitState.state) return rt.recruitState;
+    }catch(e){}
     try{
       return JSON.parse(localStorage.getItem("pklJoinRecruitState") || "null");
     }catch(e){
@@ -6577,7 +6609,7 @@ function safeJson(key, fallback){
     window.PKLJoinRealtime.fetchNow().then(function(st){
       if(st && st.recruitState && st.recruitState.state){
         window.__PKL_JOIN_REMOTE_CONFIRMED = true;
-        try{ localStorage.setItem("pklJoinRecruitState", JSON.stringify(st.recruitState)); }catch(e){}
+        try{ if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.setRecruitState === "function") window.PKLJoinRealtime.setRecruitState(st.recruitState); }catch(e){}
       }
       finishInitialJoinRender();
     }).catch(function(){
@@ -6773,6 +6805,12 @@ function safeJson(key, fallback){
 
   function readRecruitState(){
     try{
+      if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.getState === "function"){
+        const st = window.PKLJoinRealtime.getState();
+        if(st && st.recruitState && st.recruitState.state) return st.recruitState;
+      }
+    }catch(e){}
+    try{
       return JSON.parse(localStorage.getItem(STATE_KEY) || "null");
     }catch(e){
       return null;
@@ -6780,6 +6818,10 @@ function safeJson(key, fallback){
   }
 
   function saveRecruitState(data){
+    if(window.PKLJoinRealtime && typeof window.PKLJoinRealtime.setRecruitState === "function"){
+      window.PKLJoinRealtime.setRecruitState(data || {});
+      return;
+    }
     localStorage.setItem(STATE_KEY, JSON.stringify(data || {}));
   }
 
