@@ -72,6 +72,68 @@
   function pklTeamDeny(){
     if(window.PKLRoleSystem && typeof window.PKLRoleSystem.showAccessModal === "function") window.PKLRoleSystem.showAccessModal("관리자/운영자만 팀구성 기능을 사용할 수 있습니다.", "권한 제한");
   }
+
+
+  let teamDragScrollRaf = 0;
+  let teamDragScrollPoint = null;
+
+  function getScrollAmount(pointer, start, end) {
+    const edge = 54;
+    if (pointer < start + edge) return -Math.ceil((start + edge - pointer) / 4);
+    if (pointer > end - edge) return Math.ceil((pointer - (end - edge)) / 4);
+    return 0;
+  }
+
+  function scrollContainerForDrag(container, clientX, clientY) {
+    if (!container) return false;
+    const rect = container === document.scrollingElement
+      ? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
+      : container.getBoundingClientRect();
+    if (clientX < rect.left - 20 || clientX > rect.right + 20 || clientY < rect.top - 20 || clientY > rect.bottom + 20) return false;
+
+    const dx = getScrollAmount(clientX, rect.left, rect.right);
+    const dy = getScrollAmount(clientY, rect.top, rect.bottom);
+    if (!dx && !dy) return false;
+
+    container.scrollBy({ left: dx, top: dy, behavior: 'auto' });
+    return true;
+  }
+
+  function runTeamDragAutoScroll() {
+    if (!draggedPlayerId || !teamDragScrollPoint) {
+      teamDragScrollRaf = 0;
+      return;
+    }
+
+    const point = teamDragScrollPoint;
+    const board = document.querySelector('.team-board');
+    const tierPanel = document.querySelector('.tier-panel');
+    scrollContainerForDrag(board, point.x, point.y);
+    scrollContainerForDrag(tierPanel, point.x, point.y);
+    scrollContainerForDrag(document.scrollingElement || document.documentElement, point.x, point.y);
+
+    teamDragScrollRaf = window.requestAnimationFrame(runTeamDragAutoScroll);
+  }
+
+  function updateTeamDragAutoScroll(event) {
+    if (!event || !draggedPlayerId) return;
+    teamDragScrollPoint = { x: event.clientX, y: event.clientY };
+    if (!teamDragScrollRaf) teamDragScrollRaf = window.requestAnimationFrame(runTeamDragAutoScroll);
+  }
+
+  function stopTeamDragAutoScroll() {
+    teamDragScrollPoint = null;
+    if (teamDragScrollRaf) {
+      window.cancelAnimationFrame(teamDragScrollRaf);
+      teamDragScrollRaf = 0;
+    }
+  }
+
+  function bindTeamDragAutoScroll() {
+    document.addEventListener('dragover', updateTeamDragAutoScroll, { passive: true });
+    document.addEventListener('drop', stopTeamDragAutoScroll, true);
+    document.addEventListener('dragend', stopTeamDragAutoScroll, true);
+  }
   let suppressNextClick = false;
   let isRerolling = false;
   let rerollTimers = [];
@@ -199,6 +261,7 @@
     bindNewPlayerTierDropdown();
     bindRerollModeDropdown();
     bindTeamModeDropdown();
+    bindTeamDragAutoScroll();
     fillMatchTimeSelects();
     bindUserSyncEvents();
     applyTeamControlAccess();
@@ -659,10 +722,16 @@ if (rerollListModal) {
 draggedPlayerId = card.dataset.playerId;
         event.dataTransfer.setData('text/plain', draggedPlayerId);
         event.dataTransfer.effectAllowed = 'move';
+        updateTeamDragAutoScroll(event);
+      };
+
+      card.ondrag = event => {
+        updateTeamDragAutoScroll(event);
       };
 
       card.ondragend = () => {
         suppressNextClick = true;
+        stopTeamDragAutoScroll();
         draggedPlayerId = null;
         clearDropStyles();
         setTimeout(() => { suppressNextClick = false; }, 80);
@@ -676,6 +745,7 @@ draggedPlayerId = card.dataset.playerId;
         
         if (isRerolling) return;
 event.preventDefault();
+        updateTeamDragAutoScroll(event);
         zone.classList.add('is-over');
       };
 
@@ -687,6 +757,7 @@ event.preventDefault();
         
         if (isRerolling) { event.preventDefault(); return; }
 event.preventDefault();
+        stopTeamDragAutoScroll();
 
         const playerId = draggedPlayerId || event.dataTransfer.getData('text/plain');
         if (!playerId) return;
