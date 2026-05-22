@@ -2938,9 +2938,37 @@ function saveMatchTimeSettings() {
     if (!rerollListModal) return;
     applyTeamControlAccess();
     ensureRerollRequestState();
-    if (isTeamControlManager()) refreshRerollUserAutocomplete();
+    const canManageList = isTeamControlManager();
+    rerollListModal.classList.toggle('pkl-reroll-view-only', !canManageList);
+    if (canManageList) refreshRerollUserAutocomplete();
     renderRerollListModal();
+    applyRerollListAccessMode();
     openModal(rerollListModal);
+  }
+
+  function applyRerollListAccessMode() {
+    if (!rerollListModal) return;
+    const canManageList = isTeamControlManager();
+    rerollListModal.classList.toggle('pkl-reroll-view-only', !canManageList);
+
+    const manualInput = document.getElementById('rerollUserInput');
+    const addButton = document.getElementById('addRerollUserButton');
+    const memoButton = document.getElementById('openRerollMemoButton');
+
+    [manualInput, addButton, memoButton].forEach(control => {
+      if (!control) return;
+      if (canManageList) {
+        control.disabled = false;
+        control.removeAttribute('aria-disabled');
+        control.classList.remove('pkl-viewer-disabled-control');
+      } else {
+        control.disabled = true;
+        control.setAttribute('aria-disabled', 'true');
+        control.classList.add('pkl-viewer-disabled-control');
+      }
+    });
+
+    if (!canManageList) closeRerollUserSuggestions();
   }
 
   const REROLL_TYPES = [
@@ -3023,6 +3051,32 @@ function saveMatchTimeSettings() {
     const style = document.createElement('style');
     style.id = 'pkl-reroll-type-style';
     style.textContent = `
+      #rerollListModal .pkl-reroll-list-modal{
+        width:min(1240px,calc(100vw - 56px)) !important;
+        max-width:calc(100vw - 40px) !important;
+        height:min(760px,calc(100vh - 56px)) !important;
+        max-height:calc(100vh - 40px) !important;
+        min-width:min(860px,calc(100vw - 40px)) !important;
+      }
+      #rerollListModal .pkl-reroll-list-body{height:calc(100% - 72px) !important;overflow:hidden !important;}
+      #rerollListModal .pkl-reroll-layout{
+        display:grid !important;
+        grid-template-columns:minmax(0,1fr) minmax(280px,330px) !important;
+        gap:18px !important;
+        height:100% !important;
+        align-items:stretch !important;
+      }
+      #rerollListModal .pkl-reroll-list-panel{min-width:0 !important;display:flex !important;flex-direction:column !important;height:100% !important;}
+      #rerollListModal .pkl-reroll-list-box{min-height:0 !important;flex:1 1 auto !important;display:flex !important;flex-direction:column !important;}
+      #rerollListModal .pkl-reroll-list-entries{min-height:0 !important;flex:1 1 auto !important;overflow:auto !important;padding-right:4px !important;}
+      #rerollListModal .pkl-reroll-calculator-panel{min-width:0 !important;height:100% !important;}
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-manual-row,
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-suggest-box,
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-memo-button{display:none !important;}
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-helper::after{
+        content:'  ·  참가자는 리롤 횟수와 확인 상태만 볼 수 있습니다.';
+        color:#d8c6ff;
+      }
       #rerollListModal .pkl-reroll-entry{
         display:grid !important;
         grid-template-columns:minmax(150px,1.05fr) minmax(300px,1.95fr) 86px 30px;
@@ -3199,6 +3253,7 @@ function saveMatchTimeSettings() {
     }
 
     const canManageList = isTeamControlManager();
+    if (rerollListModal) rerollListModal.classList.toggle('pkl-reroll-view-only', !canManageList);
     rerollListEntries.innerHTML = rows.map(item => {
       const request = normalizeRerollRequestShape(state.rerollRequests[item.key] || { count: 0, counts: {}, paid: false });
       const position = [item.teamName, item.slotName].filter(Boolean).join(' · ');
@@ -3231,6 +3286,7 @@ function saveMatchTimeSettings() {
     }).join('');
 
     bindRerollListEntryEvents();
+    applyRerollListAccessMode();
     saveState();
   }
 
