@@ -3176,6 +3176,68 @@ function saveMatchTimeSettings() {
         content:'  ·  참가자는 리롤 횟수와 확인 상태만 볼 수 있습니다.';
         color:#d8c6ff;
       }
+
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-list-modal{
+        width:min(1040px,calc(100vw - 64px)) !important;
+        min-width:min(780px,calc(100vw - 48px)) !important;
+        height:min(720px,calc(100vh - 72px)) !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-layout{
+        display:block !important;
+        height:100% !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-calculator-panel{
+        display:none !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-list-panel{
+        height:100% !important;
+        width:100% !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-entry{
+        grid-template-columns:minmax(190px,1.05fr) minmax(360px,1.7fr) 82px !important;
+        gap:10px !important;
+        padding:11px 12px !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-user-main strong{
+        max-width:116px !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-tier-badge{
+        max-width:76px !important;
+        transform:scale(.88) !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-type-grid{
+        grid-template-columns:repeat(4,minmax(72px,1fr)) !important;
+        gap:7px !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-type-view{
+        min-height:26px !important;
+        padding:6px 7px !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-paid-view{
+        display:flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        min-width:74px !important;
+        height:28px !important;
+        border-radius:999px !important;
+        font-size:10px !important;
+        font-weight:900 !important;
+        color:#bcaee2 !important;
+        border:1px solid rgba(180,130,255,.26) !important;
+        background:rgba(12,8,28,.58) !important;
+        white-space:nowrap !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-paid-view.is-paid{
+        color:#fff !important;
+        border-color:rgba(66,210,160,.55) !important;
+        background:rgba(34,130,95,.26) !important;
+        box-shadow:0 0 12px rgba(50,220,160,.16) !important;
+      }
+      @media (max-width:980px){
+        #rerollListModal.pkl-reroll-view-only .pkl-reroll-entry{grid-template-columns:1fr !important;}
+        #rerollListModal.pkl-reroll-view-only .pkl-reroll-type-grid{grid-template-columns:repeat(4,minmax(58px,1fr)) !important;}
+        #rerollListModal.pkl-reroll-view-only .pkl-reroll-paid-view{justify-self:start !important;}
+      }
       #rerollListModal .pkl-reroll-entry{
         display:grid !important;
         grid-template-columns:minmax(150px,1.05fr) minmax(300px,1.95fr) 86px 30px;
