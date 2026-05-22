@@ -1324,7 +1324,11 @@ const teamIndex = Number(slot.dataset.teamIndex);
       const displayName = (sourceUser && (sourceUser.nickname || sourceUser.nick || sourceUser.name || sourceUser.discord_username || sourceUser.discordUsername)) || item.name || item.nickname || '참가자';
       const resolvedTier = resolveUserTierKey(sourceUser);
       const resolvedTierBadge = resolveUserTierBadgeValue(sourceUser);
-      const tier = TIERS.some(t => t.id === resolvedTier) ? resolvedTier : 'tier0';
+      if (!TIERS.some(t => t.id === resolvedTier)) {
+        // 티어가 없는 참가자는 팀구성 대기칸에 임의로 0티어 배치하지 않는다.
+        return;
+      }
+      const tier = resolvedTier;
       const player = findPlayerForJoinItem(item, supabaseUser || adminUser, accountUser);
 
       if (player) {

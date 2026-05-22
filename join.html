@@ -5189,14 +5189,21 @@ function safeJson(key, fallback){
 
   function getGradeRole(user){
     user = user || {};
-    return user.tier || user.memberTier || user.gradeRole || user.tierRole || user.grade || "";
+    // 티어 배지는 Supabase users의 memberTier/gradeRole/tierRole을 우선한다.
+    // row.tier에는 예전 한글 라벨/캐시 값이 남을 수 있어서 마지막 보조값으로만 사용한다.
+    return user.memberTier || user.gradeRole || user.tierRole || user.member_tier || user.grade || user.tier || user.tierName || "";
   }
 
   function hasValidMemberTier(user){
     const raw = String(getGradeRole(user) || "").trim();
     if(!raw) return false;
     const low = raw.toLowerCase();
-    return !["none", "no", "null", "undefined", "role-none", "tier-none", "notier", "no-tier", "없음", "티어없음", "무티어"].includes(low);
+    if(["none", "no", "null", "undefined", "role-none", "tier-none", "notier", "no-tier", "없음", "티어없음", "무티어"].includes(low)) return false;
+    if(window.PKLTierBadge && typeof window.PKLTierBadge.normalize === "function"){
+      const key = window.PKLTierBadge.normalize(raw);
+      return !!(key && key !== "none");
+    }
+    return /^(tier[0-5]|beast)([_-]?(high|mid|low|상|중|하))?$/i.test(low.replace(/\s+/g,"")) || /[0-5]\s*티어/.test(raw) || raw === "짐승";
   }
 
   function isTierRequiredUser(user){
@@ -5949,16 +5956,22 @@ function safeJson(key, fallback){
 
   async function fetchUserTierByProfile(seed){
     seed = seed || {};
-    const queries = [getUserDiscordId(seed), getUserNickname(seed), seed.name, getUserPubgId(seed)]
+    const discordId = getUserDiscordId(seed);
+    const queries = [discordId, getUserPubgId(seed), getUserNickname(seed), seed.name]
       .map(function(v){ return String(v || '').trim(); })
       .filter(Boolean);
+
     for(const q of queries){
       try{
         const res = await fetch('/api/pkl-users?limit=10&q=' + encodeURIComponent(q), {cache:'no-store'});
         if(!res.ok) continue;
         const data = await res.json();
         const users = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
-        const found = users.find(function(u){ return identityMatches(seed, u); }) || users[0];
+        const found = users.find(function(u){ return identityMatches(seed, u); });
+
+        // 검색어에 걸린 첫 번째 사용자를 임의로 쓰면, 예: 헤라 → 헤라부캐처럼
+        // 다른 계정의 티어가 붙어서 미배정 유저도 참가 가능해진다.
+        // 반드시 디스코드ID/PUBG/정확한 닉네임이 같은 사용자만 티어 원본으로 사용한다.
         if(found){
           rememberTierUser(found);
           const tier = getGradeRole(found);
