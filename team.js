@@ -293,6 +293,7 @@
     installTeamPerformanceStyle();
     fillTierSelect();
     bindControls();
+    bindRerollListViewerOpenGuard();
     bindNewPlayerTierDropdown();
     bindRerollModeDropdown();
     bindTeamModeDropdown();
@@ -694,7 +695,17 @@ if (rerollListModal) {
   }
 
   function canOpenRerollListViewer() {
-    return isTeamControlManager() || isCurrentUserInJoinWaitingList();
+    return isTeamControlManager() || isCurrentUserInJoinWaitingList() || isCurrentUserInTeamBoardState();
+  }
+
+  function isCurrentUserInTeamBoardState() {
+    const loginUser = findFullUserForViewer(readCurrentLoginUser()) || readCurrentLoginUser();
+    if (!loginUser) return false;
+    const loginName = loginUser.nickname || loginUser.nick || loginUser.name || loginUser.discord_username || loginUser.discordUsername || '';
+    return (state.players || []).some(player => {
+      if (!player) return false;
+      return isSameUserIdentity(loginUser, player) || sameName(player, loginName);
+    });
   }
 
   function bindRerollListViewerOpenGuard() {
