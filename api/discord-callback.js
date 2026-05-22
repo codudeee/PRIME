@@ -231,7 +231,7 @@ exports.handler = async function(event) {
   const clientId = env("DISCORD_CLIENT_ID") || env("DISCORD_APPLICATION_ID") || env("CLIENT_ID");
   const clientSecret = env("DISCORD_CLIENT_SECRET") || env("DISCORD_SECRET") || env("CLIENT_SECRET");
 
-  if (!code || !returnedState || !savedState || returnedState !== savedState) return { statusCode: 302, headers: { "Cache-Control":"no-store", "Location":"/api/discord-login", "Set-Cookie": ["pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0", "pkl_login_return_to=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"] }, body: "" };
+  if (!code || !returnedState || !savedState || returnedState !== savedState) return { statusCode: 302, headers: { "Cache-Control":"no-store", "Location":"/api/discord-login?returnTo=" + encodeURIComponent(returnTo || "/index.html"), "Set-Cookie": ["pkl_discord_oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0", "pkl_login_return_to=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"] }, body: "" };
   if (!/^\d{16,22}$/.test(clientId)) return { statusCode: 500, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" }, body: oauthErrorHtml("Discord Client ID 오류", "Vercel Environment Variables의 DISCORD_CLIENT_ID에는 Discord Developer Portal의 Application ID 숫자만 넣어야 합니다.", { DISCORD_CLIENT_ID: mask(clientId), Redirect: redirectUri }) };
   if (!clientSecret) return { statusCode: 500, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" }, body: oauthErrorHtml("Discord Secret 누락", "Vercel Environment Variables의 DISCORD_CLIENT_SECRET 값이 비어 있습니다.", { DISCORD_CLIENT_ID: mask(clientId), DISCORD_CLIENT_SECRET: "EMPTY", Redirect: redirectUri }) };
 
