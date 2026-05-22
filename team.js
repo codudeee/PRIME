@@ -125,7 +125,18 @@
       ['관리자', '총관리자', '운영자', '운영진'].includes(rawTitle)
     );
   }
+  let pklRerollListOpenBypassUntil = 0;
+
+  function isPklRerollListBypassActive(){
+    return Date.now() < pklRerollListOpenBypassUntil;
+  }
+
+  function markPklRerollListOpenBypass(){
+    pklRerollListOpenBypassUntil = Date.now() + 900;
+  }
+
   function pklTeamDeny(){
+    if (isPklRerollListBypassActive()) return;
     if(window.PKLRoleSystem && typeof window.PKLRoleSystem.showAccessModal === "function") window.PKLRoleSystem.showAccessModal("관리자/운영자만 팀구성 기능을 사용할 수 있습니다.", "권한 제한");
   }
   let suppressNextClick = false;
@@ -246,6 +257,52 @@
       setRerollModeValue(nextValue || 'selected', false);
     }
   };
+
+  bindRerollListEarlyOpenGuard();
+
+  function isRerollListOpenTrigger(target) {
+    if (!target || !target.closest) return false;
+    if (target.closest('#rerollListButton, [data-pkl-open-check]')) return true;
+    return false;
+  }
+
+  function bindRerollListEarlyOpenGuard() {
+    if (window.__pklRerollListEarlyOpenGuardBound) return;
+    window.__pklRerollListEarlyOpenGuardBound = true;
+
+    const openFromEvent = event => {
+      if (!isRerollListOpenTrigger(event.target)) return;
+      markPklRerollListOpenBypass();
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+
+      window.setTimeout(() => {
+        markPklRerollListOpenBypass();
+        if (typeof openRerollListModal === 'function') openRerollListModal();
+      }, 0);
+    };
+
+    ['pointerdown', 'mousedown', 'touchstart', 'click'].forEach(type => {
+      window.addEventListener(type, openFromEvent, true);
+      document.addEventListener(type, openFromEvent, true);
+    });
+
+    const patchRoleAccessModal = () => {
+      const roleSystem = window.PKLRoleSystem;
+      if (!roleSystem || typeof roleSystem.showAccessModal !== 'function' || roleSystem.__pklRerollListAccessPatch) return;
+      const original = roleSystem.showAccessModal;
+      roleSystem.showAccessModal = function(message, title){
+        if (isPklRerollListBypassActive() && String(message || '').includes('팀구성')) return;
+        return original.apply(this, arguments);
+      };
+      roleSystem.__pklRerollListAccessPatch = true;
+    };
+
+    patchRoleAccessModal();
+    window.setTimeout(patchRoleAccessModal, 300);
+    window.setTimeout(patchRoleAccessModal, 1000);
+  }
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -771,7 +828,7 @@ if (rerollListModal) {
 
     const blockViewerControl = event => {
       if (isTeamControlManager()) return;
-      if (isRerollListButtonTarget(event.target)) return;
+      if (isRerollListButtonTarget(event.target) || (event.target && event.target.closest && event.target.closest('[data-pkl-open-check]'))) return;
       if (event.target && event.target.closest && event.target.closest('#rerollListModal')) return;
       const control = event.target && event.target.closest && event.target.closest('button, select, input, textarea, .pkl-custom-select, .pkl-custom-select-trigger, .pkl-team-mode-dropdown');
       if (!control) return;
@@ -3791,6 +3848,10 @@ function addManualRerollUser() {
         }
         const checkBtn = event.target.closest('[data-pkl-open-check]');
         if (checkBtn) {
+          markPklRerollListOpenBypass();
+          event.preventDefault();
+          event.stopPropagation();
+          if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
           openRerollListModal();
           return;
         }
