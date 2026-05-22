@@ -3067,18 +3067,19 @@ document.addEventListener("DOMContentLoaded", function(){
 <script id="pklTierScoreSyncScript">
 (function(){
   'use strict';
-  if(window.__PKL_TIER_SCORE_SYNC_20260523_V51__) return;
-  window.__PKL_TIER_SCORE_SYNC_20260523_V51__ = true;
+  if(window.__PKL_TIER_SCORE_SYNC_20260523_V52__) return;
+  window.__PKL_TIER_SCORE_SYNC_20260523_V52__ = true;
 
   /*
-   * PKL 20260523 v51
-   * 목표점수/감점은 Supabase shared 데이터만 읽고 쓴다.
-   * 핵심 수정: 페이지 진입/새로고침 때 DOM 기본값을 서버로 자동 저장하지 않는다.
-   * 입력 중 서버의 예전 값이 늦게 도착해도 현재 입력값을 덮지 않는다.
-   */
-  const SCORE_KEY = 'pklTierScoreConfig';
-  const META_KEY = '__pklUpdatedAt';
-  const ROLE_TO_LANE = {
+    PKL tier score v52
+    - 목표점수/감점은 Supabase shared(pklTierScoreConfig)만 원본으로 사용한다.
+    - 페이지 진입 시 DOM 기본값을 서버에 자동 저장하지 않는다.
+    - 과거 localStorage 값이 서버값/입력값을 덮지 못하게 제거한다.
+    - 입력 변경 시 API 2경로 + PKLSupabaseDataSync 경로로 저장하고, 늦게 도착한 서버값은 입력값을 덮지 않는다.
+  */
+  var SCORE_KEY = 'pklTierScoreConfig';
+  var META_KEY = '__pklUpdatedAt';
+  var ROLE_TO_LANE = {
     tier0_high:'0상', tier0_mid:'0중', tier0_low:'0하',
     tier1_high:'1상', tier1_mid:'1중', tier1_low:'1하',
     tier2_high:'2상', tier2_mid:'2중', tier2_low:'2하',
@@ -3087,102 +3088,115 @@ document.addEventListener("DOMContentLoaded", function(){
     tier5_high:'5상', tier5_mid:'5중', tier5_low:'5하',
     beast:'5하', beast_high:'5상', beast_mid:'5중', beast_low:'5하'
   };
-  const LANE_TO_ROLE = Object.keys(ROLE_TO_LANE).reduce((map, role) => {
-    if(role === 'beast') return map;
-    const lane = ROLE_TO_LANE[role];
-    if(!map[lane] || /^tier\d_/.test(role)) map[lane] = role;
-    return map;
-  }, {});
+  var LANE_TO_ROLE = {
+    '0상':'tier0_high','0중':'tier0_mid','0하':'tier0_low',
+    '1상':'tier1_high','1중':'tier1_mid','1하':'tier1_low',
+    '2상':'tier2_high','2중':'tier2_mid','2하':'tier2_low',
+    '3상':'tier3_high','3중':'tier3_mid','3하':'tier3_low',
+    '4상':'tier4_high','4중':'tier4_mid','4하':'tier4_low',
+    '5상':'tier5_high','5중':'tier5_mid','5하':'tier5_low','짐승':'tier5_low'
+  };
 
-  let config = {};
-  let saveTimer = 0;
-  let isSaving = false;
-  let lastLocalChangeAt = 0;
-  let lastAppliedServerAt = 0;
-  let initialLoadDone = false;
+  var config = {};
+  var saveTimer = 0;
+  var saveSeq = 0;
+  var lastInputAt = 0;
+  var lastAppliedServerAt = 0;
+  var loading = false;
 
   function num(v, fallback){
-    const n = Number(String(v ?? '').replace(/[^0-9.-]/g, ''));
+    var n = Number(String(v == null ? '' : v).replace(/[^0-9.-]/g, ''));
     return Number.isFinite(n) ? n : fallback;
   }
   function nowIso(){ return new Date().toISOString(); }
-  function stampOf(value){
-    if(!value || typeof value !== 'object') return 0;
-    const direct = Date.parse(value[META_KEY] || value.updatedAt || value.updated_at || '');
-    if(Number.isFinite(direct)) return direct;
-    const box = value.value || value.payload || value.config || value.data || null;
-    if(box && typeof box === 'object'){
-      const nested = Date.parse(box[META_KEY] || box.updatedAt || box.updated_at || '');
-      if(Number.isFinite(nested)) return nested;
+  function isObj(v){ return !!(v && typeof v === 'object' && !Array.isArray(v)); }
+  function boxOf(v){
+    if(!isObj(v)) return {};
+    if(isObj(v.value)) return v.value;
+    if(isObj(v.payload)) return v.payload;
+    if(isObj(v.config)) return v.config;
+    if(isObj(v.data)) return v.data;
+    return v;
+  }
+  function stampOf(v){
+    if(!isObj(v)) return 0;
+    var t = Date.parse(v[META_KEY] || v.updatedAt || v.updated_at || '');
+    if(Number.isFinite(t)) return t;
+    var box = boxOf(v);
+    if(box && box !== v){
+      t = Date.parse(box[META_KEY] || box.updatedAt || box.updated_at || '');
+      if(Number.isFinite(t)) return t;
     }
     return 0;
   }
-  function boxOf(value){
-    if(!value || typeof value !== 'object') return {};
-    return value.value || value.payload || value.config || value.data || value;
-  }
   function normalize(value){
-    const src = boxOf(value);
-    const out = {};
-    if(!src || typeof src !== 'object') return out;
-    Object.keys(src).forEach(key => {
+    var src = boxOf(value);
+    var out = {};
+    if(!isObj(src)) return out;
+    Object.keys(src).forEach(function(key){
       if(key === META_KEY || key === 'updatedAt' || key === 'updated_at') return;
-      const row = src[key];
-      if(!row || typeof row !== 'object') return;
-      if(!('target' in row) && !('death' in row)) return;
-      const lane = ROLE_TO_LANE[key] || key;
-      const target = num(row.target, 0);
-      const death = num(row.death, 0);
-      out[lane] = { target, death };
-      const role = LANE_TO_ROLE[lane];
-      if(role) out[role] = { target, death, lane };
+      var row = src[key];
+      if(!isObj(row)) return;
+      if(!Object.prototype.hasOwnProperty.call(row,'target') && !Object.prototype.hasOwnProperty.call(row,'death')) return;
+      var lane = ROLE_TO_LANE[key] || key;
+      if(!LANE_TO_ROLE[lane] && lane !== '짐승') return;
+      var target = num(row.target, 0);
+      var death = num(row.death, 0);
+      out[lane] = { target:target, death:death };
+      var role = LANE_TO_ROLE[lane];
+      if(role) out[role] = { target:target, death:death, lane:lane };
     });
-    const st = stampOf(value);
+    var st = stampOf(value);
     if(st) out[META_KEY] = new Date(st).toISOString();
     return out;
   }
   function publicConfig(value){
-    const src = normalize(value || config);
-    const out = {};
-    Object.keys(src).forEach(key => {
-      if(key === META_KEY || key === 'updatedAt') return;
-      const row = src[key];
-      if(row && typeof row === 'object' && ('target' in row || 'death' in row)) out[key] = row;
+    var src = normalize(value || config);
+    var out = {};
+    Object.keys(src).forEach(function(key){
+      if(key === META_KEY || key === 'updatedAt' || key === 'updated_at') return;
+      var row = src[key];
+      if(isObj(row) && (Object.prototype.hasOwnProperty.call(row,'target') || Object.prototype.hasOwnProperty.call(row,'death'))) out[key] = row;
     });
     return out;
   }
-  function hasRows(value){ return Object.keys(publicConfig(value)).length > 0; }
-  function setWindowConfig(value){
+  function rowCount(value){ return Object.keys(publicConfig(value)).length; }
+  function clearOldLocal(){
+    try{ localStorage.removeItem(SCORE_KEY); }catch(e){}
+    try{ localStorage.removeItem('pklTierScoreLastSync'); }catch(e){}
+  }
+  function setWindow(value){
     window.__PKL_TIER_SCORE_CONFIG = publicConfig(value || config);
     try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', { detail:{ config:window.__PKL_TIER_SCORE_CONFIG } })); }catch(e){}
   }
-  function collectDom(){
-    const out = publicConfig(config);
-    document.querySelectorAll('.pkl-tier-lane, .pkl-beast-line').forEach(laneEl => {
-      const list = laneEl.querySelector('.pkl-lane-list[data-tier]');
-      const inputs = laneEl.querySelectorAll('.pkl-lane-score input');
+  function eachScoreLane(fn){
+    document.querySelectorAll('.pkl-tier-lane, .pkl-beast-line').forEach(function(laneEl){
+      var list = laneEl.querySelector('.pkl-lane-list[data-tier]');
+      var inputs = laneEl.querySelectorAll('.pkl-lane-score input');
       if(!list || inputs.length < 2) return;
-      const lane = String(list.dataset.tier || '').trim();
+      var lane = String(list.dataset.tier || '').trim();
       if(!lane) return;
-      const target = num(inputs[0].value, num(inputs[0].getAttribute('value'), 0));
-      const death = num(inputs[1].value, num(inputs[1].getAttribute('value'), 0));
-      out[lane] = { target, death };
-      const role = LANE_TO_ROLE[lane];
-      if(role) out[role] = { target, death, lane };
+      fn(lane, inputs, laneEl);
+    });
+  }
+  function collectDom(){
+    var out = publicConfig(config);
+    eachScoreLane(function(lane, inputs){
+      var target = num(inputs[0].value, num(inputs[0].getAttribute('value'), 0));
+      var death = num(inputs[1].value, num(inputs[1].getAttribute('value'), 0));
+      out[lane] = { target:target, death:death };
+      var role = LANE_TO_ROLE[lane];
+      if(role) out[role] = { target:target, death:death, lane:lane };
     });
     out[META_KEY] = nowIso();
     out.updatedAt = out[META_KEY];
     return out;
   }
   function applyDom(value){
-    const cfg = normalize(value || config);
-    if(!hasRows(cfg)) return;
-    document.querySelectorAll('.pkl-tier-lane, .pkl-beast-line').forEach(laneEl => {
-      const list = laneEl.querySelector('.pkl-lane-list[data-tier]');
-      const inputs = laneEl.querySelectorAll('.pkl-lane-score input');
-      if(!list || inputs.length < 2) return;
-      const lane = String(list.dataset.tier || '').trim();
-      const saved = cfg[lane];
+    var cfg = normalize(value || config);
+    if(!rowCount(cfg)) return;
+    eachScoreLane(function(lane, inputs){
+      var saved = cfg[lane];
       if(!saved) return;
       inputs[0].value = String(saved.target);
       inputs[1].value = String(saved.death);
@@ -3190,93 +3204,67 @@ document.addEventListener("DOMContentLoaded", function(){
       inputs[1].setAttribute('value', String(saved.death));
     });
   }
-  function applyConfig(value, apply){
-    const next = normalize(value || {});
-    if(!hasRows(next)) return false;
+  function applyConfig(value, shouldApplyDom){
+    var next = normalize(value || {});
+    if(!rowCount(next)) return false;
     config = next;
-    setWindowConfig(config);
-    if(apply !== false) applyDom(config);
+    setWindow(config);
+    if(shouldApplyDom !== false) applyDom(config);
     return true;
   }
-
-  async function getSupabaseConfig(){
-    if(window.PKLGetSupabaseConfig && typeof window.PKLGetSupabaseConfig === 'function'){
-      try{ const cfg = await window.PKLGetSupabaseConfig(); if(cfg) return cfg; }catch(e){}
-    }
-    return window.PKL_SUPABASE_CONFIG || {};
-  }
-  function cleanUrl(url){ return String(url || '').replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, ''); }
-  async function readDataStore(){
-    const res = await fetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent(SCORE_KEY) + '&_=' + Date.now(), { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } });
-    const data = await res.json().catch(()=>({}));
-    if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
-    const item = data.item || null;
-    if(item && hasRows(item.value)) return { value:item.value, updated_at:item.updated_at || '' };
-    return null;
-  }
-  async function readSharedApi(){
-    const res = await fetch('/api/pkl-shared?key=' + encodeURIComponent(SCORE_KEY) + '&_=' + Date.now(), { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } });
-    const data = await res.json().catch(()=>({}));
-    if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
-    const item = data.item || null;
-    if(item && hasRows(item.value)) return { value:item.value, updated_at:item.updated_at || '' };
-    return null;
-  }
-  async function readRest(){
-    const cfg = await getSupabaseConfig();
-    const url = cleanUrl(cfg.url || cfg.supabaseUrl || cfg.SUPABASE_URL || '');
-    const key = String(cfg.anonKey || cfg.anon_key || cfg.supabaseAnonKey || cfg.SUPABASE_ANON_KEY || '');
-    if(!url || !key) return null;
-    const res = await fetch(url + '/rest/v1/pkl_shared_data?select=key,value,updated_at&key=eq.' + encodeURIComponent(SCORE_KEY) + '&limit=1', {
-      cache:'no-store', headers:{ apikey:key, Authorization:'Bearer ' + key, Accept:'application/json', 'Cache-Control':'no-store' }
-    });
-    const rows = await res.json().catch(()=>[]);
-    if(!res.ok) throw new Error(String(res.status));
-    const row = Array.isArray(rows) ? rows[0] : null;
-    if(row && hasRows(row.value)) return { value:row.value, updated_at:row.updated_at || '' };
-    return null;
-  }
-  async function readServer(){
-    const found = [];
-    for(const reader of [readDataStore, readSharedApi, readRest]){
-      try{ const item = await reader(); if(item) found.push(item); }catch(e){ console.warn('PKL tier score read skipped', e); }
-    }
-    found.sort((a,b)=>((Date.parse(b.updated_at || '') || stampOf(b.value) || 0) - (Date.parse(a.updated_at || '') || stampOf(a.value) || 0)));
-    return found[0] || null;
-  }
   async function postJson(url, body, keepalive){
-    const res = await fetch(url, { method:'POST', cache:'no-store', keepalive:!!keepalive, headers:{ 'Content-Type':'application/json', Accept:'application/json' }, body:JSON.stringify(body) });
-    const data = await res.json().catch(()=>({}));
+    var res = await fetch(url, { method:'POST', cache:'no-store', keepalive:!!keepalive, headers:{ 'Content-Type':'application/json', Accept:'application/json', 'Cache-Control':'no-store' }, body:JSON.stringify(body) });
+    var data = await res.json().catch(function(){ return {}; });
     if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
     return data;
   }
-  async function writeRest(payload){
-    const cfg = await getSupabaseConfig();
-    const url = cleanUrl(cfg.url || cfg.supabaseUrl || cfg.SUPABASE_URL || '');
-    const key = String(cfg.anonKey || cfg.anon_key || cfg.supabaseAnonKey || cfg.SUPABASE_ANON_KEY || '');
-    if(!url || !key) return false;
-    const res = await fetch(url + '/rest/v1/pkl_shared_data?on_conflict=key', {
-      method:'POST', cache:'no-store',
-      headers:{ apikey:key, Authorization:'Bearer ' + key, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' },
-      body:JSON.stringify({ key:SCORE_KEY, value:payload, updated_at:payload[META_KEY] || nowIso() })
-    });
-    if(!res.ok) throw new Error(String(res.status));
-    return true;
+  async function readDataStore(){
+    var res = await fetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent(SCORE_KEY) + '&_=' + Date.now(), { cache:'no-store', headers:{Accept:'application/json','Cache-Control':'no-store'} });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
+    var item = data.item || null;
+    if(item && rowCount(item.value)) return { value:item.value, updated_at:item.updated_at || '' };
+    return null;
+  }
+  async function readSharedApi(){
+    var res = await fetch('/api/pkl-shared?key=' + encodeURIComponent(SCORE_KEY) + '&_=' + Date.now(), { cache:'no-store', headers:{Accept:'application/json','Cache-Control':'no-store'} });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
+    var item = data.item || null;
+    if(item && rowCount(item.value)) return { value:item.value, updated_at:item.updated_at || '' };
+    return null;
+  }
+  async function readSyncApi(){
+    if(!window.PKLSupabaseDataSync || typeof window.PKLSupabaseDataSync.getShared !== 'function') return null;
+    var value = await window.PKLSupabaseDataSync.getShared(SCORE_KEY);
+    if(rowCount(value)) return { value:value, updated_at:value && (value[META_KEY] || value.updatedAt) || '' };
+    return null;
+  }
+  async function readServer(){
+    var found = [];
+    for(var i=0, readers=[readDataStore, readSharedApi, readSyncApi]; i<readers.length; i++){
+      try{ var item = await readers[i](); if(item) found.push(item); }catch(e){ console.warn('PKL tier score read skipped', e); }
+    }
+    found.sort(function(a,b){ return (Date.parse(b.updated_at || '') || stampOf(b.value) || 0) - (Date.parse(a.updated_at || '') || stampOf(a.value) || 0); });
+    return found[0] || null;
   }
   async function save(keepalive){
-    const payload = collectDom();
+    clearOldLocal();
+    var payload = collectDom();
     config = normalize(payload);
-    setWindowConfig(config);
-    if(isSaving && !keepalive) return false;
-    isSaving = true;
-    let ok = false;
-    let error = null;
+    setWindow(config);
+    var ok = false, error = null;
+    var seq = ++saveSeq;
     try{ await postJson('/api/pkl-data-store', { type:'shared', key:SCORE_KEY, value:payload }, keepalive); ok = true; }catch(e){ error = e; }
     try{ await postJson('/api/pkl-shared', { key:SCORE_KEY, value:payload }, keepalive); ok = true; }catch(e){ error = error || e; }
-    try{ await writeRest(payload); ok = true; }catch(e){ error = error || e; }
-    isSaving = false;
+    try{
+      if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.setShared === 'function'){
+        await window.PKLSupabaseDataSync.setShared(SCORE_KEY, payload); ok = true;
+      }
+    }catch(e){ error = error || e; }
+    clearOldLocal();
     if(ok){
-      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-saved', { detail:{ config:publicConfig(config) } })); }catch(e){}
+      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-saved', { detail:{ config:publicConfig(config), seq:seq } })); }catch(e){}
       return true;
     }
     console.error('PKL tier score save failed', error);
@@ -3284,41 +3272,47 @@ document.addEventListener("DOMContentLoaded", function(){
     return false;
   }
   function scheduleSave(immediate){
-    lastLocalChangeAt = Date.now();
+    lastInputAt = Date.now();
     applyConfig(collectDom(), false);
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(()=>save(false), immediate ? 10 : 180);
+    saveTimer = setTimeout(function(){ save(false); }, immediate ? 20 : 120);
   }
   async function load(){
-    const startedAt = Date.now();
-    const server = await readServer();
-    initialLoadDone = true;
-    if(!server || !hasRows(server.value)){
-      // 서버에 저장값이 없으면 화면 기본값을 표시만 한다. 여기서 자동 저장하지 않는다.
+    if(loading) return;
+    loading = true;
+    clearOldLocal();
+    var startedAt = Date.now();
+    var server = await readServer().catch(function(e){ console.error('PKL tier score load failed', e); return null; });
+    loading = false;
+    clearOldLocal();
+    if(!server || !rowCount(server.value)){
+      // 저장값이 없으면 HTML 기본값을 화면에만 둔다. 자동 저장 금지.
       applyConfig(collectDom(), false);
       return;
     }
-    // 입력 중/직후에는 늦게 도착한 서버값이 현재 입력을 덮으면 안 된다.
-    if(lastLocalChangeAt && lastLocalChangeAt >= startedAt) return;
-    if(Date.now() - lastLocalChangeAt < 1200) return;
-    const serverAt = Date.parse(server.updated_at || '') || stampOf(server.value) || Date.now();
+    if(lastInputAt && (lastInputAt >= startedAt || Date.now() - lastInputAt < 1500)) return;
+    var serverAt = Date.parse(server.updated_at || '') || stampOf(server.value) || Date.now();
     if(serverAt && serverAt < lastAppliedServerAt) return;
     lastAppliedServerAt = serverAt;
     applyConfig(server.value, true);
   }
+  function isScoreInput(target){ return !!(target && target.closest && target.closest('.pkl-lane-score input')); }
   function bind(){
-    document.querySelectorAll('.pkl-lane-score input').forEach(input => {
-      input.dataset.pklTierScoreSync = 'v51';
-      input.addEventListener('input', ()=>scheduleSave(false));
-      input.addEventListener('change', ()=>scheduleSave(true));
-      input.addEventListener('blur', ()=>scheduleSave(true));
+    clearOldLocal();
+    document.querySelectorAll('.pkl-lane-score input').forEach(function(input){
+      input.dataset.pklTierScoreSync = 'v52';
+      input.addEventListener('input', function(){ scheduleSave(false); }, true);
+      input.addEventListener('change', function(){ scheduleSave(true); }, true);
+      input.addEventListener('blur', function(){ scheduleSave(true); }, true);
     });
-    load().catch(e => console.error('PKL tier score load failed', e));
+    document.addEventListener('input', function(e){ if(isScoreInput(e.target)) scheduleSave(false); }, true);
+    document.addEventListener('change', function(e){ if(isScoreInput(e.target)) scheduleSave(true); }, true);
+    load();
   }
   window.pklTierCollectScoreConfig = function(){ applyConfig(collectDom(), false); return publicConfig(config); };
   window.pklTierLoadScoreConfig = function(){ return load(); };
   window.pklTierSaveScoreConfig = function(){ return save(false); };
-  window.addEventListener('beforeunload', function(){ if(lastLocalChangeAt) try{ save(true); }catch(e){} });
+  window.addEventListener('beforeunload', function(){ if(lastInputAt) try{ save(true); }catch(e){} });
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
 })();
 </script>
