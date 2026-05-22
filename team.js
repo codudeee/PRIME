@@ -2199,8 +2199,12 @@ if (!rerollModeDropdown) return;
       state.selectedSlots = targets.map(({ teamIndex, slotIndex }) => ({ teamIndex, slotIndex }));
       state.selected = state.selectedSlots[state.selectedSlots.length - 1] || null;
       setStatus(`지정칸 ${targets.length}개 리롤 완료`);
-      saveState();
+
+      // 리롤이 멈춘 뒤 슬롯 하나하나 카드를 다시 갈아끼우던 경로를 제거하고,
+      // 최종 결과는 모든 슬롯의 감속/정지가 끝난 다음 한 번만 반영한다.
+      renderTeams();
       syncSelectedSlotClasses();
+      saveState();
     };
 
     rerollBackupTeams = JSON.parse(JSON.stringify(state.teams));
@@ -2283,36 +2287,36 @@ if (!rerollModeDropdown) return;
             passCount += 1;
 
             if (passCount < slowSteps.length) {
-              window.setTimeout(runFinalPass, slowSteps[passCount]);
+              trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[passCount]));
               return;
             }
 
+            item.textContent = finalName;
             reel.classList.remove('is-tick');
             reel.classList.remove('is-decelerating');
             reel.classList.add('is-final-stop');
+
+            slot.classList.remove('is-slot-rolling');
+            slot.classList.add('is-slot-stopped');
+            slot.classList.add('is-slot-relight');
+
+            trackRerollTimeout(window.setTimeout(() => {
+              const doneSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
+              if (doneSlot) {
+                doneSlot.classList.remove('is-slot-stopped');
+                doneSlot.classList.remove('is-slot-relight');
+              }
+            }, 430));
+
+            completedSlots += 1;
+            finishRerollIfComplete();
           };
 
-          window.setTimeout(runFinalPass, slowSteps[0]);
-        }
-
-        trackRerollTimeout(window.setTimeout(() => {
-          const liveSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
-          if (!liveSlot) return;
-
-          liveSlot.classList.remove('is-slot-rolling');
-          liveSlot.classList.add('is-slot-stopped');
-          liveSlot.classList.add('is-slot-relight');
-          liveSlot.innerHTML = renderPlayerCard(finalId);
-          bindPlayerCards();
-
-          window.setTimeout(() => {
-            const doneSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
-            if (doneSlot) { doneSlot.classList.remove('is-slot-stopped'); doneSlot.classList.remove('is-slot-relight'); }
-          }, 430);
-
+          trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[0]));
+        } else {
           completedSlots += 1;
           finishRerollIfComplete();
-        }, 900));
+        }
       }, stopDelay));
     });
   }
