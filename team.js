@@ -1548,15 +1548,24 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function getUserTierFields(user) {
     if (!user) return [];
+    // 공통 티어 배지 로직과 같은 우선순위로 판정한다.
+    // Supabase row.tier에는 예전 한글 라벨이 남아있을 수 있어서 먼저 읽으면
+    // 실제 memberTier/gradeRole/tierRole이 1티어여도 0티어 대기칸에 들어갈 수 있다.
     return [
-      user.tier,
       user.memberTier,
+      user.gradeRole,
+      user.tierRole,
       user.member_tier,
       user.pklTier,
+      user.tier,
       user.memberGrade,
       user.grade,
       user.dataTierRole,
-      user.dataTier
+      user.dataTier,
+      user.baseRole,
+      user.originalRole,
+      user.memberTierName,
+      user.tierName
     ];
   }
 
@@ -1743,6 +1752,10 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function normalizeTierKey(value) {
     if (value === null || value === undefined) return 'none';
+    if (window.PKLTierBadge && typeof window.PKLTierBadge.group === 'function') {
+      const commonGroup = window.PKLTierBadge.group(value);
+      if (TIERS.some(item => item.id === commonGroup)) return commonGroup;
+    }
     const text = String(value).trim();
     if (!text) return 'none';
     const exactTier = TIERS.find(item => item.id === text || item.label === text);
@@ -1753,10 +1766,13 @@ const teamIndex = Number(slot.dataset.teamIndex);
     const idTier = TIERS.find(item => item.id.toLowerCase() === compact || item.label.replace(/\s+/g, '').toLowerCase() === compact);
     if (idTier) return idTier.id;
 
-    if (compact === '짐승' || compact === '5티어' || compact === '5tier' || compact === 'tier5' || compact === 'beast' || compact === 'animal') return 'beast';
+    if (compact === '짐승' || compact === '5티어' || compact === '5tier' || compact === 'tier5' || compact === 'beast' || compact === 'animal' || compact === 'role-beast' || compact === 'rolebeast') return 'beast';
 
     const koreanTier = compact.match(/([0-5])티어/);
     if (koreanTier) return koreanTier[1] === '5' ? 'beast' : `tier${koreanTier[1]}`;
+
+    const roleTierMatch = normalizedCompact.match(/^(?:role|grade|graderole|memberrole|tierrole|baserole)?tier([0-5])(high|mid|low|상|중|하)?$/);
+    if (roleTierMatch) return roleTierMatch[1] === '5' ? 'beast' : `tier${roleTierMatch[1]}`;
 
     const idMatch = normalizedCompact.match(/^tier([0-5])(high|mid|low|상|중|하)?$/);
     if (idMatch) return idMatch[1] === '5' ? 'beast' : `tier${idMatch[1]}`;
