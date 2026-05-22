@@ -6378,13 +6378,13 @@ tier3_low:"3티어 하",
 tier4_high:"4티어 상",
 tier4_mid:"4티어 중",
 tier4_low:"4티어 하",
-beast:"5하",beast_high:"5상",beast_low:"5하",tier5_high:"5상",tier5_low:"5하",
+beast:"5티어 하",beast_high:"5티어 상",beast_mid:"5티어 중",beast_low:"5티어 하",tier5_high:"5티어 상",tier5_mid:"5티어 중",tier5_low:"5티어 하",
 prisoner:"수감자",
 temp:"임시"
 };
 function normalizeRole(role){if(String(role)==="none")return "none";
   if(roles[role]) return role;
-  const legacy={member:"temp",normal:"temp",general:"temp",tier0:"tier0_mid",tier1:"tier1_mid",tier2:"tier2_mid",tier3:"tier3_mid",tier4:"tier4_mid"};
+  const legacy={member:"temp",normal:"temp",general:"temp",tier0:"tier0_mid",tier1:"tier1_mid",tier2:"tier2_mid",tier3:"tier3_mid",tier4:"tier4_mid",tier5:"tier5_mid",beast:"tier5_low",beast_high:"tier5_high",beast_mid:"tier5_mid",beast_low:"tier5_low"};
   return legacy[role] || "temp";
 }
 function roleName(role){return roles[normalizeRole(role)] || roles.temp;}
@@ -6397,6 +6397,7 @@ function roleClass(role){
   if(role.startsWith("tier2_")) return "role-tier2";
   if(role.startsWith("tier3_")) return "role-tier3";
   if(role.startsWith("tier4_")) return "role-tier4";
+  if(role.startsWith("tier5_") || role.startsWith("beast")) return "role-beast";
   return "role-"+role;
 }
 function normalizeAllUserRoles(){
@@ -6683,7 +6684,7 @@ function isSuperAdmin(){const role=currentAdminRole();const label=(document.getE
 function primaryRole(u){const r=normalizeRole(u?.role||"temp");return r==="prisoner" ? normalizeRole(u?.baseRole||u?.tierRole||u?.originalRole||"temp") : r;}
 function primaryRoleName(u){return roleName(primaryRole(u));}
 function primaryRoleClass(u){return roleClass(primaryRole(u));}
-const pklGradeRoles=["none","tier0_high","tier0_mid","tier0_low","tier1_high","tier1_mid","tier1_low","tier2_high","tier2_mid","tier2_low","tier3_high","tier3_mid","tier3_low","tier4_high","tier4_mid","tier4_low","beast"];
+const pklGradeRoles=["none","tier0_high","tier0_mid","tier0_low","tier1_high","tier1_mid","tier1_low","tier2_high","tier2_mid","tier2_low","tier3_high","tier3_mid","tier3_low","tier4_high","tier4_mid","tier4_low","tier5_high","tier5_mid","tier5_low"];
 const pklMemberRoles={admin:"관리자",operator:"운영자",prisoner:"수감자",user:"일반",guest:"임시"};
 function pklRoleSystem(){return window.PKLRoleSystem||{};}
 function normalizeMemberRole(role){
@@ -6702,7 +6703,7 @@ function gradeRoleFromTierText(text){
   const sys=pklRoleSystem();
   if(typeof sys.normalizeGradeRole==="function") return sys.normalizeGradeRole(text);
   text=String(text||"");
-  const map={"0티어 상":"tier0_high","0티어 중":"tier0_mid","0티어 하":"tier0_low","1티어 상":"tier1_high","1티어 중":"tier1_mid","1티어 하":"tier1_low","2티어 상":"tier2_high","2티어 중":"tier2_mid","2티어 하":"tier2_low","3티어 상":"tier3_high","3티어 중":"tier3_mid","3티어 하":"tier3_low","4티어 상":"tier4_high","4티어 중":"tier4_mid","4티어 하":"tier4_low","짐승":"tier5_low","짐승상":"tier5_high","짐승하":"tier5_low","5상":"tier5_high","5하":"tier5_low","5티어상":"tier5_high","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 하":"tier5_low"};
+  const map={"0티어 상":"tier0_high","0티어 중":"tier0_mid","0티어 하":"tier0_low","1티어 상":"tier1_high","1티어 중":"tier1_mid","1티어 하":"tier1_low","2티어 상":"tier2_high","2티어 중":"tier2_mid","2티어 하":"tier2_low","3티어 상":"tier3_high","3티어 중":"tier3_mid","3티어 하":"tier3_low","4티어 상":"tier4_high","4티어 중":"tier4_mid","4티어 하":"tier4_low","짐승":"tier5_low","짐승상":"tier5_high","짐승중":"tier5_mid","짐승하":"tier5_low","5상":"tier5_high","5중":"tier5_mid","5하":"tier5_low","5티어상":"tier5_high","5티어중":"tier5_mid","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 중":"tier5_mid","5티어 하":"tier5_low"};
   return pklGradeRoles.includes(text)?text:(map[text]||"none");
 }
 function gradeRole(u){
@@ -7841,7 +7842,9 @@ function pklSeoulTimeOnly(value){
 <button onclick="setRoleFromDropdown('tier4_high')">4티어 상</button>
 <button onclick="setRoleFromDropdown('tier4_mid')">4티어 중</button>
 <button onclick="setRoleFromDropdown('tier4_low')">4티어 하</button>
-<button onclick="setRoleFromDropdown('beast')">짐승</button></div>
+<button onclick="setRoleFromDropdown('tier5_high')">5티어 상</button>
+<button onclick="setRoleFromDropdown('tier5_mid')">5티어 중</button>
+<button onclick="setRoleFromDropdown('tier5_low')">5티어 하</button></div>
 
 <div id="memoDeleteModal" class="memo-delete-modal">
   <div class="memo-delete-box">

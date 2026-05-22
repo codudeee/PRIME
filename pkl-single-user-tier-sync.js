@@ -12,13 +12,14 @@
     if(/^tier[0-4]$/.test(l)) return l;
     var m=s.match(/([0-4])\s*티어/); if(m) return 'tier'+m[1];
     m=l.match(/^([0-4])tier/); if(m) return 'tier'+m[1];
-    if(/5티어상|5상|짐승상|beasthigh/.test(l)) return 'tier5_high';
-    if(/5티어하|5하|짐승하|짐승|beastlow|beast/.test(l)) return 'tier5_low';
+    if(/5티어상|5상|짐승상|beasthigh|tier5high/.test(l)) return 'tier5_high';
+    if(/5티어중|5중|짐승중|beastmid|tier5mid/.test(l)) return 'tier5_mid';
+    if(/5티어하|5하|짐승하|짐승|beastlow|beast|tier5low/.test(l)) return 'tier5_low';
     return s;
   }
   function tierLabel(t){
     t=normalizeTier(t);
-    if(t==='tier0') return '0티어'; if(t==='tier1') return '1티어'; if(t==='tier2') return '2티어'; if(t==='tier3') return '3티어'; if(t==='tier4') return '4티어'; if(t==='tier5_high'||t==='beast_high') return '5티어 상'; if(t==='tier5_low'||t==='beast_low'||t==='beast') return '5티어 하';
+    if(t==='tier0') return '0티어'; if(t==='tier1') return '1티어'; if(t==='tier2') return '2티어'; if(t==='tier3') return '3티어'; if(t==='tier4') return '4티어'; if(t==='tier5_high'||t==='beast_high') return '5티어 상'; if(t==='tier5_mid'||t==='beast_mid') return '5티어 중'; if(t==='tier5_low'||t==='beast_low'||t==='beast') return '5티어 하';
     return clean(t)||'중';
   }
   function renderBadge(sync, extra){

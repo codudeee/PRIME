@@ -9,7 +9,7 @@
     tier2_high:"2티어 상",tier2_mid:"2티어 중",tier2_low:"2티어 하",
     tier3_high:"3티어 상",tier3_mid:"3티어 중",tier3_low:"3티어 하",
     tier4_high:"4티어 상",tier4_mid:"4티어 중",tier4_low:"4티어 하",
-    beast:"5티어 하",beast_high:"5티어 상",beast_low:"5티어 하",tier5_high:"5티어 상",tier5_low:"5티어 하",temp:"임시"
+    beast:"5티어 하",beast_high:"5티어 상",beast_mid:"5티어 중",beast_low:"5티어 하",tier5_high:"5티어 상",tier5_mid:"5티어 중",tier5_low:"5티어 하",temp:"임시"
   };
   var GRADE_KEYS=Object.keys(GRADE_LABELS);
 
@@ -40,7 +40,7 @@
       "2티어":"tier2_mid","2티어상":"tier2_high","2티어중":"tier2_mid","2티어하":"tier2_low",
       "3티어":"tier3_mid","3티어상":"tier3_high","3티어중":"tier3_mid","3티어하":"tier3_low",
       "4티어":"tier4_mid","4티어상":"tier4_high","4티어중":"tier4_mid","4티어하":"tier4_low",
-      "짐승":"tier5_low","짐승상":"tier5_high","짐승하":"tier5_low","5상":"tier5_high","5하":"tier5_low","5티어상":"tier5_high","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 하":"tier5_low","임시":"temp"
+      "짐승":"tier5_low","짐승상":"tier5_high","짐승중":"tier5_mid","짐승하":"tier5_low","5상":"tier5_high","5중":"tier5_mid","5하":"tier5_low","5티어상":"tier5_high","5티어중":"tier5_mid","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 중":"tier5_mid","5티어 하":"tier5_low","임시":"temp"
     };
     var l=lower(raw).replace(/[\s_-]+/g,"");
     var aliases={
@@ -49,7 +49,7 @@
       tier2:"tier2_mid",tier2high:"tier2_high",tier2mid:"tier2_mid",tier2low:"tier2_low",
       tier3:"tier3_mid",tier3high:"tier3_high",tier3mid:"tier3_mid",tier3low:"tier3_low",
       tier4:"tier4_mid",tier4high:"tier4_high",tier4mid:"tier4_mid",tier4low:"tier4_low",
-      beast:"beast_low",beasthigh:"beast_high",beastlow:"beast_low",temp:"temp"
+      tier5:"tier5_mid",tier5high:"tier5_high",tier5mid:"tier5_mid",tier5low:"tier5_low",beast:"tier5_low",beasthigh:"tier5_high",beastmid:"tier5_mid",beastlow:"tier5_low",temp:"temp"
     };
     return map[c]||aliases[l]||"none";
   }
