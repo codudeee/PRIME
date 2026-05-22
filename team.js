@@ -467,6 +467,38 @@
           gap:8px !important;
         }
       }
+
+      /* PKL view-only reroll list: force column order = score then confirm */
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-entry > .pkl-reroll-total-badge{
+        grid-column:2 !important;
+        grid-row:1 !important;
+        justify-self:center !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-entry > .pkl-reroll-paid-view{
+        grid-column:3 !important;
+        grid-row:1 !important;
+        justify-self:center !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-paid-view{
+        display:inline-flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        border-radius:999px !important;
+        font-weight:900 !important;
+        letter-spacing:-.02em !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-paid-view.is-paid{
+        color:#eafff7 !important;
+        background:linear-gradient(135deg,rgba(34,197,94,.28),rgba(20,184,166,.24)) !important;
+        border:1px solid rgba(74,222,128,.68) !important;
+        box-shadow:0 0 10px rgba(34,197,94,.22) !important;
+      }
+      #rerollListModal.pkl-reroll-view-only .pkl-reroll-paid-view:not(.is-paid){
+        color:#d5d0df !important;
+        background:rgba(148,163,184,.14) !important;
+        border:1px solid rgba(148,163,184,.28) !important;
+        box-shadow:none !important;
+      }
     `;
     document.head.appendChild(style);
   }
