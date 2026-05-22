@@ -2187,7 +2187,6 @@ if (!rerollModeDropdown) return;
     const stopOrder = shuffleIds(targets.map((_, index) => index));
     const finalized = new Set();
     let completedSlots = 0;
-    let shouldBindCardsAfterReroll = false;
 
     const finishRerollIfComplete = () => {
       if (completedSlots !== targets.length) return;
@@ -2201,8 +2200,8 @@ if (!rerollModeDropdown) return;
       state.selected = state.selectedSlots[state.selectedSlots.length - 1] || null;
       setStatus(`지정칸 ${targets.length}개 리롤 완료`);
       cleanPlacedPlayersOutOfWaitingPools();
+      renderTeams();
       renderSummary();
-      if (shouldBindCardsAfterReroll) bindPlayerCards();
       saveState();
       syncSelectedSlotClasses();
     };
@@ -2221,8 +2220,6 @@ if (!rerollModeDropdown) return;
         liveSlot.classList.remove('is-slot-rolling');
         liveSlot.classList.add('is-slot-stopped');
         liveSlot.classList.add('is-slot-relight');
-        liveSlot.innerHTML = renderPlayerCard(finalId);
-        shouldBindCardsAfterReroll = true;
 
         trackRerollTimeout(window.setTimeout(() => {
           const doneSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
