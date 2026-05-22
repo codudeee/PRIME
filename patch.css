@@ -462,13 +462,21 @@ html,body{
 .patch-detail-list{
   min-height:0 !important;
   height:100% !important;
-  display:grid !important;
-  grid-template-rows:repeat(3,minmax(0,1fr)) !important;
+  max-height:100% !important;
+  display:flex !important;
+  flex-direction:column !important;
   gap:0 !important;
-  overflow:hidden !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  overscroll-behavior:contain !important;
+  scrollbar-gutter:stable !important;
+  padding-right:10px !important;
+  padding-bottom:18px !important;
 }
 .patch-item{
-  min-height:0 !important;
+  flex:0 0 auto !important;
+  min-height:82px !important;
+  height:auto !important;
   padding:9px 0 !important;
   grid-template-columns:74px minmax(0,1fr) !important;
   gap:14px !important;
@@ -1126,4 +1134,65 @@ html,body{
 }
 #patchInputItems{
   white-space:pre-wrap !important;
+}
+
+/* =========================================================
+   PKL PATCH NOTE DETAIL BOX SCROLL FINAL FIX
+   - 패치 상세 큰 박스 안에서 내용이 길어질 때 잘리지 않고 내부 스크롤
+   - 이전 하단 override의 overflow:visible / height:auto를 최종 교체
+========================================================= */
+.patch-main-panel{
+  display:grid !important;
+  grid-template-rows:auto minmax(0,1fr) !important;
+  min-height:0 !important;
+  height:100% !important;
+  max-height:100% !important;
+  overflow:hidden !important;
+}
+.patch-main-top{
+  flex:0 0 auto !important;
+}
+.patch-detail-list{
+  display:flex !important;
+  flex-direction:column !important;
+  align-content:start !important;
+  min-height:0 !important;
+  height:100% !important;
+  max-height:100% !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  overscroll-behavior:contain !important;
+  scrollbar-gutter:stable !important;
+  padding-top:10px !important;
+  padding-right:10px !important;
+  padding-bottom:18px !important;
+}
+.patch-detail-list::-webkit-scrollbar{
+  width:8px !important;
+}
+.patch-detail-list::-webkit-scrollbar-thumb{
+  background:rgba(176,118,255,.42) !important;
+  border-radius:999px !important;
+}
+.patch-detail-list::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.035) !important;
+  border-radius:999px !important;
+}
+.patch-item{
+  flex:0 0 auto !important;
+  height:auto !important;
+  min-height:82px !important;
+}
+.patch-info,
+.patch-preserve-text{
+  min-width:0 !important;
+  max-width:100% !important;
+}
+.patch-version-list{
+  min-height:0 !important;
+  max-height:100% !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  overscroll-behavior:contain !important;
+  padding-right:6px !important;
 }
