@@ -224,6 +224,7 @@ button{
 .tier-box[data-tier="tier2"]{--tier-accent:#5ae682;}
 .tier-box[data-tier="tier3"]{--tier-accent:#6ebeff;}
 .tier-box[data-tier="tier4"]{--tier-accent:#c896ff;}
+.tier-box[data-tier="tier5"],
 .tier-box[data-tier="beast"]{--tier-accent:#d2965f;}
 
 .tier-head{
@@ -6549,6 +6550,7 @@ body{
 .tier-box[data-tier="tier2"]{--tier-accent:#35d070;}
 .tier-box[data-tier="tier3"]{--tier-accent:#56b7ff;}
 .tier-box[data-tier="tier4"]{--tier-accent:#a874ff;}
+.tier-box[data-tier="tier5"],
 .tier-box[data-tier="beast"]{--tier-accent:#ff9b45;}
 .tier-list{
   overflow-y:auto !important;
@@ -7359,34 +7361,80 @@ body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-view.is-paid{
   background:rgba(34,211,238,.10);
 }
 
-/* === PKL TEAM DRAG FIX === */
+/* === PKL TEAM CURSOR CLEANUP: keep text cursor only on real inputs === */
+body,
+body .team-container,
+body .team-container *,
+body .control-panel,
+body .control-panel *,
+body .team-card,
+body .team-card *,
+body .tier-waiting-area,
+body .tier-waiting-area *,
+body .modal,
+body .modal *{
+  cursor:default;
+}
+
+body button,
+body a,
+body label,
+body summary,
+body select,
+body option,
+body [role="button"],
+body .btn,
+body .button,
+body .clickable,
+body .pkl-clickable,
+body .pkl-custom-select,
+body .pkl-custom-select *,
+body .pkl-team-mode-dropdown,
+body .pkl-team-mode-dropdown *,
+body .team-slot,
+body .player-chip,
 body .player-card,
-body .tier-list .player-card,
-body .team-slot .player-card{
-  cursor:grab !important;
-  user-select:none !important;
-  -webkit-user-select:none !important;
-  touch-action:none !important;
-  pointer-events:auto !important;
+body .reroll-card,
+body .pkl-reroll-list-row,
+body .pkl-reroll-check,
+body input[type="checkbox"],
+body input[type="radio"],
+body input[type="button"],
+body input[type="submit"],
+body input[type="reset"]{
+  cursor:pointer !important;
 }
-body .player-card:active,
-body .player-card.is-dragging{
+
+body input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+body textarea,
+body [contenteditable="true"]{
+  cursor:text !important;
+  user-select:text;
+  -webkit-user-select:text;
+}
+
+body input[type="number"]{
+  cursor:text !important;
+}
+
+body .pkl-viewer-disabled-control,
+body button:disabled,
+body input:disabled,
+body select:disabled,
+body textarea:disabled,
+body [aria-disabled="true"]{
+  cursor:not-allowed !important;
+}
+
+
+
+/* === PKL TEAM DRAG ROOT FIX === */
+.player-card.is-dragging{
+  opacity:.72 !important;
   cursor:grabbing !important;
-  opacity:.92;
 }
-body .player-card *,
-body .tier-list .player-card *,
-body .team-slot .player-card *{
-  pointer-events:none !important;
-  user-select:none !important;
-  -webkit-user-select:none !important;
-}
-body .tier-list,
-body .team-slot{
-  pointer-events:auto !important;
-}
-body .tier-list.is-over,
-body .team-slot.is-over{
-  outline:1px solid rgba(250,204,21,.72) !important;
-  outline-offset:-2px !important;
+.team-slot.is-over,
+.tier-list.is-over{
+  border-color:rgba(250,204,21,.72) !important;
+  box-shadow:0 0 0 1px rgba(250,204,21,.28),0 0 18px rgba(250,204,21,.18) !important;
 }
