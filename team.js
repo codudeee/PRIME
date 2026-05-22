@@ -2944,10 +2944,10 @@ function saveMatchTimeSettings() {
   }
 
   const REROLL_TYPES = [
-    { key: 'r03', label: '0.3', title: '0.3 리롤' },
-    { key: 'r05', label: '0.5', title: '0.5 리롤' },
-    { key: 'r07', label: '0.7', title: '0.7 리롤' },
-    { key: 'r10', label: '1.0', title: '1.0 리롤' }
+    { key: 'r03', label: '0.3', title: '0.3 리롤', value: 0.3 },
+    { key: 'r05', label: '0.5', title: '0.5 리롤', value: 0.5 },
+    { key: 'r07', label: '0.7', title: '0.7 리롤', value: 0.7 },
+    { key: 'r10', label: '1.0', title: '1.0 리롤', value: 1.0 }
   ];
 
   function ensureRerollRequestState() {
@@ -2984,6 +2984,20 @@ function saveMatchTimeSettings() {
     return REROLL_TYPES.reduce((sum, type) => sum + normalizeRerollCount(request.counts[type.key]), 0);
   }
 
+  function getRerollTotalScore(request) {
+    if (!request || !request.counts || typeof request.counts !== 'object') return normalizeRerollCount(request && request.count);
+    const total = REROLL_TYPES.reduce((sum, type) => {
+      return sum + (normalizeRerollCount(request.counts[type.key]) * Number(type.value || 0));
+    }, 0);
+    return Math.round(total * 10) / 10;
+  }
+
+  function formatRerollTotalScore(value) {
+    const number = Number(value || 0);
+    if (!Number.isFinite(number)) return '0';
+    return Number.isInteger(number) ? String(number) : number.toFixed(1);
+  }
+
   function renderRerollTypeControls(key, request, canManageList) {
     const counts = (request && request.counts) || {};
     return REROLL_TYPES.map(type => {
@@ -3018,11 +3032,11 @@ function saveMatchTimeSettings() {
         overflow:visible !important;
       }
       #rerollListModal .pkl-reroll-user{min-width:0 !important;width:auto !important;overflow:hidden;}
-      #rerollListModal .pkl-reroll-user-main{display:flex;align-items:center;gap:5px;min-width:0;white-space:nowrap;}
-      #rerollListModal .pkl-reroll-user-main strong{min-width:0;max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+      #rerollListModal .pkl-reroll-user-main{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;}
+      #rerollListModal .pkl-reroll-user-main strong{min-width:0;max-width:82px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;order:2;}
       #rerollListModal .pkl-reroll-position{display:block;margin-top:3px;font-size:10px;line-height:1.15;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-      #rerollListModal .pkl-reroll-tier-badge{display:inline-flex;max-width:58px;white-space:nowrap;transform:scale(.82);transform-origin:left center;}
-      #rerollListModal .pkl-reroll-total-badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:18px;padding:0 6px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);font-size:10px;font-weight:900;color:#fff;}
+      #rerollListModal .pkl-reroll-tier-badge{display:inline-flex;max-width:62px;white-space:nowrap;transform:scale(.82);transform-origin:left center;order:1;}
+      #rerollListModal .pkl-reroll-total-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:18px;padding:0 7px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);font-size:10px;font-weight:900;color:#fff;order:3;}
       #rerollListModal .pkl-reroll-type-grid{
         display:grid !important;
         grid-template-columns:repeat(4,minmax(66px,1fr)) !important;
@@ -3189,14 +3203,14 @@ function saveMatchTimeSettings() {
       const request = normalizeRerollRequestShape(state.rerollRequests[item.key] || { count: 0, counts: {}, paid: false });
       const position = [item.teamName, item.slotName].filter(Boolean).join(' · ');
       const tierBadge = item.tierBadge || request.tierBadge || '';
-      const totalCount = getRerollTotalCount(request);
+      const totalScore = formatRerollTotalScore(getRerollTotalScore(request));
       return `
         <div class="pkl-reroll-entry ${request.paid ? 'is-paid' : ''} ${canManageList ? '' : 'is-view-only'}" data-reroll-key="${escapeHtml(item.key)}">
           <div class="pkl-reroll-user">
             <div class="pkl-reroll-user-main">
-              <strong>${escapeHtml(item.name)}</strong>
               ${tierBadge ? `<span class="pkl-reroll-tier-badge">${tierBadge}</span>` : ''}
-              <span class="pkl-reroll-total-badge">합 ${totalCount}</span>
+              <strong>${escapeHtml(item.name)}</strong>
+              <span class="pkl-reroll-total-badge">${escapeHtml(totalScore)}</span>
             </div>
             <span class="pkl-reroll-position">${escapeHtml(position)}</span>
           </div>
