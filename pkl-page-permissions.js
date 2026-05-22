@@ -32,6 +32,10 @@
        섞을 수 있어서 직접 role 판정 실패 시에만 fallback으로 사용한다. */
     for(var i=0;i<currents.length;i++){var direct=mapRoleText(roleText(currents[i])); if(direct) return direct;}
     try{
+      if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentHasRole==='function'){
+        if(window.PKLRoleSystem.currentHasRole('admin')) return 'admin';
+        if(window.PKLRoleSystem.currentHasRole('operator')) return 'operator';
+      }
       if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentAccessRole==='function'){
         var rr=mapRoleText(norm(window.PKLRoleSystem.currentAccessRole()));
         if(rr) return rr;
@@ -180,8 +184,18 @@
   protectClick('#patchAddBtnSide,#patchEditBtn,#patchDeleteBtn,#patchConfirmDelete','admin','관리자만 패치노트를 수정할 수 있습니다.');
   protectClick('#ruleAddCategoryBtn,#ruleEditBtn,.rule-add-block-btn,.rule-block-delete-btn','admin','관리자만 룰을 수정할 수 있습니다.');
 
+  function canDragProtectedPage(){
+    if(isOperatorUp()) return true;
+    try{
+      if(window.PKLRoleSystem && typeof window.PKLRoleSystem.currentHasRole==='function'){
+        return !!(window.PKLRoleSystem.currentHasRole('admin') || window.PKLRoleSystem.currentHasRole('operator'));
+      }
+    }catch(e){}
+    return false;
+  }
+
   document.addEventListener('dragstart',function(e){
-    if((PAGE==='tier.html'||PAGE==='team.html') && !isOperatorUp()){
+    if((PAGE==='tier.html'||PAGE==='team.html') && !canDragProtectedPage()){
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();

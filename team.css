@@ -7359,67 +7359,34 @@ body.pkl-team-viewer-only #rerollListModal .pkl-reroll-paid-view.is-paid{
   background:rgba(34,211,238,.10);
 }
 
-/* === PKL TEAM CURSOR CLEANUP: keep text cursor only on real inputs === */
-body,
-body .team-container,
-body .team-container *,
-body .control-panel,
-body .control-panel *,
-body .team-card,
-body .team-card *,
-body .tier-waiting-area,
-body .tier-waiting-area *,
-body .modal,
-body .modal *{
-  cursor:default;
-}
-
-body button,
-body a,
-body label,
-body summary,
-body select,
-body option,
-body [role="button"],
-body .btn,
-body .button,
-body .clickable,
-body .pkl-clickable,
-body .pkl-custom-select,
-body .pkl-custom-select *,
-body .pkl-team-mode-dropdown,
-body .pkl-team-mode-dropdown *,
-body .team-slot,
-body .player-chip,
+/* === PKL TEAM DRAG FIX === */
 body .player-card,
-body .reroll-card,
-body .pkl-reroll-list-row,
-body .pkl-reroll-check,
-body input[type="checkbox"],
-body input[type="radio"],
-body input[type="button"],
-body input[type="submit"],
-body input[type="reset"]{
-  cursor:pointer !important;
+body .tier-list .player-card,
+body .team-slot .player-card{
+  cursor:grab !important;
+  user-select:none !important;
+  -webkit-user-select:none !important;
+  touch-action:none !important;
+  pointer-events:auto !important;
 }
-
-body input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
-body textarea,
-body [contenteditable="true"]{
-  cursor:text !important;
-  user-select:text;
-  -webkit-user-select:text;
+body .player-card:active,
+body .player-card.is-dragging{
+  cursor:grabbing !important;
+  opacity:.92;
 }
-
-body input[type="number"]{
-  cursor:text !important;
+body .player-card *,
+body .tier-list .player-card *,
+body .team-slot .player-card *{
+  pointer-events:none !important;
+  user-select:none !important;
+  -webkit-user-select:none !important;
 }
-
-body .pkl-viewer-disabled-control,
-body button:disabled,
-body input:disabled,
-body select:disabled,
-body textarea:disabled,
-body [aria-disabled="true"]{
-  cursor:not-allowed !important;
+body .tier-list,
+body .team-slot{
+  pointer-events:auto !important;
+}
+body .tier-list.is-over,
+body .team-slot.is-over{
+  outline:1px solid rgba(250,204,21,.72) !important;
+  outline-offset:-2px !important;
 }

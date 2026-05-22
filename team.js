@@ -653,23 +653,30 @@ if (rerollListModal) {
   }
 
   function bindPlayerCards() {
+    const canEdit = pklTeamCanEdit();
     document.querySelectorAll('.player-card').forEach(card => {
-      card.draggable = pklTeamCanEdit();
+      card.draggable = canEdit;
+      card.setAttribute('draggable', canEdit ? 'true' : 'false');
 
       card.ondragstart = event => {
-        if(!pklTeamCanEdit()){ event.preventDefault(); pklTeamDeny(); return; }
-        
+        if (!pklTeamCanEdit()) { event.preventDefault(); pklTeamDeny(); return; }
         if (isRerolling) { event.preventDefault(); return; }
-draggedPlayerId = card.dataset.playerId;
-        event.dataTransfer.setData('text/plain', draggedPlayerId);
-        event.dataTransfer.effectAllowed = 'move';
-      };
 
-      card.ondrag = event => {
+        draggedPlayerId = card.dataset.playerId || '';
+        if (!draggedPlayerId) { event.preventDefault(); return; }
+
+        card.classList.add('is-dragging');
+        if (event.dataTransfer) {
+          event.dataTransfer.clearData();
+          event.dataTransfer.setData('text/plain', draggedPlayerId);
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.dropEffect = 'move';
+        }
       };
 
       card.ondragend = () => {
         suppressNextClick = true;
+        card.classList.remove('is-dragging');
         draggedPlayerId = null;
         clearDropStyles();
         setTimeout(() => { suppressNextClick = false; }, 80);
@@ -679,33 +686,41 @@ draggedPlayerId = card.dataset.playerId;
 
   function bindDropZones() {
     document.querySelectorAll('[data-drop-type]').forEach(zone => {
-      zone.ondragover = event => {
-        
-        if (isRerolling) return;
-event.preventDefault();
+      zone.ondragenter = event => {
+        if (!pklTeamCanEdit() || isRerolling) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
         zone.classList.add('is-over');
       };
 
-      zone.ondragleave = () => {
+      zone.ondragover = event => {
+        if (!pklTeamCanEdit() || isRerolling) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+        zone.classList.add('is-over');
+      };
+
+      zone.ondragleave = event => {
+        if (event.currentTarget && event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) return;
         zone.classList.remove('is-over');
       };
 
       zone.ondrop = event => {
-        
+        if (!pklTeamCanEdit()) { event.preventDefault(); pklTeamDeny(); return; }
         if (isRerolling) { event.preventDefault(); return; }
-event.preventDefault();
+        event.preventDefault();
+        event.stopPropagation();
 
-        const playerId = draggedPlayerId || event.dataTransfer.getData('text/plain');
-        if (!playerId) return;
+        const playerId = draggedPlayerId || (event.dataTransfer && event.dataTransfer.getData('text/plain')) || '';
+        if (!playerId) { clearDropStyles(); return; }
 
         if (zone.dataset.dropType === 'tier') {
           movePlayerToTier(playerId, zone.dataset.tierId);
-        }
-
-        if (zone.dataset.dropType === 'slot') {
+        } else if (zone.dataset.dropType === 'slot') {
           movePlayerToSlot(playerId, Number(zone.dataset.teamIndex), Number(zone.dataset.slotIndex));
         }
 
+        draggedPlayerId = null;
         clearDropStyles();
         render();
       };
