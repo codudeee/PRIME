@@ -714,14 +714,29 @@ if (rerollListModal) {
   function bindPlayerCards() {
     document.querySelectorAll('.player-card').forEach(card => {
       card.draggable = pklTeamCanEdit();
+      card.setAttribute('draggable', pklTeamCanEdit() ? 'true' : 'false');
 
       card.ondragstart = event => {
-        if(!pklTeamCanEdit()){ event.preventDefault(); pklTeamDeny(); return; }
-        
-        if (isRerolling) { event.preventDefault(); return; }
-draggedPlayerId = card.dataset.playerId;
-        event.dataTransfer.setData('text/plain', draggedPlayerId);
+        if (!pklTeamCanEdit()) {
+          event.preventDefault();
+          pklTeamDeny();
+          return;
+        }
+        if (isRerolling) {
+          event.preventDefault();
+          return;
+        }
+
+        draggedPlayerId = card.dataset.playerId || '';
+        if (!draggedPlayerId) {
+          event.preventDefault();
+          return;
+        }
+
+        card.classList.add('is-dragging');
         event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', draggedPlayerId);
+        event.dataTransfer.setData('application/x-pkl-player-id', draggedPlayerId);
         updateTeamDragAutoScroll(event);
       };
 
@@ -730,6 +745,7 @@ draggedPlayerId = card.dataset.playerId;
       };
 
       card.ondragend = () => {
+        card.classList.remove('is-dragging');
         suppressNextClick = true;
         stopTeamDragAutoScroll();
         draggedPlayerId = null;
@@ -739,39 +755,64 @@ draggedPlayerId = card.dataset.playerId;
     });
   }
 
+  function handleTeamDrop(zone, event) {
+    if (!zone || !pklTeamCanEdit()) {
+      if (event) event.preventDefault();
+      return;
+    }
+    if (isRerolling) {
+      if (event) event.preventDefault();
+      return;
+    }
+
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    stopTeamDragAutoScroll();
+
+    const transfer = event && event.dataTransfer;
+    const playerId = draggedPlayerId
+      || (transfer && (transfer.getData('application/x-pkl-player-id') || transfer.getData('text/plain')))
+      || '';
+
+    if (!playerId) return;
+
+    if (zone.dataset.dropType === 'tier') {
+      movePlayerToTier(playerId, zone.dataset.tierId);
+    } else if (zone.dataset.dropType === 'slot') {
+      movePlayerToSlot(playerId, Number(zone.dataset.teamIndex), Number(zone.dataset.slotIndex));
+    }
+
+    draggedPlayerId = null;
+    clearDropStyles();
+    render();
+  }
+
   function bindDropZones() {
     document.querySelectorAll('[data-drop-type]').forEach(zone => {
+      zone.ondragenter = event => {
+        if (!pklTeamCanEdit() || isRerolling) return;
+        event.preventDefault();
+        event.stopPropagation();
+        zone.classList.add('is-over');
+      };
+
       zone.ondragover = event => {
-        
-        if (isRerolling) return;
-event.preventDefault();
+        if (!pklTeamCanEdit() || isRerolling) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
         updateTeamDragAutoScroll(event);
         zone.classList.add('is-over');
       };
 
-      zone.ondragleave = () => {
-        zone.classList.remove('is-over');
+      zone.ondragleave = event => {
+        if (event.currentTarget === zone) zone.classList.remove('is-over');
       };
 
       zone.ondrop = event => {
-        
-        if (isRerolling) { event.preventDefault(); return; }
-event.preventDefault();
-        stopTeamDragAutoScroll();
-
-        const playerId = draggedPlayerId || event.dataTransfer.getData('text/plain');
-        if (!playerId) return;
-
-        if (zone.dataset.dropType === 'tier') {
-          movePlayerToTier(playerId, zone.dataset.tierId);
-        }
-
-        if (zone.dataset.dropType === 'slot') {
-          movePlayerToSlot(playerId, Number(zone.dataset.teamIndex), Number(zone.dataset.slotIndex));
-        }
-
-        clearDropStyles();
-        render();
+        handleTeamDrop(zone, event);
       };
     });
   }

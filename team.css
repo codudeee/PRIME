@@ -7425,13 +7425,13 @@ body [aria-disabled="true"]{
 }
 
 
-
-/* === PKL TEAM SCROLL/DRAG REPAIR ===
-   원인: 기존 CSS 후반부에서 team-board를 overflow:hidden으로 다시 덮고,
-   player-card 커서를 pointer로 덮어 드래그/스크롤 상태가 꼬였다.
-   해결: 팀보드/대기칸은 실제 스크롤 컨테이너로 복구하고, 드래그 카드는 grab 상태로 고정한다.
+/* === PKL TEAM LAYOUT/DRAG ROOT FIX ===
+   팀페이지의 실제 스크롤 컨테이너를 team-board/tier-list로 고정하고
+   카드 드래그 중 자식 요소나 커서 규칙이 드롭 이벤트를 방해하지 않도록 정리한다.
 */
 .team-page{
+  height:100dvh !important;
+  min-height:0 !important;
   overflow:hidden !important;
 }
 .team-page > .builder-layout{
@@ -7445,7 +7445,8 @@ body [aria-disabled="true"]{
   min-height:0 !important;
   max-height:100% !important;
 }
-.team-page > .builder-layout > .tier-panel{
+.team-page > .builder-layout > .tier-panel,
+.team-page > .builder-layout > .team-board{
   overflow:hidden !important;
 }
 .team-page > .builder-layout > .tier-panel .tier-pools{
@@ -7462,39 +7463,35 @@ body [aria-disabled="true"]{
   overflow-x:hidden !important;
   overscroll-behavior:contain !important;
 }
-.team-page > .builder-layout > .team-board{
+.team-page > .builder-layout > .team-board .team-grid{
+  min-height:0 !important;
   overflow:auto !important;
   overscroll-behavior:contain !important;
   scrollbar-gutter:stable both-edges !important;
-}
-.team-page > .builder-layout > .team-board .team-grid{
-  min-height:100% !important;
-  width:100% !important;
-  overflow:visible !important;
   align-content:start !important;
 }
 .team-page > .builder-layout.pkl-mode-20 > .team-board .team-grid,
 .team-page > .builder-layout.pkl-mode-squad > .team-board .team-grid{
-  grid-template-rows:repeat(2,minmax(255px,auto)) !important;
+  grid-template-rows:repeat(2,minmax(190px,1fr)) !important;
 }
 .team-page > .builder-layout.pkl-mode-40 > .team-board .team-grid{
-  grid-template-rows:repeat(4,minmax(128px,auto)) !important;
+  grid-template-rows:repeat(4,minmax(118px,auto)) !important;
 }
 .team-page > .builder-layout.pkl-mode-partner > .team-board .team-grid{
   grid-template-rows:none !important;
-  grid-auto-rows:minmax(128px,auto) !important;
+  grid-auto-rows:minmax(130px,auto) !important;
 }
-.team-page > .builder-layout > .team-board::-webkit-scrollbar,
+.team-page > .builder-layout > .team-board .team-grid::-webkit-scrollbar,
 .team-page > .builder-layout > .tier-panel .tier-list::-webkit-scrollbar{
   width:8px !important;
   height:8px !important;
 }
-.team-page > .builder-layout > .team-board::-webkit-scrollbar-track,
+.team-page > .builder-layout > .team-board .team-grid::-webkit-scrollbar-track,
 .team-page > .builder-layout > .tier-panel .tier-list::-webkit-scrollbar-track{
   background:rgba(255,255,255,.045) !important;
   border-radius:999px !important;
 }
-.team-page > .builder-layout > .team-board::-webkit-scrollbar-thumb,
+.team-page > .builder-layout > .team-board .team-grid::-webkit-scrollbar-thumb,
 .team-page > .builder-layout > .tier-panel .tier-list::-webkit-scrollbar-thumb{
   border-radius:999px !important;
   background:linear-gradient(180deg,rgba(216,180,254,.86),rgba(124,58,237,.62)) !important;
@@ -7504,13 +7501,21 @@ body .player-card,
 body .tier-list .player-card,
 body .team-slot .player-card{
   cursor:grab !important;
+  user-select:none !important;
+  -webkit-user-select:none !important;
 }
 body .player-card:active,
 body .player-card.is-dragging{
   cursor:grabbing !important;
 }
-body .player-card *,
-body .team-slot .player-card *,
-body .tier-list .player-card *{
+body .player-card > *,
+body .team-slot .player-card > *,
+body .tier-list .player-card > *{
+  pointer-events:none !important;
   cursor:inherit !important;
 }
+body .team-slot,
+body .tier-list{
+  touch-action:auto !important;
+}
+
