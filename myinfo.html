@@ -1608,35 +1608,49 @@ function showSuccess(text){
   if(el){el.textContent=text;el.classList.add("active");}
 }
 
-function nicknameExists(nickname){
-  const target = String(nickname || "").trim();
-  if(!target) return false;
-  const users = getUsers();
-  const inUsers = users.some(u => {
-    if(sameUser(u, originalUser)) return false;
-    return String(u.nickname || u.nick || u.name || "") === target;
-  });
-  const adminState = safeParse(localStorage.getItem(PKL_ADMIN_STATE_KEY), null);
-  const adminUsers = Array.isArray(adminState?.users) ? adminState.users : [];
-  const inAdmin = adminUsers.some(u => {
-    if(sameUser(u, originalUser)) return false;
-    return String(u.nickname || u.nick || u.name || "") === target;
-  });
-  return inUsers || inAdmin;
+function nicknameOf(user){
+  return String(user?.nickname || user?.nick || user?.name || "").trim();
 }
 
-function checkNicknameDuplicate(){
+async function nicknameExists(nickname){
+  const target = String(nickname || "").trim();
+  if(!target) return false;
+
+  /* Supabase 단일 원본 기준 중복확인. localStorage/admin snapshot은 사용하지 않는다. */
+  try{
+    const res = await fetch(`/api/pkl-users?limit=20&offset=0&q=${encodeURIComponent(target)}`, {cache:"no-store"});
+    if(!res.ok) throw new Error(`pkl-users ${res.status}`);
+    const data = await res.json().catch(()=>null);
+    const list = Array.isArray(data?.users) ? data.users : [];
+    return list.some(u => {
+      if(sameUser(u, originalUser)) return false;
+      return nicknameOf(u) === target;
+    });
+  }catch(e){
+    console.warn("PKL nickname duplicate check failed", e);
+    throw e;
+  }
+}
+
+async function checkNicknameDuplicate(){
   clearMessages();
   const nickname = document.getElementById("nicknameInput").value.trim();
   if(!nickname){setMsg("nicknameMsg","닉네임을 입력해주세요.","bad"); return false;}
-  if(originalUser && nickname === String(originalUser.nickname || originalUser.nick || originalUser.name || "")){
+  if(originalUser && nickname === nicknameOf(originalUser)){
     nicknameCheckedValue = nickname;
     setMsg("nicknameMsg","현재 사용 중인 닉네임입니다.","ok");
     return true;
   }
-  if(nicknameExists(nickname)){
+  setMsg("nicknameMsg","중복확인 중입니다...","");
+  try{
+    if(await nicknameExists(nickname)){
+      nicknameCheckedValue = "";
+      setMsg("nicknameMsg","이미 사용 중인 닉네임입니다.","bad");
+      return false;
+    }
+  }catch(e){
     nicknameCheckedValue = "";
-    setMsg("nicknameMsg","이미 사용 중인 닉네임입니다.","bad");
+    setMsg("nicknameMsg","중복확인에 실패했습니다. 잠시 후 다시 시도해주세요.","bad");
     return false;
   }
   nicknameCheckedValue = nickname;
@@ -1687,7 +1701,7 @@ function renderMyInfo(){
   setMsg("nicknameMsg","현재 닉네임입니다.","ok");
 }
 
-function saveMyInfo(e){
+async function saveMyInfo(e){
   e.preventDefault();
   clearMessages();
   const nickname = document.getElementById("nicknameInput").value.trim();
@@ -1703,10 +1717,16 @@ function saveMyInfo(e){
     showError("닉네임 중복확인을 먼저 해주세요.");
     return;
   }
-  if(nicknameExists(nickname)){
-    setMsg("nicknameMsg","이미 사용 중인 닉네임입니다.","bad");
-    showError("이미 사용 중인 닉네임입니다.");
-    nicknameCheckedValue = "";
+  try{
+    if(await nicknameExists(nickname)){
+      setMsg("nicknameMsg","이미 사용 중인 닉네임입니다.","bad");
+      showError("이미 사용 중인 닉네임입니다.");
+      nicknameCheckedValue = "";
+      return;
+    }
+  }catch(err){
+    setMsg("nicknameMsg","중복확인에 실패했습니다. 잠시 후 다시 시도해주세요.","bad");
+    showError("중복확인에 실패했습니다. 저장하지 않았습니다.");
     return;
   }
 
@@ -1723,10 +1743,24 @@ function saveMyInfo(e){
     dia: readPrime(base),
     updatedAt:new Date().toISOString()
   };
-  const stored = updateAccountStorage(Object.assign({}, updated, {__pklProfileWrite:true,pklProfileUpdatedAt:new Date().toISOString()}));
+  const pending = Object.assign({}, updated, {__pklProfileWrite:true,pklProfileUpdatedAt:new Date().toISOString()});
+  let stored = pending;
+  try{
+    const res = await fetch("/api/pkl-users", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({user:pending})
+    });
+    const data = await res.json().catch(()=>null);
+    if(!res.ok || data?.ok === false) throw new Error(data?.message || `pkl-users ${res.status}`);
+    stored = data?.user || (Array.isArray(data?.users) ? data.users[0] : pending) || pending;
+  }catch(err){
+    console.error("PKL profile save failed", err);
+    showError("Supabase 저장에 실패했습니다. 다시 시도해주세요.");
+    return;
+  }
   updateAdminStorage(stored);
-  try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.upsert === "function") window.PKLUserProfile.upsert(stored, true); }catch(e){}
-  /* Supabase 단일 원본: pklUsers 공유저장 금지. */
+  /* Supabase 저장 완료 후 로그인 세션만 갱신한다. */
   setEveryLoginUser(stored);
   originalUser = {...stored};
   nicknameCheckedValue = nickname;
