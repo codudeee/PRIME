@@ -54,18 +54,24 @@
   function read(k,fb){try{return parse(localStorage.getItem(k),fb);}catch(e){return fb;}}
   function now(){return new Date().toISOString();}
   function norm(v){return String(v==null?'':v).trim().replace(/^discord-/i,'').replace(/\s+/g,'').toLowerCase();}
-  function exactName(v){return String(v==null?'':v).trim().replace(/\s+/g,' ').toLowerCase();}
-  function hardTokens(i){
+  function discordId(i){
     i=i&&typeof i==='object'?i:{};
-    return [i.discord_id,i.discordId,i.uid,i.id,i.userId,i.memberId,i.loginId,i.key,i.pubg_id,i.pubgId,i.gameId,i.ref]
-      .map(norm).filter(Boolean);
+    var direct=norm(i.discord_id||i.discordId||i.discordID||i.userDiscordId||i.discord);
+    if(direct) return direct;
+    var keys=[i.uid,i.id,i.userId,i.key,i.memberId];
+    for(var n=0;n<keys.length;n++){var raw=String(keys[n]||'').trim(); if(/^discord-/i.test(raw)) return norm(raw);}
+    return '';
   }
+  function pubgId(i){i=i&&typeof i==='object'?i:{};return norm(i.pubg_id||i.pubgId||i.pubgID||i.gameId||i.ref);}
+  function stableId(i){i=i&&typeof i==='object'?i:{};return norm(i.uid||i.id||i.userId||i.memberId||i.loginId||i.key);}
   function same(a,b){
-    var aa=hardTokens(a), bb=hardTokens(b);
-    if(aa.length || bb.length) return aa.length&&bb.length&&aa.some(function(x){return bb.indexOf(x)>=0;});
-    var an=exactName((a&& (a.nickname||a.nick||a.name||a.displayName)) || '');
-    var bn=exactName((b&& (b.nickname||b.nick||b.name||b.displayName)) || '');
-    return !!(an && bn && an===bn);
+    var ad=discordId(a), bd=discordId(b);
+    if(ad&&bd) return ad===bd;
+    if(ad||bd) return false;
+    var ap=pubgId(a), bp=pubgId(b);
+    if(ap&&bp) return ap===bp;
+    var ai=stableId(a), bi=stableId(b);
+    return !!(ai&&bi&&ai===bi);
   }
   function actionMs(item){
     item=item||{};

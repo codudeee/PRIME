@@ -11,7 +11,7 @@
     html,body{margin:0;min-height:100%;background:#020208 url('pkl_join_bg.webp') center/cover fixed no-repeat;color:#f8fafc;}
   </style>
   <script src="./pkl-supabase-sync.js?v=20260522-tier-score-localfix"></script>
-  <script src="./pkl-join-realtime.js?v=20260513b"></script>
+  <script src="./pkl-join-realtime.js?v=20260522-identityfix"></script>
 <meta charset="utf-8"/>
 <title>PKL 회원가입</title>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
@@ -649,25 +649,12 @@ font-weight:600;
 
 </style>
 <style id="pklJoinListScrollResetStyle">
-/* JOIN layout: 리스트는 카드 안에서만 스크롤되도록 정리 */
-.join-wait-card,
-.join-cancel-card{
-  min-height:0 !important;
-  overflow:hidden !important;
-  display:flex !important;
-  flex-direction:column !important;
-}
-.join-list-body{
-  flex:1 1 auto !important;
-  min-height:0 !important;
-  overflow-y:auto !important;
-  overflow-x:hidden !important;
-  padding-right:8px !important;
-  overscroll-behavior:contain !important;
-}
 #joinWaitList,
 #joinCancelList{
-  min-height:0 !important;
+  max-height:calc(100% - 60px);
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding-right:8px;
 }
 #joinWaitList::-webkit-scrollbar,
 #joinCancelList::-webkit-scrollbar{
@@ -680,10 +667,61 @@ font-weight:600;
 }
 #joinWaitList::-webkit-scrollbar-thumb,
 #joinCancelList::-webkit-scrollbar-thumb{
-  background:linear-gradient(180deg,rgba(168,85,247,.58),rgba(124,58,237,.30));
+  background:linear-gradient(180deg,rgba(168,85,247,.55),rgba(124,58,237,.28));
   border-radius:999px;
-  border:1px solid rgba(216,180,254,.14);
+  border:1px solid rgba(216,180,254,.12);
 }
+.join-wait-card,
+.join-cancel-card{
+  min-height:0;
+}
+.join-cancel-card{
+  display:flex;
+  flex-direction:column;
+}
+.join-wait-card{
+  display:flex;
+  flex-direction:column;
+}
+.join-list-body{
+  flex:1 1 auto;
+  min-height:0;
+}
+
+/* 참가비 금액 강조 (무료 포함 전부 노란색) */
+.fee, .price, .cost, .join-fee, [data-fee]{
+color:#ffd400 !important;
+font-weight:600;
+}
+
+
+.back-home{
+  position:fixed;
+  left:28px;
+  top:24px;
+  z-index:99999;
+  min-width:120px;
+  height:46px;
+  padding:0 20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:14px;
+  border:1px solid rgba(168,85,247,.65);
+  background:
+    radial-gradient(circle at 50% 0%,rgba(168,85,247,.55),transparent 55%),
+    linear-gradient(180deg,rgba(22,14,48,.95),rgba(6,6,14,.98));
+  color:#ffffff;
+  font-size:14px;
+  font-weight:1000;
+  letter-spacing:.6px;
+  text-shadow:0 0 16px rgba(168,85,247,1);
+  box-shadow:
+    0 0 28px rgba(168,85,247,.6),
+    0 18px 40px rgba(0,0,0,.45),
+    inset 0 0 18px rgba(255,255,255,.06);
+}
+
 </style>
 <style id="pklJoinOpenFeeStyle">
 .join-open-host-line{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:0;max-width:100%;vertical-align:middle;}
@@ -4693,80 +4731,24 @@ body.pkl-join-initializing #joinCancelCount{
 
 
 <style id="pklJoinWaitListInnerScrollOnlyFix">
-/* JOIN 최종 높이 정리: 화면보다 큰 패널은 모달 안에서, 명단은 각 박스 안에서 스크롤 */
-.join-modal.open{
-  overflow:auto !important;
-}
-.join-modal-panel{
-  width:min(1240px, calc(100vw - 88px)) !important;
-  max-height:calc(100dvh - 84px) !important;
-  display:flex !important;
-  flex-direction:column !important;
-  overflow:hidden !important;
-}
-.join-modal-head{
-  flex:0 0 auto !important;
-}
-.join-modal-body{
-  flex:1 1 auto !important;
-  min-height:0 !important;
-  display:grid !important;
-  grid-template-columns:240px minmax(420px, 1fr) 240px !important;
-  gap:16px !important;
-  padding:18px !important;
-  overflow:hidden !important;
-}
-.join-info-card,
-.join-side-stack{
-  min-height:0 !important;
-}
-.join-info-card{
-  display:flex !important;
-  flex-direction:column !important;
-  overflow:hidden !important;
-}
-.join-action-stack{
-  margin-top:auto !important;
-  flex:0 0 auto !important;
-}
-.join-side-stack{
-  display:grid !important;
-  grid-template-rows:minmax(0, 1fr) auto !important;
-  gap:14px !important;
-  overflow:hidden !important;
-}
-.join-manager-card{
-  flex:0 0 auto !important;
-}
-.join-wait-card,
-.join-cancel-card{
+/* 대기자 리스트가 길어져도 참가/대기취소 버튼이 밀리지 않게 리스트 내부만 스크롤 */
+.join-wait-card{
   min-height:0 !important;
   overflow:hidden !important;
-}
-.join-list-body{
-  min-height:0 !important;
-  overflow-y:auto !important;
-  overflow-x:hidden !important;
 }
 #joinWaitList{
-  max-height:none !important;
+  flex:0 1 auto !important;
+  max-height:clamp(260px, 46vh, 520px) !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  overscroll-behavior:contain !important;
+  padding-right:8px !important;
 }
-#joinCancelList{
-  max-height:none !important;
-}
-@media (max-height: 760px){
-  .join-modal{align-items:flex-start !important;padding-top:24px !important;padding-bottom:24px !important;}
-  .join-modal-panel{max-height:calc(100dvh - 48px) !important;}
-  .join-modal-body{padding:14px !important;gap:12px !important;}
-  .join-card{padding:12px !important;}
-  .join-wait-row{min-height:44px !important;}
-}
-@media (max-width: 980px){
-  .join-modal{align-items:flex-start !important;padding:12px !important;overflow:auto !important;}
-  .join-modal-panel{width:100% !important;max-height:none !important;margin:54px 0 12px !important;overflow:visible !important;}
-  .join-modal-body{display:grid !important;grid-template-columns:1fr !important;overflow:visible !important;max-height:none !important;}
-  .join-side-stack{display:grid !important;grid-template-columns:1fr !important;grid-template-rows:auto auto !important;overflow:visible !important;}
-  .join-list-body{max-height:320px !important;}
+#joinWaitList::-webkit-scrollbar{width:7px;}
+#joinWaitList::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:999px;}
+#joinWaitList::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(168,85,247,.55),rgba(124,58,237,.28));border-radius:999px;border:1px solid rgba(216,180,254,.12);}
+@media (max-width:768px){
+  #joinWaitList{max-height:320px !important;}
 }
 </style>
 
@@ -5103,9 +5085,19 @@ function safeJson(key, fallback){
   }
 
   function getLoginUser(){
-    try{
-      return JSON.parse(localStorage.getItem("pklLoginUser") || sessionStorage.getItem("pklLoginUser") || "null");
-    }catch(e){ return null; }
+    const keys = ["pklLoginUser","discordUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user"];
+    const candidates = [];
+    keys.forEach(function(key){
+      [localStorage, sessionStorage].forEach(function(store){
+        try{
+          const raw = store.getItem(key);
+          if(!raw) return;
+          const user = JSON.parse(raw);
+          if(user && typeof user === "object") candidates.push(user);
+        }catch(e){}
+      });
+    });
+    return candidates.find(function(u){ return !!getUserDiscordId(u); }) || candidates[0] || null;
   }
 
   function readRealtimeUsers(){
@@ -5147,7 +5139,14 @@ function safeJson(key, fallback){
 
   function getUserDiscordId(user){
     user = user || {};
-    return user.discord_id || user.discordId || user.discordID || user.userDiscordId || user.discord || "";
+    const direct = user.discord_id || user.discordId || user.discordID || user.userDiscordId || user.discord || "";
+    if(String(direct || "").trim()) return String(direct).replace(/^discord-/i, "").trim();
+    const keys = [user.uid, user.id, user.userId, user.key, user.memberId];
+    for(const key of keys){
+      const raw = String(key || "").trim();
+      if(/^discord-/i.test(raw)) return raw.replace(/^discord-/i, "").trim();
+    }
+    return "";
   }
 
   function identityMatches(seed, target){
@@ -5348,8 +5347,8 @@ function safeJson(key, fallback){
       let changed = false;
       list.forEach(function(item){
         const sameDiscord = getUserDiscordId(sync) && getUserDiscordId(item) && getUserDiscordId(sync) === getUserDiscordId(item);
-        const sameNick = getUserNickname(sync) && getUserNickname(item) && getUserNickname(sync) === getUserNickname(item);
-        if(sameDiscord || sameNick){
+        const sameLegacyPubg = !getUserDiscordId(sync) && !getUserDiscordId(item) && getUserPubgId(sync) && getUserPubgId(item) && String(getUserPubgId(sync)).trim().toLowerCase() === String(getUserPubgId(item)).trim().toLowerCase();
+        if(sameDiscord || sameLegacyPubg){
           item.gradeRole = tier;
           item.memberTier = tier;
           item.tierRole = tier;
@@ -5481,13 +5480,13 @@ function safeJson(key, fallback){
   function isCurrentUserWaiting(list){
     const userData = getCurrentUserData();
     list = Array.isArray(list) ? list : readList(STORAGE_KEY);
-    return list.some(function(item){ return identityMatches(userData, item) || item.key === userData.key || item.name === userData.name; });
+    return list.some(function(item){ return identityMatches(userData, item) || (item.key && userData.key && item.key === userData.key); });
   }
 
   function isCurrentUserCanceled(list){
     const userData = getCurrentUserData();
     list = Array.isArray(list) ? list : readList(CANCEL_KEY);
-    return list.some(function(item){ return identityMatches(userData, item) || item.key === userData.key || item.name === userData.name; });
+    return list.some(function(item){ return identityMatches(userData, item) || (item.key && userData.key && item.key === userData.key); });
   }
 
   function canPreviewJoinParticipants(list){
@@ -5956,23 +5955,21 @@ function safeJson(key, fallback){
   async function fetchUserTierByProfile(seed){
     seed = seed || {};
     const discordId = String(getUserDiscordId(seed) || '').replace(/^discord-/i,'').trim();
-    const queries = (discordId ? [discordId] : [getUserPubgId(seed)])
-      .map(function(v){ return String(v || '').trim(); })
-      .filter(Boolean);
+    const pubgId = String(getUserPubgId(seed) || '').trim();
+    const urls = [];
+    if(discordId) urls.push('/api/pkl-users?limit=5&discordId=' + encodeURIComponent(discordId));
+    else if(pubgId) urls.push('/api/pkl-users?limit=10&q=' + encodeURIComponent(pubgId));
 
-    for(const q of queries){
+    for(const url of urls){
       try{
-        const res = await fetch('/api/pkl-users?limit=10&q=' + encodeURIComponent(q), {cache:'no-store'});
+        const res = await fetch(url, {cache:'no-store', headers:{Accept:'application/json'}});
         if(!res.ok) continue;
         const data = await res.json();
         const users = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
         const found = users.find(function(u){ return identityMatches(seed, u); });
-
-        // 검색어에 걸린 첫 번째 사용자를 임의로 쓰면, 예: 헤라 → 헤라부캐처럼
-        // 다른 계정의 티어가 붙어서 미배정 유저도 참가 가능해진다.
-        // 반드시 디스코드 ID가 같은 사용자만 티어 원본으로 사용한다. 디스코드 ID가 없는 예전 데이터만 PUBG ID로 보조 확인한다.
         if(found){
           rememberTierUser(found);
+          try{ if(window.PKLUsersRealtime && typeof window.PKLUsersRealtime.applyUsers === 'function') window.PKLUsersRealtime.applyUsers([found], {source:'join-fresh-tier'}); }catch(e){}
           const tier = getGradeRole(found);
           if(tier) return tier;
         }
@@ -5983,10 +5980,12 @@ function safeJson(key, fallback){
 
   async function ensureItemTier(item){
     item = enrichItemTier(item || {});
-    if(item && (item.gradeRole || item.tier || item.memberTier || item.tierRole || item.grade)) return item;
+    if(item && hasValidMemberTier(item)) return item;
     const tier = await fetchUserTierByProfile(item);
     if(tier){
       item.gradeRole = tier;
+      item.memberTier = tier;
+      item.tierRole = tier;
       item.tier = tier;
     }
     return item;
