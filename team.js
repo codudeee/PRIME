@@ -233,6 +233,7 @@
 
   function renderBoardOnlyAndSave() {
     return withTeamLookupCache(() => {
+      cleanPlacedPlayersOutOfWaitingPools();
       renderTierPools();
       renderTeams();
       renderSummary();
@@ -259,11 +260,15 @@
       loadTeamBuilderStateFromSupabaseOnce().finally(() => {
         ensureTeamModeState(state.teamMode || 'squad20');
         matchTimeSettingsConfirmed = Boolean(String(state.matchStartTime || '').trim() && String(state.matchEndTime || '').trim());
+        // 먼저 저장된 팀 보드를 즉시 그린 뒤, Supabase 유저/참가자 보정은 뒤에서 붙인다.
+        // 진입 시 1000명 users 조회가 보드 첫 렌더를 막아 멈춘 것처럼 보이는 현상을 줄인다.
+        applyTeamControlAccess();
+        render();
         loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
           syncJoinWaitListIntoTeamBoard(true);
           syncPlayersWithUserSources();
           applyTeamControlAccess();
-          render();
+          renderBoardOnlyAndSave();
           refreshJoinWaitListFromSupabaseOnce();
           scheduleSupabaseWaitingTierRefresh();
         });
@@ -424,6 +429,7 @@ if (rerollListModal) {
     return withTeamLookupCache(() => {
       hydratePlayersForDisplayOnly();
       syncPlayersWithUserSources();
+      cleanPlacedPlayersOutOfWaitingPools();
       renderTierPools();
       renderTeams();
       renderSummary();
@@ -1155,9 +1161,23 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function findPlayerForJoinItem(item, adminUser, accountUser) {
-    const identitySeed = accountUser || adminUser || item;
-    return state.players.find(player => isSameUserIdentity(player, identitySeed)) ||
-      state.players.find(player => sameName(player, (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname));
+    const seeds = [item, adminUser, accountUser].filter(Boolean);
+    const keys = new Set();
+    seeds.forEach(seed => {
+      collectIdentityValuesFromObject(seed).forEach(value => {
+        const key = normalizeName(value);
+        if (key) keys.add(key);
+      });
+      const joinKey = normalizeName(getJoinWaitItemKey(seed));
+      if (joinKey) keys.add(joinKey);
+    });
+
+    return state.players.find(player => {
+      if (seeds.some(seed => isSameUserIdentity(player, seed))) return true;
+      const playerValues = collectIdentityValuesFromObject(player).map(normalizeName).filter(Boolean);
+      if (playerValues.some(value => keys.has(value))) return true;
+      return false;
+    }) || state.players.find(player => sameName(player, (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname));
   }
 
   function loadCurrentJoinWaitingList() {
@@ -1570,6 +1590,9 @@ const teamIndex = Number(slot.dataset.teamIndex);
       const safeTierId = isValidTierId(currentTierId) ? getCanonicalTierId(currentTierId) : 'tier0';
       ids.forEach(playerId => {
         if (!playerId || seen.has(playerId)) return;
+        // 슬롯에 배치된 인원은 대기칸에도 동시에 남기지 않는다.
+        // 리롤/드래그 후 Supabase 보정 렌더가 돌 때 대기칸으로 복사되어 보이는 원인을 차단한다.
+        if (isPlayerPlacedInTeam(playerId)) return;
         const player = state.players.find(item => item.id === playerId);
         if (!player) return;
         const resolvedTierId = isValidTierId(player.tier) ? getCanonicalTierId(player.tier) : safeTierId;
@@ -1579,6 +1602,14 @@ const teamIndex = Number(slot.dataset.teamIndex);
     });
 
     state.waiting = sortAllWaitingPools(nextWaiting);
+  }
+
+  function cleanPlacedPlayersOutOfWaitingPools() {
+    if (!state.waiting || typeof state.waiting !== 'object') return;
+    Object.keys(state.waiting).forEach(tierId => {
+      if (!Array.isArray(state.waiting[tierId])) { state.waiting[tierId] = []; return; }
+      state.waiting[tierId] = state.waiting[tierId].filter(playerId => !isPlayerPlacedInTeam(playerId));
+    });
   }
 
   function insertPlayerIntoWaitingTier(playerId, tierId) {
@@ -2175,6 +2206,7 @@ if (!rerollModeDropdown) return;
       state.selectedSlots = targets.map(({ teamIndex, slotIndex }) => ({ teamIndex, slotIndex }));
       state.selected = state.selectedSlots[state.selectedSlots.length - 1] || null;
       setStatus(`지정칸 ${targets.length}개 리롤 완료`);
+      cleanPlacedPlayersOutOfWaitingPools();
       renderSummary();
       saveState();
       syncSelectedSlotClasses();
