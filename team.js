@@ -67,6 +67,48 @@
   let lastSavedTeamStateJson = '';
   let teamLookupCache = null;
   let waitingSortDetailCache = null;
+  let playerByIdCache = null;
+  let teamBackgroundRefreshBound = false;
+  let teamBackgroundRefreshTimer = null;
+  let lastTeamBackgroundRefreshAt = 0;
+
+  function invalidateTeamPlayerCache() {
+    playerByIdCache = null;
+  }
+
+  function getTeamPlayerById(playerId) {
+    if (!playerByIdCache) {
+      playerByIdCache = new Map((state.players || []).map(player => [player.id, player]));
+    }
+    return playerByIdCache.get(playerId) || null;
+  }
+
+  function requestTeamBackgroundRefresh(delay) {
+    if (teamBackgroundRefreshTimer) clearTimeout(teamBackgroundRefreshTimer);
+    teamBackgroundRefreshTimer = setTimeout(() => {
+      teamBackgroundRefreshTimer = null;
+      if (isPlayerDragActive || isRerolling || document.hidden) {
+        pendingTeamBackgroundSync = true;
+        return;
+      }
+      const now = Date.now();
+      if (now - lastTeamBackgroundRefreshAt < 5000) return;
+      lastTeamBackgroundRefreshAt = now;
+      refreshWaitingTiersFromSupabase();
+    }, Math.max(0, Number(delay || 0)));
+  }
+
+  function requestTeamBoardRender(delay) {
+    if (teamBackgroundRefreshTimer) clearTimeout(teamBackgroundRefreshTimer);
+    teamBackgroundRefreshTimer = setTimeout(() => {
+      teamBackgroundRefreshTimer = null;
+      if (isPlayerDragActive || isRerolling || document.hidden) {
+        pendingTeamBackgroundSync = true;
+        return;
+      }
+      renderBoardOnlyAndSave();
+    }, Math.max(0, Number(delay || 0)));
+  }
 
 
 
@@ -233,6 +275,7 @@
 
   function renderBoardOnlyAndSave() {
     return withTeamLookupCache(() => {
+      invalidateTeamPlayerCache();
       cleanPlacedPlayersOutOfWaitingPools();
       renderTierPools();
       renderTeams();
@@ -264,14 +307,17 @@
         // 진입 시 1000명 users 조회가 보드 첫 렌더를 막아 멈춘 것처럼 보이는 현상을 줄인다.
         applyTeamControlAccess();
         render();
-        loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
-          syncJoinWaitListIntoTeamBoard(true);
-          syncPlayersWithUserSources();
-          applyTeamControlAccess();
-          renderBoardOnlyAndSave();
-          refreshJoinWaitListFromSupabaseOnce();
-          scheduleSupabaseWaitingTierRefresh();
-        });
+        setTimeout(() => {
+          loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
+            if (isPlayerDragActive || isRerolling) { pendingTeamBackgroundSync = true; return; }
+            syncJoinWaitListIntoTeamBoard(true);
+            syncPlayersWithUserSources();
+            applyTeamControlAccess();
+            renderBoardOnlyAndSave();
+            setTimeout(() => refreshJoinWaitListFromSupabaseOnce(), 800);
+            scheduleSupabaseWaitingTierRefresh();
+          });
+        }, 250);
       });
     });
   }
@@ -318,24 +364,14 @@
   }
 
   function scheduleSupabaseWaitingTierRefresh() {
-    if (supabaseTierRefreshTimer) return;
+    // team 페이지는 마우스 hover/drag가 많은 화면이라 자동 폴링 렌더를 돌리지 않는다.
+    // 포커스 복귀/탭 복귀 때만 짧게 지연해서 1회 보정한다.
+    if (teamBackgroundRefreshBound) return;
+    teamBackgroundRefreshBound = true;
     lastWaitingTierSignature = getWaitingTierSignature();
-    supabaseTierRefreshTimer = setInterval(() => {
-      if (isPlayerDragActive || isRerolling) {
-        pendingTeamBackgroundSync = true;
-        return;
-      }
-      refreshWaitingTiersFromSupabase();
-    }, 30000);
-    window.addEventListener('focus', () => {
-      if (isPlayerDragActive || isRerolling) { pendingTeamBackgroundSync = true; return; }
-      refreshWaitingTiersFromSupabase();
-    });
+    window.addEventListener('focus', () => requestTeamBackgroundRefresh(500));
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        if (isPlayerDragActive || isRerolling) { pendingTeamBackgroundSync = true; return; }
-        refreshWaitingTiersFromSupabase();
-      }
+      if (!document.hidden) requestTeamBackgroundRefresh(500);
     });
   }
 
@@ -427,6 +463,7 @@ if (rerollListModal) {
 
   function render() {
     return withTeamLookupCache(() => {
+      invalidateTeamPlayerCache();
       hydratePlayersForDisplayOnly();
       syncPlayersWithUserSources();
       cleanPlacedPlayersOutOfWaitingPools();
@@ -702,7 +739,7 @@ if (rerollListModal) {
   }
 
   function renderPlayerCard(playerId) {
-    const player = state.players.find(item => item.id === playerId);
+    const player = getTeamPlayerById(playerId);
     if (!player) return '';
     hydratePlayerIdentity(player);
     const displayName = resolvePlayerDisplayName(player);
@@ -805,7 +842,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
         }
 
         state.selected = state.selectedSlots[state.selectedSlots.length - 1] || null;
-        render();
+        syncSelectedSlotClasses();
+        saveState();
       });
     });
   }
@@ -1036,7 +1074,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
         if (isPlayerDragActive) { pendingTeamBackgroundSync = true; return; }
         syncJoinWaitListIntoTeamBoard(true);
         syncPlayersWithUserSources();
-        renderBoardOnlyAndSave();
+        requestTeamBoardRender(250);
       });
     });
     window.addEventListener('pkl-role-data-updated', event => {
@@ -1059,7 +1097,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
         syncPlayersWithUserSources();
         hydratePlayersForDisplayOnly();
         applyTeamControlAccess();
-        renderBoardOnlyAndSave();
+        requestTeamBoardRender(250);
       });
     });
   }
@@ -2041,6 +2079,13 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
 
   function bindTeamModeDropdown() {
+    if (teamModeSelect && !teamModeSelect.dataset.pklTeamModeBound) {
+      teamModeSelect.dataset.pklTeamModeBound = 'true';
+      teamModeSelect.addEventListener('change', function(){
+        if (!isTeamControlManager()) return;
+        changeTeamMode(teamModeSelect.value);
+      });
+    }
     if (!teamModeDropdown || !teamModeTrigger || !teamModeList) return;
 
     teamModeTrigger.addEventListener('click', () => {
@@ -4131,27 +4176,19 @@ function startClock() {
       .replace(/'/g, '&#039;');
   }
   document.addEventListener('contextmenu', function(event) {
-    event.preventDefault();
-
     const card = event.target.closest('.team-slot .player-card');
     if (!card) return;
+    event.preventDefault();
 
     const playerId = card.dataset.playerId;
-    const player = state.players.find(item => item.id === playerId);
+    const player = getTeamPlayerById(playerId);
     if (!player) return;
 
     removePlayerFromEverywhere(playerId);
     insertPlayerIntoWaitingTier(playerId, getCanonicalTierId(player.tier));
     clearSlotSelectionFast();
     setStatus(`${getPlayerName(playerId)}님을 ${getTierLabel(player.tier)} 대기칸으로 되돌렸습니다.`);
-    
-  if(teamModeSelect){
-    teamModeSelect.addEventListener('change', function(){
-      changeTeamMode(teamModeSelect.value);
-    });
-  }
-
-render();
+    renderBoardOnlyAndSave();
   });
 
 
