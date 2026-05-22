@@ -1081,8 +1081,10 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function findPlayerForJoinItem(item, adminUser, accountUser) {
     const identitySeed = accountUser || adminUser || item;
-    return state.players.find(player => isSameUserIdentity(player, identitySeed)) ||
-      state.players.find(player => sameName(player, (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname));
+    const direct = state.players.find(player => isSameUserIdentity(player, identitySeed));
+    if (direct) return direct;
+    if (hasStrongJoinIdentity(identitySeed) || hasStrongJoinIdentity(item)) return null;
+    return state.players.find(player => sameName(player, (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname)) || null;
   }
 
   function loadCurrentJoinWaitingList() {
@@ -1208,9 +1210,18 @@ const teamIndex = Number(slot.dataset.teamIndex);
       obj.discord_id, obj.discordId, obj.discordID, obj.userDiscordId, obj.discord,
       obj.userUid, obj.uid, obj.userId, obj.accountId, obj.key, obj.id,
       obj.pubgId, obj.pubg_id, obj.pubgID, obj.gameId, obj.pubg, obj.ref,
-      obj.nickname, obj.nick, obj.name, obj.discord_username, obj.discordUsername, obj.displayName,
-      obj.joinWaitKey, obj.sourceName
+      obj.joinWaitKey
     ].map(value => String(value || '').trim()).filter(Boolean);
+  }
+
+  function hasStrongJoinIdentity(obj) {
+    if (!obj) return false;
+    return !!(
+      obj.discord_id || obj.discordId || obj.discordID || obj.userDiscordId || obj.discord ||
+      obj.userUid || obj.uid || obj.userId || obj.accountId || obj.key || obj.id ||
+      obj.pubgId || obj.pubg_id || obj.pubgID || obj.gameId || obj.pubg || obj.ref ||
+      obj.joinWaitKey
+    );
   }
 
   function sameIdentityValue(a, b) {
@@ -1254,6 +1265,10 @@ const teamIndex = Number(slot.dataset.teamIndex);
       if (matched) return matched;
     }
 
+    // join/team 연동은 디스코드 ID가 있으면 반드시 ID 기준으로만 닉네임/배지를 읽는다.
+    // 닉네임 유사 검색은 디스코드 ID가 없는 오래된 수동 추가 데이터에만 허용한다.
+    if (candidates.some(hasStrongJoinIdentity)) return null;
+
     const names = [];
     candidates.forEach(seed => {
       names.push(seed.nickname, seed.nick, seed.name, seed.discord_username, seed.discordUsername, seed.displayName);
@@ -1283,6 +1298,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
     const activeJoinItem = findActiveJoinItemForPlayer(player);
     const direct = findSupabaseUserStrict(player) || findSupabaseUserStrict(activeJoinItem);
     if (direct) return direct;
+    if (hasStrongJoinIdentity(player) || hasStrongJoinIdentity(activeJoinItem)) return null;
     const byName = findSupabaseUserByLooseName((activeJoinItem && (activeJoinItem.nickname || activeJoinItem.name)) || (player && player.name));
     return byName || null;
   }
