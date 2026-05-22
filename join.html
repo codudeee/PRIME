@@ -6325,9 +6325,14 @@ function safeJson(key, fallback){
 
   function readUsers(){
     try{
-      const data = JSON.parse(localStorage.getItem("pklUsers") || "[]");
-      return Array.isArray(data) ? data : [];
-    }catch(e){ return []; }
+      /* 4차 localStorage 수술: 모집 오픈 호스트/참가자 보정에서 pklUsers 로컬 복구를 사용하지 않는다.
+         유저 원본은 Supabase users이며, 화면 보정은 PKLUsersSource 캐시만 참조한다. */
+      if(window.PKLUsersSource && typeof window.PKLUsersSource.localUsers === "function"){
+        const users = window.PKLUsersSource.localUsers();
+        return Array.isArray(users) ? users : [];
+      }
+    }catch(e){}
+    return [];
   }
 
   function getUserNickname(user){

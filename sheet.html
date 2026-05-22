@@ -8522,9 +8522,11 @@ function pklMemberTokens(member){
   const m=member||{};
   ['discordId','uid','id','userId','memberId','key','nickname','nick','name','displayName','userName','username','discordUsername','discordGlobalName','pubgId','pubgID','pubgName','gameId','gameName','ref'].forEach(k=>add(m[k]));
   try{
-    const users=JSON.parse(localStorage.getItem('pklUsers')||localStorage.getItem('PKL_USERS')||'[]');
+    /* 4차 localStorage 수술: sheet 권한/본인팀 판정에서 pklUsers/PKL_USERS 로컬 복구를 사용하지 않는다.
+       Supabase users 캐시가 있을 때만 보조 토큰으로 확장하고, 없으면 현재 팀 member/로그인 세션만 사용한다. */
+    const users=(window.PKLUsersSource&&typeof window.PKLUsersSource.localUsers==='function') ? window.PKLUsersSource.localUsers() : [];
     if(Array.isArray(users)) users.forEach(u=>{
-      const userTokens=['discordId','uid','id','userId','memberId','key','nickname','nick','name','displayName','userName','username','discordUsername','discordGlobalName','pubgId','pubgID','pubgName','gameId','gameName','ref'].map(k=>String(u&&u[k]||'').trim().toLowerCase()).filter(Boolean);
+      const userTokens=['discordId','discord_id','uid','id','userId','memberId','key','nickname','nick','name','displayName','userName','username','discordUsername','discord_username','discordGlobalName','pubgId','pubg_id','pubgID','pubgName','gameId','gameName','ref'].map(k=>String(u&&u[k]||'').trim().toLowerCase()).filter(Boolean);
       if(out.some(t=>userTokens.includes(t))) userTokens.forEach(add);
     });
   }catch(e){}
