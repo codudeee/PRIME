@@ -2184,15 +2184,50 @@ if (!rerollModeDropdown) return;
 
     const originalIds = targets.map(({ teamIndex, slotIndex }) => state.teams[teamIndex].slots[slotIndex]);
     const finalIds = ensureDifferentOrder(originalIds, shuffleIds(originalIds));
-    const stopOrder = shuffleIds(targets.map((_, index) => index));
-    let completedSlots = 0;
+    const REROLL_SPIN_MS = 3000;
 
-    const finishRerollIfComplete = () => {
-      if (completedSlots !== targets.length) return;
+    rerollBackupTeams = JSON.parse(JSON.stringify(state.teams));
+    clearRerollSchedules();
+    isRerolling = true;
+    document.body.classList.add('is-rerolling-locked');
+    setRerollButtonMode(true);
+    setStatus('슬롯머신 리롤 진행 중입니다.');
 
-      // 모든 슬롯 릴이 최종 카드 상태로 멈춘 뒤에만 실제 보드 DOM을 1회 재생성한다.
-      // 버튼을 먼저 리롤로 되돌리면 그 순간 카드가 뒤늦게 교체되는 것처럼 보이므로,
-      // 최종 DOM 반영을 먼저 끝낸 뒤 버튼 상태를 복구한다.
+    targets.forEach(({ teamIndex, slotIndex }, index) => {
+      const slot = getTeamSlotElement(teamIndex, slotIndex);
+      if (!slot) return;
+
+      slot.classList.add('is-slot-rolling');
+      slot.classList.remove('is-slot-stopped', 'is-slot-relight');
+
+      const oldReel = slot.querySelector('.slot-machine-reel');
+      if (oldReel) oldReel.remove();
+
+      const reel = document.createElement('div');
+      reel.className = 'slot-machine-reel';
+      reel.innerHTML = `<div class="slot-machine-item">${escapeHtml(getPlayerName(originalIds[index]))}</div>`;
+      slot.appendChild(reel);
+
+      const item = reel.querySelector('.slot-machine-item');
+      const spinSpeed = 62 + Math.floor(Math.random() * 34);
+      const spinTimer = trackRerollInterval(window.setInterval(() => {
+        const nextId = originalIds[Math.floor(Math.random() * originalIds.length)];
+        if (item) item.textContent = getPlayerName(nextId);
+        reel.classList.remove('is-tick');
+        void reel.offsetWidth;
+        reel.classList.add('is-tick');
+      }, spinSpeed));
+
+      reel.dataset.spinTimer = String(spinTimer);
+    });
+
+    // 핵심 수정: 슬롯은 정확히 3초 동안만 돌고, 3초 시점에 모든 결과를 한 번에 반영한다.
+    // 이전처럼 슬롯별 감속 타이머/버튼 복구 타이머가 따로 돌면 6초 뒤 한 칸씩 바뀌는 느낌이 난다.
+    trackRerollTimeout(window.setTimeout(() => {
+      targets.forEach(({ teamIndex, slotIndex }, index) => {
+        state.teams[teamIndex].slots[slotIndex] = finalIds[index];
+      });
+
       state.selectedSlots = targets.map(({ teamIndex, slotIndex }) => ({ teamIndex, slotIndex }));
       state.selected = state.selectedSlots[state.selectedSlots.length - 1] || null;
 
@@ -2207,153 +2242,8 @@ if (!rerollModeDropdown) return;
       document.body.classList.remove('is-rerolling-locked');
       setRerollButtonMode(false);
       setStatus(`지정칸 ${targets.length}개 리롤 완료`);
-    };
-
-    rerollBackupTeams = JSON.parse(JSON.stringify(state.teams));
-    clearRerollSchedules();
-    isRerolling = true;
-    document.body.classList.add('is-rerolling-locked');
-    setRerollButtonMode(true);
-    setStatus('슬롯머신 리롤 진행 중입니다.');
-
-    targets.forEach(({ teamIndex, slotIndex }, index) => {
-      const slot = getTeamSlotElement(teamIndex, slotIndex);
-      if (!slot) return;
-
-      slot.classList.add('is-slot-rolling');
-      slot.classList.remove('is-slot-stopped');
-      slot.classList.remove('is-slot-relight');
-
-      const oldReel = slot.querySelector('.slot-machine-reel');
-      if (oldReel) oldReel.remove();
-
-      const reel = document.createElement('div');
-      reel.className = 'slot-machine-reel';
-      reel.innerHTML = `<div class="slot-machine-item">${escapeHtml(getPlayerName(originalIds[index]))}</div>`;
-      slot.appendChild(reel);
-
-      const item = reel.querySelector('.slot-machine-item');
-      const spinSpeed = 72 + Math.floor(Math.random() * 38);
-      const spinTimer = trackRerollInterval(window.setInterval(() => {
-        const nextId = originalIds[Math.floor(Math.random() * originalIds.length)];
-        if (item) item.textContent = getPlayerName(nextId);
-        reel.classList.remove('is-tick');
-        void reel.offsetWidth;
-        reel.classList.add('is-tick');
-      }, spinSpeed));
-
-      reel.dataset.spinTimer = String(spinTimer);
-    });
-
-    // 예전 슬롯 느낌을 유지한다: 충분히 돌고, 슬롯들이 시간차로 감속/정지한다.
-    // 단, 예전 문제였던 "정지 후 900ms 뒤 카드 DOM 교체" 경로는 제거했다.
-    // 최종 카드 반영은 각 슬롯의 감속 마지막 틱에서 같은 이름으로 즉시 교체되어 후교체 느낌이 나지 않는다.
-    stopOrder.forEach((targetIndex, orderIndex) => {
-      const baseDelay = 2500;
-      const slotFlowDuration = 900;
-      const stopDelay = baseDelay + (orderIndex * slotFlowDuration);
-
-      trackRerollTimeout(window.setTimeout(() => {
-        const target = targets[targetIndex];
-        const slot = getTeamSlotElement(target.teamIndex, target.slotIndex);
-        if (!slot) {
-          completedSlots += 1;
-          finishRerollIfComplete();
-          return;
-        }
-
-        const finalId = finalIds[targetIndex];
-        const reel = slot.querySelector('.slot-machine-reel');
-        const spinTimer = reel ? Number(reel.dataset.spinTimer) : 0;
-        if (spinTimer) window.clearInterval(spinTimer);
-
-        state.teams[target.teamIndex].slots[target.slotIndex] = finalId;
-
-        if (!reel) {
-          slot.innerHTML = renderPlayerCard(finalId);
-          bindPlayerCards();
-          completedSlots += 1;
-          finishRerollIfComplete();
-          return;
-        }
-
-        reel.classList.add('is-final-pass');
-        reel.classList.add('is-near-final');
-        reel.classList.add('is-decelerating');
-
-        const item = reel.querySelector('.slot-machine-item');
-        const finalName = getPlayerName(finalId);
-        const slowSteps = [70, 105, 150, 220, 320, 470, 650, 860, 1120, 1450, 1850];
-        let passCount = 0;
-
-        const finishOneSlot = () => {
-          const liveSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
-          if (!liveSlot) {
-            completedSlots += 1;
-            finishRerollIfComplete();
-            return;
-          }
-
-          // 여기서 slot.innerHTML을 직접 교체하면 슬롯이 멈춘 뒤 한 칸씩 카드가 바뀌어 보인다.
-          // 그래서 실제 슬롯 DOM은 건드리지 않고, 위에 떠 있는 릴을 최종 카드 모양으로 바꿔서
-          // 사용자가 보는 화면은 이미 최종 결과로 멈춘 상태가 되게 한다.
-          const liveReel = liveSlot.querySelector('.slot-machine-reel') || reel;
-          if (liveReel) {
-            liveReel.innerHTML = renderPlayerCard(finalId);
-            const finalCard = liveReel.querySelector('.player-card');
-            if (finalCard) {
-              finalCard.draggable = false;
-              finalCard.classList.add('is-reroll-final-card');
-            }
-            liveReel.classList.remove('is-tick', 'is-final-pass', 'is-final-pass-tick', 'is-decelerating', 'is-near-final');
-            liveReel.classList.add('is-final-stop');
-          }
-
-          liveSlot.classList.remove('is-slot-rolling');
-          liveSlot.classList.add('is-slot-stopped');
-          liveSlot.classList.add('is-slot-relight');
-
-          completedSlots += 1;
-          finishRerollIfComplete();
-        };
-
-        const runFinalPass = () => {
-          if (!item) {
-            finishOneSlot();
-            return;
-          }
-
-          const nearEnd = passCount >= slowSteps.length - 5;
-          const teaseFinal = passCount === slowSteps.length - 5 || passCount === slowSteps.length - 3 || passCount >= slowSteps.length - 1;
-          const randomId = originalIds[Math.floor(Math.random() * originalIds.length)];
-          const passId = nearEnd && teaseFinal ? finalId : randomId;
-
-          item.textContent = passId === finalId ? finalName : getPlayerName(passId);
-
-          reel.classList.remove('is-final-pass-tick');
-          void reel.offsetWidth;
-          reel.classList.add('is-final-pass-tick');
-
-          passCount += 1;
-
-          if (passCount < slowSteps.length) {
-            trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[passCount]));
-            return;
-          }
-
-          item.textContent = finalName;
-          reel.classList.remove('is-tick');
-          reel.classList.remove('is-decelerating');
-          reel.classList.add('is-final-stop');
-
-          finishOneSlot();
-        };
-
-        trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[0]));
-      }, stopDelay));
-    });
+    }, REROLL_SPIN_MS));
   }
-
 
 
   function getTeamSlotElement(teamIndex, slotIndex) {
