@@ -2313,3 +2313,112 @@ function syncUserEverywhere(user){
   }, true);
 })();
 </script>
+
+<script id="pklMyinfoSupabaseProfileSave20260522">
+(function(){
+  "use strict";
+  if(window.__PKL_MYINFO_SUPABASE_PROFILE_SAVE_20260522__) return;
+  window.__PKL_MYINFO_SUPABASE_PROFILE_SAVE_20260522__ = true;
+
+  var LOGIN_KEYS = ["pklLoginUser","pklCurrentUser","pklUser","pklLoggedInUser","pkl_current_user","discordUser","loginUser"];
+  function parse(raw, fallback){ try{ var v = JSON.parse(raw || "null"); return v == null ? fallback : v; }catch(e){ return fallback; } }
+  function readLogin(){
+    for(var i=0;i<LOGIN_KEYS.length;i++){
+      var u = parse(localStorage.getItem(LOGIN_KEYS[i]) || sessionStorage.getItem(LOGIN_KEYS[i]), null);
+      if(u && typeof u === "object") return u;
+    }
+    return null;
+  }
+  function clean(v){ return String(v == null ? "" : v).trim(); }
+  function discordIdOf(u){
+    u = u || {};
+    var raw = clean(u.discord_id || u.discordId || u.discordID || u.userDiscordId || u.discord || u.uid || u.id || u.userId || u.key);
+    return raw.replace(/^discord-/i, "");
+  }
+  function inputValue(selectors){
+    for(var i=0;i<selectors.length;i++){
+      var el = document.querySelector(selectors[i]);
+      if(el && clean(el.value)) return clean(el.value);
+    }
+    return "";
+  }
+  function buildUser(extra){
+    var base = Object.assign({}, readLogin() || {}, extra || {});
+    var discordId = discordIdOf(base);
+    if(!discordId) return null;
+    var nick = clean(base.nickname || base.nick || base.name || base.displayName || base.discordGlobalName || base.discordUsername || base.username);
+    var pubg = clean(base.pubgId || base.pubg_id || base.gameId || base.pubgName || base.ref || base.pubg);
+    if(nick){ base.nickname = nick; base.nick = nick; base.name = nick; base.displayName = nick; }
+    if(pubg){ base.pubgId = pubg; base.pubg_id = pubg; base.gameId = pubg; base.pubgName = pubg; base.ref = pubg; }
+    base.discord_id = discordId;
+    base.discordId = discordId;
+    base.uid = "discord-" + discordId;
+    base.id = "discord-" + discordId;
+    base.userId = "discord-" + discordId;
+    base.updatedAt = new Date().toISOString();
+    return base;
+  }
+  function updateLoginSession(user){
+    LOGIN_KEYS.forEach(function(k){
+      try{
+        var old = parse(localStorage.getItem(k) || sessionStorage.getItem(k), null);
+        if(!old || typeof old !== "object") return;
+        var merged = Object.assign({}, old, user);
+        localStorage.setItem(k, JSON.stringify(merged));
+        try{ sessionStorage.removeItem(k); }catch(e){}
+      }catch(e){}
+    });
+  }
+  async function saveProfileToSupabase(extra){
+    var user = buildUser(extra);
+    if(!user) return { ok:false, skipped:true, message:"discord_id 없음" };
+    updateLoginSession(user);
+    try{
+      var res = await fetch("/api/pkl-users", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", "Accept":"application/json" },
+        body:JSON.stringify({ user:user })
+      });
+      var data = await res.json().catch(function(){ return null; });
+      if(!res.ok || !data || data.ok === false) throw new Error((data && data.message) || ("users save failed " + res.status));
+      var saved = data.user || user;
+      updateLoginSession(saved);
+      try{ if(window.PKLUsersSource && typeof window.PKLUsersSource.updateCachedUser === "function") window.PKLUsersSource.updateCachedUser(saved); }catch(e){}
+      try{ window.dispatchEvent(new CustomEvent("pkl-user-updated", { detail:{ user:saved, source:"myinfo-supabase" } })); }catch(e){}
+      try{ window.dispatchEvent(new CustomEvent("pkl-role-data-updated", { detail:{ user:saved, users:[saved], source:"myinfo-supabase" } })); }catch(e){}
+      return { ok:true, user:saved };
+    }catch(err){
+      console.warn("[PKL] myinfo Supabase profile save failed", err);
+      return { ok:false, error:err };
+    }
+  }
+
+  window.PKLSaveMyinfoToSupabase = saveProfileToSupabase;
+  window.PKLSaveMyinfoToPklUsers = saveProfileToSupabase;
+
+  var oldSaveMyInfo = window.saveMyInfo;
+  if(typeof oldSaveMyInfo === "function" && !oldSaveMyInfo.__pklSupabaseWrapped){
+    var wrapped = async function(){
+      var result = await oldSaveMyInfo.apply(this, arguments);
+      await saveProfileToSupabase({
+        nickname: inputValue(["#nicknameInput","#nickname","#nick","#myNickname","input[name='nickname']","input[name='nick']"]),
+        pubgId: inputValue(["#pubgInput","#pubgId","#gameId","#myPubgId","#pubgName","input[name='pubgId']","input[name='gameId']","input[name='pubgName']"])
+      });
+      return result;
+    };
+    wrapped.__pklSupabaseWrapped = true;
+    window.saveMyInfo = wrapped;
+  }
+
+  document.addEventListener("click", function(e){
+    var btn = e.target && e.target.closest && e.target.closest("#saveMyInfoBtn,#saveProfileBtn,#myInfoSaveBtn,.save-profile-btn,.myinfo-save-btn,[data-save-myinfo]");
+    if(!btn) return;
+    setTimeout(function(){
+      saveProfileToSupabase({
+        nickname: inputValue(["#nicknameInput","#nickname","#nick","#myNickname","input[name='nickname']","input[name='nick']"]),
+        pubgId: inputValue(["#pubgInput","#pubgId","#gameId","#myPubgId","#pubgName","input[name='pubgId']","input[name='gameId']","input[name='pubgName']"])
+      });
+    }, 160);
+  }, true);
+})();
+</script>
