@@ -630,7 +630,7 @@ if (rerollListModal) {
   function isCurrentUserInJoinWaitingList() {
     const currentUser = findFullUserForViewer(readCurrentLoginUser()) || readCurrentLoginUser();
     if (!currentUser) return false;
-    return getActiveJoinWaitList().some(item => isSameUserIdentity(currentUser, item) || sameName(item, currentUser.nickname || currentUser.nick || currentUser.name || currentUser.discord_username || currentUser.discordUsername));
+    return getActiveJoinWaitList().some(item => isSameUserIdentity(currentUser, item));
   }
 
   function renderPlayerCard(playerId) {
@@ -1063,12 +1063,12 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function findAdminUserForJoinItem(item) {
     const users = readAdminUsers();
-    return users.find(user => isSameUserIdentity(item, user)) || users.find(user => sameName(user, item.name || item.nickname)) || null;
+    return users.find(user => isSameUserIdentity(item, user)) || null;
   }
 
   function findAccountUserForJoinItem(item, adminUser) {
     const users = readAccountUsers();
-    return users.find(user => isSameUserIdentity(adminUser || item, user)) || users.find(user => sameName(user, (adminUser && (adminUser.nickname || adminUser.nick || adminUser.name)) || item.name || item.nickname)) || null;
+    return users.find(user => isSameUserIdentity(adminUser || item, user)) || null;
   }
 
   function isPlayerPlacedInTeam(playerId) {
@@ -1192,16 +1192,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
     const target = normalizeName(name);
     if (!target) return null;
     const users = readSupabaseUsers();
-    const exact = users.find(user => getUserDisplayNames(user).includes(target));
-    if (exact) return exact;
-
-    // join 대기값이 닉네임 일부만 저장된 이전 데이터 보정용.
-    // 여러 명이 걸리면 오인식 방지를 위해 사용하지 않는다.
-    const loose = users.filter(user => getUserDisplayNames(user).some(nameValue => {
-      if (!nameValue || nameValue.length < 2 || target.length < 2) return false;
-      return nameValue.endsWith(target) || target.endsWith(nameValue) || nameValue.includes(target) || target.includes(nameValue);
-    }));
-    return loose.length === 1 ? loose[0] : null;
+    return users.find(user => getUserDisplayNames(user).includes(target)) || null;
   }
 
   function collectIdentityValuesFromObject(obj) {
@@ -1324,11 +1315,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
       const displayName = (sourceUser && (sourceUser.nickname || sourceUser.nick || sourceUser.name || sourceUser.discord_username || sourceUser.discordUsername)) || item.name || item.nickname || '참가자';
       const resolvedTier = resolveUserTierKey(sourceUser);
       const resolvedTierBadge = resolveUserTierBadgeValue(sourceUser);
-      if (!TIERS.some(t => t.id === resolvedTier)) {
-        // 티어가 없는 참가자는 팀구성 대기칸에 임의로 0티어 배치하지 않는다.
-        return;
-      }
-      const tier = resolvedTier;
+      const tier = TIERS.some(t => t.id === resolvedTier) ? resolvedTier : 'tier0';
       const player = findPlayerForJoinItem(item, supabaseUser || adminUser, accountUser);
 
       if (player) {
@@ -1676,7 +1663,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
     const user = findSupabaseUserForPlayer(player);
     if (user) return user;
     const users = readSupabaseUsers();
-    return users.find(item => isSameUserIdentity(player, item)) || users.find(item => sameName(item, displayName || player.name)) || null;
+    return users.find(item => isSameUserIdentity(player, item)) || null;
   }
 
 
@@ -1700,12 +1687,18 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function isSameUserIdentity(a, b) {
     if (!a || !b) return false;
-    const discordA = a.discord_id || a.discordId || a.discordID || a.userDiscordId || a.discord || '';
-    const discordB = b.discord_id || b.discordId || b.discordID || b.userDiscordId || b.discord || '';
-    if (discordA && discordB && String(discordA) === String(discordB)) return true;
-    const uidA = a.userUid || a.uid || a.userId || a.accountId || a.key || a.id || a.discord_id || a.discordId || '';
-    const uidB = b.uid || b.userUid || b.userId || b.accountId || b.key || b.id || b.discord_id || b.discordId || '';
-    if (uidA && uidB && String(uidA) === String(uidB)) return true;
+    const normalizeDiscord = value => String(value || '').trim().toLowerCase().replace(/^discord-/, '');
+    const directA = normalizeDiscord(a.discord_id || a.discordId || a.discordID || a.userDiscordId || a.discord || '');
+    const directB = normalizeDiscord(b.discord_id || b.discordId || b.discordID || b.userDiscordId || b.discord || '');
+    if (directA && directB) return directA === directB;
+    if (directA || directB) {
+      const keysA = [a.userUid, a.uid, a.userId, a.accountId, a.key, a.id].map(normalizeDiscord).filter(Boolean);
+      const keysB = [b.uid, b.userUid, b.userId, b.accountId, b.key, b.id].map(normalizeDiscord).filter(Boolean);
+      return keysA.some(value => value === directB) || keysB.some(value => value === directA);
+    }
+    const uidA = [a.userUid, a.uid, a.userId, a.accountId, a.key, a.id].map(normalizeDiscord).filter(Boolean);
+    const uidB = [b.uid, b.userUid, b.userId, b.accountId, b.key, b.id].map(normalizeDiscord).filter(Boolean);
+    if (uidA.length && uidB.length && uidA.some(value => uidB.includes(value))) return true;
     const pubgA = a.pubgId || a.pubg_id || a.gameId || '';
     const pubgB = b.pubgId || b.pubg_id || b.gameId || '';
     return !!(pubgA && pubgB && String(pubgA).trim().toLowerCase() === String(pubgB).trim().toLowerCase());
@@ -2474,7 +2467,7 @@ function completeTeams() {
     hydratePlayerIdentity(player);
     const displayName = resolvePlayerDisplayName(player);
     const accountUser = resolvePlayerAccountUser(player, displayName);
-    const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || findSupabaseUserByLooseName(displayName);
+    const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || null;
     const sourceUser = supabaseUser || accountUser || null;
     const memberTier = String(
       resolveUserTierBadgeValue(sourceUser) ||

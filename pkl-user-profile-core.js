@@ -43,7 +43,14 @@
     return "user";
   }
   function roleLabel(r){r=normRole(r);return r==="admin"?"관리자":r==="operator"?"운영자":r==="guest"?"임시":"일반";}
-  function id(u){u=u||{};return low(u.discordId||u.uid||u.id||u.userId||u.memberId||u.key);}
+  function id(u){
+    u=u||{};
+    var direct=low(u.discord_id||u.discordId||u.discordID||u.userDiscordId||u.discord);
+    if(direct)return direct.replace(/^discord-/,"");
+    var keys=[u.uid,u.id,u.userId,u.memberId,u.key];
+    for(var i=0;i<keys.length;i++){var raw=clean(keys[i]);if(/^discord-/i.test(raw))return low(raw).replace(/^discord-/,"");}
+    return "";
+  }
   function nick(u){u=u||{};return stripLeadingNicknameDecorations(u.nickname||u.nick||u.name||u.displayName||u.discordGlobalName||u.discordUsername||u.username);}
   function pubg(u){u=u||{};return clean(u.pubgId||u.pubgID||u.gameId||u.pubgName||u.pubg||u.ref);}
   function same(a,b){var ai=id(a),bi=id(b); if(ai&&bi)return ai===bi; if(ai||bi)return false; var ap=low(pubg(a)),bp=low(pubg(b)); return !!(ap&&bp&&ap===bp);}
@@ -53,7 +60,7 @@
     u=Object.assign({},u||{});
     var n=nick(u); if(n){u.nickname=n;u.nick=n;u.name=n;u.displayName=n;}
     var p=pubg(u); if(p){u.pubgId=p;u.gameId=p;u.pubgName=p;u.ref=p;}
-    var ident=id(u); if(ident){u.discordId=u.discordId||ident;u.uid=u.uid||ident;u.id=u.id||ident;u.userId=u.userId||ident;u.key=u.key||ident;}
+    var ident=id(u); if(ident){u.discord_id=u.discord_id||ident;u.discordId=u.discordId||ident;u.uid="discord-"+ident;u.id="discord-"+ident;u.userId="discord-"+ident;u.key="discord-"+ident;}
     var role=normRole(u.memberRole||u.adminRole||u.userRole||u.authRole||u.role); u.memberRole=role;u.userRole=role;u.authRole=role;u.adminRole=roleLabel(role);u.role=role;
     var tierSource = null;
     [u.memberTier,u.gradeRole,u.tierRole,u.tier].some(function(v){ if(v!==undefined&&v!==null&&String(v).trim()!==""){ tierSource=v; return true; } return false; });

@@ -4504,12 +4504,12 @@ body.pkl-recruit-closed #joinCancelBtn:hover{
 }
 
 </style>
-<script src="pkl-role-system.js?v=20260513b"></script>
+<script src="pkl-role-system.js?v=20260522idfix"></script>
 <script src="pkl-page-permissions.js?v=20260513b"></script>
 <script src="pkl-common-role-badge.js?v=20260513b"></script>
 <script src="pkl-common-tier-badge.js?v=20260513b"></script>
 <script src="pkl-single-user-tier-sync.js?v=20260514a"></script>
-<script src="pkl-users-realtime.js?v=20260518a"></script>
+<script src="pkl-users-realtime.js?v=20260522idfix"></script>
 <script id="pklJoinAuthBackGuard">
 (function(){
   "use strict";
@@ -5101,31 +5101,15 @@ function safeJson(key, fallback){
   }
 
   function readAdminUsers(){
-    const realtime = readRealtimeUsers();
-    if(realtime.length) return realtime;
-    const state = safeJson("pklAdminState_v3", null);
-    if(state && Array.isArray(state.users) && state.users.length) return state.users;
-    return [];
+    return readRealtimeUsers();
   }
 
   function readPklUsers(){
-    const realtime = readRealtimeUsers();
-    if(realtime.length) return realtime;
-    const data = safeJson("pklUsers", []);
-    return Array.isArray(data) ? data : [];
+    return readRealtimeUsers();
   }
 
   function readUsers(){
-    const adminUsers = readAdminUsers();
-    if(adminUsers.length) return adminUsers;
-    const pklUsers = readPklUsers();
-    if(pklUsers.length) return pklUsers;
-    const keys = ["pklMembers","pklUserList","pklApprovedUsers","pklMemberList"];
-    for(const key of keys){
-      const data = safeJson(key, []);
-      if(Array.isArray(data) && data.length) return data;
-    }
-    return [];
+    return readRealtimeUsers();
   }
 
   function getUserNickname(user){
@@ -5150,19 +5134,16 @@ function safeJson(key, fallback){
 
   function identityMatches(seed, target){
     if(!seed || !target) return false;
-    const seedDiscord = getUserDiscordId(seed);
-    const targetDiscord = getUserDiscordId(target);
-    const seedId = getUserIdentity(seed);
-    const targetId = getUserIdentity(target);
-    const seedNick = getUserNickname(seed) || seed.name || "";
-    const targetNick = getUserNickname(target) || target.name || "";
-    const seedPubg = getUserPubgId(seed) || seed.pubgId || "";
-    const targetPubg = getUserPubgId(target) || target.pubgId || "";
-
-    return (seedDiscord && targetDiscord && String(seedDiscord) === String(targetDiscord)) ||
-           (seedId && targetId && String(seedId) === String(targetId)) ||
-           (seedPubg && targetPubg && String(seedPubg) === String(targetPubg)) ||
-           (seedNick && targetNick && String(seedNick) === String(targetNick));
+    const seedDiscord = String(getUserDiscordId(seed) || '').replace(/^discord-/i,'').trim();
+    const targetDiscord = String(getUserDiscordId(target) || '').replace(/^discord-/i,'').trim();
+    if(seedDiscord && targetDiscord) return seedDiscord === targetDiscord;
+    if(seedDiscord || targetDiscord) return false;
+    const seedId = String(getUserIdentity(seed) || '').trim();
+    const targetId = String(getUserIdentity(target) || '').trim();
+    if(/^discord-/i.test(seedId) && /^discord-/i.test(targetId)) return seedId.replace(/^discord-/i,'') === targetId.replace(/^discord-/i,'');
+    const seedPubg = String(getUserPubgId(seed) || seed.pubgId || '').trim().toLowerCase();
+    const targetPubg = String(getUserPubgId(target) || target.pubgId || '').trim().toLowerCase();
+    return !!(seedPubg && targetPubg && seedPubg === targetPubg);
   }
 
   function findAdminUser(seed){
@@ -5232,9 +5213,9 @@ function safeJson(key, fallback){
       name:String(nickname),
       nickname:String(nickname),
       pubgId:String(pubgId || ""),
-      memberRole:String(getMemberRole(adminUser)),
-      gradeRole:String(getGradeRole(pklUser) || getGradeRole(adminUser) || getGradeRole(loginUser)),
-      tier:String(getGradeRole(pklUser) || getGradeRole(adminUser) || getGradeRole(loginUser)),
+      memberRole:String(getMemberRole(adminUser) || getMemberRole(pklUser) || ''),
+      gradeRole:String(getGradeRole(pklUser) || getGradeRole(adminUser) || ''),
+      tier:String(getGradeRole(pklUser) || getGradeRole(adminUser) || ''),
       wins:String(adminUser.wins || adminUser.winCount || pklUser.wins || pklUser.winCount || 0),
       avgKills:String(adminUser.avgKills || adminUser.averageKills || adminUser.killAvg || adminUser.avgKill || pklUser.avgKills || pklUser.averageKills || pklUser.killAvg || pklUser.avgKill || 0),
       joinedAt:new Date().toISOString()
@@ -5297,7 +5278,7 @@ function safeJson(key, fallback){
     if(!user) return;
     const tier = getGradeRole(user);
     if(!tier) return;
-    const keys = [getUserDiscordId(user), getUserIdentity(user), getUserPubgId(user), getUserNickname(user)]
+    const keys = [getUserDiscordId(user), getUserIdentity(user), getUserPubgId(user)]
       .map(function(v){ return String(v || '').trim(); })
       .filter(Boolean);
     keys.forEach(function(key){ joinTierMap.set(key, tier); });
@@ -5325,7 +5306,7 @@ function safeJson(key, fallback){
       return item;
     }
     if(item.gradeRole || item.tier || item.memberTier || item.tierRole || item.grade) return item;
-    const keys = [getUserDiscordId(item), getUserIdentity(item), item.key, item.userId, item.uid, getUserPubgId(item), getUserNickname(item), item.name]
+    const keys = [getUserDiscordId(item), getUserIdentity(item), item.key, item.userId, item.uid, getUserPubgId(item)]
       .map(function(v){ return String(v || '').trim(); })
       .filter(Boolean);
     for(const key of keys){
@@ -5956,8 +5937,8 @@ function safeJson(key, fallback){
 
   async function fetchUserTierByProfile(seed){
     seed = seed || {};
-    const discordId = getUserDiscordId(seed);
-    const queries = [discordId, getUserPubgId(seed), getUserNickname(seed), seed.name]
+    const discordId = String(getUserDiscordId(seed) || '').replace(/^discord-/i,'').trim();
+    const queries = (discordId ? [discordId] : [getUserPubgId(seed)])
       .map(function(v){ return String(v || '').trim(); })
       .filter(Boolean);
 
@@ -5971,7 +5952,7 @@ function safeJson(key, fallback){
 
         // 검색어에 걸린 첫 번째 사용자를 임의로 쓰면, 예: 헤라 → 헤라부캐처럼
         // 다른 계정의 티어가 붙어서 미배정 유저도 참가 가능해진다.
-        // 반드시 디스코드ID/PUBG/정확한 닉네임이 같은 사용자만 티어 원본으로 사용한다.
+        // 반드시 디스코드 ID가 같은 사용자만 티어 원본으로 사용한다. 디스코드 ID가 없는 예전 데이터만 PUBG ID로 보조 확인한다.
         if(found){
           rememberTierUser(found);
           const tier = getGradeRole(found);
@@ -6268,12 +6249,19 @@ function safeJson(key, fallback){
   function findFullUser(seed){
     if(!seed) return null;
     const users = readUsers();
-    const nickname = getUserNickname(seed);
-    const pubgId = getUserPubgId(seed);
-    return users.find(function(u){
-      return (nickname && getUserNickname(u) === nickname) ||
-             (pubgId && getUserPubgId(u) === pubgId);
-    }) || seed;
+    const discordId = String(getUserDiscordId(seed) || '').replace(/^discord-/i,'').trim();
+    if(discordId){
+      const matchedByDiscord = users.find(function(u){
+        return String(getUserDiscordId(u) || '').replace(/^discord-/i,'').trim() === discordId;
+      });
+      return matchedByDiscord || seed;
+    }
+    const pubgId = String(getUserPubgId(seed) || '').trim().toLowerCase();
+    if(pubgId){
+      const matchedByPubg = users.find(function(u){ return String(getUserPubgId(u) || '').trim().toLowerCase() === pubgId; });
+      return matchedByPubg || seed;
+    }
+    return seed;
   }
 
   

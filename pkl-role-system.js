@@ -63,9 +63,10 @@
   function cleanKey(v){return String(v==null?"":v).trim().toLowerCase();}
   function strongUserKeys(u){
     u=u||{};
-    return [u.discordId,u.uid,u.id,u.userId]
-      .map(cleanKey)
-      .filter(function(v){return !!v && !/^approved-\d+$/.test(v) && !/^account-\d+-\d+$/.test(v) && !/^pending-/.test(v) && !/^uid-/.test(v);});
+    var direct=cleanKey(u.discord_id||u.discordId||u.discordID||u.userDiscordId||u.discord).replace(/^discord-/,"");
+    var arr=direct?[direct]:[];
+    [u.uid,u.id,u.userId].forEach(function(raw){raw=cleanKey(raw);if(/^discord-/.test(raw))arr.push(raw.replace(/^discord-/,""));});
+    return arr.filter(function(v,i){return !!v && arr.indexOf(v)===i && !/^approved-\d+$/.test(v) && !/^account-\d+-\d+$/.test(v) && !/^pending-/.test(v) && !/^uid-/.test(v);});
   }
   function legacyUserKeys(u){
     u=u||{};

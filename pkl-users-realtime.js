@@ -16,7 +16,17 @@
   function stripDiscord(v){ return low(v).replace(/^discord-/, ''); }
   function emit(name, detail){ try{ window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(e){} }
   function cfgValue(k){ try{ return clean(localStorage.getItem(k) || ''); }catch(e){ return ''; } }
-  function getDiscordId(u){ u = u || {}; return stripDiscord(u.discord_id || u.discordId || u.discordID || u.uid || u.id || u.userId || u.key); }
+  function getDiscordId(u){
+    u = u || {};
+    var direct = stripDiscord(u.discord_id || u.discordId || u.discordID || u.userDiscordId || u.discord);
+    if(direct) return direct;
+    var keys = [u.uid, u.id, u.userId, u.key, u.memberId];
+    for(var i=0;i<keys.length;i++){
+      var raw = clean(keys[i]);
+      if(/^discord-/i.test(raw)) return stripDiscord(raw);
+    }
+    return '';
+  }
   function getNick(u){ u = u || {}; return clean(u._supabaseNickname || u.supabaseNickname || u.nickname || u.nick || u.name || u.discordServerNickname || u.discordGuildNick || u.discord_username || u.discordUsername || u.displayName); }
   function getPubg(u){ u = u || {}; return clean(u.pubg_id || u.pubgId || u.pubgID || u.gameId || u.pubgName || u.pubg || u.ref); }
   function normalizeTier(v){
@@ -63,9 +73,11 @@
     return u;
   }
   function sameUser(a,b){
-    var ad = getDiscordId(a), bd = getDiscordId(b); if(ad && bd) return ad === bd;
-    var ap = low(getPubg(a)), bp = low(getPubg(b)); if(ap && bp) return ap === bp;
-    var an = low(getNick(a)), bn = low(getNick(b)); return !!(an && bn && an === bn);
+    var ad = getDiscordId(a), bd = getDiscordId(b);
+    if(ad && bd) return ad === bd;
+    if(ad || bd) return false;
+    var ap = low(getPubg(a)), bp = low(getPubg(b));
+    return !!(ap && bp && ap === bp);
   }
   function applyUsers(users, meta){
     users = (Array.isArray(users) ? users : []).map(normalizeUser).filter(function(u){ return !!getDiscordId(u); });
