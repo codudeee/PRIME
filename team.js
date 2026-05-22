@@ -2175,14 +2175,9 @@ if (!rerollModeDropdown) return;
       state.selectedSlots = targets.map(({ teamIndex, slotIndex }) => ({ teamIndex, slotIndex }));
       state.selected = state.selectedSlots[state.selectedSlots.length - 1] || null;
       setStatus(`지정칸 ${targets.length}개 리롤 완료`);
-      // 리롤 결과는 state에 먼저 반영되고 저장은 정상 처리되지만,
-      // 기존 슬롯머신 DOM이 남아 있으면 현재 화면은 바뀌지 않고 재입장 후에만 바뀐 것처럼 보인다.
-      // 완료 시점에 팀 슬롯 영역만 한 번 다시 그려서 현재 화면과 Supabase 저장 상태를 즉시 맞춘다.
-      renderTeams();
       renderSummary();
       saveState();
       syncSelectedSlotClasses();
-      flushPendingTeamBackgroundSync();
     };
 
     rerollBackupTeams = JSON.parse(JSON.stringify(state.teams));
@@ -2228,18 +2223,14 @@ if (!rerollModeDropdown) return;
       trackRerollTimeout(window.setTimeout(() => {
         const target = targets[targetIndex];
         const slot = getTeamSlotElement(target.teamIndex, target.slotIndex);
-        const finalId = finalIds[targetIndex];
-        state.teams[target.teamIndex].slots[target.slotIndex] = finalId;
-        if (!slot) {
-          completedSlots += 1;
-          finishRerollIfComplete();
-          return;
-        }
+        if (!slot) return;
 
+        const finalId = finalIds[targetIndex];
         const reel = slot.querySelector('.slot-machine-reel');
         const spinTimer = reel ? Number(reel.dataset.spinTimer) : 0;
         if (spinTimer) window.clearInterval(spinTimer);
 
+        state.teams[target.teamIndex].slots[target.slotIndex] = finalId;
         locked.add(targetIndex);
 
         if (reel) {
@@ -2269,7 +2260,7 @@ if (!rerollModeDropdown) return;
             passCount += 1;
 
             if (passCount < slowSteps.length) {
-              trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[passCount]));
+              window.setTimeout(runFinalPass, slowSteps[passCount]);
               return;
             }
 
@@ -2278,7 +2269,7 @@ if (!rerollModeDropdown) return;
             reel.classList.add('is-final-stop');
           };
 
-          trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[0]));
+          window.setTimeout(runFinalPass, slowSteps[0]);
         }
 
         trackRerollTimeout(window.setTimeout(() => {
@@ -2291,10 +2282,10 @@ if (!rerollModeDropdown) return;
           liveSlot.innerHTML = renderPlayerCard(finalId);
           bindPlayerCards();
 
-          trackRerollTimeout(window.setTimeout(() => {
+          window.setTimeout(() => {
             const doneSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
             if (doneSlot) { doneSlot.classList.remove('is-slot-stopped'); doneSlot.classList.remove('is-slot-relight'); }
-          }, 430));
+          }, 430);
 
           completedSlots += 1;
           finishRerollIfComplete();
