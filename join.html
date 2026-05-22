@@ -4731,24 +4731,62 @@ body.pkl-join-initializing #joinCancelCount{
 
 
 <style id="pklJoinWaitListInnerScrollOnlyFix">
-/* 대기자 리스트가 길어져도 참가/대기취소 버튼이 밀리지 않게 리스트 내부만 스크롤 */
-.join-wait-card{
+/* JOIN 대기자/취소 명단: 카드 박스 높이를 넘으면 박스 내부에서만 세로 스크롤 */
+.join-modal-panel{
+  display:flex !important;
+  flex-direction:column !important;
+  height:min(690px, calc(100vh - 56px)) !important;
+  min-height:0 !important;
+  max-height:calc(100vh - 56px) !important;
+}
+.join-modal-body{
+  flex:1 1 auto !important;
   min-height:0 !important;
   overflow:hidden !important;
 }
-#joinWaitList{
-  flex:0 1 auto !important;
-  max-height:clamp(260px, 46vh, 520px) !important;
+.join-wait-card,
+.join-cancel-card{
+  min-height:0 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+}
+.join-side-stack{
+  min-height:0 !important;
+  overflow:hidden !important;
+  grid-template-rows:minmax(0,1fr) auto !important;
+}
+#joinWaitList,
+#joinCancelList{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  height:auto !important;
+  max-height:none !important;
   overflow-y:auto !important;
   overflow-x:hidden !important;
   overscroll-behavior:contain !important;
+  align-content:start !important;
   padding-right:8px !important;
 }
-#joinWaitList::-webkit-scrollbar{width:7px;}
-#joinWaitList::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:999px;}
-#joinWaitList::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(168,85,247,.55),rgba(124,58,237,.28));border-radius:999px;border:1px solid rgba(216,180,254,.12);}
-@media (max-width:768px){
-  #joinWaitList{max-height:320px !important;}
+#joinWaitList::-webkit-scrollbar,
+#joinCancelList::-webkit-scrollbar{width:7px;}
+#joinWaitList::-webkit-scrollbar-track,
+#joinCancelList::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:999px;}
+#joinWaitList::-webkit-scrollbar-thumb,
+#joinCancelList::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(168,85,247,.55),rgba(124,58,237,.28));border-radius:999px;border:1px solid rgba(216,180,254,.12);}
+@media (max-width:1100px){
+  .join-modal-panel{
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+  }
+  .join-modal-body{
+    overflow:visible !important;
+  }
+  #joinWaitList,
+  #joinCancelList{
+    max-height:360px !important;
+  }
 }
 </style>
 
