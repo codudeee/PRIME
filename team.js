@@ -2184,16 +2184,11 @@ if (!rerollModeDropdown) return;
 
     const originalIds = targets.map(({ teamIndex, slotIndex }) => state.teams[teamIndex].slots[slotIndex]);
     const finalIds = ensureDifferentOrder(originalIds, shuffleIds(originalIds));
+    const stopOrder = shuffleIds(targets.map((_, index) => index));
     let completedSlots = 0;
 
     const finishRerollIfComplete = () => {
       if (completedSlots !== targets.length) return;
-
-      // 모든 슬롯의 감속/정지가 끝난 뒤에만 실제 state/DOM을 한 번에 반영한다.
-      // 기존 문제였던 "멈춘 뒤 슬롯 하나씩 카드가 바뀌는" 순차 교체 경로를 제거한다.
-      targets.forEach((target, index) => {
-        state.teams[target.teamIndex].slots[target.slotIndex] = finalIds[index];
-      });
 
       isRerolling = false;
       rerollBackupTeams = null;
@@ -2203,8 +2198,6 @@ if (!rerollModeDropdown) return;
       state.selectedSlots = targets.map(({ teamIndex, slotIndex }) => ({ teamIndex, slotIndex }));
       state.selected = state.selectedSlots[state.selectedSlots.length - 1] || null;
       setStatus(`지정칸 ${targets.length}개 리롤 완료`);
-
-      renderTeams();
       syncSelectedSlotClasses();
       saveState();
     };
@@ -2236,7 +2229,7 @@ if (!rerollModeDropdown) return;
       const spinSpeed = 72 + Math.floor(Math.random() * 38);
       const spinTimer = trackRerollInterval(window.setInterval(() => {
         const nextId = originalIds[Math.floor(Math.random() * originalIds.length)];
-        item.textContent = getPlayerName(nextId);
+        if (item) item.textContent = getPlayerName(nextId);
         reel.classList.remove('is-tick');
         void reel.offsetWidth;
         reel.classList.add('is-tick');
@@ -2245,13 +2238,16 @@ if (!rerollModeDropdown) return;
       reel.dataset.spinTimer = String(spinTimer);
     });
 
-    // 예전 느낌을 유지하기 위해 충분히 돌린 뒤, 모든 선택 슬롯이 동시에 감속/정지한다.
-    // 슬롯별 stopOrder 순차 정지는 제거한다.
-    const baseDelay = 4200;
-    const slowSteps = [70, 105, 150, 220, 320, 470, 650, 860, 1120, 1450, 1850];
+    // 예전 슬롯 느낌을 유지한다: 충분히 돌고, 슬롯들이 시간차로 감속/정지한다.
+    // 단, 예전 문제였던 "정지 후 900ms 뒤 카드 DOM 교체" 경로는 제거했다.
+    // 최종 카드 반영은 각 슬롯의 감속 마지막 틱에서 같은 이름으로 즉시 교체되어 후교체 느낌이 나지 않는다.
+    stopOrder.forEach((targetIndex, orderIndex) => {
+      const baseDelay = 2500;
+      const slotFlowDuration = 900;
+      const stopDelay = baseDelay + (orderIndex * slotFlowDuration);
 
-    trackRerollTimeout(window.setTimeout(() => {
-      targets.forEach((target, index) => {
+      trackRerollTimeout(window.setTimeout(() => {
+        const target = targets[targetIndex];
         const slot = getTeamSlotElement(target.teamIndex, target.slotIndex);
         if (!slot) {
           completedSlots += 1;
@@ -2259,12 +2255,16 @@ if (!rerollModeDropdown) return;
           return;
         }
 
-        const finalId = finalIds[index];
+        const finalId = finalIds[targetIndex];
         const reel = slot.querySelector('.slot-machine-reel');
         const spinTimer = reel ? Number(reel.dataset.spinTimer) : 0;
         if (spinTimer) window.clearInterval(spinTimer);
 
+        state.teams[target.teamIndex].slots[target.slotIndex] = finalId;
+
         if (!reel) {
+          slot.innerHTML = renderPlayerCard(finalId);
+          bindPlayerCards();
           completedSlots += 1;
           finishRerollIfComplete();
           return;
@@ -2276,12 +2276,40 @@ if (!rerollModeDropdown) return;
 
         const item = reel.querySelector('.slot-machine-item');
         const finalName = getPlayerName(finalId);
+        const slowSteps = [70, 105, 150, 220, 320, 470, 650, 860, 1120, 1450, 1850];
         let passCount = 0;
+
+        const finishOneSlot = () => {
+          const liveSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
+          if (!liveSlot) {
+            completedSlots += 1;
+            finishRerollIfComplete();
+            return;
+          }
+
+          // 릴에 보이던 최종 이름과 같은 카드를 같은 순간에 넣는다.
+          // 별도 지연 타이머를 쓰지 않아서 "멈춘 뒤 한 칸씩 바뀌는" 후반 렌더가 생기지 않는다.
+          liveSlot.innerHTML = renderPlayerCard(finalId);
+          liveSlot.classList.remove('is-slot-rolling');
+          liveSlot.classList.add('is-slot-stopped');
+          liveSlot.classList.add('is-slot-relight');
+          bindPlayerCards();
+
+          trackRerollTimeout(window.setTimeout(() => {
+            const doneSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
+            if (doneSlot) {
+              doneSlot.classList.remove('is-slot-stopped');
+              doneSlot.classList.remove('is-slot-relight');
+            }
+          }, 430));
+
+          completedSlots += 1;
+          finishRerollIfComplete();
+        };
 
         const runFinalPass = () => {
           if (!item) {
-            completedSlots += 1;
-            finishRerollIfComplete();
+            finishOneSlot();
             return;
           }
 
@@ -2308,25 +2336,12 @@ if (!rerollModeDropdown) return;
           reel.classList.remove('is-decelerating');
           reel.classList.add('is-final-stop');
 
-          slot.classList.remove('is-slot-rolling');
-          slot.classList.add('is-slot-stopped');
-          slot.classList.add('is-slot-relight');
-
-          trackRerollTimeout(window.setTimeout(() => {
-            const doneSlot = getTeamSlotElement(target.teamIndex, target.slotIndex);
-            if (doneSlot) {
-              doneSlot.classList.remove('is-slot-stopped');
-              doneSlot.classList.remove('is-slot-relight');
-            }
-          }, 430));
-
-          completedSlots += 1;
-          finishRerollIfComplete();
+          finishOneSlot();
         };
 
         trackRerollTimeout(window.setTimeout(runFinalPass, slowSteps[0]));
-      });
-    }, baseDelay));
+      }, stopDelay));
+    });
   }
 
 
