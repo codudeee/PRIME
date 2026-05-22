@@ -7521,17 +7521,13 @@ function safeJson(key, fallback){
       return true;
     });
     saveJson("pklAdminState_v3",state);
-    const users=readJson("pklUsers",[]);
-    if(Array.isArray(users)){
-      const next=users.filter(user=>{
-        if(!sameJoinUser(user,target)) return true;
-        const warnings=Number(user.warnings||0)+1;
-        if(warnings>=4) return false;
-        Object.assign(user,{warnings:warnings});
-        return true;
-      });
-      saveJson("pklUsers",next);
-    }
+    /* 10차 수술: 경고 조치 후 pklUsers localStorage 백업을 수정하지 않는다.
+       유저 원본/경고 누적은 이후 Supabase users/admin_logs/ban_records 흐름으로만 연결한다. */
+    try{
+      if(window.PKLUsersRealtime && typeof window.PKLUsersRealtime.fetchUsers === 'function'){
+        window.PKLUsersRealtime.fetchUsers({ limit:500, reason:'join-warning-refresh' }).catch(function(){});
+      }
+    }catch(_e){}
     return matched;
   }
 
