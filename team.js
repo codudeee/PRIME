@@ -307,17 +307,13 @@
         // 진입 시 1000명 users 조회가 보드 첫 렌더를 막아 멈춘 것처럼 보이는 현상을 줄인다.
         applyTeamControlAccess();
         render();
+        // 자동 users 전체 조회/보드 재렌더는 team 페이지 진입 렉의 주 원인이라 끈다.
+        // 대기자 불러오기 버튼/수동 동기화 때만 Supabase users를 한 번 읽는다.
         setTimeout(() => {
-          loadSupabaseUsersForJoinWaitListOnce(true).finally(() => {
-            if (isPlayerDragActive || isRerolling) { pendingTeamBackgroundSync = true; return; }
-            syncJoinWaitListIntoTeamBoard(true);
-            syncPlayersWithUserSources();
-            applyTeamControlAccess();
-            renderBoardOnlyAndSave();
-            setTimeout(() => refreshJoinWaitListFromSupabaseOnce(), 800);
-            scheduleSupabaseWaitingTierRefresh();
-          });
-        }, 250);
+          if (isPlayerDragActive || isRerolling) { pendingTeamBackgroundSync = true; return; }
+          refreshJoinWaitListFromSupabaseOnce();
+          scheduleSupabaseWaitingTierRefresh();
+        }, 1200);
       });
     });
   }
@@ -343,24 +339,9 @@
   }
 
   function refreshWaitingTiersFromSupabase() {
-    if (document.hidden) return Promise.resolve(false);
-    if (isPlayerDragActive || isRerolling) {
-      pendingTeamBackgroundSync = true;
-      return Promise.resolve(false);
-    }
-    const before = getWaitingTierSignature();
-    return loadSupabaseUsersForJoinWaitListOnce(true).then(() => {
-      syncJoinWaitListIntoTeamBoard(true);
-      syncPlayersWithUserSources();
-      const after = getWaitingTierSignature();
-      if (before !== after) {
-        if (isPlayerDragActive) { pendingTeamBackgroundSync = true; return false; }
-        hydratePlayersForDisplayOnly();
-        renderBoardOnlyAndSave();
-        return true;
-      }
-      return false;
-    }).catch(() => false);
+    // 자동 티어 보정 렌더 금지. 팀구성 중에는 현재 보드의 player.tier가 화면 기준이다.
+    // Supabase users 강제 재조회는 수동 대기자 불러오기에서만 수행한다.
+    return Promise.resolve(false);
   }
 
   function scheduleSupabaseWaitingTierRefresh() {
@@ -462,10 +443,10 @@ if (rerollListModal) {
   }
 
   function render() {
+    // team 페이지 렌더는 이미 보드에 들어온 player 값을 기준으로만 그린다.
+    // 렌더 때마다 Supabase/users를 다시 매칭하면 hover/drag 중 티어가 흔들리고 잔렉이 생긴다.
     return withTeamLookupCache(() => {
       invalidateTeamPlayerCache();
-      hydratePlayersForDisplayOnly();
-      syncPlayersWithUserSources();
       cleanPlacedPlayersOutOfWaitingPools();
       renderTierPools();
       renderTeams();
@@ -741,10 +722,9 @@ if (rerollListModal) {
   function renderPlayerCard(playerId) {
     const player = getTeamPlayerById(playerId);
     if (!player) return '';
-    hydratePlayerIdentity(player);
-    const displayName = resolvePlayerDisplayName(player);
-    const accountUser = resolvePlayerAccountUser(player, displayName);
-    const tierBadge = renderPlayerTierBadge(player, accountUser);
+    // 카드 렌더 중 외부 유저 DB 재조회 금지: 렉/티어 흔들림 방지
+    const displayName = player.name || player.nickname || player.discord_username || '알 수 없음';
+    const tierBadge = renderPlayerTierBadge(player, null);
     return `
       <div class="player-card" draggable="true" data-player-id="${player.id}" data-player-name="${escapeHtml(displayName)}" data-discord-id="${escapeHtml(player.discordId || player.discord_id || player.userUid || '')}">
         <span class="player-name">${escapeHtml(displayName)}</span>
@@ -1053,54 +1033,32 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
 
   function bindUserSyncEvents() {
-    /* storage 이벤트 기반 팀구성 전체 재렌더 금지. */
-    // join 대기자 정보는 페이지 진입 시 1회 fetch, 또는 Supabase join_state 도착 이벤트 1회만 반영한다.
+    // team 페이지에서는 외부 storage/realtime 이벤트로 전체 보드를 다시 그리지 않는다.
+    // 참가자/티어는 '대기자 불러오기' 또는 페이지 진입 시 저장된 보드 기준으로 고정한다.
     let lastJoinStateSignature = '';
     window.addEventListener('pkl-join-state-updated', event => {
       const detail = event && event.detail ? event.detail : {};
       const list = Array.isArray(detail.waitList) ? detail.waitList : [];
-      const cancelList = Array.isArray(detail.cancelList) ? detail.cancelList : [];
-      const sig = JSON.stringify({
-        wait: list.map(getJoinWaitItemKey).filter(Boolean).sort(),
-        cancel: cancelList.map(getJoinWaitItemKey).filter(Boolean).sort()
-      });
+      const sig = JSON.stringify(list.map(getJoinWaitItemKey).filter(Boolean).sort());
       if (sig === lastJoinStateSignature) return;
       lastJoinStateSignature = sig;
-      if (isPlayerDragActive) {
-        pendingTeamBackgroundSync = true;
-        return;
-      }
-      loadSupabaseUsersForJoinWaitListOnce(false).finally(() => {
-        if (isPlayerDragActive) { pendingTeamBackgroundSync = true; return; }
-        syncJoinWaitListIntoTeamBoard(true);
-        syncPlayersWithUserSources();
-        requestTeamBoardRender(250);
-      });
+      pendingTeamBackgroundSync = true;
     });
     window.addEventListener('pkl-role-data-updated', event => {
       const changedUsers = event && event.detail && Array.isArray(event.detail.changedUsers) ? event.detail.changedUsers : [];
-      if(changedUsers.length){
+      if (changedUsers.length) {
         changedUsers.forEach(user => {
           const idx = supabaseUsersCache.findIndex(item => isSameUserIdentity(item, user));
-          if(idx >= 0) supabaseUsersCache[idx] = { ...supabaseUsersCache[idx], ...user };
+          if (idx >= 0) supabaseUsersCache[idx] = { ...supabaseUsersCache[idx], ...user };
           else supabaseUsersCache.push(user);
         });
         supabaseUsersLoadedOnce = true;
       }
-      if (isPlayerDragActive) {
-        pendingTeamBackgroundSync = true;
-        return;
-      }
-      loadSupabaseUsersForJoinWaitListOnce(!changedUsers.length).finally(() => {
-        if (isPlayerDragActive) { pendingTeamBackgroundSync = true; return; }
-        syncJoinWaitListIntoTeamBoard(true);
-        syncPlayersWithUserSources();
-        hydratePlayersForDisplayOnly();
-        applyTeamControlAccess();
-        requestTeamBoardRender(250);
-      });
+      // 자동 render 금지
+      pendingTeamBackgroundSync = true;
     });
   }
+
 
   function readJoinRecruitState() {
     try {
@@ -1564,20 +1522,22 @@ const teamIndex = Number(slot.dataset.teamIndex);
   function syncPlayersWithUserSources() {
     let changed = false;
     state.players.forEach(player => {
-      hydratePlayerIdentity(player);
-      const supabaseUser = findSupabaseUserForPlayer(player);
-      const displayName = resolvePlayerDisplayName(player);
-      const accountUser = supabaseUser || resolvePlayerAccountUser(player, displayName);
-      const syncedTier = resolvePlayerPklTier(player, accountUser);
-      if (syncedTier && player.tier !== syncedTier) {
-        player.tier = syncedTier;
+      // 슬롯에 이미 배치된 인원은 리롤/드래그 중 티어가 흔들리면 안 되므로 건드리지 않는다.
+      if (isPlayerPlacedInTeam(player.id)) return;
+      const supabaseUser = findSupabaseUserStrict(player);
+      if (!supabaseUser) return;
+      const syncedTier = resolveUserTierKey(supabaseUser);
+      if (isValidTierId(syncedTier) && player.tier !== getCanonicalTierId(syncedTier)) {
+        player.tier = getCanonicalTierId(syncedTier);
         changed = true;
       }
-      const tierBadge = accountUser ? resolveUserTierBadgeValue(accountUser) : '';
+      const tierBadge = resolveUserTierBadgeValue(supabaseUser);
       if (tierBadge && player.memberTier !== tierBadge) {
         player.memberTier = tierBadge;
         changed = true;
       }
+      const displayName = supabaseUser.nickname || supabaseUser.nick || supabaseUser.name || supabaseUser.discord_username || '';
+      if (displayName && player.name !== displayName) { player.name = displayName; changed = true; }
     });
     syncWaitingPoolsWithPlayerTiers();
     return changed;
@@ -1796,30 +1756,21 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
 
   function resolvePlayerDisplayName(player) {
+    if (player && (player.name || player.nickname || player.discord_username)) return player.name || player.nickname || player.discord_username;
     const supabaseUser = findSupabaseUserForPlayer(player);
-    if (supabaseUser) return supabaseUser.nickname || supabaseUser.nick || supabaseUser.name || supabaseUser.discord_username || player.name;
-    const adminUser = resolvePlayerAdminUser(player);
-    if (adminUser) return adminUser.nickname || adminUser.nick || adminUser.name || player.name;
-    return player.name || '알 수 없음';
+    if (supabaseUser) return supabaseUser.nickname || supabaseUser.nick || supabaseUser.name || supabaseUser.discord_username || '알 수 없음';
+    return '알 수 없음';
   }
 
 
   function renderPlayerTierBadge(player, accountUser) {
-    const displayName = resolvePlayerDisplayName(player);
-    const supabaseUser = findSupabaseUserForPlayer(player);
-    const user = supabaseUser || accountUser || resolvePlayerAccountUser(player, displayName);
-
-    if (user && window.PKLTierBadge && typeof window.PKLTierBadge.renderForUser === 'function') {
-      const html = window.PKLTierBadge.renderForUser(user, { extraClass: 'player-tier member-role-badge' });
-      if (html) return html;
-    }
-
+    const tierValue = (player && (player.memberTier || player.tier)) || (accountUser && resolveUserTierBadgeValue(accountUser)) || '';
     if (window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function') {
-      const html = window.PKLTierBadge.render(player.memberTier || player.tier, { extraClass: 'player-tier member-role-badge' });
+      const html = window.PKLTierBadge.render(tierValue, { extraClass: 'player-tier member-role-badge' });
       if (html) return html;
     }
-
-    return '';
+    const safeTier = isValidTierId(tierValue) ? getCanonicalTierId(tierValue) : 'tier0';
+    return `<span class="player-tier member-role-badge ${escapeHtml(safeTier)}">${escapeHtml(getTierLabel(safeTier))}</span>`;
   }
 
 
