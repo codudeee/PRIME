@@ -313,7 +313,9 @@
         // 진입 시 1000명 users 조회가 보드 첫 렌더를 막아 멈춘 것처럼 보이는 현상을 줄인다.
         applyTeamControlAccess();
         render();
-        // team 진입 직후 자동 Supabase 재조회/재분류는 잔렉과 티어 흔들림 원인이므로 실행하지 않는다.
+        // 첫 화면 렌더를 막지 않도록, 배지 보정만 뒤에서 1회 수행한다.
+        // 참가자/대기칸 재분류는 하지 않고 Supabase users의 저장 배지값만 player.memberTier에 반영한다.
+        scheduleTeamBadgeHydrationFromSupabaseOnce();
         // 참가자 갱신은 '대기자 불러오기' 버튼으로만 수동 실행한다.
       });
     });
@@ -349,6 +351,43 @@
     // 자동 티어/대기자 동기화는 team 페이지 성능 때문에 완전히 끈다.
     // 수동 대기자 불러오기만 허용한다.
     return false;
+  }
+
+  let teamBadgeHydrationStarted = false;
+  function scheduleTeamBadgeHydrationFromSupabaseOnce() {
+    if (teamBadgeHydrationStarted) return;
+    teamBadgeHydrationStarted = true;
+    setTimeout(() => {
+      if (isPlayerDragActive || isRerolling || document.hidden) {
+        teamBadgeHydrationStarted = false;
+        return;
+      }
+      loadSupabaseUsersForJoinWaitListOnce(false).then(() => {
+        const changed = hydrateTeamPlayerBadgesFromSupabaseOnly();
+        if (changed && !isPlayerDragActive && !isRerolling && !document.hidden) renderBoardOnlyAndSave();
+      }).catch(() => {});
+    }, 450);
+  }
+
+  function hydrateTeamPlayerBadgesFromSupabaseOnly() {
+    if (!teamLookupCache) return withTeamLookupCache(() => hydrateTeamPlayerBadgesFromSupabaseOnly());
+    let changed = false;
+    state.players.forEach(player => {
+      if (!player) return;
+      const user = findSupabaseUserStrict(player) || findSupabaseUserByLooseName(player.name);
+      if (!user) return;
+      const badgeValue = resolveUserTierBadgeValue(user);
+      const tierKey = resolveUserTierKey(user);
+      if (badgeValue && player.memberTier !== badgeValue) {
+        player.memberTier = badgeValue;
+        changed = true;
+      }
+      if (isValidTierId(tierKey) && player.tier !== getCanonicalTierId(tierKey)) {
+        player.tier = getCanonicalTierId(tierKey);
+        changed = true;
+      }
+    });
+    return changed;
   }
 
   function refreshJoinWaitListFromSupabaseOnce() {
@@ -1720,11 +1759,15 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
 
   function renderPlayerTierBadge(player, accountUser) {
-    // 카드 수가 많을 때 공통 배지 렌더러가 매 카드마다 외부 조회/계산을 수행해 잔렉이 생긴다.
-    // team 페이지에서는 현재 보드의 player.tier만 화면 기준으로 사용한다.
-    const tierValue = player && player.tier;
+    // 외부 유저 조회는 하지 않고, 이미 Supabase에서 player.memberTier에 반영된 저장 배지값을 우선 표시한다.
+    const tierValue = (player && (player.memberTier || player.tier)) || (accountUser && resolveUserTierBadgeValue(accountUser)) || '';
+    if (window.PKLTierBadge && typeof window.PKLTierBadge.render === 'function') {
+      const html = window.PKLTierBadge.render(tierValue, { extraClass: 'player-tier member-role-badge' });
+      if (html) return html;
+    }
     const safeTier = isValidTierId(tierValue) ? getCanonicalTierId(tierValue) : 'tier0';
-    return `<span class="player-tier member-role-badge ${escapeHtml(safeTier)}">${escapeHtml(getTierLabel(safeTier))}</span>`;
+    const label = formatTierBadgeLabel(tierValue, getTierLabel(safeTier));
+    return `<span class="player-tier member-role-badge ${escapeHtml(safeTier)}">${escapeHtml(label)}</span>`;
   }
 
 
