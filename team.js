@@ -65,6 +65,9 @@
   let pendingTeamBackgroundSync = false;
   let teamStateSaveTimer = null;
   let lastSavedTeamStateJson = '';
+  let teamLookupCache = null;
+  let waitingSortDetailCache = null;
+
 
 
   function pklTeamCanEdit(){
@@ -229,10 +232,12 @@
   }
 
   function renderBoardOnlyAndSave() {
-    renderTierPools();
-    renderTeams();
-    renderSummary();
-    saveState();
+    return withTeamLookupCache(() => {
+      renderTierPools();
+      renderTeams();
+      renderSummary();
+      saveState();
+    });
   }
 
   function init() {
@@ -416,12 +421,14 @@ if (rerollListModal) {
   }
 
   function render() {
-    hydratePlayersForDisplayOnly();
-    syncPlayersWithUserSources();
-    renderTierPools();
-    renderTeams();
-    renderSummary();
-    saveState();
+    return withTeamLookupCache(() => {
+      hydratePlayersForDisplayOnly();
+      syncPlayersWithUserSources();
+      renderTierPools();
+      renderTeams();
+      renderSummary();
+      saveState();
+    });
   }
 
   function renderTierPools() {
@@ -762,7 +769,7 @@ event.preventDefault();
 
         clearDropStyles();
         isPlayerDragActive = false;
-        render();
+        renderBoardOnlyAndSave();
       };
     });
   }
@@ -1241,6 +1248,55 @@ const teamIndex = Number(slot.dataset.teamIndex);
     return base;
   }
 
+
+  function buildTeamLookupCache() {
+    const users = readSupabaseUsers();
+    const userByValue = new Map();
+    const userByName = new Map();
+    users.forEach(user => {
+      collectIdentityValuesFromObject(user).forEach(value => {
+        const key = normalizeName(value);
+        if (key && !userByValue.has(key)) userByValue.set(key, user);
+      });
+      getUserDisplayNames(user).forEach(name => {
+        if (name && !userByName.has(name)) userByName.set(name, user);
+      });
+    });
+
+    const joinItems = getActiveJoinWaitList();
+    const joinByValue = new Map();
+    joinItems.forEach(item => {
+      collectIdentityValuesFromObject(item).forEach(value => {
+        const key = normalizeName(value);
+        if (key && !joinByValue.has(key)) joinByValue.set(key, item);
+      });
+      const key = normalizeName(getJoinWaitItemKey(item));
+      if (key && !joinByValue.has(key)) joinByValue.set(key, item);
+    });
+
+    return { users, userByValue, userByName, joinItems, joinByValue };
+  }
+
+  function withTeamLookupCache(work) {
+    const previous = teamLookupCache;
+    if (!teamLookupCache) teamLookupCache = buildTeamLookupCache();
+    try {
+      return work();
+    } finally {
+      if (!previous) teamLookupCache = null;
+    }
+  }
+
+  function findSupabaseUserInLookup(seed) {
+    if (!seed || !teamLookupCache) return null;
+    const values = collectIdentityValuesFromObject(seed);
+    for (const value of values) {
+      const key = normalizeName(value);
+      if (key && teamLookupCache.userByValue.has(key)) return teamLookupCache.userByValue.get(key);
+    }
+    return null;
+  }
+
   function getUserDisplayNames(user) {
     if (!user) return [];
     return [user.nickname, user.nick, user.name, user.discord_username, user.discordUsername, user.displayName]
@@ -1251,17 +1307,21 @@ const teamIndex = Number(slot.dataset.teamIndex);
   function findSupabaseUserByLooseName(name) {
     const target = normalizeName(name);
     if (!target) return null;
-    const users = readSupabaseUsers();
-    const exact = users.find(user => getUserDisplayNames(user).includes(target));
-    if (exact) return exact;
+    const cache = teamLookupCache;
+    if (cache) {
+      const exact = cache.userByName.get(target);
+      if (exact) return exact;
+      const loose = [];
+      cache.users.forEach(user => {
+        if (getUserDisplayNames(user).some(nameValue => {
+          if (!nameValue || nameValue.length < 2 || target.length < 2) return false;
+          return nameValue.endsWith(target) || target.endsWith(nameValue) || nameValue.includes(target) || target.includes(nameValue);
+        })) loose.push(user);
+      });
+      return loose.length === 1 ? loose[0] : null;
+    }
 
-    // join 대기값이 닉네임 일부만 저장된 이전 데이터 보정용.
-    // 여러 명이 걸리면 오인식 방지를 위해 사용하지 않는다.
-    const loose = users.filter(user => getUserDisplayNames(user).some(nameValue => {
-      if (!nameValue || nameValue.length < 2 || target.length < 2) return false;
-      return nameValue.endsWith(target) || target.endsWith(nameValue) || nameValue.includes(target) || target.includes(nameValue);
-    }));
-    return loose.length === 1 ? loose[0] : null;
+    return withTeamLookupCache(() => findSupabaseUserByLooseName(name));
   }
 
   function collectIdentityValuesFromObject(obj) {
@@ -1284,29 +1344,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function findSupabaseUserStrict(seed) {
     if (!seed) return null;
-    const users = readSupabaseUsers();
-    const seedValues = collectIdentityValuesFromObject(seed);
-
-    const identityMatch = users.find(user => isSameUserIdentity(seed, user));
-    if (identityMatch) return identityMatch;
-
-    const discord = seed.discord_id || seed.discordId || seed.discordID || seed.userDiscordId || '';
-    if (discord) {
-      const matched = users.find(user => sameIdentityValue(user.discord_id || user.discordId || user.userDiscordId, discord));
-      if (matched) return matched;
-    }
-
-    const pubg = seed.pubgId || seed.pubg_id || seed.pubgID || seed.gameId || seed.pubg || seed.ref || '';
-    if (pubg) {
-      const matched = users.find(user => sameIdentityValue(user.pubg_id || user.pubgId || user.pubgID || user.gameId || user.pubg || user.ref, pubg));
-      if (matched) return matched;
-    }
-
-    for (const value of seedValues) {
-      const matched = users.find(user => collectIdentityValuesFromObject(user).some(userValue => sameIdentityValue(userValue, value)));
-      if (matched) return matched;
-    }
-    return null;
+    if (teamLookupCache) return findSupabaseUserInLookup(seed);
+    return withTeamLookupCache(() => findSupabaseUserStrict(seed));
   }
 
   function findSupabaseUserForJoinItem(item, adminUser, accountUser) {
@@ -1329,16 +1368,15 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function findActiveJoinItemForPlayer(player) {
     if (!player) return null;
-    const key = String(player.joinWaitKey || player.userUid || player.accountId || player.discordId || player.discord_id || player.pubgId || player.pubg_id || player.name || '').trim();
-    const list = getActiveJoinWaitList();
-    return list.find(item => {
-      if (isSameUserIdentity(player, item)) return true;
-      const itemKey = getJoinWaitItemKey(item);
-      if (key && itemKey && sameIdentityValue(key, itemKey)) return true;
-      if (player.pubgId && sameIdentityValue(player.pubgId, item.pubgId || item.pubg_id || item.gameId)) return true;
-      if (player.discordId && sameIdentityValue(player.discordId, item.discord_id || item.discordId)) return true;
-      return false;
-    }) || null;
+    if (teamLookupCache) {
+      const values = collectIdentityValuesFromObject(player);
+      for (const value of values) {
+        const key = normalizeName(value);
+        if (key && teamLookupCache.joinByValue.has(key)) return teamLookupCache.joinByValue.get(key);
+      }
+      return null;
+    }
+    return withTeamLookupCache(() => findActiveJoinItemForPlayer(player));
   }
 
   function findSupabaseUserForPlayer(player) {
@@ -1350,6 +1388,7 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function syncJoinWaitListIntoTeamBoard(forceLoad) {
+    if (!teamLookupCache) return withTeamLookupCache(() => syncJoinWaitListIntoTeamBoard(forceLoad));
     if (!forceLoad && isJoinRecruitClosed()) return;
     const joinList = getActiveJoinWaitList().filter(item => {
       const adminUser = findAdminUserForJoinItem(item);
@@ -1554,12 +1593,21 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function sortAllWaitingPools(waiting) {
-    const nextWaiting = TIERS.reduce((map, tier) => ({ ...map, [tier.id]: [] }), {});
-    TIERS.forEach(tier => {
-      const ids = Array.isArray(waiting && waiting[tier.id]) ? waiting[tier.id] : [];
-      nextWaiting[tier.id] = sortWaitingIdsForTier(ids, tier.id);
-    });
-    return nextWaiting;
+    const previousSortCache = waitingSortDetailCache;
+    waitingSortDetailCache = {
+      playerById: new Map((state.players || []).map(player => [player.id, player])),
+      detailById: new Map()
+    };
+    try {
+      const nextWaiting = TIERS.reduce((map, tier) => ({ ...map, [tier.id]: [] }), {});
+      TIERS.forEach(tier => {
+        const ids = Array.isArray(waiting && waiting[tier.id]) ? waiting[tier.id] : [];
+        nextWaiting[tier.id] = sortWaitingIdsForTier(ids, tier.id);
+      });
+      return nextWaiting;
+    } finally {
+      waitingSortDetailCache = previousSortCache;
+    }
   }
 
   function sortWaitingIdsForTier(ids, boxTierId) {
@@ -1590,11 +1638,16 @@ const teamIndex = Number(slot.dataset.teamIndex);
   }
 
   function resolvePlayerTierDetailById(playerId) {
-    const player = state.players.find(item => item.id === playerId);
+    if (waitingSortDetailCache && waitingSortDetailCache.detailById.has(playerId)) return waitingSortDetailCache.detailById.get(playerId);
+    const player = waitingSortDetailCache && waitingSortDetailCache.playerById
+      ? waitingSortDetailCache.playerById.get(playerId)
+      : state.players.find(item => item.id === playerId);
     if (!player) return normalizeTierDetail('tier0');
     const displayName = resolvePlayerDisplayName(player);
     const accountUser = resolvePlayerAccountUser(player, displayName);
-    return resolvePlayerTierDetail(player, accountUser);
+    const detail = resolvePlayerTierDetail(player, accountUser);
+    if (waitingSortDetailCache) waitingSortDetailCache.detailById.set(playerId, detail);
+    return detail;
   }
 
   function resolvePlayerTierDetail(player, accountUser) {
