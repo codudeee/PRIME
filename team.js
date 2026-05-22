@@ -2943,6 +2943,13 @@ function saveMatchTimeSettings() {
     openModal(rerollListModal);
   }
 
+  const REROLL_TYPES = [
+    { key: 'r03', label: '0.3', title: '0.3 리롤' },
+    { key: 'r05', label: '0.5', title: '0.5 리롤' },
+    { key: 'r07', label: '0.7', title: '0.7 리롤' },
+    { key: 'r10', label: '1.0', title: '1.0 리롤' }
+  ];
+
   function ensureRerollRequestState() {
     if (!state.rerollRequests || typeof state.rerollRequests !== 'object' || Array.isArray(state.rerollRequests)) {
       state.rerollRequests = {};
@@ -2950,6 +2957,75 @@ function saveMatchTimeSettings() {
     if (!Array.isArray(state.rerollHiddenKeys)) {
       state.rerollHiddenKeys = [];
     }
+    Object.keys(state.rerollRequests).forEach(key => {
+      normalizeRerollRequestShape(state.rerollRequests[key]);
+    });
+  }
+
+  function normalizeRerollRequestShape(request) {
+    if (!request || typeof request !== 'object') return request;
+    const previousCount = normalizeRerollCount(request.count);
+    if (!request.counts || typeof request.counts !== 'object' || Array.isArray(request.counts)) {
+      request.counts = {};
+    }
+    REROLL_TYPES.forEach(type => {
+      request.counts[type.key] = normalizeRerollCount(request.counts[type.key]);
+    });
+    if (previousCount > 0 && getRerollTotalCount(request) <= 0) {
+      request.counts.r10 = previousCount;
+    }
+    request.count = getRerollTotalCount(request);
+    request.paid = Boolean(request.paid);
+    return request;
+  }
+
+  function getRerollTotalCount(request) {
+    if (!request || !request.counts || typeof request.counts !== 'object') return normalizeRerollCount(request && request.count);
+    return REROLL_TYPES.reduce((sum, type) => sum + normalizeRerollCount(request.counts[type.key]), 0);
+  }
+
+  function renderRerollTypeControls(key, request, canManageList) {
+    const counts = (request && request.counts) || {};
+    return REROLL_TYPES.map(type => {
+      const value = normalizeRerollCount(counts[type.key]);
+      if (!canManageList) {
+        return `<span class="pkl-reroll-type-view ${value > 0 ? 'has-count' : ''}"><b>${escapeHtml(type.label)}</b><em>${value}</em></span>`;
+      }
+      return `
+        <div class="pkl-reroll-type-control" data-reroll-type="${escapeHtml(type.key)}" aria-label="${escapeHtml(type.title)} 횟수">
+          <span class="pkl-reroll-type-label">${escapeHtml(type.label)}</span>
+          <div class="pkl-reroll-mini-counter">
+            <button type="button" data-reroll-action="type-decrease" data-reroll-type="${escapeHtml(type.key)}" aria-label="${escapeHtml(type.title)} 감소">−</button>
+            <input type="number" min="0" step="1" inputmode="numeric" value="${value}" data-reroll-type-count data-reroll-type="${escapeHtml(type.key)}" aria-label="${escapeHtml(type.title)} 횟수" />
+            <button type="button" data-reroll-action="type-increase" data-reroll-type="${escapeHtml(type.key)}" aria-label="${escapeHtml(type.title)} 증가">＋</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function ensureRerollListStyles() {
+    if (document.getElementById('pkl-reroll-type-style')) return;
+    const style = document.createElement('style');
+    style.id = 'pkl-reroll-type-style';
+    style.textContent = `
+      #rerollListModal .pkl-reroll-entry{align-items:stretch;gap:14px;}
+      #rerollListModal .pkl-reroll-user{min-width:180px;}
+      #rerollListModal .pkl-reroll-type-grid{display:grid;grid-template-columns:repeat(4,minmax(92px,1fr));gap:8px;flex:1;min-width:390px;}
+      #rerollListModal .pkl-reroll-type-control{display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid rgba(180,130,255,.22);border-radius:12px;background:rgba(12,8,28,.55);box-shadow:inset 0 0 14px rgba(135,75,255,.08);}
+      #rerollListModal .pkl-reroll-type-label{font-size:12px;font-weight:800;letter-spacing:.03em;color:#d8c6ff;text-align:center;line-height:1;}
+      #rerollListModal .pkl-reroll-mini-counter{display:grid;grid-template-columns:24px minmax(30px,1fr) 24px;align-items:center;gap:4px;}
+      #rerollListModal .pkl-reroll-mini-counter button{width:24px;height:24px;border-radius:8px;border:1px solid rgba(194,149,255,.36);background:rgba(80,45,150,.55);color:#fff;font-weight:900;cursor:pointer;}
+      #rerollListModal .pkl-reroll-mini-counter input{width:100%;height:24px;border-radius:8px;border:1px solid rgba(194,149,255,.28);background:rgba(6,5,18,.82);color:#fff;text-align:center;font-weight:800;outline:none;}
+      #rerollListModal .pkl-reroll-type-view{display:flex;align-items:center;justify-content:center;gap:5px;min-width:58px;padding:7px 8px;border-radius:10px;background:rgba(12,8,28,.55);border:1px solid rgba(180,130,255,.18);color:#a99bc9;}
+      #rerollListModal .pkl-reroll-type-view.has-count{color:#fff;border-color:rgba(180,130,255,.42);box-shadow:0 0 12px rgba(145,80,255,.18);}
+      #rerollListModal .pkl-reroll-type-view b{font-size:12px;}
+      #rerollListModal .pkl-reroll-type-view em{font-style:normal;font-size:13px;font-weight:900;}
+      #rerollListModal .pkl-reroll-total-badge{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:24px;padding:0 9px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);font-size:12px;font-weight:900;color:#fff;}
+      #rerollListModal .pkl-reroll-paid-check{min-width:88px;justify-content:center;}
+      @media (max-width:1100px){#rerollListModal .pkl-reroll-entry{flex-wrap:wrap;}#rerollListModal .pkl-reroll-type-grid{min-width:100%;grid-template-columns:repeat(2,minmax(120px,1fr));}}
+    `;
+    document.head.appendChild(style);
   }
 
   function getTeamSlotParticipants() {
@@ -3002,6 +3078,7 @@ function saveMatchTimeSettings() {
           playerId: item.playerId || '',
           name: item.name,
           count: 0,
+          counts: { r03: 0, r05: 0, r07: 0, r10: 0 },
           paid: false,
           manual: Boolean(item.manual)
         };
@@ -3010,8 +3087,7 @@ function saveMatchTimeSettings() {
       state.rerollRequests[item.key].playerId = item.playerId || state.rerollRequests[item.key].playerId || '';
       state.rerollRequests[item.key].tierBadge = item.tierBadge || state.rerollRequests[item.key].tierBadge || '';
       state.rerollRequests[item.key].manual = Boolean(item.manual);
-      state.rerollRequests[item.key].count = normalizeRerollCount(state.rerollRequests[item.key].count);
-      state.rerollRequests[item.key].paid = Boolean(state.rerollRequests[item.key].paid);
+      normalizeRerollRequestShape(state.rerollRequests[item.key]);
     });
 
     const validVisibleKeys = new Set(rows.map(item => item.key));
@@ -3059,6 +3135,7 @@ function saveMatchTimeSettings() {
 
   function renderRerollListModal() {
     if (!rerollListEntries) return;
+    ensureRerollListStyles();
     const rows = getRerollListRows();
     if (!rows.length) {
       rerollListEntries.innerHTML = '<div class="pkl-reroll-empty">직접 추가된 리롤 사용자가 없습니다.</div>';
@@ -3069,32 +3146,30 @@ function saveMatchTimeSettings() {
 
     const canManageList = isTeamControlManager();
     rerollListEntries.innerHTML = rows.map(item => {
-      const request = state.rerollRequests[item.key] || { count: 0, paid: false };
+      const request = normalizeRerollRequestShape(state.rerollRequests[item.key] || { count: 0, counts: {}, paid: false });
       const position = [item.teamName, item.slotName].filter(Boolean).join(' · ');
       const tierBadge = item.tierBadge || request.tierBadge || '';
-      const count = normalizeRerollCount(request.count);
+      const totalCount = getRerollTotalCount(request);
       return `
         <div class="pkl-reroll-entry ${request.paid ? 'is-paid' : ''} ${canManageList ? '' : 'is-view-only'}" data-reroll-key="${escapeHtml(item.key)}">
           <div class="pkl-reroll-user">
             <div class="pkl-reroll-user-main">
               <strong>${escapeHtml(item.name)}</strong>
               ${tierBadge ? `<span class="pkl-reroll-tier-badge">${tierBadge}</span>` : ''}
+              <span class="pkl-reroll-total-badge">합 ${totalCount}</span>
             </div>
             <span class="pkl-reroll-position">${escapeHtml(position)}</span>
           </div>
+          <div class="pkl-reroll-type-grid">
+            ${renderRerollTypeControls(item.key, request, canManageList)}
+          </div>
           ${canManageList ? `
-            <div class="pkl-reroll-count-control" aria-label="${escapeHtml(item.name)} 리롤 횟수">
-              <button type="button" data-reroll-action="decrease" aria-label="리롤 횟수 감소">−</button>
-              <input type="number" min="0" step="1" inputmode="numeric" value="${count}" data-reroll-count aria-label="리롤 횟수" />
-              <button type="button" data-reroll-action="increase" aria-label="리롤 횟수 증가">＋</button>
-            </div>
             <label class="pkl-reroll-paid-check">
               <input type="checkbox" data-reroll-paid ${request.paid ? 'checked' : ''} />
               <span>확인완료</span>
             </label>
             <button class="pkl-reroll-remove" type="button" data-reroll-action="remove" aria-label="리롤 목록에서 제거">×</button>
           ` : `
-            <div class="pkl-reroll-count-view" aria-label="리롤 횟수">${count}</div>
             <span class="pkl-reroll-paid-view ${request.paid ? 'is-paid' : ''}">${request.paid ? '확인완료' : '미확인'}</span>
           `}
         </div>
@@ -3110,22 +3185,23 @@ function saveMatchTimeSettings() {
     if (!isTeamControlManager()) return;
     rerollListEntries.querySelectorAll('.pkl-reroll-entry').forEach(entry => {
       const key = entry.dataset.rerollKey;
-      const countInput = entry.querySelector('[data-reroll-count]');
       const paidInput = entry.querySelector('[data-reroll-paid]');
 
       entry.querySelectorAll('[data-reroll-action]').forEach(button => {
         button.addEventListener('click', () => {
           const action = button.dataset.rerollAction;
-          if (action === 'increase') updateRerollCount(key, 1);
-          if (action === 'decrease') updateRerollCount(key, -1);
+          const type = button.dataset.rerollType || '';
+          if (action === 'type-increase') updateRerollTypeCount(key, type, 1);
+          if (action === 'type-decrease') updateRerollTypeCount(key, type, -1);
           if (action === 'remove') removeRerollListUser(key);
         });
       });
 
-      if (countInput) {
-        countInput.addEventListener('change', () => setRerollCount(key, countInput.value));
-        countInput.addEventListener('input', () => setRerollCount(key, countInput.value, true));
-      }
+      entry.querySelectorAll('[data-reroll-type-count]').forEach(input => {
+        const type = input.dataset.rerollType || '';
+        input.addEventListener('change', () => setRerollTypeCount(key, type, input.value));
+        input.addEventListener('input', () => setRerollTypeCount(key, type, input.value, true));
+      });
 
       if (paidInput) {
         paidInput.addEventListener('change', () => {
@@ -3146,19 +3222,31 @@ function saveMatchTimeSettings() {
     return number;
   }
 
-  function updateRerollCount(key, amount) {
+  function updateRerollTypeCount(key, type, amount) {
     ensureRerollRequestState();
-    if (!state.rerollRequests[key]) return;
-    state.rerollRequests[key].count = Math.max(0, normalizeRerollCount(state.rerollRequests[key].count) + amount);
+    if (!state.rerollRequests[key] || !REROLL_TYPES.some(item => item.key === type)) return;
+    const request = normalizeRerollRequestShape(state.rerollRequests[key]);
+    request.counts[type] = Math.max(0, normalizeRerollCount(request.counts[type]) + amount);
+    request.count = getRerollTotalCount(request);
     renderRerollListModal();
   }
 
-  function setRerollCount(key, value, skipRender) {
+  function setRerollTypeCount(key, type, value, skipRender) {
     ensureRerollRequestState();
-    if (!state.rerollRequests[key]) return;
-    state.rerollRequests[key].count = normalizeRerollCount(value);
+    if (!state.rerollRequests[key] || !REROLL_TYPES.some(item => item.key === type)) return;
+    const request = normalizeRerollRequestShape(state.rerollRequests[key]);
+    request.counts[type] = normalizeRerollCount(value);
+    request.count = getRerollTotalCount(request);
     saveState();
     if (!skipRender) renderRerollListModal();
+  }
+
+  function updateRerollCount(key, amount) {
+    updateRerollTypeCount(key, 'r10', amount);
+  }
+
+  function setRerollCount(key, value, skipRender) {
+    setRerollTypeCount(key, 'r10', value, skipRender);
   }
 
 
@@ -3316,6 +3404,7 @@ function addManualRerollUser() {
         id: key,
         name: found.name,
         count: 0,
+        counts: { r03: 0, r05: 0, r07: 0, r10: 0 },
         paid: false,
         manual: true,
         userUid: user.uid || user.id || '',
@@ -3350,7 +3439,7 @@ function addManualRerollUser() {
     if (!modal || modal.dataset.rerollFocusGuardBound === 'true') return;
     modal.dataset.rerollFocusGuardBound = 'true';
 
-    const editableSelector = '#rerollUserInput, [data-calculator-display], [data-reroll-count]';
+    const editableSelector = '#rerollUserInput, [data-calculator-display], [data-reroll-count], [data-reroll-type-count]';
 
     modal.addEventListener('pointerdown', event => {
       if (event.target.closest(editableSelector)) return;
