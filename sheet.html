@@ -7204,8 +7204,18 @@ function pklTierScoreRoleFromText(text){
     "beast":"beast"
   };
   if(map[compact]) return map[compact];
-  if(/^tier[0-4]$/i.test(raw)) return raw.toLowerCase() + "_mid";
-  if(/^tier[0-4]_(high|mid|low)$/i.test(raw)) return raw.toLowerCase();
+  const ascii=raw.toLowerCase().replace(/[\s\-]+/g,"_");
+  const camel=raw.replace(/([a-z])([A-Z])/g,"$1_$2").toLowerCase();
+  const compactAscii=compact.toLowerCase();
+  const mCompact=compactAscii.match(/^(?:tier)?([0-5])(?:티어)?(상|중|하|high|mid|middle|low)$/);
+  if(mCompact){
+    const posMap={"상":"high","중":"mid","하":"low",high:"high",mid:"mid",middle:"mid",low:"low"};
+    return `tier${mCompact[1]}_${posMap[mCompact[2]]||"mid"}`;
+  }
+  const mAscii=(ascii.match(/^tier_?([0-5])_(high|mid|middle|low)$/) || camel.match(/^tier_?([0-5])_(high|mid|middle|low)$/));
+  if(mAscii) return `tier${mAscii[1]}_${mAscii[2]==="middle"?"mid":mAscii[2]}`;
+  if(/^tier[0-5]$/i.test(raw)) return raw.toLowerCase() + "_mid";
+  if(/^tier[0-5]_(high|mid|middle|low)$/i.test(raw)) return raw.toLowerCase().replace("middle","mid");
   if(raw==="beast") return raw;
   if(window.PKLTierBadge && typeof window.PKLTierBadge.normalize === "function"){
     const key = window.PKLTierBadge.normalize(raw);
@@ -7226,46 +7236,62 @@ function pklTierScoreLaneFromRole(role){
   return map[role] || "";
 }
 function pklTierScoreDefaults(){
-  return {
-    "0상":{target:85,death:-3},"0중":{target:75,death:-3},"0하":{target:65,death:-3},
-    "1상":{target:55,death:-3},"1중":{target:50,death:-3},"1하":{target:45,death:-3},
-    "2상":{target:40,death:-3},"2중":{target:35,death:-2},"2하":{target:30,death:-2},
-    "3상":{target:25,death:-2},"3중":{target:20,death:-2},"3하":{target:15,death:-1},
-    "4상":{target:10,death:-1},"4중":{target:5,death:-1},"4하":{target:0,death:-1},
-    "5상":{target:0,death:-1},"5중":{target:-5,death:-1},"5하":{target:-10,death:-1},"짐승":{target:-10,death:-1}
-  };
+  /* PKL: 시트 계산은 티어표에서 저장한 Supabase pklTierScoreConfig만 사용한다.
+     아래 값은 서버값이 아직 도착하지 않았을 때 계산 에러를 막는 0점 골격이며,
+     예전 기본 목표점수(85, 75, -10 등)를 시트지 계산에 다시 섞지 않는다. */
+  return pklTierScoreEmptyConfig();
+}
+function pklTierScoreEmptyConfig(){
+  const lanes=["0상","0중","0하","1상","1중","1하","2상","2중","2하","3상","3중","3하","4상","4중","4하","5상","5중","5하","짐승"];
+  const out={};
+  lanes.forEach(lane=>{ out[lane]={target:0,death:0}; });
+  return out;
+}
+function pklTierScoreNumberFromRow(value, names, fallback){
+  if(!value || typeof value!=="object") return Number(fallback)||0;
+  for(const name of names){
+    if(Object.prototype.hasOwnProperty.call(value,name)){
+      const n=Number(value[name]);
+      if(Number.isFinite(n)) return n;
+    }
+  }
+  return Number(fallback)||0;
 }
 function pklMergeTierScoreConfig(base, saved){
+  const out=(base && typeof base==="object") ? {...base} : {};
+  Object.keys(out).forEach(key=>{ if(out[key] && typeof out[key]==="object") out[key]={...out[key]}; });
   if(saved && typeof saved === "object"){
     Object.keys(saved).forEach(key=>{
+      if(["__pklUpdatedAt","updatedAt","updated_at","savedAt","source"].includes(key)) return;
       const value=saved[key];
       if(!value || typeof value!=="object") return;
-      const target=Number(value.target);
-      const death=Number(value.death);
-      const lane=pklTierScoreLaneFromRole(key) || key;
-      if(!base[lane]) return;
-      base[lane]={
-        target:Number.isFinite(target)?target:Number(base[lane]?.target||0),
-        death:Number.isFinite(death)?death:Number(base[lane]?.death||0)
-      };
+      const lane=pklTierScoreLaneFromRole(key) || pklTierScoreLaneFromRole(pklTierScoreRoleFromText(key)) || key;
+      const role=pklTierScoreRoleFromText(key) || pklTierScoreRoleFromText(lane);
+      if(!role || !lane) return;
+      const prev=out[lane] || {target:0,death:0};
+      const target=pklTierScoreNumberFromRow(value,["target","goal","goalScore","targetScore","score"],prev.target);
+      const death=pklTierScoreNumberFromRow(value,["death","minus","minusScore","penalty","deathPenalty","deduct","deduction"],prev.death);
+      out[lane]={target,death};
+      out[role]={target,death,lane};
     });
   }
-  Object.keys(base).forEach(lane=>{
+  Object.keys(out).forEach(lane=>{
     const role=pklTierScoreRoleFromText(lane);
-    if(role) base[role]={...base[lane], lane};
+    if(role && out[lane] && typeof out[lane]==="object") out[role]={...out[lane], lane:pklTierScoreLaneFromRole(role)||lane};
   });
-  return base;
+  return out;
 }
 function pklReadTierScoreConfig(){
-  // 시트지는 Supabase pkl_shared_data(pklTierScoreConfig)를 단일 원본으로 사용한다.
-  // 기본값은 서버 값이 아직 도착하지 않았을 때 계산이 멈추지 않게 하는 화면용 fallback일 뿐 저장/덮어쓰기에 사용하지 않는다.
-  return pklMergeTierScoreConfig(pklTierScoreDefaults(), window.__PKL_TIER_SCORE_CONFIG || {});
+  // Supabase pkl_shared_data(pklTierScoreConfig) 단일 원본.
+  // 서버 값이 없으면 0점 골격만 사용해 예전 하드코딩 점수가 끼어들지 않게 한다.
+  return pklMergeTierScoreConfig(pklTierScoreEmptyConfig(), window.__PKL_TIER_SCORE_CONFIG || window.pklTierScoreConfig || {});
 }
 function pklExtractTierScoreSharedValue(data){
   if(!data) return null;
   if(data.item && data.item.value) return data.item.value;
   if(data.row && data.row.value) return data.row.value;
   if(Array.isArray(data.rows) && data.rows[0] && data.rows[0].value) return data.rows[0].value;
+  if(data.values && data.values.pklTierScoreConfig) return data.values.pklTierScoreConfig;
   if(data.value && typeof data.value === 'object') return data.value;
   return data && typeof data === 'object' ? data : null;
 }
@@ -7471,11 +7497,13 @@ function pklTierRoleOfMember(member){
   /* Supabase users가 최신 원본이다.
      팀/시트에 저장된 memberTier는 오래된 캐시라서 점수 계산에서는 Supabase 값을 먼저 쓴다. */
   const userRole=[
-    user?.memberTier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.role,user?.title
+    user?.memberTier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.role,user?.title,
+    user?.tierRole,user?.gradeRole,user?.baseRole,user?.dataTierRole,user?.dataTier,user?.tierLabel,user?.tierName,user?.memberTierName
   ].map(pklTierScoreRoleFromText).find(Boolean);
   if(userRole) return userRole;
   const memberRole=[
-    member?.memberTier,member?.__tierRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,member?.role,member?.title
+    member?.memberTier,member?.__tierRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,member?.role,member?.title,
+    member?.tierRole,member?.gradeRole,member?.baseRole,member?.dataTierRole,member?.dataTier,member?.tierLabel,member?.tierName,member?.memberTierName,member?.badge,member?.badgeText
   ].map(pklTierScoreRoleFromText).find(Boolean);
   return memberRole || "";
 }
@@ -7484,11 +7512,13 @@ function pklMemberTierScore(member){
   const config=pklReadTierScoreConfig();
   const lane=pklTierScoreLaneFromRole(role);
   const score=config[role] || config[lane] || {target:0,death:0};
+  const target=Number(score && score.target);
+  const death=Number(score && score.death);
   return {
     role,
     lane,
-    target:Number(score.target||0),
-    death:Number(score.death||0)
+    target:Number.isFinite(target)?target:0,
+    death:Number.isFinite(death)?death:0
   };
 }
 function pklMemberDeathPenalty(member, deathCount){
