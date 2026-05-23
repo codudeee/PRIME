@@ -6910,12 +6910,13 @@ const baseTeams=Array.from({length:10},(_,i)=>({
 }));
 
 let state=load();
+try{ window.__PKL_SHEET_STATE=state; }catch(e){}
 const PKL_PERSONAL_SELECTED_TEAM_PREFIX='PKL_SHEET_PERSONAL_SELECTED_TEAM_V1';
 function pklPersonalSheetUserKey(){
   try{
     const keys=['pklLoginUser','pklCurrentUser','PKL_CURRENT_USER','PKL_로그인_USER','pklUser','pklLoggedInUser','currentUser','PKL_USER','pklAuthUser'];
     for(const k of keys){
-      const raw=localStorage.getItem(k)||sessionStorage.getItem(k);
+      const raw=sessionStorage.getItem(k);
       if(!raw) continue;
       const u=JSON.parse(raw);
       const id=String((u&&(u.discord_id||u.discordId||u.uid||u.id||u.userId||u.memberId||u.pubg_id||u.pubgId||u.nickname||u.name))||'').trim();
@@ -6925,8 +6926,8 @@ function pklPersonalSheetUserKey(){
   return 'browser';
 }
 function pklPersonalSelectedTeamKey(){return PKL_PERSONAL_SELECTED_TEAM_PREFIX+':'+pklPersonalSheetUserKey();}
-function pklLoadPersonalSelectedTeam(){try{return sessionStorage.getItem(pklPersonalSelectedTeamKey())||localStorage.getItem(pklPersonalSelectedTeamKey())||'';}catch(e){return '';}}
-function pklSavePersonalSelectedTeam(id){try{if(!id)return;sessionStorage.setItem(pklPersonalSelectedTeamKey(),id);localStorage.setItem(pklPersonalSelectedTeamKey(),id);}catch(e){}}
+function pklLoadPersonalSelectedTeam(){try{return sessionStorage.getItem(pklPersonalSelectedTeamKey())||'';}catch(e){return '';}}
+function pklSavePersonalSelectedTeam(id){try{if(!id)return;sessionStorage.setItem(pklPersonalSelectedTeamKey(),id);}catch(e){}}
 function pklStripPersonalViewFromSheetState(st){
   try{
     if(!st || typeof st!=='object') return st;
@@ -7003,7 +7004,7 @@ function pklSheetCanPersistState(st){
 }
 function pklSheetResetLockActive(){
   try{
-    const lock = window.__PKL_RESET_LOCK || JSON.parse(localStorage.getItem('PKL_SHEET_RESET_LOCK_V2') || 'null');
+    const lock = window.__PKL_RESET_LOCK || null;
     if(!lock || Date.now() > Number(lock.until || 0)) return false;
     return Number(state && state.resetNonce || 0) < Number(lock.nonce || 0);
   }catch(e){ return false; }
@@ -7091,8 +7092,7 @@ function pklReadStoredSheetState(key, storage){
 function pklRecentTeamImportState(){
   const imports=[];
   try{ imports.push(pklReadStoredSheetState(TEAM_IMPORT_KEY, sessionStorage)); }catch(e){}
-  try{ imports.push(pklReadStoredSheetState(TEAM_IMPORT_KEY, localStorage)); }catch(e){}
-  const now=Date.now();
+    const now=Date.now();
   return imports.filter(Boolean).filter(st=>{
     const nonce=Number(st.teamImportNonce||0);
     const t=nonce || pklSheetTime(st);
@@ -7106,7 +7106,6 @@ function pklActivateTeamImportLock(importState){
     const sheetJson=JSON.stringify(importState);
     sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson);
     sessionStorage.setItem(STORAGE_KEY,sheetJson);
-    localStorage.setItem(STORAGE_KEY,sheetJson);
   }catch(e){}
 }
 function pklTeamImportLockActiveFor(next){
@@ -7128,7 +7127,6 @@ function load(){
   const candidates=[];
   try{ candidates.push(pklReadStoredSheetState(SHEET_SESSION_BACKUP_KEY, sessionStorage)); }catch(e){}
   try{ candidates.push(pklReadStoredSheetState(STORAGE_KEY, sessionStorage)); }catch(e){}
-  try{ candidates.push(pklReadStoredSheetState(STORAGE_KEY, localStorage)); }catch(e){}
   const saved=candidates
     .filter(Boolean)
     .sort((a,b)=>{
@@ -7151,9 +7149,9 @@ function save(){
   }
   pklMarkLocalSheetEdit();
   state.savedAt=new Date().toISOString();
+  try{ window.__PKL_SHEET_STATE=state; }catch(e){}
   const sheetJson=JSON.stringify(pklPersistableSheetState());
   try{ sessionStorage.setItem(SHEET_SESSION_BACKUP_KEY,sheetJson); sessionStorage.setItem(STORAGE_KEY,sheetJson); }catch(e){}
-  localStorage.setItem(STORAGE_KEY,sheetJson);
   /* 결과저장/초기화 전까지 현재 경기 시트는 Supabase 공유값에도 유지한다.
      단, 빈 기본 시트는 메인 이동/재진입 렌더 때 원격 시트를 덮어쓰지 않는다. */
   pklScheduleSheetPersist(180);
@@ -7259,35 +7257,50 @@ function pklMergeTierScoreConfig(base, saved){
   return base;
 }
 function pklReadTierScoreConfig(){
+  // 시트지는 Supabase pkl_shared_data(pklTierScoreConfig)를 단일 원본으로 사용한다.
+  // 기본값은 서버 값이 아직 도착하지 않았을 때 계산이 멈추지 않게 하는 화면용 fallback일 뿐 저장/덮어쓰기에 사용하지 않는다.
   return pklMergeTierScoreConfig(pklTierScoreDefaults(), window.__PKL_TIER_SCORE_CONFIG || {});
+}
+function pklExtractTierScoreSharedValue(data){
+  if(!data) return null;
+  if(data.item && data.item.value) return data.item.value;
+  if(data.row && data.row.value) return data.row.value;
+  if(Array.isArray(data.rows) && data.rows[0] && data.rows[0].value) return data.rows[0].value;
+  if(data.value && typeof data.value === 'object') return data.value;
+  return data && typeof data === 'object' ? data : null;
+}
+async function pklFetchTierScoreSharedConfig(){
+  const key = 'pklTierScoreConfig';
+  const endpoints = [
+    '/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now(),
+    '/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now()
+  ];
+  for(const url of endpoints){
+    try{
+      const res = await fetch(url, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } });
+      if(!res.ok) continue;
+      const data = await res.json().catch(()=>null);
+      const value = pklExtractTierScoreSharedValue(data);
+      if(value && typeof value === 'object' && Object.keys(value).length) return value;
+    }catch(_e){}
+  }
+  if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
+    try{
+      const value = await window.PKLSupabaseDataSync.getShared(key);
+      if(value && typeof value === 'object' && Object.keys(value).length) return value;
+    }catch(_e){}
+  }
+  return null;
 }
 async function pklLoadTierScoreConfig(){
   try{
-    let value=null;
-    if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
-      value = await window.PKLSupabaseDataSync.getShared('pklTierScoreConfig');
+    const value = await pklFetchTierScoreSharedConfig();
+    if(value && typeof value === 'object' && Object.keys(value).length){
+      window.__PKL_TIER_SCORE_CONFIG = pklMergeTierScoreConfig({}, value);
+      window.__PKL_TIER_SCORE_CONFIG_UPDATED_AT = value.__pklUpdatedAt || value.updatedAt || value.updated_at || '';
+      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:window.__PKL_TIER_SCORE_CONFIG}})); }catch(_e){}
+      try{ renderBoard(); renderSheet(); }catch(_e){}
     }
-    if(!value || typeof value !== 'object' || !Object.keys(value).length){
-      try{
-        const res=await fetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent('pklTierScoreConfig') + '&t=' + Date.now(), {cache:'no-store', headers:{Accept:'application/json'}});
-        const data=await res.json().catch(()=>({}));
-        value=data && data.item ? data.item.value : null;
-      }catch(_e){}
-    }
-    if(!value || typeof value !== 'object' || !Object.keys(value).length){
-      try{
-        const res=await fetch('/api/pkl-shared?key=' + encodeURIComponent('pklTierScoreConfig') + '&t=' + Date.now(), {cache:'no-store', headers:{Accept:'application/json'}});
-        const data=await res.json().catch(()=>({}));
-        value=data && data.item ? data.item.value : null;
-      }catch(_e){}
-    }
-    let localValue={};
-    try{ localValue=JSON.parse(localStorage.getItem('pklTierScoreConfig')||'{}')||{}; }catch(_e){ localValue={}; }
-    // 서버에 5티어 설정이 아직 없거나 예전 형식이면 로컬 저장값과 병합해 시트지 점수 계산도 같은 값을 사용한다.
-    window.__PKL_TIER_SCORE_CONFIG = pklMergeTierScoreConfig({}, value && typeof value === 'object' ? value : {});
-    window.__PKL_TIER_SCORE_CONFIG = pklMergeTierScoreConfig(window.__PKL_TIER_SCORE_CONFIG, localValue);
-    try{ renderBoard(); renderSheet(); }catch(e){}
-    window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:window.__PKL_TIER_SCORE_CONFIG}}));
   }catch(e){
     console.error('PKL sheet tier score config load failed', e);
   }
@@ -8522,11 +8535,13 @@ function pklMemberTokens(member){
   const m=member||{};
   ['discordId','uid','id','userId','memberId','key','nickname','nick','name','displayName','userName','username','discordUsername','discordGlobalName','pubgId','pubgID','pubgName','gameId','gameName','ref'].forEach(k=>add(m[k]));
   try{
-    /* 4차 localStorage 수술: sheet 권한/본인팀 판정에서 pklUsers/PKL_USERS 로컬 복구를 사용하지 않는다.
-       Supabase users 캐시가 있을 때만 보조 토큰으로 확장하고, 없으면 현재 팀 member/로그인 세션만 사용한다. */
-    const users=(window.PKLUsersSource&&typeof window.PKLUsersSource.localUsers==='function') ? window.PKLUsersSource.localUsers() : [];
-    if(Array.isArray(users)) users.forEach(u=>{
-      const userTokens=['discordId','discord_id','uid','id','userId','memberId','key','nickname','nick','name','displayName','userName','username','discordUsername','discord_username','discordGlobalName','pubgId','pubg_id','pubgID','pubgName','gameId','gameName','ref'].map(k=>String(u&&u[k]||'').trim().toLowerCase()).filter(Boolean);
+    /* 10차 수술: 본인 팀 판정에서 pklUsers/PKL_USERS localStorage 복구를 제거한다.
+       시트 권한은 로그인 세션 + Supabase에서 로드된 유저 캐시만 보조로 사용한다. */
+    const supabaseUsers = [];
+    try{ if(typeof pklReadTierUsers === 'function') supabaseUsers.push.apply(supabaseUsers, pklReadTierUsers() || []); }catch(_e){}
+    try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.users === 'function') supabaseUsers.push.apply(supabaseUsers, window.PKLUserProfile.users() || []); }catch(_e){}
+    supabaseUsers.forEach(u=>{
+      const userTokens=['discord_id','discordId','uid','id','userId','memberId','key','nickname','nick','name','displayName','userName','username','discordUsername','discord_username','discordGlobalName','pubgId','pubg_id','pubgID','pubgName','gameId','gameName','ref'].map(k=>String(u&&u[k]||'').trim().toLowerCase()).filter(Boolean);
       if(out.some(t=>userTokens.includes(t))) userTokens.forEach(add);
     });
   }catch(e){}
@@ -11141,25 +11156,12 @@ window.addEventListener('resize', refreshPklMapPopupPosition);
   }
 
   function readAdminUsers() {
+    /* 10차 수술: 사이드/권한 보조 유저 목록도 localStorage 운영 스냅샷을 읽지 않는다.
+       필요한 경우 Supabase에서 로드된 메모리 캐시만 사용한다. */
     var users = [];
-    try {
-      var adminState = JSON.parse(localStorage.getItem("pklAdminState_v3") || "null");
-      if (adminState && Array.isArray(adminState.users)) users = users.concat(adminState.users);
-    } catch (e) {}
-
-    ["pklAdminState","pkl_admin_state"].forEach(function(key){
-      try {
-        var state = JSON.parse(localStorage.getItem(key) || "null");
-        if (state && Array.isArray(state.users)) users = users.concat(state.users);
-      } catch(e) {}
-    });
-
-    ["pklUsers","pklAdminUsers","PKL_ADMIN_USERS","PKL_USERS","pklUserList"].forEach(function(key){
-      try {
-        var parsed = JSON.parse(localStorage.getItem(key) || "[]");
-        if (Array.isArray(parsed)) users = users.concat(parsed);
-      } catch(e) {}
-    });
+    try{ if(typeof pklReadTierUsers === 'function') users = users.concat(pklReadTierUsers() || []); }catch(e){}
+    try{ if(window.PKLUserProfile && typeof window.PKLUserProfile.users === 'function') users = users.concat(window.PKLUserProfile.users() || []); }catch(e){}
+    try{ if(Array.isArray(pklSheetSupabaseUsersCache)) users = users.concat(pklSheetSupabaseUsersCache); }catch(e){}
     return users;
   }
 
@@ -12037,7 +12039,7 @@ document.addEventListener("DOMContentLoaded", function(){
     var nonce=Date.now();
     try{
       window.__PKL_RESET_LOCK={nonce:nonce,until:Date.now()+600000};
-      localStorage.setItem('PKL_SHEET_RESET_LOCK_V2', JSON.stringify(window.__PKL_RESET_LOCK));
+      /* reset lock is memory-only; Supabase is the shared source. */
     }catch(e){}
     clearSheetStorage();
     try{
@@ -12064,7 +12066,7 @@ document.addEventListener("DOMContentLoaded", function(){
         window.PKLScoreboardRealtime.resetToEmpty(emptySheetState, nonce);
       }
     }catch(e){}
-    try{ sessionStorage.removeItem(SHEET_STORAGE_KEY + '_SESSION_BACKUP'); sessionStorage.setItem(SHEET_STORAGE_KEY, JSON.stringify(emptySheetState)); localStorage.setItem(SHEET_STORAGE_KEY, JSON.stringify(emptySheetState)); }catch(e){}
+    try{ sessionStorage.removeItem(SHEET_STORAGE_KEY + '_SESSION_BACKUP'); sessionStorage.setItem(SHEET_STORAGE_KEY, JSON.stringify(emptySheetState)); }catch(e){}
     async function setShared(key,value){
       var res=await fetch('/api/pkl-data-store',{
         method:'POST',
@@ -12762,8 +12764,8 @@ var SHEET_KEY='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1';
 var RESULT_KEY='PKL_RESULT_MATCHES_V1';
 var USER_MATCH_STATS_KEY='PKL_USER_MATCH_STATS_V1';
 function toast(msg){ if(typeof window.pklSheetPermissionToast==='function') window.pklSheetPermissionToast(msg); }
-function readState(){try{return JSON.parse(localStorage.getItem(SHEET_KEY)||'null')||{};}catch(e){return {};}}
-function writeState(st){st.savedAt=new Date().toISOString();localStorage.setItem(SHEET_KEY,JSON.stringify(st));}
+function readState(){try{return (window.__PKL_SHEET_STATE&&typeof window.__PKL_SHEET_STATE==='object')?window.__PKL_SHEET_STATE:(JSON.parse(sessionStorage.getItem(SHEET_KEY)||sessionStorage.getItem(SHEET_KEY+'_SESSION_BACKUP')||'null')||{});}catch(e){return {};}}
+function writeState(st){st.savedAt=new Date().toISOString();try{window.__PKL_SHEET_STATE=st;sessionStorage.setItem(SHEET_KEY,JSON.stringify(st));sessionStorage.setItem(SHEET_KEY+'_SESSION_BACKUP',JSON.stringify(st));}catch(e){} if(typeof pklSharedSet==='function')pklSharedSet(SHEET_KEY,st);}
 function makeRound(no){return {no:no,map:'',teams:{}};}
 function closeAll(){document.querySelectorAll('.pkl-admin-action-modal').forEach(function(m){m.classList.remove('show');m.setAttribute('aria-hidden','true');});}
 function openModal(id){closeAll();var m=document.getElementById(id);if(m){m.classList.add('show');m.setAttribute('aria-hidden','false');}}
@@ -12851,7 +12853,6 @@ function pklSharedSet(key,value){
     if(String(key)==='PKL_EFFICIENT_MATCH_SHEET_LIVE_SYNC_V1'){
       var text=typeof value==='string'?value:JSON.stringify(value);
       try{ sessionStorage.setItem(key + '_SESSION_BACKUP', text); sessionStorage.setItem(key, text); }catch(e){}
-      localStorage.setItem(key,text);
       if(window.PKLSupabaseDataSync&&typeof window.PKLSupabaseDataSync.setShared==='function'){
         window.PKLSupabaseDataSync.setShared(key, typeof value==='string'?JSON.parse(value):value).catch(function(){});
       }
@@ -12866,17 +12867,15 @@ function pklSharedSet(key,value){
       return;
     }
   }catch(e){}
-  localStorage.setItem(key,typeof value==='string'?value:JSON.stringify(value));
+  pklDirectSharedSet(key,value,false);
 }
 function pklBroadcastDataUpdate(key){
-  try{window.dispatchEvent(new StorageEvent('storage',{key:key,newValue:localStorage.getItem(key)}));}catch(e){}
+  try{window.dispatchEvent(new StorageEvent('storage',{key:key,newValue:null}));}catch(e){}
   try{window.dispatchEvent(new CustomEvent('pkl-supabase-data-updated',{detail:{key:key}}));}catch(e){}
 }
 function pklUpsertMatchUserStats(matchId,title,st){
   try{
-    var saved=JSON.parse(localStorage.getItem(USER_MATCH_STATS_KEY)||'[]');
-    if(!Array.isArray(saved))saved=[];
-    saved=saved.filter(function(x){return String(x&&x.matchId)!==String(matchId);});
+    var saved=[];
     saved=saved.concat(pklBuildMatchUserStats(matchId,title,st));
     pklSharedSet(USER_MATCH_STATS_KEY,saved);
     pklBroadcastDataUpdate(USER_MATCH_STATS_KEY);
@@ -13027,7 +13026,6 @@ async function pklSaveResultMatches(matches){
   if(!result || result.ok===false){
     throw new Error((result && result.message) || '결과표 저장 실패');
   }
-  try{localStorage.setItem(RESULT_KEY,JSON.stringify(matches));}catch(e){}
   try{pklBroadcastDataUpdate(RESULT_KEY);}catch(e){}
   return result;
 }
@@ -13111,13 +13109,9 @@ function pklStoreEmptySheetLocal(emptyState){
   try{
     window.__PKL_SHEET_RESET_RUNNING=true;
     window.__PKL_RESET_LOCK={nonce:Number(emptyState.resetNonce||Date.now()),until:Date.now()+600000};
-    localStorage.setItem('PKL_SHEET_RESET_LOCK_V2', JSON.stringify(window.__PKL_RESET_LOCK));
-    localStorage.setItem(SHEET_KEY,text);
     sessionStorage.setItem(SHEET_KEY,text);
     sessionStorage.setItem(SHEET_KEY+'_SESSION_BACKUP',text);
-    localStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
     sessionStorage.removeItem('PKL_TEAM_TO_SHEET_IMPORT_V1');
-    localStorage.removeItem('PKL_SCOREBOARD_LIVE_SNAPSHOT_V1');
     sessionStorage.removeItem('PKL_SCOREBOARD_LIVE_SNAPSHOT_V1');
     ['pklSideListItems','pklSideList','pklSideBets','pklSheetFeeds','pklItemHistoryCounts','PKL_SURRENDER_CONSENT_STORE_V1','PKL_FIRE_CONSENT_STORE_V1','pklColdTeamModalShown.v1'].forEach(function(key){
       try{localStorage.removeItem(key);}catch(e){}
@@ -13174,14 +13168,6 @@ async function pklResetJoinWaitingAfterMatchSave(){
     updatedAt:now
   };
   try{
-    localStorage.setItem('pklJoinWaitList','[]');
-    localStorage.setItem('pklJoinCancelList','[]');
-    localStorage.setItem('pklJoinRecruitState',JSON.stringify(recruitState));
-    localStorage.setItem('pklJoinDepositRequests','[]');
-    localStorage.removeItem('pklJoinFeeInfo');
-    Object.keys(localStorage).forEach(function(key){
-      if(key.indexOf('pklJoinDepositRequested_')===0) localStorage.removeItem(key);
-    });
     try{window.dispatchEvent(new CustomEvent('pkl-join-state-updated',{detail:joinState}));}catch(_e){}
     try{window.dispatchEvent(new CustomEvent('pkl-supabase-data-updated',{detail:{key:'pklJoinRecruitState'}}));}catch(_e2){}
   }catch(e){}
@@ -14118,9 +14104,11 @@ window.addEventListener('DOMContentLoaded',()=>{
     return arr;
   }
   function allUsers(){
-    var keys=['pklUsers','PKL_USERS','pklAdminUsers','PKL_ADMIN_USERS','pklUserList','pklAdminState_v3','pklAdminState','pkl_admin_state','PKL_USER_DB','pklMembers'];
+    /* 10차 수술: 관리자/운영자 판정에서 pklUsers 등 로컬 운영 DB를 참조하지 않는다. */
     var arr=[];
-    keys.forEach(function(k){collect(parse(localStorage.getItem(k)),arr);collect(parse(sessionStorage.getItem(k)),arr);});
+    try{ if(typeof pklReadTierUsers==='function') collect(pklReadTierUsers()||[], arr); }catch(e){}
+    try{ if(window.PKLUserProfile&&typeof window.PKLUserProfile.users==='function') collect(window.PKLUserProfile.users()||[], arr); }catch(e){}
+    try{ if(Array.isArray(pklSheetSupabaseUsersCache)) collect(pklSheetSupabaseUsersCache, arr); }catch(e){}
     return arr;
   }
   function isStaffObj(u){return /(관리자|총관리자|운영자|운영진|admin|manager|owner|superadmin|master|operator|staff|moderator)/i.test(roleText(u));}
