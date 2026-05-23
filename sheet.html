@@ -7359,29 +7359,45 @@ async function pklFetchTierScoreSharedConfig(){
   const key = 'pklTierScoreConfig';
   const liveId = 'tier_score_config_current';
   const endpoints = [
-    /* PKL: 티어표가 실제 저장하는 원본은 pkl_shared_data / pklTierScoreConfig 이다.
-       live_scores/tier_score_config_current 는 이전 수술 때 만들어진 우회값이라
-       stale 0점/예전 점수로 시트 목표점수를 오염시킬 수 있어 시트 계산에서 제외한다. */
-    {url:'/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now()},
-    {url:'/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now()},
+    /* PKL: 티어표는 live_scores(tier_score_config_current)를 먼저 저장하고,
+       pkl_shared_data(pklTierScoreConfig/_v2)는 호환용 mirror로 같이 저장한다.
+       시트지는 최신 updatedAt 원본을 골라야 5상/5중/5하 점수가 정확히 따라온다. */
+    {url:'/api/pkl-data-store?type=live_scores&id=' + encodeURIComponent(liveId) + '&t=' + Date.now()},
     {url:'/api/pkl-shared?key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now()},
-    {url:'/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now()}
+    {url:'/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now()},
+    {url:'/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now()},
+    {url:'/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now()}
   ];
 
+  const stampOf = (data, value) => {
+    const row = data && Array.isArray(data.rows) ? data.rows[0] : null;
+    const item = data && data.item ? data.item : null;
+    const candidates = [
+      data && data.updated_at, data && data.updatedAt, data && data.savedAt,
+      item && item.updated_at,
+      row && row.updated_at,
+      value && value.__pklUpdatedAt, value && value.updatedAt, value && value.updated_at, value && value.savedAt
+    ];
+    for(const c of candidates){
+      const t = Date.parse(c || '');
+      if(Number.isFinite(t)) return t;
+    }
+    return 0;
+  };
   const normalizePulled = data => {
     const value = pklExtractTierScoreSharedValue(data);
-    return value && typeof value === 'object' && Object.keys(value).length ? value : null;
+    if(!value || typeof value !== 'object' || !Object.keys(value).length) return null;
+    return { value, stamp:stampOf(data, value) };
   };
 
-  /* 티어표 저장 원본(pklTierScoreConfig)만 읽는다.
-     이전 live_scores 우회값은 더 이상 목표점수 계산에 사용하지 않는다. */
+  const found = [];
   for(const item of endpoints){
     try{
       const res = await fetch(item.url, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } });
       if(!res.ok) continue;
       const data = await res.json().catch(()=>null);
       const value = normalizePulled(data);
-      if(value) return value;
+      if(value) found.push(value);
     }catch(_e){}
   }
 
@@ -7389,165 +7405,15 @@ async function pklFetchTierScoreSharedConfig(){
     for(const syncKey of [key + '_v2', key]){
       try{
         const value = normalizePulled(await window.PKLSupabaseDataSync.getShared(syncKey));
-        if(value) return value;
+        if(value) found.push(value);
       }catch(_e){}
     }
   }
-  return null;
-}
-async function pklLoadTierScoreConfig(){
-  try{
-    const value = await pklFetchTierScoreSharedConfig();
-    if(value && typeof value === 'object' && Object.keys(value).length){
-      window.__PKL_TIER_SCORE_CONFIG = pklMergeTierScoreConfig({}, value);
-      window.__PKL_TIER_SCORE_CONFIG_UPDATED_AT = value.__pklUpdatedAt || value.updatedAt || value.updated_at || '';
-      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:window.__PKL_TIER_SCORE_CONFIG}})); }catch(_e){}
-      try{ renderBoard(); renderSheet(); }catch(_e){}
-    }
-  }catch(e){
-    console.error('PKL sheet tier score config load failed', e);
-  }
-}
-if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pklLoadTierScoreConfig);
-else pklLoadTierScoreConfig();
-window.addEventListener('pkl-tier-score-config-updated', function(e){
-  if(e && e.detail && e.detail.config) window.__PKL_TIER_SCORE_CONFIG = e.detail.config;
-  try{ renderBoard(); renderSheet(); }catch(_e){}
-});
-let pklSheetSupabaseUsersCache = [];
-let pklSheetSupabaseUsersPromise = null;
-function pklNormalizeSheetUsersPayload(data){
-  if(Array.isArray(data)) return data;
-  if(data && Array.isArray(data.users)) return data.users;
-  if(data && Array.isArray(data.rows)) return data.rows;
-  if(data && Array.isArray(data.items)) return data.items;
-  return [];
-}
-function pklLoadSheetSupabaseUsersOnce(){
-  if(pklSheetSupabaseUsersPromise) return pklSheetSupabaseUsersPromise;
-  /* /api/pkl-users는 서버에서 limit 최대값이 100으로 제한된다.
-     시트 헤더 4명 배지는 아래 pklEnsureSheetHeaderTierUsers()에서
-     필요한 유저만 q 검색으로 추가 조회한다. */
-  pklSheetSupabaseUsersPromise = fetch('/api/pkl-users?limit=100&offset=0&tierOnly=1', {
-    cache:'no-store',
-    headers:{Accept:'application/json','Cache-Control':'no-store'}
-  }).then(res=>res.ok ? res.json() : null).then(data=>{
-    const users = pklNormalizeSheetUsersPayload(data).filter(u=>u && typeof u === 'object');
-    pklMergeSheetSupabaseUsers(users);
-    return pklSheetSupabaseUsersCache;
-  }).catch(()=>pklSheetSupabaseUsersCache);
-  return pklSheetSupabaseUsersPromise;
-}
-function pklSheetUserCacheKey(user){
-  if(!user || typeof user !== 'object') return '';
-  return pklNormUserKey(user.discord_id || user.discordId || user.uid || user.id || user.userId || user.memberId || user.nickname || user.name || user.pubgId || user.pubg_id || user.gameId);
-}
-function pklMergeSheetSupabaseUsers(users){
-  if(!Array.isArray(users) || !users.length) return;
-  const seen = new Set(pklSheetSupabaseUsersCache.map(pklSheetUserCacheKey).filter(Boolean));
-  users.forEach(user=>{
-    if(!user || typeof user !== 'object') return;
-    const key = pklSheetUserCacheKey(user);
-    if(key && seen.has(key)) return;
-    if(key) seen.add(key);
-    pklSheetSupabaseUsersCache.push(user);
-  });
-}
-const pklSheetHeaderTierFetchPending = new Set();
-function pklSheetMemberSearchKeys(member){
-  return [
-    member && member.discord_id, member && member.discordId, member && member.userUid, member && member.accountId,
-    member && member.name, member && member.nickname, member && member.nick, member && member.displayName,
-    member && member.pubgId, member && member.pubg_id, member && member.pubgID, member && member.pubgName, member && member.gameId
-  ].map(v=>String(v||'').trim()).filter(Boolean);
-}
-function pklEnsureSheetHeaderTierUsers(view){
-  if(!view || !Array.isArray(view.members)) return;
-  view.members.forEach(member=>{
-    if(!member) return;
-    /* 시트로 넘어온 member.tier/memberTier는 팀 편성 당시의 캐시일 수 있다.
-       Supabase users가 아직 캐시에 없으면, cached tier가 있어도 검색해서 최신 티어/감점 기준을 보강한다. */
-    const matchedUser = pklFindTierUserByMember(member);
-    if(matchedUser && pklTierRoleOfMember(member)) return;
-    const searchKey = pklSheetMemberSearchKeys(member).find(Boolean);
-    const pendingKey = pklNormUserKey(searchKey);
-    if(!searchKey || !pendingKey || pklSheetHeaderTierFetchPending.has(pendingKey)) return;
-    pklSheetHeaderTierFetchPending.add(pendingKey);
-    fetch('/api/pkl-users?limit=10&offset=0&tierOnly=1&q=' + encodeURIComponent(searchKey), {
-      cache:'no-store',
-      headers:{Accept:'application/json','Cache-Control':'no-store'}
-    }).then(res=>res.ok ? res.json() : null).then(data=>{
-      const users = pklNormalizeSheetUsersPayload(data).filter(u=>u && typeof u === 'object');
-      if(users.length){
-        pklMergeSheetSupabaseUsers(users);
-        try{ renderSheet(); renderBoard(); }catch(e){}
-      }
-    }).catch(()=>{});
-  });
-}
-function pklReadTierUsers(){
-  const users=[];
-  const pushState=(state)=>{
-    if(!state) return;
-    if(Array.isArray(state)) state.forEach(u=>u&&typeof u==="object"&&users.push(u));
-    else if(state && Array.isArray(state.users)) state.users.forEach(u=>u&&typeof u==="object"&&users.push(u));
-    else if(state && Array.isArray(state.rows)) state.rows.forEach(u=>u&&typeof u==="object"&&users.push(u));
-  };
-  // Supabase 단일 원본: 시트지 배지/티어는 API로 받은 캐시만 사용한다.
-  pushState(pklSheetSupabaseUsersCache);
-  return users;
+
+  found.sort((a,b)=>(b.stamp||0)-(a.stamp||0));
+  return found[0] ? found[0].value : null;
 }
 
-function pklCurrentUserRaw(){
-  const keys=["pklLoginUser","pklCurrentUser","pklUser","PKL_로그인_USER","PKL_CURRENT_USER","currentUser"];
-  for(const key of keys){
-    try{
-      const raw=localStorage.getItem(key) || sessionStorage.getItem(key);
-      if(!raw) continue;
-      const obj=JSON.parse(raw);
-      if(obj && typeof obj==="object") return obj;
-    }catch(e){}
-  }
-  return null;
-}
-function pklUserIsAdminOperator(user){
-  const roleTexts=[
-    user?.role,
-    user?.memberRole,
-    user?.adminRole,
-    user?.userRole,
-    user?.position,
-    user?.permission,
-    user?.permissions
-  ].flat().map(v=>String(v||"").trim()).filter(Boolean);
-  return roleTexts.some(role=>["관리자","운영자","manager","operator","admin","총관리자","운영진"].includes(role));
-}
-function pklFindCurrentAdminUser(){
-  const cur=pklCurrentUserRaw();
-  if(!cur) return null;
-  const keys=[
-    cur.uid,cur.id,cur.userId,cur.memberId,cur.loginId,
-    cur.nickname,cur.nick,cur.name,cur.displayName,
-    cur.pubgId,cur.pubgID,cur.pubgName,cur.gameId,cur.username
-  ].map(pklNormUserKey).filter(Boolean);
-  if(!keys.length) return cur;
-  return pklReadTierUsers().find(user=>{
-    const names=pklTierUserNames(user);
-    return keys.some(key=>names.includes(key));
-  }) || cur;
-}
-function pklCanViewAdminPanel(){
-  return pklUserIsAdminOperator(pklFindCurrentAdminUser());
-}
-function updateAdminPanelButtonLabel(){
-  const btn=document.getElementById("adminPanelBtn");
-  const label=btn && btn.querySelector(".admin-panel-label");
-  if(!btn || !label) return;
-  const allowed=pklCanViewAdminPanel();
-  btn.classList.toggle("is-admin-visible", allowed);
-  btn.classList.toggle("is-item-history", !allowed);
-  label.textContent=allowed ? "이용내역" : "이용내역";
-}
 function pklNormUserKey(v){
   return String(v||"").trim().replace(/\s+/g,"").toLowerCase();
 }
@@ -7607,21 +7473,26 @@ function pklTierRoleFromMemberVisual(member){
 }
 function pklTierRoleOfMember(member){
   const user=pklFindTierUserByMember(member);
-  /* Supabase users가 최신 원본이다.
-     팀/시트에 저장된 memberTier는 오래된 캐시라서 점수 계산에서는 Supabase 값을 먼저 쓴다. */
-  const userRole=[
-    user?.memberTier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.role,user?.title,
-    user?.tierRole,user?.gradeRole,user?.baseRole,user?.dataTierRole,user?.dataTier,user?.tierLabel,user?.tierName,user?.memberTierName
+  /* PKL: 팀구성에서 시트로 넘어온 멤버의 tier/memberTier가 실제 배치 티어다.
+     Supabase users 캐시가 늦게 오거나 예전 generic 5티어/짐승 값을 들고 있으면
+     5중/5하 목표점수와 -점수가 0으로 계산된다. 그래서 member/배지 값을 먼저 읽고,
+     없을 때만 Supabase user를 fallback으로 사용한다. */
+  const memberRole=[
+    member?.__tierRole,member?.memberTier,member?.tierRole,member?.gradeRole,member?.baseRole,
+    member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,member?.role,member?.title,
+    member?.dataTierRole,member?.dataTier,member?.tierLabel,member?.tierName,member?.memberTierName,member?.badge,member?.badgeText
   ].map(pklTierScoreRoleFromText).find(Boolean);
-  if(userRole) return userRole;
+  if(memberRole) return memberRole;
   const visualRole = pklTierRoleFromMemberVisual(member);
   if(visualRole) return visualRole;
-  const memberRole=[
-    member?.memberTier,member?.__tierRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,member?.role,member?.title,
-    member?.tierRole,member?.gradeRole,member?.baseRole,member?.dataTierRole,member?.dataTier,member?.tierLabel,member?.tierName,member?.memberTierName,member?.badge,member?.badgeText
+  const userRole=[
+    user?.memberTier,user?.tierRole,user?.gradeRole,user?.baseRole,
+    user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.role,user?.title,
+    user?.dataTierRole,user?.dataTier,user?.tierLabel,user?.tierName,user?.memberTierName
   ].map(pklTierScoreRoleFromText).find(Boolean);
-  return memberRole || "";
+  return userRole || "";
 }
+
 function pklMemberTierScore(member){
   const role=pklTierRoleOfMember(member);
   const config=pklReadTierScoreConfig();
