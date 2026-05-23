@@ -2284,7 +2284,8 @@ const teamIndex = Number(slot.dataset.teamIndex);
         const key = window.PKLTierBadge.normalize(value);
         if (key && key !== 'none') return key;
       }
-      if (text === '짐승' || text === '5티어' || /^beast$/i.test(text) || /^tier5$/i.test(text)) return text;
+      if (text === '짐승' || /^beast$/i.test(text)) return 'tier5_low';
+      if (text === '5티어' || /^tier5$/i.test(text)) return 'tier5_low';
       if (normalizeTierKey(text) !== 'none') return text;
     }
     return '';
@@ -2763,18 +2764,27 @@ function completeTeams() {
       confirmText: '완료',
       cancelText: '취소',
       onConfirm: () => {
-        const result = exportTeamBoardToSheet();
-        const importedCount = result && typeof result.count === 'number' ? result.count : Number(result || 0);
-        const goSheet = () => { window.location.assign('sheet.html'); };
-        const finish = () => {
-          resetBuilder();
-          setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 시트지로 이동합니다.`);
-          goSheet();
+        const runExport = () => {
+          const result = exportTeamBoardToSheet();
+          const importedCount = result && typeof result.count === 'number' ? result.count : Number(result || 0);
+          const goSheet = () => { window.location.assign('sheet.html'); };
+          const finish = () => {
+            resetBuilder();
+            setStatus(`팀구성 완료: 시트지에 ${importedCount}명을 등록하고 시트지로 이동합니다.`);
+            goSheet();
+          };
+          if (result && result.remoteSave && typeof result.remoteSave.then === 'function') {
+            result.remoteSave.then(finish).catch(() => finish());
+          } else {
+            finish();
+          }
         };
-        if (result && result.remoteSave && typeof result.remoteSave.then === 'function') {
-          result.remoteSave.then(finish).catch(() => finish());
+        /* 팀구성 완료 직전 Supabase users를 1회 새로 읽는다.
+           티어표에서 방금 바꾼 tier5_high/mid/low 값을 예전 team 캐시가 덮지 않게 하기 위한 단일 수술. */
+        if (typeof loadSupabaseUsersForJoinWaitListOnce === 'function') {
+          loadSupabaseUsersForJoinWaitListOnce(true).then(runExport).catch(runExport);
         } else {
-          finish();
+          runExport();
         }
       }
     });
