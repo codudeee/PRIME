@@ -105,30 +105,40 @@
     return unwrap(data);
   }
   function loadTierScoreConfig(){
-    /* PKL: 티어표 저장 원본은 pklTierScoreConfig_v3.
-       라이브 보드도 시트지와 같은 원본을 읽어야 5상/5중/5하 목표값과 -점수가 맞는다. */
+    /* PKL: tier.html은 live_scores/tier_score_config_current 를 원본으로 저장한다.
+       스코어보드도 live 값을 먼저 읽고, 없을 때만 shared 미러를 읽는다. */
     var keys=['pklTierScoreConfig_v3','pklTierScoreConfig_v2','pklTierScoreConfig'];
-    function tryKey(i){
+    function applyScoreConfig(raw,key){
+      var s=extractTierScoreValue(raw)||{};
+      if(s&&Object.keys(s).length){
+        var merged=mergeTierScoreConfig({},s);
+        window.__PKL_TIER_SCORE_CONFIG=merged;
+        window.__PKL_TIER_SCORE_CONFIG_V3=merged;
+        window.pklTierScoreConfig=merged;
+        window.pklTierScoreConfig_v3=merged;
+        try{renderSnapshot(buildSnapshot());}catch(e){}
+        return true;
+      }
+      return false;
+    }
+    function trySharedKey(i){
       if(i>=keys.length) return Promise.resolve();
       var key=keys[i];
-      var shared='/api/pkl-shared?key='+encodeURIComponent(key)+'&t='+Date.now();
-      return fetch(shared,{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}})
-        .then(function(r){return r.ok?r.json().catch(function(){return {}; }):{};})
-        .then(function(data){
-          var s=extractTierScoreValue(data)||{};
-          if(s&&Object.keys(s).length){
-            var merged=mergeTierScoreConfig({},s);
-            window.__PKL_TIER_SCORE_CONFIG=merged;
-            if(key==='pklTierScoreConfig_v3') window.__PKL_TIER_SCORE_CONFIG_V3=merged;
-            window.pklTierScoreConfig=merged;
-            window.pklTierScoreConfig_v3=key==='pklTierScoreConfig_v3'?merged:(window.pklTierScoreConfig_v3||merged);
-            try{renderSnapshot(buildSnapshot());}catch(e){}
-            return;
-          }
-          return tryKey(i+1);
-        }).catch(function(){return tryKey(i+1);});
+      var urls=['/api/pkl-shared?key='+encodeURIComponent(key)+'&t='+Date.now(),'/api/pkl-data-store?type=shared&key='+encodeURIComponent(key)+'&t='+Date.now()];
+      function tryUrl(j){
+        if(j>=urls.length) return trySharedKey(i+1);
+        return fetch(urls[j],{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}})
+          .then(function(r){return r.ok?r.json().catch(function(){return {}; }):{};})
+          .then(function(data){return applyScoreConfig(data,key) || tryUrl(j+1);})
+          .catch(function(){return tryUrl(j+1);});
+      }
+      return tryUrl(0);
     }
-    return tryKey(0).catch(function(e){console.error('PKL scoreboard tier score config load failed',e);});
+    return fetch('/api/pkl-data-store?type=live_scores&id=tier_score_config_current&t='+Date.now(),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}})
+      .then(function(r){return r.ok?r.json().catch(function(){return {}; }):{};})
+      .then(function(data){return applyScoreConfig(data,'tier_score_config_current') || trySharedKey(0);})
+      .catch(function(){return trySharedKey(0);})
+      .catch(function(e){console.error('PKL scoreboard tier score config load failed',e);});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadTierScoreConfig);else loadTierScoreConfig();
   window.addEventListener('pkl-tier-score-config-updated',function(e){if(e&&e.detail&&e.detail.config){window.__PKL_TIER_SCORE_CONFIG=e.detail.config;window.pklTierScoreConfig=e.detail.config;if(e.detail.key==='pklTierScoreConfig_v3'){window.__PKL_TIER_SCORE_CONFIG_V3=e.detail.config;window.pklTierScoreConfig_v3=e.detail.config;}}try{renderSnapshot(buildSnapshot());}catch(_e){}});

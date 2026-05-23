@@ -7365,20 +7365,28 @@ function pklExtractTierScoreSharedValue(data){
   return unwrap(data);
 }
 async function pklFetchTierScoreSharedConfig(){
-  /* PKL: 티어표 점수 저장 원본은 tier.html 의 pklTierScoreConfig_v3 이다.
-     시트지는 이 키를 최우선으로 읽고, v3가 없을 때만 이전 키를 읽는다.
-     live_scores 우회값은 오래된 0점/기본값을 만들 수 있어 사용하지 않는다. */
+  /* PKL: 현재 tier.html은 입력값을 live_scores/tier_score_config_current 에 먼저 저장하고,
+     shared pklTierScoreConfig 계열에는 미러링한다. 시트지는 live 값을 최우선으로 읽어야
+     5티어 상/중/하 목표값과 -점수가 0점/이전값으로 떨어지지 않는다. */
   const keys = ['pklTierScoreConfig_v3','pklTierScoreConfig_v2','pklTierScoreConfig'];
-  const endpointsForKey = key => [
-    '/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now(),
-    '/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now()
-  ];
-
   const normalizePulled = data => {
     const value = pklExtractTierScoreSharedValue(data);
     return value && typeof value === 'object' && Object.keys(value).length ? value : null;
   };
 
+  try{
+    const res = await fetch('/api/pkl-data-store?type=live_scores&id=tier_score_config_current&t=' + Date.now(), { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } });
+    if(res.ok){
+      const data = await res.json().catch(()=>null);
+      const value = normalizePulled(data);
+      if(value) return { key:'tier_score_config_current', value };
+    }
+  }catch(_e){}
+
+  const endpointsForKey = key => [
+    '/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now(),
+    '/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now()
+  ];
   for(const key of keys){
     for(const url of endpointsForKey(key)){
       try{
@@ -7409,9 +7417,9 @@ async function pklLoadTierScoreConfig(){
     if(value && typeof value === 'object' && Object.keys(value).length){
       const merged = pklMergeTierScoreConfig({}, value);
       window.__PKL_TIER_SCORE_CONFIG = merged;
-      if(sourceKey === 'pklTierScoreConfig_v3') window.__PKL_TIER_SCORE_CONFIG_V3 = merged;
+      window.__PKL_TIER_SCORE_CONFIG_V3 = merged;
       window.pklTierScoreConfig = merged;
-      window.pklTierScoreConfig_v3 = sourceKey === 'pklTierScoreConfig_v3' ? merged : (window.pklTierScoreConfig_v3 || merged);
+      window.pklTierScoreConfig_v3 = merged;
       window.__PKL_TIER_SCORE_CONFIG_UPDATED_AT = value.__pklUpdatedAt || value.updatedAt || value.updated_at || '';
       try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:merged, key:sourceKey}})); }catch(_e){}
       try{ renderBoard(); renderSheet(); }catch(_e){}

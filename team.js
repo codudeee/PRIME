@@ -16,12 +16,21 @@
     if (!key) return '';
     if (key === 'beast') return 'tier5';
     if (/^beast_(high|mid|low)$/i.test(key)) return 'tier5';
-    if (/^tier5(_|-)?(high|mid|low)?$/i.test(key.replace(/\s+/g, ''))) return 'tier5';
+    // 5티어 상/중/하 세부값은 점수 계산용으로는 보존하고, 대기칸 분류에서만 tier5로 묶는다.
+    if (/^tier5(_|-)?(high|mid|low)$/i.test(key.replace(/\s+/g, ''))) return key.toLowerCase().replace('-', '_').replace('middle', 'mid');
+    if (/^tier5$/i.test(key.replace(/\s+/g, ''))) return 'tier5';
     return key;
   }
 
+  function getWaitingTierId(tierId) {
+    const key = String(tierId || '').trim();
+    if (!key) return '';
+    if (/^(beast|tier5(_|-)?(high|mid|middle|low)?)$/i.test(key.replace(/\s+/g, ''))) return 'tier5';
+    return getCanonicalTierId(key);
+  }
+
   function isValidTierId(tierId) {
-    const key = getCanonicalTierId(tierId);
+    const key = getWaitingTierId(tierId);
     return TIERS.some(tier => tier.id === key);
   }
 
@@ -1893,12 +1902,15 @@ const teamIndex = Number(slot.dataset.teamIndex);
       if (isPlayerPlacedInTeam(player.id)) return;
       const supabaseUser = findSupabaseUserStrict(player);
       if (!supabaseUser) return;
+      const preciseRole = resolveSpecificTierScoreRoleValue(supabaseUser) || resolveSpecificTierScoreRoleValue(player);
+      if (preciseRole && player.__tierRole !== preciseRole) { player.__tierRole = preciseRole; changed = true; }
       const syncedTier = resolveUserTierKey(supabaseUser);
-      if (isValidTierId(syncedTier) && player.tier !== getCanonicalTierId(syncedTier)) {
-        player.tier = getCanonicalTierId(syncedTier);
+      const waitingTier = getWaitingTierId(syncedTier || preciseRole);
+      if (isValidTierId(waitingTier) && player.tier !== waitingTier) {
+        player.tier = waitingTier;
         changed = true;
       }
-      const tierBadge = resolveUserTierBadgeValue(supabaseUser);
+      const tierBadge = preciseRole || resolveUserTierBadgeValue(supabaseUser);
       if (tierBadge && player.memberTier !== tierBadge) {
         player.memberTier = tierBadge;
         changed = true;
@@ -2107,9 +2119,12 @@ const teamIndex = Number(slot.dataset.teamIndex);
     player.accountId = linkedUser.id || linkedUser.uid || linkedUser.discord_id || player.accountId || '';
     player.pubgId = linkedUser.pubgId || linkedUser.pubg_id || linkedUser.gameId || player.pubgId || '';
     player.name = linkedUser.nickname || linkedUser.nick || linkedUser.name || linkedUser.discord_username || player.name;
+    const preciseRole = resolveSpecificTierScoreRoleValue(linkedUser) || resolveSpecificTierScoreRoleValue(player);
     const tierKey = resolveUserTierKey(linkedUser);
-    const tierBadgeValue = resolveUserTierBadgeValue(linkedUser);
-    if (isValidTierId(tierKey)) player.tier = getCanonicalTierId(tierKey);
+    const tierBadgeValue = preciseRole || resolveUserTierBadgeValue(linkedUser);
+    if (preciseRole) player.__tierRole = preciseRole;
+    const waitingTier = getWaitingTierId(tierKey || preciseRole);
+    if (isValidTierId(waitingTier)) player.tier = waitingTier;
     if (tierBadgeValue) player.memberTier = tierBadgeValue;
     return player;
   }
@@ -2929,7 +2944,7 @@ function completeTeams() {
     const accountUser = resolvePlayerAccountUser(player, displayName);
     const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || findSupabaseUserByLooseName(displayName);
     const sourceUser = supabaseUser || accountUser || null;
-    const preciseTierRole = resolveSpecificTierScoreRoleValue(sourceUser) || resolveSpecificTierScoreRoleValue(player);
+    const preciseTierRole = resolveSpecificTierScoreRoleValue(sourceUser) || resolveSpecificTierScoreRoleValue(player) || resolveSpecificTierScoreRoleValue(player.memberTier) || resolveSpecificTierScoreRoleValue(player.__tierRole);
     const memberTier = String(
       preciseTierRole ||
       resolveUserTierBadgeValue(sourceUser) ||
@@ -5184,8 +5199,16 @@ function startClock() {
       const players = saved.players
         .filter(player => !(/^test-player-/i.test(String(player.id || "")) || /테스터|tester/i.test(String(player.name || player.nickname || ""))))
         .map(player => {
-          const tier = validTierIds.has(getCanonicalTierId(player.tier)) ? getCanonicalTierId(player.tier) : (legacyTierMap[player.tier] || 'tier5');
+          const preciseRole = resolveSpecificTierScoreRoleValue(player);
+          const waitingTier = getWaitingTierId(player.tier || preciseRole);
+          const tier = validTierIds.has(waitingTier) ? waitingTier : (legacyTierMap[player.tier] || 'tier5');
           const nextPlayer = { ...player, tier };
+          if (preciseRole) {
+            nextPlayer.__tierRole = preciseRole;
+            nextPlayer.memberTier = preciseRole;
+            nextPlayer.tierRole = preciseRole;
+            nextPlayer.gradeRole = preciseRole;
+          }
           hydratePlayerIdentity(nextPlayer);
           return nextPlayer;
         });
