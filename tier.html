@@ -3067,311 +3067,215 @@ document.addEventListener("DOMContentLoaded", function(){
 <script id="pklTierScoreSyncScript">
 (function(){
   'use strict';
-  if(window.__PKL_TIER_SCORE_SINGLE_SOURCE_V56__) return;
-  window.__PKL_TIER_SCORE_SINGLE_SOURCE_V56__ = true;
+  if(window.__PKL_TIER_SCORE_CLEAN_SOURCE_V57__) return;
+  window.__PKL_TIER_SCORE_CLEAN_SOURCE_V57__ = true;
 
-  /*
-    PKL tier score v56
-    - 목표점수/감점의 원본을 pkl_shared_data:key=pklTierScoreConfig_v3 하나로 고정한다.
-    - 예전 pklTierScoreConfig / live_scores 값은 더 이상 로드하지 않는다.
-      이전 덮어쓰기 값이 계속 기본값을 되살리는 경로를 끊기 위해서다.
-    - 입력 변경 시 v3에 먼저 저장하고, sheet 호환용으로만 기존 키에 mirror 저장한다.
-    - 페이지 진입 시 기본 HTML value는 절대 서버로 자동 저장하지 않는다.
-  */
-
-  var PRIMARY_KEY = 'pklTierScoreConfig_v3';
-  var MIRROR_KEYS = ['pklTierScoreConfig_v2', 'pklTierScoreConfig'];
+  var KEY = 'pklTierScoreConfig';
+  var KEY_V2 = 'pklTierScoreConfig_v2';
   var META_KEY = '__pklUpdatedAt';
   var saveTimer = 0;
-  var latestConfig = {};
-  var loadedOnce = false;
-  var userInputAt = 0;
+  var loading = false;
   var saving = false;
+  var dirtyAt = 0;
+  var lastSavedText = '';
 
-  var ROLE_TO_LANE = {
-    tier0_high:'0상', tier0_mid:'0중', tier0_low:'0하',
-    tier1_high:'1상', tier1_mid:'1중', tier1_low:'1하',
-    tier2_high:'2상', tier2_mid:'2중', tier2_low:'2하',
-    tier3_high:'3상', tier3_mid:'3중', tier3_low:'3하',
-    tier4_high:'4상', tier4_mid:'4중', tier4_low:'4하',
-    tier5_high:'5상', tier5_mid:'5중', tier5_low:'5하',
-    beast:'5하', beast_high:'5상', beast_mid:'5중', beast_low:'5하'
-  };
   var LANE_TO_ROLE = {
     '0상':'tier0_high','0중':'tier0_mid','0하':'tier0_low',
     '1상':'tier1_high','1중':'tier1_mid','1하':'tier1_low',
     '2상':'tier2_high','2중':'tier2_mid','2하':'tier2_low',
     '3상':'tier3_high','3중':'tier3_mid','3하':'tier3_low',
     '4상':'tier4_high','4중':'tier4_mid','4하':'tier4_low',
-    '5상':'tier5_high','5중':'tier5_mid','5하':'tier5_low',
-    '짐승':'tier5_low'
+    '5상':'tier5_high','5중':'tier5_mid','5하':'tier5_low','짐승':'tier5_low'
   };
+  var ROLE_TO_LANE = Object.keys(LANE_TO_ROLE).reduce(function(map, lane){ map[LANE_TO_ROLE[lane]] = lane; return map; }, {
+    beast:'5하', beast_high:'5상', beast_mid:'5중', beast_low:'5하'
+  });
 
+  function now(){ return new Date().toISOString(); }
   function isObj(v){ return !!(v && typeof v === 'object' && !Array.isArray(v)); }
-  function nowIso(){ return new Date().toISOString(); }
-  function num(v, fallback){
-    var n = Number(String(v == null ? '' : v).replace(/[^0-9.-]/g,''));
-    return Number.isFinite(n) ? n : (Number.isFinite(fallback) ? fallback : 0);
-  }
-  function unwrap(v){
-    if(!isObj(v)) return {};
-    if(isObj(v.value)) return unwrap(v.value);
-    if(isObj(v.payload)) return unwrap(v.payload);
-    if(isObj(v.config)) return unwrap(v.config);
-    if(isObj(v.data)) return unwrap(v.data);
-    return v;
-  }
-  function normalize(raw){
-    var src = unwrap(raw);
+  function num(v, fallback){ var n = Number(v); return Number.isFinite(n) ? n : (Number(fallback) || 0); }
+  function plain(value){ return isObj(value) && isObj(value.value) ? value.value : value; }
+  function normalize(value){
+    var src = plain(value);
     var out = {};
     if(!isObj(src)) return out;
-
     Object.keys(src).forEach(function(key){
       if(key === META_KEY || key === 'updatedAt' || key === 'updated_at' || key === 'savedAt' || key === 'source') return;
       var row = src[key];
       if(!isObj(row)) return;
       if(!Object.prototype.hasOwnProperty.call(row, 'target') && !Object.prototype.hasOwnProperty.call(row, 'death')) return;
-
       var lane = ROLE_TO_LANE[key] || key;
-      if(!LANE_TO_ROLE[lane] && lane !== '짐승') return;
-
+      var role = LANE_TO_ROLE[lane];
+      if(!role) return;
       var target = num(row.target, 0);
       var death = num(row.death, 0);
-      out[lane] = { target:target, death:death };
-
-      var role = LANE_TO_ROLE[lane];
-      if(role) out[role] = { target:target, death:death, lane:lane };
+      out[lane] = { target: target, death: death };
+      out[role] = { target: target, death: death, lane: lane };
     });
-
-    var stamp = src[META_KEY] || src.updatedAt || src.updated_at || src.savedAt;
-    if(stamp) out[META_KEY] = stamp;
+    if(src[META_KEY] || src.updatedAt || src.updated_at || src.savedAt){
+      out[META_KEY] = src[META_KEY] || src.updatedAt || src.updated_at || src.savedAt;
+      out.updatedAt = out[META_KEY];
+    }
     return out;
   }
   function publicConfig(value){
-    var src = normalize(value || latestConfig);
+    var src = normalize(value);
     var out = {};
     Object.keys(src).forEach(function(key){
-      if(key === META_KEY || key === 'updatedAt' || key === 'updated_at') return;
+      if(key === META_KEY || key === 'updatedAt') return;
       if(isObj(src[key])) out[key] = src[key];
     });
     return out;
   }
-  function hasRows(value){
-    return Object.keys(publicConfig(value)).some(function(k){ return !!LANE_TO_ROLE[k]; });
-  }
+  function countRows(value){ return Object.keys(publicConfig(value)).length; }
   function eachLane(fn){
     document.querySelectorAll('.pkl-tier-lane, .pkl-beast-line').forEach(function(laneEl){
       var list = laneEl.querySelector('.pkl-lane-list[data-tier]');
       var inputs = laneEl.querySelectorAll('.pkl-lane-score input');
       if(!list || inputs.length < 2) return;
       var lane = String(list.dataset.tier || '').trim();
-      if(!lane) return;
+      if(!LANE_TO_ROLE[lane]) return;
       fn(lane, inputs, laneEl);
     });
   }
   function collectDom(){
     var out = {};
     eachLane(function(lane, inputs){
-      var target = num(inputs[0].value, num(inputs[0].getAttribute('value'), 0));
-      var death = num(inputs[1].value, num(inputs[1].getAttribute('value'), 0));
-      out[lane] = { target:target, death:death };
+      var target = num(inputs[0].value, inputs[0].getAttribute('value'));
+      var death = num(inputs[1].value, inputs[1].getAttribute('value'));
       var role = LANE_TO_ROLE[lane];
-      if(role) out[role] = { target:target, death:death, lane:lane };
+      out[lane] = { target: target, death: death };
+      out[role] = { target: target, death: death, lane: lane };
     });
-    out[META_KEY] = nowIso();
+    out[META_KEY] = now();
     out.updatedAt = out[META_KEY];
-    out.source = 'tier_page_v56';
+    out.source = 'tier_page_clean_v57';
     return out;
   }
-  function applyDom(config){
-    var cfg = normalize(config);
-    if(!hasRows(cfg)) return false;
-
+  function applyDom(value){
+    var cfg = normalize(value);
+    if(!countRows(cfg)) return false;
     eachLane(function(lane, inputs){
       var row = cfg[lane];
       if(!row) return;
-      var target = String(num(row.target, 0));
-      var death = String(num(row.death, 0));
-      if(inputs[0].value !== target) inputs[0].value = target;
-      if(inputs[1].value !== death) inputs[1].value = death;
-      inputs[0].setAttribute('value', target);
-      inputs[1].setAttribute('value', death);
-      inputs[0].dataset.pklSavedValue = target;
-      inputs[1].dataset.pklSavedValue = death;
+      inputs[0].value = String(row.target);
+      inputs[1].value = String(row.death);
+      inputs[0].setAttribute('value', String(row.target));
+      inputs[1].setAttribute('value', String(row.death));
     });
+    setGlobal(cfg);
     return true;
   }
-  function setMemory(config, fire){
-    latestConfig = normalize(config);
-    window.__PKL_TIER_SCORE_CONFIG = publicConfig(latestConfig);
-    window.__PKL_TIER_SCORE_CONFIG_V2 = window.__PKL_TIER_SCORE_CONFIG;
-    if(fire !== false){
-      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', { detail:{ config:window.__PKL_TIER_SCORE_CONFIG } })); }catch(e){}
-    }
+  function setGlobal(value){
+    var cfg = publicConfig(value);
+    window.__PKL_TIER_SCORE_CONFIG = cfg;
+    window.__PKL_TIER_SCORE_CONFIG_V2 = cfg;
+    window.pklTierScoreConfig = cfg;
+    try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', { detail:{ config: cfg } })); }catch(e){}
   }
-
-  async function postJson(url, body, keepalive){
-    var res = await fetch(url, {
-      method:'POST',
-      cache:'no-store',
-      keepalive:!!keepalive,
-      headers:{ 'Content-Type':'application/json', Accept:'application/json', 'Cache-Control':'no-store' },
-      body:JSON.stringify(body)
-    });
+  async function jsonFetch(url, options){
+    var res = await fetch(url, Object.assign({ cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } }, options || {}));
     var data = await res.json().catch(function(){ return {}; });
     if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
     return data;
   }
-  async function readShared(key){
-    var res = await fetch('/api/pkl-shared?key=' + encodeURIComponent(key) + '&_=' + Date.now(), {
-      cache:'no-store',
-      headers:{ Accept:'application/json', 'Cache-Control':'no-store' }
-    });
-    var data = await res.json().catch(function(){ return {}; });
-    if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
-    var item = data.item || null;
-    var value = item && item.value;
-    return hasRows(value) ? value : null;
+  async function post(url, body, keepalive){
+    return jsonFetch(url, { method:'POST', keepalive:!!keepalive, headers:{ 'Content-Type':'application/json', Accept:'application/json', 'Cache-Control':'no-store' }, body: JSON.stringify(body) });
   }
-  async function writeShared(key, payload, keepalive){
-    return await postJson('/api/pkl-shared', { key:key, value:payload }, keepalive);
+  async function readSharedApi(key){
+    try{
+      var data = await jsonFetch('/api/pkl-shared?key=' + encodeURIComponent(key) + '&_=' + Date.now());
+      var v = data && data.item && data.item.value;
+      if(countRows(v)) return v;
+    }catch(e){}
+    try{
+      var data2 = await jsonFetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&_=' + Date.now());
+      var v2 = data2 && data2.item && data2.item.value;
+      if(countRows(v2)) return v2;
+    }catch(e){}
+    return null;
   }
-
-  function getSupabaseConfig(){
-    var cfg = window.PKL_SUPABASE_CONFIG || {};
-    var read = function(k){ try{ return localStorage.getItem(k) || sessionStorage.getItem(k) || ''; }catch(e){ return ''; } };
-    var url = String(cfg.url || cfg.supabaseUrl || cfg.SUPABASE_URL || read('PKL_SUPABASE_URL') || read('SUPABASE_URL') || '').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');
-    var key = String(cfg.anonKey || cfg.anon_key || cfg.supabaseAnonKey || cfg.SUPABASE_ANON_KEY || read('PKL_SUPABASE_ANON_KEY') || read('SUPABASE_ANON_KEY') || '');
-    return { url:url, key:key };
+  async function readSupabaseDirect(key){
+    try{
+      var cfg = window.PKL_SUPABASE_CONFIG || (window.PKLGetSupabaseConfig ? await window.PKLGetSupabaseConfig() : null) || {};
+      var url = String(cfg.url || cfg.supabaseUrl || cfg.SUPABASE_URL || '').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');
+      var anon = String(cfg.anonKey || cfg.anon_key || cfg.supabaseAnonKey || cfg.SUPABASE_ANON_KEY || '');
+      if(!url || !anon) return null;
+      var res = await fetch(url + '/rest/v1/pkl_shared_data?select=key,value,updated_at&key=eq.' + encodeURIComponent(key) + '&limit=1', {
+        cache:'no-store',
+        headers:{ apikey:anon, Authorization:'Bearer ' + anon, Accept:'application/json', 'Cache-Control':'no-store' }
+      });
+      var rows = await res.json().catch(function(){ return []; });
+      var row = Array.isArray(rows) ? rows[0] : null;
+      if(row && countRows(row.value)) return row.value;
+    }catch(e){}
+    return null;
   }
-  async function writeDirect(key, payload, keepalive){
-    var cfg = getSupabaseConfig();
-    if(!cfg.url || !cfg.key) return false;
-    var res = await fetch(cfg.url + '/rest/v1/pkl_shared_data?on_conflict=key', {
-      method:'POST',
-      cache:'no-store',
-      keepalive:!!keepalive,
-      headers:{
-        apikey:cfg.key,
-        Authorization:'Bearer ' + cfg.key,
-        'Content-Type':'application/json',
-        Prefer:'resolution=merge-duplicates,return=minimal',
-        'Cache-Control':'no-store'
-      },
-      body:JSON.stringify({ key:key, value:payload, updated_at:nowIso() })
-    });
-    if(!res.ok) throw new Error('direct pkl_shared_data save failed ' + res.status);
-    return true;
-  }
-  async function readDirect(key){
-    var cfg = getSupabaseConfig();
-    if(!cfg.url || !cfg.key) return null;
-    var res = await fetch(cfg.url + '/rest/v1/pkl_shared_data?select=key,value,updated_at&key=eq.' + encodeURIComponent(key) + '&limit=1&_=' + Date.now(), {
-      cache:'no-store',
-      headers:{
-        apikey:cfg.key,
-        Authorization:'Bearer ' + cfg.key,
-        Accept:'application/json',
-        'Cache-Control':'no-store'
-      }
-    });
-    if(!res.ok) return null;
-    var rows = await res.json().catch(function(){ return []; });
-    var row = Array.isArray(rows) ? rows[0] : null;
-    return row && hasRows(row.value) ? row.value : null;
-  }
-
   async function load(){
+    if(loading) return;
+    loading = true;
     var started = Date.now();
-    var value = null;
-
-    // 새 단일 원본만 로드한다. 예전 키는 기본값 덮어쓰기 원인이어서 읽지 않는다.
-    try{ value = await readShared(PRIMARY_KEY); }catch(e){}
-    if(!value){ try{ value = await readDirect(PRIMARY_KEY); }catch(e){} }
-
-    loadedOnce = true;
-    if(!value || !hasRows(value)){
-      // 서버값이 없으면 화면 기본값만 메모리에 둔다. 여기서 저장하지 않는다.
-      setMemory(collectDom(), false);
+    var value = await readSharedApi(KEY);
+    if(!value) value = await readSharedApi(KEY_V2);
+    if(!value) value = await readSupabaseDirect(KEY);
+    loading = false;
+    if(!value || !countRows(value)){
+      setGlobal(collectDom());
       return false;
     }
-
-    // 입력 직후에는 늦게 도착한 서버값으로 사용자의 입력을 덮지 않는다.
-    if(userInputAt && (userInputAt >= started || Date.now() - userInputAt < 1200)) return false;
-
-    setMemory(value, true);
-    applyDom(value);
-    return true;
+    if(dirtyAt && dirtyAt >= started) return false;
+    return applyDom(value);
   }
-
   async function save(keepalive){
     var payload = collectDom();
-    setMemory(payload, true);
+    var text = JSON.stringify(publicConfig(payload));
+    setGlobal(payload);
+    if(text === lastSavedText && !keepalive) return true;
     saving = true;
     try{
-      // 원본 저장: API + 직접 Supabase 둘 다 시도한다. 둘 중 하나만 성공해도 성공으로 본다.
-      var ok = false;
-      try{ await writeShared(PRIMARY_KEY, payload, keepalive); ok = true; }catch(e){ console.warn('tier score primary api save failed', e); }
-      try{ await writeDirect(PRIMARY_KEY, payload, keepalive); ok = true; }catch(e){ console.warn('tier score primary direct save failed', e); }
-      if(!ok) throw new Error('tier score primary save failed');
-
-      // sheet 호환 mirror. 실패해도 원본 저장 성공에는 영향 주지 않는다.
-      MIRROR_KEYS.forEach(function(key){
-        writeShared(key, payload, keepalive).catch(function(){});
-        writeDirect(key, payload, keepalive).catch(function(){});
-      });
-
-      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-saved', { detail:{ config:publicConfig(payload) } })); }catch(e){}
+      await post('/api/pkl-shared', { key: KEY, value: payload }, keepalive);
+      lastSavedText = text;
+      // 호환 mirror: 실패해도 원본 저장은 성공으로 본다.
+      post('/api/pkl-data-store', { type:'shared', key: KEY, value: payload }, keepalive).catch(function(){});
+      post('/api/pkl-shared', { key: KEY_V2, value: payload }, keepalive).catch(function(){});
+      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-saved', { detail:{ config: publicConfig(payload) } })); }catch(e){}
       return true;
-    }catch(error){
-      console.error('PKL tier score save failed', error);
-      if(!keepalive && typeof window.pklAlert === 'function') window.pklAlert('티어 목표점수 저장에 실패했습니다. Supabase/API 설정을 확인해 주세요.', '저장 실패');
+    }catch(e){
+      console.error('PKL tier score save failed', e);
+      if(!keepalive && typeof window.pklAlert === 'function') window.pklAlert('목표점수/감점 저장 실패: ' + (e && e.message ? e.message : e), '저장 실패');
       return false;
     }finally{
       saving = false;
     }
   }
-
-  function scheduleSave(immediate){
-    userInputAt = Date.now();
-    setMemory(collectDom(), true);
+  function schedule(immediate){
+    dirtyAt = Date.now();
+    setGlobal(collectDom());
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(function(){ save(false); }, immediate ? 20 : 220);
+    saveTimer = setTimeout(function(){ save(false); }, immediate ? 20 : 250);
   }
-  function isScoreInput(target){
-    return !!(target && target.closest && target.closest('.pkl-lane-score input'));
-  }
+  function isInput(t){ return !!(t && t.closest && t.closest('.pkl-lane-score input')); }
   function bind(){
-    document.querySelectorAll('.pkl-lane-score input').forEach(function(input){
-      if(input.dataset.pklTierScoreV56 === '1') return;
-      input.dataset.pklTierScoreV56 = '1';
-      input.addEventListener('input', function(){ scheduleSave(false); }, true);
-      input.addEventListener('change', function(){ scheduleSave(true); }, true);
-      input.addEventListener('blur', function(){ scheduleSave(true); }, true);
+    eachLane(function(lane, inputs){
+      Array.prototype.forEach.call(inputs, function(input){
+        input.dataset.pklTierScoreCleanSource = 'v57';
+        input.addEventListener('input', function(){ schedule(false); }, true);
+        input.addEventListener('change', function(){ schedule(true); }, true);
+        input.addEventListener('blur', function(){ schedule(true); }, true);
+      });
     });
-
-    document.addEventListener('input', function(e){ if(isScoreInput(e.target)) scheduleSave(false); }, true);
-    document.addEventListener('change', function(e){ if(isScoreInput(e.target)) scheduleSave(true); }, true);
-
-    load().then(function(){
-      // 뒤늦은 렌더러가 HTML 기본 value를 되살릴 경우를 대비해 저장된 서버값을 2회만 다시 적용한다.
-      setTimeout(function(){ if(loadedOnce && hasRows(latestConfig) && (!userInputAt || Date.now() - userInputAt > 1200)) applyDom(latestConfig); }, 500);
-      setTimeout(function(){ if(loadedOnce && hasRows(latestConfig) && (!userInputAt || Date.now() - userInputAt > 1200)) applyDom(latestConfig); }, 1500);
-    });
+    document.addEventListener('input', function(e){ if(isInput(e.target)) schedule(false); }, true);
+    document.addEventListener('change', function(e){ if(isInput(e.target)) schedule(true); }, true);
+    setGlobal(collectDom());
+    load();
   }
-
-  window.pklTierCollectScoreConfig = function(){ setMemory(collectDom(), false); return publicConfig(latestConfig); };
-  window.pklTierGetScoreConfig = function(){ return publicConfig(latestConfig); };
-  window.pklTierLoadScoreConfig = function(){ return load(); };
+  window.pklTierCollectScoreConfig = function(){ var v = collectDom(); setGlobal(v); return publicConfig(v); };
   window.pklTierSaveScoreConfig = function(){ return save(false); };
-  window.addEventListener('beforeunload', function(){
-    if(userInputAt && !saving){
-      try{ save(true); }catch(e){}
-    }
-  });
-
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, {once:true});
-  else bind();
+  window.pklTierLoadScoreConfig = function(){ return load(); };
+  window.pklTierGetScoreConfig = function(){ return publicConfig(collectDom()); };
+  window.pklTierScoreDebug = function(){ return { key:KEY, dom:collectDom(), global:window.__PKL_TIER_SCORE_CONFIG, dirtyAt:dirtyAt, saving:saving, loading:loading }; };
+  window.addEventListener('beforeunload', function(){ if(dirtyAt && !saving) try{ save(true); }catch(e){} });
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
 })();
 </script>
 
