@@ -7207,7 +7207,7 @@ function pklTierScoreRoleFromText(text){
   const ascii=raw.toLowerCase().replace(/[\s\-]+/g,"_");
   const camel=raw.replace(/([a-z])([A-Z])/g,"$1_$2").toLowerCase();
   const compactAscii=compact.toLowerCase();
-  const mCompact=compactAscii.match(/^(?:tier)?([0-5])(?:티어)?(상|중|하|high|mid|middle|low)$/);
+  const mCompact=compactAscii.match(/^(?:tier)?([0-5])(?:티어)?(상|중|하|high|mid|middle|low)$/) || compactAscii.match(/^([0-5])(high|mid|middle|low)$/);
   if(mCompact){
     const posMap={"상":"high","중":"mid","하":"low",high:"high",mid:"mid",middle:"mid",low:"low"};
     return `tier${mCompact[1]}_${posMap[mCompact[2]]||"mid"}`;
@@ -7290,12 +7290,61 @@ function pklReadTierScoreConfig(){
 }
 function pklExtractTierScoreSharedValue(data){
   if(!data) return null;
-  if(data.item && data.item.value) return data.item.value;
-  if(data.row && data.row.value) return data.row.value;
-  if(Array.isArray(data.rows) && data.rows[0] && data.rows[0].value) return data.rows[0].value;
-  if(data.values && data.values.pklTierScoreConfig) return data.values.pklTierScoreConfig;
-  if(data.value && typeof data.value === 'object') return data.value;
-  return data && typeof data === 'object' ? data : null;
+
+  const isObj = v => !!(v && typeof v === 'object' && !Array.isArray(v));
+  const hasScoreRows = v => {
+    if(!isObj(v)) return false;
+    return Object.keys(v).some(k => {
+      const row = v[k];
+      return isObj(row) && (
+        Object.prototype.hasOwnProperty.call(row, 'target') ||
+        Object.prototype.hasOwnProperty.call(row, 'death') ||
+        Object.prototype.hasOwnProperty.call(row, 'goal') ||
+        Object.prototype.hasOwnProperty.call(row, 'minus') ||
+        Object.prototype.hasOwnProperty.call(row, 'score')
+      );
+    });
+  };
+  const unwrap = v => {
+    if(!isObj(v)) return null;
+    if(hasScoreRows(v)) return v;
+
+    /* API별 응답 구조가 서로 달라서 payload/config/value/data 안에 실제 점수표가 들어갈 수 있다.
+       여기서 풀지 못하면 시트지가 5상/5중/5하 최신값 대신 0점/이전값으로 계산된다. */
+    const direct = [
+      v.pklTierScoreConfig,
+      v.tierScoreConfig,
+      v.scoreConfig,
+      v.config,
+      v.payload,
+      v.value,
+      v.data
+    ];
+    for(const item of direct){
+      const got = unwrap(item);
+      if(got) return got;
+    }
+
+    if(v.item){
+      const got = unwrap(v.item.value || v.item.payload || v.item);
+      if(got) return got;
+    }
+    if(v.row){
+      const got = unwrap(v.row.value || v.row.payload || v.row);
+      if(got) return got;
+    }
+    if(Array.isArray(v.rows) && v.rows[0]){
+      const got = unwrap(v.rows[0].payload || v.rows[0].value || v.rows[0]);
+      if(got) return got;
+    }
+    if(v.values){
+      const got = unwrap(v.values.pklTierScoreConfig || v.values.tierScoreConfig || v.values.scoreConfig || v.values);
+      if(got) return got;
+    }
+    return null;
+  };
+
+  return unwrap(data);
 }
 async function pklFetchTierScoreSharedConfig(){
   const key = 'pklTierScoreConfig';
@@ -7531,6 +7580,37 @@ function pklFindTierUserByMember(member){
     return keys.some(key=>names.includes(key));
   }) || null;
 }
+
+function pklTierRoleFromMemberVisual(member){
+  if(!member || typeof member !== 'object') return '';
+  const texts = [
+    member.__badgeHtml, member.badgeHtml, member.tierBadgeHtml, member.badgeText,
+    member.memberTierText, member.tierText, member.gradeText, member.titleText
+  ].map(v=>String(v||'')).join(' ');
+  if(!texts) return '';
+  const normalized = texts
+    .replace(/&nbsp;/g,' ')
+    .replace(/<[^>]+>/g,' ')
+    .replace(/grade-role-/g,' ')
+    .replace(/member-role-badge/g,' ')
+    .replace(/pkl-tier-badge/g,' ')
+    .replace(/tier-/g,'tier')
+    .replace(/_/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+
+  const candidates = [
+    normalized,
+    (texts.match(/(?:tier|grade|role)[-_ ]?([0-5])[-_ ]?(high|mid|middle|low|상|중|하)/i)||[]).slice(1).join(' '),
+    (texts.match(/([0-5])\s*(?:티어)?\s*(상|중|하)/)||[]).slice(1).join(' ')
+  ].filter(Boolean);
+
+  for(const c of candidates){
+    const role = pklTierScoreRoleFromText(c);
+    if(role) return role;
+  }
+  return '';
+}
 function pklTierRoleOfMember(member){
   const user=pklFindTierUserByMember(member);
   /* Supabase users가 최신 원본이다.
@@ -7540,6 +7620,8 @@ function pklTierRoleOfMember(member){
     user?.tierRole,user?.gradeRole,user?.baseRole,user?.dataTierRole,user?.dataTier,user?.tierLabel,user?.tierName,user?.memberTierName
   ].map(pklTierScoreRoleFromText).find(Boolean);
   if(userRole) return userRole;
+  const visualRole = pklTierRoleFromMemberVisual(member);
+  if(visualRole) return visualRole;
   const memberRole=[
     member?.memberTier,member?.__tierRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,member?.role,member?.title,
     member?.tierRole,member?.gradeRole,member?.baseRole,member?.dataTierRole,member?.dataTier,member?.tierLabel,member?.tierName,member?.memberTierName,member?.badge,member?.badgeText
