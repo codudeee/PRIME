@@ -7293,9 +7293,15 @@ function pklMergeTierScoreConfig(base, saved){
   return out;
 }
 function pklReadTierScoreConfig(){
-  // Supabase pkl_shared_data(pklTierScoreConfig) 단일 원본.
-  // 서버 값이 없으면 0점 골격만 사용해 예전 하드코딩 점수가 끼어들지 않게 한다.
-  return pklMergeTierScoreConfig(pklTierScoreEmptyConfig(), window.__PKL_TIER_SCORE_CONFIG || window.pklTierScoreConfig || {});
+  // Supabase pkl_shared_data 의 최신 티어표 점수 원본만 사용한다.
+  // 현재 티어표 저장 키는 pklTierScoreConfig_v3 이며, v2/legacy 는 이전 데이터 호환용 읽기만 허용한다.
+  const source = window.__PKL_TIER_SCORE_CONFIG_V3 ||
+    window.__PKL_TIER_SCORE_CONFIG ||
+    window.pklTierScoreConfig_v3 ||
+    window.pklTierScoreConfigV3 ||
+    window.pklTierScoreConfig ||
+    {};
+  return pklMergeTierScoreConfig(pklTierScoreEmptyConfig(), source);
 }
 function pklExtractTierScoreSharedValue(data){
   if(!data) return null;
@@ -7356,16 +7362,13 @@ function pklExtractTierScoreSharedValue(data){
   return unwrap(data);
 }
 async function pklFetchTierScoreSharedConfig(){
-  const key = 'pklTierScoreConfig';
-  const liveId = 'tier_score_config_current';
-  const endpoints = [
-    /* PKL: 티어표가 실제 저장하는 원본은 pkl_shared_data / pklTierScoreConfig 이다.
-       live_scores/tier_score_config_current 는 이전 수술 때 만들어진 우회값이라
-       stale 0점/예전 점수로 시트 목표점수를 오염시킬 수 있어 시트 계산에서 제외한다. */
-    {url:'/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now()},
-    {url:'/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now()},
-    {url:'/api/pkl-shared?key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now()},
-    {url:'/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now()}
+  /* PKL: 티어표 점수 저장 원본은 tier.html 의 pklTierScoreConfig_v3 이다.
+     시트지는 이 키를 최우선으로 읽고, v3가 없을 때만 이전 키를 읽는다.
+     live_scores 우회값은 오래된 0점/기본값을 만들 수 있어 사용하지 않는다. */
+  const keys = ['pklTierScoreConfig_v3','pklTierScoreConfig_v2','pklTierScoreConfig'];
+  const endpointsForKey = key => [
+    '/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now(),
+    '/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now()
   ];
 
   const normalizePulled = data => {
@@ -7373,23 +7376,23 @@ async function pklFetchTierScoreSharedConfig(){
     return value && typeof value === 'object' && Object.keys(value).length ? value : null;
   };
 
-  /* 티어표 저장 원본(pklTierScoreConfig)만 읽는다.
-     이전 live_scores 우회값은 더 이상 목표점수 계산에 사용하지 않는다. */
-  for(const item of endpoints){
-    try{
-      const res = await fetch(item.url, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } });
-      if(!res.ok) continue;
-      const data = await res.json().catch(()=>null);
-      const value = normalizePulled(data);
-      if(value) return value;
-    }catch(_e){}
+  for(const key of keys){
+    for(const url of endpointsForKey(key)){
+      try{
+        const res = await fetch(url, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } });
+        if(!res.ok) continue;
+        const data = await res.json().catch(()=>null);
+        const value = normalizePulled(data);
+        if(value) return { key, value };
+      }catch(_e){}
+    }
   }
 
   if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
-    for(const syncKey of [key + '_v2', key]){
+    for(const key of keys){
       try{
-        const value = normalizePulled(await window.PKLSupabaseDataSync.getShared(syncKey));
-        if(value) return value;
+        const value = normalizePulled(await window.PKLSupabaseDataSync.getShared(key));
+        if(value) return { key, value };
       }catch(_e){}
     }
   }
@@ -7397,11 +7400,17 @@ async function pklFetchTierScoreSharedConfig(){
 }
 async function pklLoadTierScoreConfig(){
   try{
-    const value = await pklFetchTierScoreSharedConfig();
+    const pulled = await pklFetchTierScoreSharedConfig();
+    const value = pulled && pulled.value ? pulled.value : pulled;
+    const sourceKey = pulled && pulled.key ? pulled.key : 'pklTierScoreConfig';
     if(value && typeof value === 'object' && Object.keys(value).length){
-      window.__PKL_TIER_SCORE_CONFIG = pklMergeTierScoreConfig({}, value);
+      const merged = pklMergeTierScoreConfig({}, value);
+      window.__PKL_TIER_SCORE_CONFIG = merged;
+      if(sourceKey === 'pklTierScoreConfig_v3') window.__PKL_TIER_SCORE_CONFIG_V3 = merged;
+      window.pklTierScoreConfig = merged;
+      window.pklTierScoreConfig_v3 = sourceKey === 'pklTierScoreConfig_v3' ? merged : (window.pklTierScoreConfig_v3 || merged);
       window.__PKL_TIER_SCORE_CONFIG_UPDATED_AT = value.__pklUpdatedAt || value.updatedAt || value.updated_at || '';
-      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:window.__PKL_TIER_SCORE_CONFIG}})); }catch(_e){}
+      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', {detail:{config:merged, key:sourceKey}})); }catch(_e){}
       try{ renderBoard(); renderSheet(); }catch(_e){}
     }
   }catch(e){
@@ -7411,7 +7420,14 @@ async function pklLoadTierScoreConfig(){
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pklLoadTierScoreConfig);
 else pklLoadTierScoreConfig();
 window.addEventListener('pkl-tier-score-config-updated', function(e){
-  if(e && e.detail && e.detail.config) window.__PKL_TIER_SCORE_CONFIG = e.detail.config;
+  if(e && e.detail && e.detail.config){
+    window.__PKL_TIER_SCORE_CONFIG = e.detail.config;
+    window.pklTierScoreConfig = e.detail.config;
+    if(e.detail.key === 'pklTierScoreConfig_v3'){
+      window.__PKL_TIER_SCORE_CONFIG_V3 = e.detail.config;
+      window.pklTierScoreConfig_v3 = e.detail.config;
+    }
+  }
   try{ renderBoard(); renderSheet(); }catch(_e){}
 });
 let pklSheetSupabaseUsersCache = [];
@@ -7606,21 +7622,26 @@ function pklTierRoleFromMemberVisual(member){
   return '';
 }
 function pklTierRoleOfMember(member){
-  const user=pklFindTierUserByMember(member);
-  /* Supabase users가 최신 원본이다.
-     팀/시트에 저장된 memberTier는 오래된 캐시라서 점수 계산에서는 Supabase 값을 먼저 쓴다. */
-  const userRole=[
-    user?.memberTier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,user?.role,user?.title,
-    user?.tierRole,user?.gradeRole,user?.baseRole,user?.dataTierRole,user?.dataTier,user?.tierLabel,user?.tierName,user?.memberTierName
+  /* 팀구성에서 시트로 넘어온 멤버 배지/티어가 현재 보드의 표시값이다.
+     Supabase users 캐시가 늦거나 예전 beast/tier5 값이면 5중/5하를 덮어버릴 수 있어,
+     시트 점수 계산은 멤버/배지값을 먼저 보고 Supabase users는 보조로만 사용한다. */
+  const memberRole=[
+    member?.memberTier,member?.__tierRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,
+    member?.tierRole,member?.gradeRole,member?.baseRole,member?.dataTierRole,member?.dataTier,member?.tierLabel,member?.tierName,member?.memberTierName,member?.badge,member?.badgeText,
+    member?.role,member?.title
   ].map(pklTierScoreRoleFromText).find(Boolean);
-  if(userRole) return userRole;
+  if(memberRole) return memberRole;
+
   const visualRole = pklTierRoleFromMemberVisual(member);
   if(visualRole) return visualRole;
-  const memberRole=[
-    member?.memberTier,member?.__tierRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,member?.role,member?.title,
-    member?.tierRole,member?.gradeRole,member?.baseRole,member?.dataTierRole,member?.dataTier,member?.tierLabel,member?.tierName,member?.memberTierName,member?.badge,member?.badgeText
+
+  const user=pklFindTierUserByMember(member);
+  const userRole=[
+    user?.memberTier,user?.member_tier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,
+    user?.tierRole,user?.gradeRole,user?.baseRole,user?.dataTierRole,user?.dataTier,user?.tierLabel,user?.tierName,user?.memberTierName,
+    user?.role,user?.title
   ].map(pklTierScoreRoleFromText).find(Boolean);
-  return memberRole || "";
+  return userRole || "";
 }
 function pklMemberTierScore(member){
   const role=pklTierRoleOfMember(member);

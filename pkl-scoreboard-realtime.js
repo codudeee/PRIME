@@ -68,7 +68,7 @@
   function lane(role){return {tier0_high:'0상',tier0_mid:'0중',tier0_low:'0하',tier1_high:'1상',tier1_mid:'1중',tier1_low:'1하',tier2_high:'2상',tier2_mid:'2중',tier2_low:'2하',tier3_high:'3상',tier3_mid:'3중',tier3_low:'3하',tier4_high:'4상',tier4_mid:'4중',tier4_low:'4하',beast:'5하',beast_high:'5상',beast_mid:'5중',beast_low:'5하',tier5_high:'5상',tier5_mid:'5중',tier5_low:'5하'}[role]||role;}
   function defaults(){return {'0상':{target:0,death:0},'0중':{target:0,death:0},'0하':{target:0,death:0},'1상':{target:0,death:0},'1중':{target:0,death:0},'1하':{target:0,death:0},'2상':{target:0,death:0},'2중':{target:0,death:0},'2하':{target:0,death:0},'3상':{target:0,death:0},'3중':{target:0,death:0},'3하':{target:0,death:0},'4상':{target:0,death:0},'4중':{target:0,death:0},'4하':{target:0,death:0},'5상':{target:0,death:0},'5중':{target:0,death:0},'5하':{target:0,death:0},'짐승':{target:0,death:0}};}
   function mergeTierScoreConfig(b,s){if(s&&typeof s==='object')Object.keys(s).forEach(function(k){var v=s[k]||{},l=lane(k);if(!b[l])return;b[l]={target:Number.isFinite(Number(v.target))?Number(v.target):(b[l]||{}).target||0,death:Number.isFinite(Number(v.death))?Number(v.death):(b[l]||{}).death||0};});return b;}
-  function config(){return mergeTierScoreConfig(defaults(), window.__PKL_TIER_SCORE_CONFIG||{});}
+  function config(){return mergeTierScoreConfig(defaults(), window.__PKL_TIER_SCORE_CONFIG_V3||window.__PKL_TIER_SCORE_CONFIG||window.pklTierScoreConfig_v3||window.pklTierScoreConfig||{});}
   function extractTierScoreValue(data){
     function isObj(v){return !!(v&&typeof v==='object'&&!Array.isArray(v));}
     function hasRows(v){return isObj(v)&&Object.keys(v).some(function(k){var r=v[k];return isObj(r)&&('target' in r||'death' in r||'minus' in r||'goal' in r||'score' in r);});}
@@ -76,16 +76,33 @@
     return unwrap(data);
   }
   function loadTierScoreConfig(){
-    /* PKL: 시트/라이브 보드 목표점수는 티어표가 저장하는 pkl_shared_data/pklTierScoreConfig만 사용한다.
-       예전 live_scores/tier_score_config_current 우회값은 stale 값이 남을 수 있어 읽지 않는다. */
-    var shared='/api/pkl-shared?key='+encodeURIComponent('pklTierScoreConfig')+'&t='+Date.now();
-    return fetch(shared,{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}})
-      .then(function(r){return r.ok?r.json().catch(function(){return {}; }):{};})
-      .then(function(data){var s=extractTierScoreValue(data)||{};window.__PKL_TIER_SCORE_CONFIG=mergeTierScoreConfig({},s);try{renderSnapshot(buildSnapshot());}catch(e){};})
-      .catch(function(e){console.error('PKL scoreboard tier score config load failed',e);});
+    /* PKL: 티어표 저장 원본은 pklTierScoreConfig_v3.
+       라이브 보드도 시트지와 같은 원본을 읽어야 5상/5중/5하 목표값과 -점수가 맞는다. */
+    var keys=['pklTierScoreConfig_v3','pklTierScoreConfig_v2','pklTierScoreConfig'];
+    function tryKey(i){
+      if(i>=keys.length) return Promise.resolve();
+      var key=keys[i];
+      var shared='/api/pkl-shared?key='+encodeURIComponent(key)+'&t='+Date.now();
+      return fetch(shared,{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}})
+        .then(function(r){return r.ok?r.json().catch(function(){return {}; }):{};})
+        .then(function(data){
+          var s=extractTierScoreValue(data)||{};
+          if(s&&Object.keys(s).length){
+            var merged=mergeTierScoreConfig({},s);
+            window.__PKL_TIER_SCORE_CONFIG=merged;
+            if(key==='pklTierScoreConfig_v3') window.__PKL_TIER_SCORE_CONFIG_V3=merged;
+            window.pklTierScoreConfig=merged;
+            window.pklTierScoreConfig_v3=key==='pklTierScoreConfig_v3'?merged:(window.pklTierScoreConfig_v3||merged);
+            try{renderSnapshot(buildSnapshot());}catch(e){}
+            return;
+          }
+          return tryKey(i+1);
+        }).catch(function(){return tryKey(i+1);});
+    }
+    return tryKey(0).catch(function(e){console.error('PKL scoreboard tier score config load failed',e);});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadTierScoreConfig);else loadTierScoreConfig();
-  window.addEventListener('pkl-tier-score-config-updated',function(e){if(e&&e.detail&&e.detail.config)window.__PKL_TIER_SCORE_CONFIG=e.detail.config;try{renderSnapshot(buildSnapshot());}catch(_e){}});
+  window.addEventListener('pkl-tier-score-config-updated',function(e){if(e&&e.detail&&e.detail.config){window.__PKL_TIER_SCORE_CONFIG=e.detail.config;window.pklTierScoreConfig=e.detail.config;if(e.detail.key==='pklTierScoreConfig_v3'){window.__PKL_TIER_SCORE_CONFIG_V3=e.detail.config;window.pklTierScoreConfig_v3=e.detail.config;}}try{renderSnapshot(buildSnapshot());}catch(_e){}});
   function memberName(m){return clean(m&&(m.name||m.nickname||m.nick||m.displayName||m.pubgId||m.gameId||m.username));}
   function memberTier(m){var r=tierRole(m&&(m.memberTier||m.tierRole||m.gradeRole||m.tier||m.grade||m.memberGrade));var c=config();return c[lane(r)]||{target:0,death:0};}
   function realTeamId(viewId){return String(viewId||'').replace(/[ab]$/,'');}
