@@ -2038,6 +2038,19 @@ body.pkl-manual-dragging{cursor:grabbing!important;user-select:none!important;}
 .pkl-tier-member.pkl-manual-drag-source{opacity:.38!important;}
 .pkl-lane-list.pkl-drop-ready{outline:1px solid rgba(168,85,247,.72)!important;box-shadow:inset 0 0 18px rgba(168,85,247,.18)!important;}
 </style>
+
+<style id="pkl-tier-score-preload-hide">
+  html.pkl-tier-score-loading .pkl-lane-score{
+    opacity:0;
+    pointer-events:none;
+  }
+  html.pkl-tier-score-loading .pkl-lane-score::after{
+    content:"";
+  }
+</style>
+<script id="pkl-tier-score-preload-hide-script">
+  document.documentElement.classList.add('pkl-tier-score-loading');
+</script>
 </head>
 <body>
 
@@ -3258,8 +3271,11 @@ document.addEventListener("DOMContentLoaded", function(){
         input.addEventListener('blur', function(){ schedule(true); }, true);
       });
     });
-    setGlobal(collectDom(), false);
-    load();
+    /* PKL: 정적 HTML value(구 기본값)를 먼저 전역/화면에 확정하지 않는다.
+       Supabase pklTierScoreConfig를 먼저 읽고 난 뒤에만 점수칸을 보여준다. */
+    Promise.resolve(load()).finally(function(){
+      try{ document.documentElement.classList.remove('pkl-tier-score-loading'); }catch(e){}
+    });
   }
   window.pklTierCollectScoreConfig = function(){ var v = collectDom(); setGlobal(v, false); return publicConfig(v); };
   window.pklTierSaveScoreConfig = function(){ return save(); };
