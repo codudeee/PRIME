@@ -75,23 +75,19 @@
     function unwrap(v){if(!isObj(v))return null;if(hasRows(v))return v;var arr=[v.payload,v.value,v.config,v.data,v.pklTierScoreConfig,v.tierScoreConfig,v.scoreConfig];for(var i=0;i<arr.length;i++){var g=unwrap(arr[i]);if(g)return g;}if(v.item){var g1=unwrap(v.item.value||v.item.payload||v.item);if(g1)return g1;}if(v.row){var g2=unwrap(v.row.value||v.row.payload||v.row);if(g2)return g2;}if(Array.isArray(v.rows)&&v.rows[0]){var g3=unwrap(v.rows[0].payload||v.rows[0].value||v.rows[0]);if(g3)return g3;}return null;}
     return unwrap(data);
   }
-  function stamp(data,value){var row=data&&Array.isArray(data.rows)?data.rows[0]:null,item=data&&data.item?data.item:null;var arr=[data&&data.updated_at,data&&data.updatedAt,item&&item.updated_at,row&&row.updated_at,value&&value.__pklUpdatedAt,value&&value.updatedAt,value&&value.updated_at,value&&value.savedAt];for(var i=0;i<arr.length;i++){var t=Date.parse(arr[i]||'');if(Number.isFinite(t))return t;}return 0;}
   function loadTierScoreConfig(){
-    var urls=[
-      '/api/pkl-data-store?type=live_scores&id='+encodeURIComponent('tier_score_config_current')+'&t='+Date.now(),
-      '/api/pkl-shared?key='+encodeURIComponent('pklTierScoreConfig_v2')+'&t='+Date.now(),
-      '/api/pkl-data-store?type=shared&key='+encodeURIComponent('pklTierScoreConfig_v2')+'&t='+Date.now(),
-      '/api/pkl-shared?key='+encodeURIComponent('pklTierScoreConfig')+'&t='+Date.now(),
-      '/api/pkl-data-store?type=shared&key='+encodeURIComponent('pklTierScoreConfig')+'&t='+Date.now()
-    ];
-    return Promise.all(urls.map(function(u){return fetch(u,{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}}).then(function(r){return r.ok?r.json().catch(function(){return {}; }):{};}).then(function(data){var v=extractTierScoreValue(data);return v?{value:v,stamp:stamp(data,v)}:null;}).catch(function(){return null;});}))
-      .then(function(list){list=(list||[]).filter(Boolean).sort(function(a,b){return (b.stamp||0)-(a.stamp||0);});var s=list[0]?list[0].value:{};window.__PKL_TIER_SCORE_CONFIG=mergeTierScoreConfig({},s);try{renderSnapshot(buildSnapshot());}catch(e){};})
+    /* PKL: 시트/라이브 보드 목표점수는 티어표가 저장하는 pkl_shared_data/pklTierScoreConfig만 사용한다.
+       예전 live_scores/tier_score_config_current 우회값은 stale 값이 남을 수 있어 읽지 않는다. */
+    var shared='/api/pkl-shared?key='+encodeURIComponent('pklTierScoreConfig')+'&t='+Date.now();
+    return fetch(shared,{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}})
+      .then(function(r){return r.ok?r.json().catch(function(){return {}; }):{};})
+      .then(function(data){var s=extractTierScoreValue(data)||{};window.__PKL_TIER_SCORE_CONFIG=mergeTierScoreConfig({},s);try{renderSnapshot(buildSnapshot());}catch(e){};})
       .catch(function(e){console.error('PKL scoreboard tier score config load failed',e);});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadTierScoreConfig);else loadTierScoreConfig();
   window.addEventListener('pkl-tier-score-config-updated',function(e){if(e&&e.detail&&e.detail.config)window.__PKL_TIER_SCORE_CONFIG=e.detail.config;try{renderSnapshot(buildSnapshot());}catch(_e){}});
   function memberName(m){return clean(m&&(m.name||m.nickname||m.nick||m.displayName||m.pubgId||m.gameId||m.username));}
-  function memberTier(m){var r=tierRole(m&&(m.__tierRole||m.memberTier||m.tierRole||m.gradeRole||m.baseRole||m.tier||m.grade||m.memberGrade||m.pklTier||m.tierLabel||m.tierName||m.badgeText));var c=config();return c[lane(r)]||c[r]||{target:0,death:0};}
+  function memberTier(m){var r=tierRole(m&&(m.memberTier||m.tierRole||m.gradeRole||m.tier||m.grade||m.memberGrade));var c=config();return c[lane(r)]||{target:0,death:0};}
   function realTeamId(viewId){return String(viewId||'').replace(/[ab]$/,'');}
   function teamData(round,id){return (round&&round.teams&&round.teams[id])||{kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0,map:''};}
   function chickenScore(round,d){if(!d||!num(d.chicken))return 0;return clean(d&&d.map)==='사'?5:8;}
