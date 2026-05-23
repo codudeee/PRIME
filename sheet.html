@@ -7205,7 +7205,9 @@ function pklTierScoreRoleFromText(text){
     "beast":"tier5_low","beasthigh":"tier5_high","beastmid":"tier5_mid","beastmiddle":"tier5_mid","beastlow":"tier5_low",
     "tier5high":"tier5_high","tier5mid":"tier5_mid","tier5middle":"tier5_mid","tier5low":"tier5_low",
     "5tierhigh":"tier5_high","5tiermid":"tier5_mid","5tiermiddle":"tier5_mid","5tierlow":"tier5_low",
-    "grade-role-beast":"tier5_low","grade-role-tier5high":"tier5_high","grade-role-tier5mid":"tier5_mid","grade-role-tier5low":"tier5_low",
+    "grade-role-beast":"tier5_low","grade-role-tier5high":"tier5_high","grade-role-tier5mid":"tier5_mid","grade-role-tier5middle":"tier5_mid","grade-role-tier5low":"tier5_low",
+    "graderoletier5high":"tier5_high","graderoletier5mid":"tier5_mid","graderoletier5middle":"tier5_mid","graderoletier5low":"tier5_low",
+    "memberroletier5high":"tier5_high","memberroletier5mid":"tier5_mid","memberroletier5middle":"tier5_mid","memberroletier5low":"tier5_low",
     "roletier5high":"tier5_high","roletier5mid":"tier5_mid","roletier5middle":"tier5_mid","roletier5low":"tier5_low",
     "role-tier5high":"tier5_high","role-tier5mid":"tier5_mid","role-tier5middle":"tier5_mid","role-tier5low":"tier5_low",
     "tier5_high":"tier5_high","tier5_mid":"tier5_mid","tier5_low":"tier5_low",
@@ -7607,11 +7609,15 @@ function pklTierRoleFromMemberVisual(member){
 
   const classText = (texts.match(/class=["'][^"']*["']/gi) || []).join(' ');
   const dataText = (texts.match(/data-(?:tier|role)=["'][^"']*["']/gi) || []).join(' ');
+  const compactClass = classText.replace(/class=|["']/g,' ').replace(/\s+/g,' ');
+  const compactData = dataText.replace(/data-(?:tier|role)=|["']/g,' ').replace(/\s+/g,' ');
   const candidates = [
     normalized,
     texts.replace(/<[^>]+>/g,' '),
-    classText.replace(/class=|["']/g,' '),
-    dataText.replace(/data-(?:tier|role)=|["']/g,' '),
+    compactClass,
+    compactClass.replace(/[\s_-]+/g,''),
+    compactData,
+    compactData.replace(/[\s_-]+/g,''),
     (texts.match(/(?:tier|grade|role)[-_ ]?([0-5])[-_ ]?(high|mid|middle|low|상|중|하)/i)||[]).slice(1).join(' '),
     (texts.match(/([0-5])\s*(?:티어)?\s*(상|중|하)/)||[]).slice(1).join(' ')
   ].filter(Boolean);
@@ -7628,9 +7634,10 @@ function pklIsSpecificTierScoreRole(role){
 function pklTierRoleFromObjectFields(obj){
   if(!obj || typeof obj !== 'object') return '';
   const fields=[
-    obj.__tierRole,obj.memberTier,obj.member_tier,obj.tierRole,obj.gradeRole,obj.baseRole,obj.dataTierRole,obj.dataTier,
-    obj.tier,obj.grade,obj.memberGrade,obj.pklTier,obj.rank,obj.level,obj.tierLabel,obj.tierName,obj.memberTierName,
-    obj.badge,obj.badgeText,obj.role,obj.title
+    obj.__tierRole,obj.tierRole,obj.gradeRole,obj.dataTierRole,obj.dataTier,
+    obj.memberTier,obj.member_tier,obj.tier,obj.grade,obj.memberGrade,obj.pklTier,
+    obj.rank,obj.level,obj.tierLabel,obj.tierName,obj.memberTierName,
+    obj.badgeText,obj.badge,obj.role,obj.title
   ];
   for(const value of fields){
     const role=pklTierScoreRoleFromText(value);

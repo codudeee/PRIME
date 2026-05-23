@@ -2189,6 +2189,57 @@ const teamIndex = Number(slot.dataset.teamIndex);
     return String(value || '').trim().toLowerCase();
   }
 
+
+  function resolveSpecificTierScoreRoleValue(source) {
+    if (!source) return '';
+    const values = [];
+    if (typeof source === 'object') {
+      values.push(
+        source.__tierRole, source.tierRole, source.gradeRole, source.dataTierRole, source.dataTier,
+        source.memberTier, source.member_tier, source.tier, source.grade, source.memberGrade,
+        source.pklTier, source.tierLabel, source.tierName, source.memberTierName, source.badgeText, source.badge
+      );
+    } else {
+      values.push(source);
+    }
+    const roleFrom = value => {
+      const raw = String(extractTierCandidateValue(value) || value || '').trim();
+      if (!raw) return '';
+      const compact = raw.replace(/\s+/g, '');
+      const key = compact.toLowerCase().replace(/[\s_-]+/g, '');
+      const map = {
+        '0티어상':'tier0_high','0상':'tier0_high','0티어중':'tier0_mid','0중':'tier0_mid','0티어하':'tier0_low','0하':'tier0_low',
+        '1티어상':'tier1_high','1상':'tier1_high','1티어중':'tier1_mid','1중':'tier1_mid','1티어하':'tier1_low','1하':'tier1_low',
+        '2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low',
+        '3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low',
+        '4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low',
+        '5티어상':'tier5_high','5상':'tier5_high','5티어중':'tier5_mid','5중':'tier5_mid','5티어하':'tier5_low','5하':'tier5_low',
+        '5티어상급':'tier5_high','5티어중급':'tier5_mid','5티어하급':'tier5_low',
+        tier0high:'tier0_high',tier0mid:'tier0_mid',tier0middle:'tier0_mid',tier0low:'tier0_low',
+        tier1high:'tier1_high',tier1mid:'tier1_mid',tier1middle:'tier1_mid',tier1low:'tier1_low',
+        tier2high:'tier2_high',tier2mid:'tier2_mid',tier2middle:'tier2_mid',tier2low:'tier2_low',
+        tier3high:'tier3_high',tier3mid:'tier3_mid',tier3middle:'tier3_mid',tier3low:'tier3_low',
+        tier4high:'tier4_high',tier4mid:'tier4_mid',tier4middle:'tier4_mid',tier4low:'tier4_low',
+        tier5high:'tier5_high',tier5mid:'tier5_mid',tier5middle:'tier5_mid',tier5low:'tier5_low',
+        beasthigh:'tier5_high',beastmid:'tier5_mid',beastmiddle:'tier5_mid',beastlow:'tier5_low',
+        roletier5high:'tier5_high',roletier5mid:'tier5_mid',roletier5middle:'tier5_mid',roletier5low:'tier5_low',
+        graderoletier5high:'tier5_high',graderoletier5mid:'tier5_mid',graderoletier5middle:'tier5_mid',graderoletier5low:'tier5_low'
+      };
+      if (map[compact] || map[key]) return map[compact] || map[key];
+      const m = key.match(/^(?:tier|role|grade|graderoletier)?([0-5])(high|mid|middle|low|상|중|하)$/) || compact.match(/^([0-5])(?:티어)?(상|중|하)$/);
+      if (m) {
+        const pos = { high:'high', mid:'mid', middle:'mid', low:'low', '상':'high', '중':'mid', '하':'low' };
+        return `tier${m[1]}_${pos[m[2]] || 'mid'}`;
+      }
+      return '';
+    };
+    for (const value of values) {
+      const role = roleFrom(value);
+      if (/^tier[0-5]_(high|mid|low)$/.test(role)) return role;
+    }
+    return '';
+  }
+
   function resolveUserTierKey(user) {
     const tierValue = resolveUserTierValue(user);
     return normalizeTierKey(tierValue);
@@ -2205,17 +2256,20 @@ const teamIndex = Number(slot.dataset.teamIndex);
 
   function resolveUserTierBadgeValue(user) {
     if (!user) return '';
+    const specificRole = resolveSpecificTierScoreRoleValue(user);
+    if (specificRole) return specificRole;
     for (const field of getUserTierFields(user)) {
       const value = extractTierCandidateValue(field);
       if (!value) continue;
+      const text = String(value || '').trim();
+      if (!text) continue;
+      if (/^tier[0-5]_(high|mid|low)$/i.test(text) || /^tier[0-5](high|mid|low)$/i.test(text.replace(/[\s_-]+/g, ''))) return text;
+      if (/[0-5]\s*티어\s*[상중하]/.test(text) || /[0-5]\s*[상중하]/.test(text)) return text;
       if (window.PKLTierBadge && typeof window.PKLTierBadge.normalize === 'function') {
         const key = window.PKLTierBadge.normalize(value);
         if (key && key !== 'none') return key;
       }
-      const text = String(value || '').trim();
-      if (!text) continue;
-      if (/^tier[0-5]_(high|mid|low)$/i.test(text) || /^tier[0-5](high|mid|low)$/i.test(text.replace(/[\s_-]+/g, ''))) return text;
-      if (/[0-5]\s*티어\s*[상중하]/.test(text) || /[0-5]\s*[상중하]/.test(text) || text === '짐승' || text === '5티어' || /^beast$/i.test(text) || /^tier5$/i.test(text)) return text;
+      if (text === '짐승' || text === '5티어' || /^beast$/i.test(text) || /^tier5$/i.test(text)) return text;
       if (normalizeTierKey(text) !== 'none') return text;
     }
     return '';
@@ -2875,15 +2929,20 @@ function completeTeams() {
     const accountUser = resolvePlayerAccountUser(player, displayName);
     const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || findSupabaseUserByLooseName(displayName);
     const sourceUser = supabaseUser || accountUser || null;
+    const preciseTierRole = resolveSpecificTierScoreRoleValue(sourceUser) || resolveSpecificTierScoreRoleValue(player);
     const memberTier = String(
-      player.memberTier || player.tier ||
-      resolveUserTierBadgeValue(sourceUser) || ''
+      preciseTierRole ||
+      resolveUserTierBadgeValue(sourceUser) ||
+      player.memberTier || player.tier || ''
     ).trim();
     return {
       name: displayName,
       nickname: displayName,
       tier: memberTier || player.tier || '',
       memberTier,
+      __tierRole: preciseTierRole || memberTier,
+      tierRole: preciseTierRole || memberTier,
+      gradeRole: preciseTierRole || memberTier,
       discordId: player.discordId || (sourceUser && (sourceUser.discord_id || sourceUser.discordId)) || '',
       discord_id: player.discordId || (sourceUser && (sourceUser.discord_id || sourceUser.discordId)) || '',
       userUid: player.userUid || (sourceUser && (sourceUser.discord_id || sourceUser.uid || sourceUser.id)) || '',
