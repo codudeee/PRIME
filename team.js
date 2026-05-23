@@ -2876,8 +2876,8 @@ function completeTeams() {
     const supabaseUser = readSupabaseUsers().find(user => isSameUserIdentity(player, user)) || findSupabaseUserByLooseName(displayName);
     const sourceUser = supabaseUser || accountUser || null;
     const memberTier = String(
-      resolveUserTierBadgeValue(sourceUser) ||
-      player.memberTier || player.tier || ''
+      player.memberTier || player.tier ||
+      resolveUserTierBadgeValue(sourceUser) || ''
     ).trim();
     return {
       name: displayName,

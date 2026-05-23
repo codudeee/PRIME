@@ -7203,7 +7203,7 @@ function pklTierScoreRoleFromText(text){
     "4티어하":"tier4_low","4하":"tier4_low",
     "짐승":"tier5_low","짐승상":"tier5_high","짐승중":"tier5_mid","짐승하":"tier5_low","5상":"tier5_high","5중":"tier5_mid","5하":"tier5_low","5티어상":"tier5_high","5티어중":"tier5_mid","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 중":"tier5_mid","5티어 하":"tier5_low",
     "beast":"tier5_low","beasthigh":"tier5_high","beastmid":"tier5_mid","beastmiddle":"tier5_mid","beastlow":"tier5_low",
-    "tier5":"tier5_mid","tier5high":"tier5_high","tier5mid":"tier5_mid","tier5middle":"tier5_mid","tier5low":"tier5_low",
+    "tier5high":"tier5_high","tier5mid":"tier5_mid","tier5middle":"tier5_mid","tier5low":"tier5_low",
     "5tierhigh":"tier5_high","5tiermid":"tier5_mid","5tiermiddle":"tier5_mid","5tierlow":"tier5_low",
     "grade-role-beast":"tier5_low","grade-role-tier5high":"tier5_high","grade-role-tier5mid":"tier5_mid","grade-role-tier5low":"tier5_low",
     "roletier5high":"tier5_high","roletier5mid":"tier5_mid","roletier5middle":"tier5_mid","roletier5low":"tier5_low",
@@ -7225,7 +7225,8 @@ function pklTierScoreRoleFromText(text){
   if(mAscii) return `tier${mAscii[1]}_${mAscii[2]==="middle"?"mid":mAscii[2]}`;
   const mAsciiCompact=(ascii.replace(/_/g, '').match(/^tier([0-5])(high|mid|middle|low)$/) || camel.replace(/_/g, '').match(/^tier([0-5])(high|mid|middle|low)$/));
   if(mAsciiCompact) return `tier${mAsciiCompact[1]}_${mAsciiCompact[2]==="middle"?"mid":mAsciiCompact[2]}`;
-  if(/^tier[0-5]$/i.test(raw)) return raw.toLowerCase() + "_mid";
+  if(/^tier[0-4]$/i.test(raw)) return raw.toLowerCase() + "_mid";
+  if(/^tier5$/i.test(raw)) return "";
   if(/^tier[0-5]_(high|mid|middle|low)$/i.test(raw)) return raw.toLowerCase().replace("middle","mid");
   if(raw==="beast") return "tier5_low";
   if(window.PKLTierBadge && typeof window.PKLTierBadge.normalize === "function"){
@@ -7484,7 +7485,7 @@ function pklEnsureSheetHeaderTierUsers(view){
     /* 시트로 넘어온 member.tier/memberTier는 팀 편성 당시의 캐시일 수 있다.
        Supabase users가 아직 캐시에 없으면, cached tier가 있어도 검색해서 최신 티어/감점 기준을 보강한다. */
     const matchedUser = pklFindTierUserByMember(member);
-    if(matchedUser && pklTierRoleOfMember(member)) return;
+    if(matchedUser && pklIsSpecificTierScoreRole(pklTierRoleOfMember(member))) return;
     const searchKey = pklSheetMemberSearchKeys(member).find(Boolean);
     const pendingKey = pklNormUserKey(searchKey);
     if(!searchKey || !pendingKey || pklSheetHeaderTierFetchPending.has(pendingKey)) return;
@@ -7621,26 +7622,34 @@ function pklTierRoleFromMemberVisual(member){
   }
   return '';
 }
+function pklIsSpecificTierScoreRole(role){
+  return /^tier[0-5]_(high|mid|low)$/.test(String(role||''));
+}
+function pklTierRoleFromObjectFields(obj){
+  if(!obj || typeof obj !== 'object') return '';
+  const fields=[
+    obj.__tierRole,obj.memberTier,obj.member_tier,obj.tierRole,obj.gradeRole,obj.baseRole,obj.dataTierRole,obj.dataTier,
+    obj.tier,obj.grade,obj.memberGrade,obj.pklTier,obj.rank,obj.level,obj.tierLabel,obj.tierName,obj.memberTierName,
+    obj.badge,obj.badgeText,obj.role,obj.title
+  ];
+  for(const value of fields){
+    const role=pklTierScoreRoleFromText(value);
+    if(pklIsSpecificTierScoreRole(role)) return role;
+  }
+  return '';
+}
 function pklTierRoleOfMember(member){
-  /* 팀구성에서 시트로 넘어온 멤버 배지/티어가 현재 보드의 표시값이다.
-     Supabase users 캐시가 늦거나 예전 beast/tier5 값이면 5중/5하를 덮어버릴 수 있어,
-     시트 점수 계산은 멤버/배지값을 먼저 보고 Supabase users는 보조로만 사용한다. */
-  const memberRole=[
-    member?.memberTier,member?.__tierRole,member?.tier,member?.grade,member?.memberGrade,member?.pklTier,member?.rank,member?.level,
-    member?.tierRole,member?.gradeRole,member?.baseRole,member?.dataTierRole,member?.dataTier,member?.tierLabel,member?.tierName,member?.memberTierName,member?.badge,member?.badgeText,
-    member?.role,member?.title
-  ].map(pklTierScoreRoleFromText).find(Boolean);
+  /* PKL 20260523: 5티어 상/중/하 점수는 "5티어" 같은 넓은 값으로 추정하면 안 된다.
+     먼저 시트로 넘어온 구체 티어값을 읽고, 없으면 Supabase users의 구체 티어값을 사용한다.
+     generic tier5/beast/class role-beast 만으로는 5중/5하를 구분할 수 없어서 계산 원본으로 쓰지 않는다. */
+  const memberRole=pklTierRoleFromObjectFields(member);
   if(memberRole) return memberRole;
 
   const visualRole = pklTierRoleFromMemberVisual(member);
-  if(visualRole) return visualRole;
+  if(pklIsSpecificTierScoreRole(visualRole)) return visualRole;
 
   const user=pklFindTierUserByMember(member);
-  const userRole=[
-    user?.memberTier,user?.member_tier,user?.tier,user?.grade,user?.memberGrade,user?.pklTier,user?.rank,user?.level,
-    user?.tierRole,user?.gradeRole,user?.baseRole,user?.dataTierRole,user?.dataTier,user?.tierLabel,user?.tierName,user?.memberTierName,
-    user?.role,user?.title
-  ].map(pklTierScoreRoleFromText).find(Boolean);
+  const userRole=pklTierRoleFromObjectFields(user);
   return userRole || "";
 }
 function pklMemberTierScore(member){
