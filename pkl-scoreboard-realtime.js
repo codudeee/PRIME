@@ -76,13 +76,13 @@
     return unwrap(data);
   }
   function loadTierScoreConfig(){
-    var live='/api/pkl-data-store?type=live_scores&id='+encodeURIComponent('tier_score_config_current')+'&t='+Date.now();
+    /* PKL: 시트/라이브 보드 목표점수는 티어표가 저장하는 pkl_shared_data/pklTierScoreConfig만 사용한다.
+       예전 live_scores/tier_score_config_current 우회값은 stale 값이 남을 수 있어 읽지 않는다. */
     var shared='/api/pkl-shared?key='+encodeURIComponent('pklTierScoreConfig')+'&t='+Date.now();
-    return fetch(live,{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}}).then(function(r){return r.ok?r.json().catch(function(){return null;}):null;}).then(function(data){
-      var server=extractTierScoreValue(data);
-      if(server){window.__PKL_TIER_SCORE_CONFIG=mergeTierScoreConfig({},server);try{renderSnapshot(buildSnapshot());}catch(e){};return;}
-      return fetch(shared,{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}}).then(function(r){return r.json().catch(function(){return {};});}).then(function(data2){var s=extractTierScoreValue(data2)||{};window.__PKL_TIER_SCORE_CONFIG=mergeTierScoreConfig({},s);try{renderSnapshot(buildSnapshot());}catch(e){};});
-    }).catch(function(e){console.error('PKL scoreboard tier score config load failed',e);});
+    return fetch(shared,{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}})
+      .then(function(r){return r.ok?r.json().catch(function(){return {}; }):{};})
+      .then(function(data){var s=extractTierScoreValue(data)||{};window.__PKL_TIER_SCORE_CONFIG=mergeTierScoreConfig({},s);try{renderSnapshot(buildSnapshot());}catch(e){};})
+      .catch(function(e){console.error('PKL scoreboard tier score config load failed',e);});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadTierScoreConfig);else loadTierScoreConfig();
   window.addEventListener('pkl-tier-score-config-updated',function(e){if(e&&e.detail&&e.detail.config)window.__PKL_TIER_SCORE_CONFIG=e.detail.config;try{renderSnapshot(buildSnapshot());}catch(_e){}});

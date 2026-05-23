@@ -7205,7 +7205,11 @@ function pklTierScoreRoleFromText(text){
     "beast":"tier5_low","beasthigh":"tier5_high","beastmid":"tier5_mid","beastmiddle":"tier5_mid","beastlow":"tier5_low",
     "tier5":"tier5_mid","tier5high":"tier5_high","tier5mid":"tier5_mid","tier5middle":"tier5_mid","tier5low":"tier5_low",
     "5tierhigh":"tier5_high","5tiermid":"tier5_mid","5tiermiddle":"tier5_mid","5tierlow":"tier5_low",
-    "grade-role-beast":"tier5_low","grade-role-tier5high":"tier5_high","grade-role-tier5mid":"tier5_mid","grade-role-tier5low":"tier5_low"
+    "grade-role-beast":"tier5_low","grade-role-tier5high":"tier5_high","grade-role-tier5mid":"tier5_mid","grade-role-tier5low":"tier5_low",
+    "roletier5high":"tier5_high","roletier5mid":"tier5_mid","roletier5middle":"tier5_mid","roletier5low":"tier5_low",
+    "role-tier5high":"tier5_high","role-tier5mid":"tier5_mid","role-tier5middle":"tier5_mid","role-tier5low":"tier5_low",
+    "tier5_high":"tier5_high","tier5_mid":"tier5_mid","tier5_low":"tier5_low",
+    "5티어상급":"tier5_high","5티어중급":"tier5_mid","5티어하급":"tier5_low"
   };
   if(map[compact]) return map[compact];
   if(map[compactLower]) return map[compactLower];
@@ -7355,7 +7359,9 @@ async function pklFetchTierScoreSharedConfig(){
   const key = 'pklTierScoreConfig';
   const liveId = 'tier_score_config_current';
   const endpoints = [
-    {url:'/api/pkl-data-store?type=live_scores&id=' + encodeURIComponent(liveId) + '&t=' + Date.now(), live:true},
+    /* PKL: 티어표가 실제 저장하는 원본은 pkl_shared_data / pklTierScoreConfig 이다.
+       live_scores/tier_score_config_current 는 이전 수술 때 만들어진 우회값이라
+       stale 0점/예전 점수로 시트 목표점수를 오염시킬 수 있어 시트 계산에서 제외한다. */
     {url:'/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now()},
     {url:'/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now()},
     {url:'/api/pkl-shared?key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now()},
@@ -7367,19 +7373,15 @@ async function pklFetchTierScoreSharedConfig(){
     return value && typeof value === 'object' && Object.keys(value).length ? value : null;
   };
 
-  /* 티어표 저장 원본은 live_scores/tier_score_config_current 이다.
-     live에서 값을 찾으면 shared/legacy 값과 timestamp 비교를 하지 않고 즉시 사용한다.
-     shared에 남은 예전 5중=-5, 5하=-10 같은 값이 시트 목표점수를 다시 오염시키는 문제를 차단한다. */
+  /* 티어표 저장 원본(pklTierScoreConfig)만 읽는다.
+     이전 live_scores 우회값은 더 이상 목표점수 계산에 사용하지 않는다. */
   for(const item of endpoints){
     try{
       const res = await fetch(item.url, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } });
       if(!res.ok) continue;
       const data = await res.json().catch(()=>null);
       const value = normalizePulled(data);
-      if(value){
-        if(item.live) return value;
-        return value;
-      }
+      if(value) return value;
     }catch(_e){}
   }
 
@@ -7586,9 +7588,13 @@ function pklTierRoleFromMemberVisual(member){
     .replace(/\s+/g,' ')
     .trim();
 
+  const classText = (texts.match(/class=["'][^"']*["']/gi) || []).join(' ');
+  const dataText = (texts.match(/data-(?:tier|role)=["'][^"']*["']/gi) || []).join(' ');
   const candidates = [
     normalized,
     texts.replace(/<[^>]+>/g,' '),
+    classText.replace(/class=|["']/g,' '),
+    dataText.replace(/data-(?:tier|role)=|["']/g,' '),
     (texts.match(/(?:tier|grade|role)[-_ ]?([0-5])[-_ ]?(high|mid|middle|low|상|중|하)/i)||[]).slice(1).join(' '),
     (texts.match(/([0-5])\s*(?:티어)?\s*(상|중|하)/)||[]).slice(1).join(' ')
   ].filter(Boolean);
