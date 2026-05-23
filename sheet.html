@@ -7201,7 +7201,7 @@ function pklTierScoreRoleFromText(text){
     "4티어중":"tier4_mid","4중":"tier4_mid",
     "4티어하":"tier4_low","4하":"tier4_low",
     "짐승":"tier5_low","짐승상":"tier5_high","짐승중":"tier5_mid","짐승하":"tier5_low","5상":"tier5_high","5중":"tier5_mid","5하":"tier5_low","5티어상":"tier5_high","5티어중":"tier5_mid","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 중":"tier5_mid","5티어 하":"tier5_low",
-    "beast":"beast"
+    "beast":"tier5_low","beasthigh":"tier5_high","beastmid":"tier5_mid","beastlow":"tier5_low"
   };
   if(map[compact]) return map[compact];
   const ascii=raw.toLowerCase().replace(/[\s\-]+/g,"_");
@@ -7214,9 +7214,11 @@ function pklTierScoreRoleFromText(text){
   }
   const mAscii=(ascii.match(/^tier_?([0-5])_(high|mid|middle|low)$/) || camel.match(/^tier_?([0-5])_(high|mid|middle|low)$/));
   if(mAscii) return `tier${mAscii[1]}_${mAscii[2]==="middle"?"mid":mAscii[2]}`;
+  const mAsciiCompact=(ascii.replace(/_/g, '').match(/^tier([0-5])(high|mid|middle|low)$/) || camel.replace(/_/g, '').match(/^tier([0-5])(high|mid|middle|low)$/));
+  if(mAsciiCompact) return `tier${mAsciiCompact[1]}_${mAsciiCompact[2]==="middle"?"mid":mAsciiCompact[2]}`;
   if(/^tier[0-5]$/i.test(raw)) return raw.toLowerCase() + "_mid";
   if(/^tier[0-5]_(high|mid|middle|low)$/i.test(raw)) return raw.toLowerCase().replace("middle","mid");
-  if(raw==="beast") return raw;
+  if(raw==="beast") return "tier5_low";
   if(window.PKLTierBadge && typeof window.PKLTierBadge.normalize === "function"){
     const key = window.PKLTierBadge.normalize(raw);
     if(key && key !== "none") return key;
@@ -7297,9 +7299,43 @@ function pklExtractTierScoreSharedValue(data){
 }
 async function pklFetchTierScoreSharedConfig(){
   const key = 'pklTierScoreConfig';
+  const liveId = 'tier_score_config_current';
+  const picked = [];
+  const stampOf = value => {
+    if(!value || typeof value !== 'object') return 0;
+    const raw = value.__pklUpdatedAt || value.updatedAt || value.updated_at || value.savedAt || value.createdAt || '';
+    const t = Date.parse(raw);
+    return Number.isFinite(t) ? t : 0;
+  };
+  const pushValue = value => {
+    if(value && typeof value === 'object' && Object.keys(value).length){
+      picked.push({ value, stamp: stampOf(value) });
+    }
+  };
+
+  // 티어표(v54+)는 live_scores/tier_score_config_current를 실제 원본으로 쓴다.
+  // 시트도 같은 원본을 먼저 읽어야 5상/5중/5하 최신 목표점수와 감점이 맞는다.
+  try{
+    const res = await fetch('/api/pkl-data-store?type=live_scores&id=' + encodeURIComponent(liveId) + '&t=' + Date.now(), {
+      cache:'no-store',
+      headers:{ Accept:'application/json', 'Cache-Control':'no-store' }
+    });
+    if(res.ok){
+      const data = await res.json().catch(()=>null);
+      const row = data && Array.isArray(data.rows) ? data.rows[0] : null;
+      const value = row && (row.payload || row.value);
+      if(value && typeof value === 'object'){
+        if(row.updated_at && !value.updated_at && !value.__pklUpdatedAt) value.updated_at = row.updated_at;
+        pushValue(value);
+      }
+    }
+  }catch(_e){}
+
   const endpoints = [
     '/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now(),
-    '/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now()
+    '/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now(),
+    '/api/pkl-shared?key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now(),
+    '/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now()
   ];
   for(const url of endpoints){
     try{
@@ -7307,16 +7343,19 @@ async function pklFetchTierScoreSharedConfig(){
       if(!res.ok) continue;
       const data = await res.json().catch(()=>null);
       const value = pklExtractTierScoreSharedValue(data);
-      if(value && typeof value === 'object' && Object.keys(value).length) return value;
+      pushValue(value);
     }catch(_e){}
   }
   if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
-    try{
-      const value = await window.PKLSupabaseDataSync.getShared(key);
-      if(value && typeof value === 'object' && Object.keys(value).length) return value;
-    }catch(_e){}
+    for(const syncKey of [key + '_v2', key]){
+      try{
+        const value = await window.PKLSupabaseDataSync.getShared(syncKey);
+        pushValue(value);
+      }catch(_e){}
+    }
   }
-  return null;
+  picked.sort((a,b)=>b.stamp-a.stamp);
+  return picked[0] ? picked[0].value : null;
 }
 async function pklLoadTierScoreConfig(){
   try{
