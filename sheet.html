@@ -7184,6 +7184,7 @@ function pklSetTeamRoundMap(round,teamId,value){
 function pklTierScoreRoleFromText(text){
   const raw=String(text||"").trim();
   const compact=raw.replace(/\s+/g,"");
+  const compactLower=compact.toLowerCase().replace(/[\-_]+/g,"");
   const map={
     "0티어상":"tier0_high","0상":"tier0_high",
     "0티어중":"tier0_mid","0중":"tier0_mid",
@@ -7201,9 +7202,13 @@ function pklTierScoreRoleFromText(text){
     "4티어중":"tier4_mid","4중":"tier4_mid",
     "4티어하":"tier4_low","4하":"tier4_low",
     "짐승":"tier5_low","짐승상":"tier5_high","짐승중":"tier5_mid","짐승하":"tier5_low","5상":"tier5_high","5중":"tier5_mid","5하":"tier5_low","5티어상":"tier5_high","5티어중":"tier5_mid","5티어하":"tier5_low","5티어 상":"tier5_high","5티어 중":"tier5_mid","5티어 하":"tier5_low",
-    "beast":"tier5_low","beasthigh":"tier5_high","beastmid":"tier5_mid","beastlow":"tier5_low"
+    "beast":"tier5_low","beasthigh":"tier5_high","beastmid":"tier5_mid","beastmiddle":"tier5_mid","beastlow":"tier5_low",
+    "tier5":"tier5_mid","tier5high":"tier5_high","tier5mid":"tier5_mid","tier5middle":"tier5_mid","tier5low":"tier5_low",
+    "5tierhigh":"tier5_high","5tiermid":"tier5_mid","5tiermiddle":"tier5_mid","5tierlow":"tier5_low",
+    "grade-role-beast":"tier5_low","grade-role-tier5high":"tier5_high","grade-role-tier5mid":"tier5_mid","grade-role-tier5low":"tier5_low"
   };
   if(map[compact]) return map[compact];
+  if(map[compactLower]) return map[compactLower];
   const ascii=raw.toLowerCase().replace(/[\s\-]+/g,"_");
   const camel=raw.replace(/([a-z])([A-Z])/g,"$1_$2").toLowerCase();
   const compactAscii=compact.toLowerCase();
@@ -7349,62 +7354,44 @@ function pklExtractTierScoreSharedValue(data){
 async function pklFetchTierScoreSharedConfig(){
   const key = 'pklTierScoreConfig';
   const liveId = 'tier_score_config_current';
-  const picked = [];
-  const stampOf = value => {
-    if(!value || typeof value !== 'object') return 0;
-    const raw = value.__pklUpdatedAt || value.updatedAt || value.updated_at || value.savedAt || value.createdAt || '';
-    const t = Date.parse(raw);
-    return Number.isFinite(t) ? t : 0;
-  };
-  const pushValue = value => {
-    if(value && typeof value === 'object' && Object.keys(value).length){
-      picked.push({ value, stamp: stampOf(value) });
-    }
-  };
-
-  // 티어표(v54+)는 live_scores/tier_score_config_current를 실제 원본으로 쓴다.
-  // 시트도 같은 원본을 먼저 읽어야 5상/5중/5하 최신 목표점수와 감점이 맞는다.
-  try{
-    const res = await fetch('/api/pkl-data-store?type=live_scores&id=' + encodeURIComponent(liveId) + '&t=' + Date.now(), {
-      cache:'no-store',
-      headers:{ Accept:'application/json', 'Cache-Control':'no-store' }
-    });
-    if(res.ok){
-      const data = await res.json().catch(()=>null);
-      const row = data && Array.isArray(data.rows) ? data.rows[0] : null;
-      const value = row && (row.payload || row.value);
-      if(value && typeof value === 'object'){
-        if(row.updated_at && !value.updated_at && !value.__pklUpdatedAt) value.updated_at = row.updated_at;
-        pushValue(value);
-      }
-    }
-  }catch(_e){}
-
   const endpoints = [
-    '/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now(),
-    '/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now(),
-    '/api/pkl-shared?key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now(),
-    '/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now()
+    {url:'/api/pkl-data-store?type=live_scores&id=' + encodeURIComponent(liveId) + '&t=' + Date.now(), live:true},
+    {url:'/api/pkl-shared?key=' + encodeURIComponent(key) + '&t=' + Date.now()},
+    {url:'/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&t=' + Date.now()},
+    {url:'/api/pkl-shared?key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now()},
+    {url:'/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key + '_v2') + '&t=' + Date.now()}
   ];
-  for(const url of endpoints){
+
+  const normalizePulled = data => {
+    const value = pklExtractTierScoreSharedValue(data);
+    return value && typeof value === 'object' && Object.keys(value).length ? value : null;
+  };
+
+  /* 티어표 저장 원본은 live_scores/tier_score_config_current 이다.
+     live에서 값을 찾으면 shared/legacy 값과 timestamp 비교를 하지 않고 즉시 사용한다.
+     shared에 남은 예전 5중=-5, 5하=-10 같은 값이 시트 목표점수를 다시 오염시키는 문제를 차단한다. */
+  for(const item of endpoints){
     try{
-      const res = await fetch(url, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } });
+      const res = await fetch(item.url, { cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } });
       if(!res.ok) continue;
       const data = await res.json().catch(()=>null);
-      const value = pklExtractTierScoreSharedValue(data);
-      pushValue(value);
+      const value = normalizePulled(data);
+      if(value){
+        if(item.live) return value;
+        return value;
+      }
     }catch(_e){}
   }
+
   if(window.PKLSupabaseDataSync && typeof window.PKLSupabaseDataSync.getShared === 'function'){
     for(const syncKey of [key + '_v2', key]){
       try{
-        const value = await window.PKLSupabaseDataSync.getShared(syncKey);
-        pushValue(value);
+        const value = normalizePulled(await window.PKLSupabaseDataSync.getShared(syncKey));
+        if(value) return value;
       }catch(_e){}
     }
   }
-  picked.sort((a,b)=>b.stamp-a.stamp);
-  return picked[0] ? picked[0].value : null;
+  return null;
 }
 async function pklLoadTierScoreConfig(){
   try{
@@ -7601,6 +7588,7 @@ function pklTierRoleFromMemberVisual(member){
 
   const candidates = [
     normalized,
+    texts.replace(/<[^>]+>/g,' '),
     (texts.match(/(?:tier|grade|role)[-_ ]?([0-5])[-_ ]?(high|mid|middle|low|상|중|하)/i)||[]).slice(1).join(' '),
     (texts.match(/([0-5])\s*(?:티어)?\s*(상|중|하)/)||[]).slice(1).join(' ')
   ].filter(Boolean);
