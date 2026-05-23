@@ -64,16 +64,116 @@
   function readJson(key,fb){try{var v=JSON.parse(localStorage.getItem(key)||'null');return v==null?fb:v;}catch(e){return fb;}}
   function clean(v){return String(v==null?'':v).trim();}
   function num(v){v=Number(v||0);return Number.isFinite(v)?v:0;}
-  function tierRole(text){var raw=clean(text), c=raw.replace(/[\s_-]+/g,'').toLowerCase();var map={tier0high:'tier0_high',tier0mid:'tier0_mid',tier0low:'tier0_low',tier1high:'tier1_high',tier1mid:'tier1_mid',tier1low:'tier1_low',tier2high:'tier2_high',tier2mid:'tier2_mid',tier2low:'tier2_low',tier3high:'tier3_high',tier3mid:'tier3_mid',tier3low:'tier3_low',tier4high:'tier4_high',tier4mid:'tier4_mid',tier4low:'tier4_low',beast:'tier5_low',beasthigh:'tier5_high',beastlow:'tier5_low',beastmid:'tier5_mid',tier5high:'tier5_high',tier5mid:'tier5_mid',tier5low:'tier5_low','0티어상':'tier0_high','0상':'tier0_high','0티어중':'tier0_mid','0중':'tier0_mid','0티어하':'tier0_low','0하':'tier0_low','1티어상':'tier1_high','1상':'tier1_high','1티어중':'tier1_mid','1중':'tier1_mid','1티어하':'tier1_low','1하':'tier1_low','2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low','3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low','4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low','5티어상':'tier5_high','5상':'tier5_high','5티어중':'tier5_mid','5중':'tier5_mid','5티어하':'tier5_low','5하':'tier5_low','짐승':'tier5_low','짐승상':'tier5_high','짐승중':'tier5_mid','짐승하':'tier5_low','5상':'tier5_high','5중':'tier5_mid','5하':'tier5_low','5티어상':'tier5_high','5티어중':'tier5_mid','5티어하':'tier5_low','5티어 상':'tier5_high','5티어 중':'tier5_mid','5티어 하':'tier5_low'};return map[c]||raw;}
+  function tierRole(text){
+    var raw=clean(text);
+    if(!raw) return '';
+    var compact=raw.replace(/\s+/g,'');
+    var c=compact.toLowerCase().replace(/[\s_-]+/g,'');
+    var map={tier0high:'tier0_high',tier0mid:'tier0_mid',tier0middle:'tier0_mid',tier0low:'tier0_low',tier1high:'tier1_high',tier1mid:'tier1_mid',tier1middle:'tier1_mid',tier1low:'tier1_low',tier2high:'tier2_high',tier2mid:'tier2_mid',tier2middle:'tier2_mid',tier2low:'tier2_low',tier3high:'tier3_high',tier3mid:'tier3_mid',tier3middle:'tier3_mid',tier3low:'tier3_low',tier4high:'tier4_high',tier4mid:'tier4_mid',tier4middle:'tier4_mid',tier4low:'tier4_low',beasthigh:'tier5_high',beastlow:'tier5_low',beastmid:'tier5_mid',beastmiddle:'tier5_mid',tier5high:'tier5_high',tier5mid:'tier5_mid',tier5middle:'tier5_mid',tier5low:'tier5_low',roletier5high:'tier5_high',roletier5mid:'tier5_mid',roletier5middle:'tier5_mid',roletier5low:'tier5_low',graderoletier5high:'tier5_high',graderoletier5mid:'tier5_mid',graderoletier5middle:'tier5_mid',graderoletier5low:'tier5_low','0티어상':'tier0_high','0상':'tier0_high','0티어중':'tier0_mid','0중':'tier0_mid','0티어하':'tier0_low','0하':'tier0_low','1티어상':'tier1_high','1상':'tier1_high','1티어중':'tier1_mid','1중':'tier1_mid','1티어하':'tier1_low','1하':'tier1_low','2티어상':'tier2_high','2상':'tier2_high','2티어중':'tier2_mid','2중':'tier2_mid','2티어하':'tier2_low','2하':'tier2_low','3티어상':'tier3_high','3상':'tier3_high','3티어중':'tier3_mid','3중':'tier3_mid','3티어하':'tier3_low','3하':'tier3_low','4티어상':'tier4_high','4상':'tier4_high','4티어중':'tier4_mid','4중':'tier4_mid','4티어하':'tier4_low','4하':'tier4_low','5티어상':'tier5_high','5상':'tier5_high','5티어중':'tier5_mid','5중':'tier5_mid','5티어하':'tier5_low','5하':'tier5_low','짐승상':'tier5_high','짐승중':'tier5_mid','짐승하':'tier5_low','5티어 상':'tier5_high','5티어 중':'tier5_mid','5티어 하':'tier5_low'};
+    if(map[compact]) return map[compact];
+    if(map[c]) return map[c];
+    var spaced=raw.toLowerCase().replace(/[_-]+/g,' ');
+    var m=(spaced.match(/(?:tier|티어|role|grade)?\s*([0-5])\s*(?:티어)?\s*(상|중|하|high|mid|middle|low)/)||[]);
+    if(m.length){var pos={상:'high',중:'mid',하:'low',high:'high',mid:'mid',middle:'mid',low:'low'};return 'tier'+m[1]+'_'+pos[m[2]];}
+    if(/^tier[0-4]$/i.test(raw)) return raw.toLowerCase()+'_mid';
+    return '';
+  }
   function lane(role){return {tier0_high:'0상',tier0_mid:'0중',tier0_low:'0하',tier1_high:'1상',tier1_mid:'1중',tier1_low:'1하',tier2_high:'2상',tier2_mid:'2중',tier2_low:'2하',tier3_high:'3상',tier3_mid:'3중',tier3_low:'3하',tier4_high:'4상',tier4_mid:'4중',tier4_low:'4하',beast:'5하',beast_high:'5상',beast_mid:'5중',beast_low:'5하',tier5_high:'5상',tier5_mid:'5중',tier5_low:'5하'}[role]||role;}
-  function defaults(){return {'0상':{target:85,death:-3},'0중':{target:75,death:-3},'0하':{target:65,death:-3},'1상':{target:55,death:-3},'1중':{target:50,death:-3},'1하':{target:45,death:-3},'2상':{target:40,death:-3},'2중':{target:35,death:-2},'2하':{target:30,death:-2},'3상':{target:25,death:-2},'3중':{target:20,death:-2},'3하':{target:15,death:-1},'4상':{target:10,death:-1},'4중':{target:5,death:-1},'4하':{target:0,death:-1},'5상':{target:0,death:-1},'5중':{target:-5,death:-1},'5하':{target:-10,death:-1},'짐승':{target:-10,death:-1}};}
-  function mergeTierScoreConfig(b,s){if(s&&typeof s==='object')Object.keys(s).forEach(function(k){var v=s[k]||{},l=lane(k);if(!b[l])return;b[l]={target:Number.isFinite(Number(v.target))?Number(v.target):(b[l]||{}).target||0,death:Number.isFinite(Number(v.death))?Number(v.death):(b[l]||{}).death||0};});return b;}
-  function config(){return mergeTierScoreConfig(defaults(), window.__PKL_TIER_SCORE_CONFIG||{});}
-  function loadTierScoreConfig(){return fetch('/api/pkl-data-store?type=live_scores&id='+encodeURIComponent('tier_score_config_current')+'&_='+Date.now(),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}}).then(function(r){return r.json().catch(function(){return {};});}).then(function(data){var row=data&&Array.isArray(data.rows)?data.rows[0]:null;var server=row&&row.payload&&typeof row.payload==='object'?row.payload:{};window.__PKL_TIER_SCORE_CONFIG=mergeTierScoreConfig({},server);try{renderSnapshot(buildSnapshot());}catch(e){};}).catch(function(){return fetch('/api/pkl-shared?key='+encodeURIComponent('pklTierScoreConfig')+'&_='+Date.now(),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}}).then(function(r){return r.json().catch(function(){return {};});}).then(function(data){var server=(data&&data.item&&data.item.value&&typeof data.item.value==='object')?data.item.value:{};window.__PKL_TIER_SCORE_CONFIG=mergeTierScoreConfig({},server);try{renderSnapshot(buildSnapshot());}catch(e){};}).catch(function(e){console.error('PKL scoreboard tier score config load failed',e);});});}
+  function defaults(){return {'0상':{target:0,death:0},'0중':{target:0,death:0},'0하':{target:0,death:0},'1상':{target:0,death:0},'1중':{target:0,death:0},'1하':{target:0,death:0},'2상':{target:0,death:0},'2중':{target:0,death:0},'2하':{target:0,death:0},'3상':{target:0,death:0},'3중':{target:0,death:0},'3하':{target:0,death:0},'4상':{target:0,death:0},'4중':{target:0,death:0},'4하':{target:0,death:0},'5상':{target:0,death:0},'5중':{target:0,death:0},'5하':{target:0,death:0},'짐승':{target:0,death:0}};}
+  function mergeTierScoreConfig(b,s){
+    b=b&&typeof b==='object'?b:{};
+    if(s&&typeof s==='object')Object.keys(s).forEach(function(k){
+      var v=s[k]||{};
+      if(!v||typeof v!=='object')return;
+      var r=tierRole(k)||k;
+      var l=lane(r)||lane(k)||k;
+      if(!l)return;
+      var prev=b[l]||{target:0,death:0};
+      var target=Number.isFinite(Number(v.target))?Number(v.target):(Number.isFinite(Number(v.goal))?Number(v.goal):(Number.isFinite(Number(v.goalScore))?Number(v.goalScore):(Number.isFinite(Number(v.targetScore))?Number(v.targetScore):prev.target||0)));
+      var death=Number.isFinite(Number(v.death))?Number(v.death):(Number.isFinite(Number(v.minus))?Number(v.minus):(Number.isFinite(Number(v.minusScore))?Number(v.minusScore):(Number.isFinite(Number(v.penalty))?Number(v.penalty):prev.death||0)));
+      b[l]={target:target,death:death};
+      if(/^tier[0-5]_(high|mid|low)$/.test(r)) b[r]={target:target,death:death,lane:l};
+    });
+    Object.keys(b).forEach(function(k){var r=tierRole(k);if(r&&b[k]&&typeof b[k]==='object')b[r]=Object.assign({},b[k],{lane:lane(r)||k});});
+    return b;
+  }
+  function config(){return mergeTierScoreConfig(defaults(), window.__PKL_TIER_SCORE_CONFIG_V3||window.__PKL_TIER_SCORE_CONFIG||window.pklTierScoreConfig_v3||window.pklTierScoreConfig||{});}
+  function extractTierScoreValue(data){
+    function isObj(v){return !!(v&&typeof v==='object'&&!Array.isArray(v));}
+    function hasRows(v){return isObj(v)&&Object.keys(v).some(function(k){var r=v[k];return isObj(r)&&('target' in r||'death' in r||'minus' in r||'goal' in r||'score' in r);});}
+    function unwrap(v){if(!isObj(v))return null;if(hasRows(v))return v;var arr=[v.payload,v.value,v.config,v.data,v.pklTierScoreConfig,v.tierScoreConfig,v.scoreConfig];for(var i=0;i<arr.length;i++){var g=unwrap(arr[i]);if(g)return g;}if(v.item){var g1=unwrap(v.item.value||v.item.payload||v.item);if(g1)return g1;}if(v.row){var g2=unwrap(v.row.value||v.row.payload||v.row);if(g2)return g2;}if(Array.isArray(v.rows)&&v.rows[0]){var g3=unwrap(v.rows[0].payload||v.rows[0].value||v.rows[0]);if(g3)return g3;}return null;}
+    return unwrap(data);
+  }
+  function loadTierScoreConfig(){
+    /* PKL: tier.html은 live_scores/tier_score_config_current 를 원본으로 저장한다.
+       스코어보드도 live 값을 먼저 읽고, 없을 때만 shared 미러를 읽는다. */
+    var keys=['pklTierScoreConfig_v3','pklTierScoreConfig_v2','pklTierScoreConfig'];
+    function applyScoreConfig(raw,key){
+      var s=extractTierScoreValue(raw)||{};
+      if(s&&Object.keys(s).length){
+        var merged=mergeTierScoreConfig({},s);
+        window.__PKL_TIER_SCORE_CONFIG=merged;
+        window.__PKL_TIER_SCORE_CONFIG_V3=merged;
+        window.pklTierScoreConfig=merged;
+        window.pklTierScoreConfig_v3=merged;
+        try{renderSnapshot(buildSnapshot());}catch(e){}
+        return true;
+      }
+      return false;
+    }
+    function trySharedKey(i){
+      if(i>=keys.length) return Promise.resolve();
+      var key=keys[i];
+      var urls=['/api/pkl-shared?key='+encodeURIComponent(key)+'&t='+Date.now(),'/api/pkl-data-store?type=shared&key='+encodeURIComponent(key)+'&t='+Date.now()];
+      function tryUrl(j){
+        if(j>=urls.length) return trySharedKey(i+1);
+        return fetch(urls[j],{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}})
+          .then(function(r){return r.ok?r.json().catch(function(){return {}; }):{};})
+          .then(function(data){return applyScoreConfig(data,key) || tryUrl(j+1);})
+          .catch(function(){return tryUrl(j+1);});
+      }
+      return tryUrl(0);
+    }
+    return fetch('/api/pkl-data-store?type=live_scores&id=tier_score_config_current&t='+Date.now(),{cache:'no-store',headers:{Accept:'application/json','Cache-Control':'no-store'}})
+      .then(function(r){return r.ok?r.json().catch(function(){return {}; }):{};})
+      .then(function(data){return applyScoreConfig(data,'tier_score_config_current') || trySharedKey(0);})
+      .catch(function(){return trySharedKey(0);})
+      .catch(function(e){console.error('PKL scoreboard tier score config load failed',e);});
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadTierScoreConfig);else loadTierScoreConfig();
-  window.addEventListener('pkl-tier-score-config-updated',function(e){if(e&&e.detail&&e.detail.config)window.__PKL_TIER_SCORE_CONFIG=e.detail.config;try{renderSnapshot(buildSnapshot());}catch(_e){}});
+  window.addEventListener('pkl-tier-score-config-updated',function(e){if(e&&e.detail&&e.detail.config){window.__PKL_TIER_SCORE_CONFIG=e.detail.config;window.pklTierScoreConfig=e.detail.config;if(e.detail.key==='pklTierScoreConfig_v3'){window.__PKL_TIER_SCORE_CONFIG_V3=e.detail.config;window.pklTierScoreConfig_v3=e.detail.config;}}try{renderSnapshot(buildSnapshot());}catch(_e){}});
   function memberName(m){return clean(m&&(m.name||m.nickname||m.nick||m.displayName||m.pubgId||m.gameId||m.username));}
-  function memberTier(m){var r=tierRole(m&&(m.memberTier||m.tierRole||m.gradeRole||m.tier||m.grade||m.memberGrade));var c=config();return c[lane(r)]||{target:0,death:0};}
+  function memberTier(m){
+    function keysOf(o){
+      o=o||{};
+      return [o.discord_id,o.discordId,o.uid,o.id,o.userId,o.memberId,o.accountId,o.name,o.nickname,o.nick,o.displayName,o.pubgId,o.pubg_id,o.gameId,o.pubgName]
+        .map(function(v){return clean(v).replace(/^discord-/i,'').toLowerCase();}).filter(Boolean);
+    }
+    function userForMember(member){
+      var cache = [];
+      try{ if(Array.isArray(window.pklSheetSupabaseUsersCache)) cache = cache.concat(window.pklSheetSupabaseUsersCache); }catch(e){}
+      try{ if(Array.isArray(window.__PKL_SHEET_SUPABASE_USERS_CACHE)) cache = cache.concat(window.__PKL_SHEET_SUPABASE_USERS_CACHE); }catch(e){}
+      if(!cache.length) return null;
+      var mk = keysOf(member);
+      if(!mk.length) return null;
+      for(var i=0;i<cache.length;i++){
+        var uk = keysOf(cache[i]);
+        for(var j=0;j<mk.length;j++){ if(uk.indexOf(mk[j])>=0) return cache[i]; }
+      }
+      return null;
+    }
+    var vals=[m&&m.__tierRole,m&&m.tierRole,m&&m.gradeRole,m&&m.dataTierRole,m&&m.dataTier,m&&m.memberTier,m&&m.member_tier,m&&m.tier,m&&m.grade,m&&m.memberGrade,m&&m.pklTier,m&&m.rank,m&&m.level,m&&m.tierLabel,m&&m.tierName,m&&m.memberTierName,m&&m.badgeText,m&&m.badge,m&&m.role,m&&m.title];
+    var r='';
+    for(var i=0;i<vals.length;i++){var got=tierRole(vals[i]);if(/^tier[0-5]_(high|mid|low)$/.test(got)){r=got;break;}}
+    if(!r){
+      var user=userForMember(m);
+      if(user){
+        var uvals=[user.__tierRole,user.tierRole,user.gradeRole,user.dataTierRole,user.dataTier,user.memberTier,user.member_tier,user.tier,user.grade,user.memberGrade,user.pklTier,user.rank,user.level,user.tierLabel,user.tierName,user.memberTierName,user.badgeText,user.badge,user.role,user.title];
+        for(var u=0;u<uvals.length;u++){var uGot=tierRole(uvals[u]);if(/^tier[0-5]_(high|mid|low)$/.test(uGot)){r=uGot;break;}}
+      }
+    }
+    var c=config();return c[r]||c[lane(r)]||{target:0,death:0};
+  }}var c=config();return c[r]||c[lane(r)]||{target:0,death:0};}
   function realTeamId(viewId){return String(viewId||'').replace(/[ab]$/,'');}
   function teamData(round,id){return (round&&round.teams&&round.teams[id])||{kills:[0,0,0,0],deaths:[0,0,0,0],chicken:0,stop:0,map:''};}
   function chickenScore(round,d){if(!d||!num(d.chicken))return 0;return clean(d&&d.map)==='사'?5:8;}
