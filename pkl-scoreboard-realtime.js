@@ -10,7 +10,18 @@
   function isObj(v){return !!(v&&typeof v==='object'&&!Array.isArray(v));}
   function tierRole(value){
     var raw=clean(value); if(!raw) return '';
-    if(typeof value==='object') raw=clean(value.__tierRole||value.tierRole||value.gradeRole||value.dataTierRole||value.dataTier||value.memberTier||value.member_tier||value.tier||value.grade||value.memberGrade||value.pklTier||value.tierLabel||value.tierName||value.memberTierName||value.badgeText||value.badge||value.role||value.title||'');
+    if(typeof value==='object'){
+      var obj=value||{};
+      var fields=[obj.__tierRole,obj.tierRole,obj.gradeRole,obj.dataTierRole,obj.dataTier,obj.memberTier,obj.member_tier,obj.tier,obj.grade,obj.memberGrade,obj.pklTier,obj.tierLabel,obj.tierName,obj.memberTierName,obj.badgeText,obj.badge,obj.role,obj.title,obj.raw];
+      raw='';
+      for(var fi=0;fi<fields.length;fi++){
+        var fv=fields[fi];
+        if(fv&&typeof fv==='object'){ var nested=tierRole(fv); if(/^tier[0-5]_(high|mid|low)$/.test(nested)){ raw=nested; break; } continue; }
+        var got=tierRole(fv);
+        if(/^tier[0-5]_(high|mid|low)$/.test(got)){ raw=got; break; }
+        if(!raw && clean(fv)) raw=clean(fv);
+      }
+    }
     var compact=raw.normalize('NFKC').replace(/[\s_-]+/g,'').toLowerCase();
     var map={
       tier0:'tier0_mid',tier0high:'tier0_high',tier0mid:'tier0_mid',tier0middle:'tier0_mid',tier0low:'tier0_low',

@@ -7679,9 +7679,14 @@ function pklTierRoleFromObjectFields(obj){
     obj.__tierRole,obj.tierRole,obj.gradeRole,obj.dataTierRole,obj.dataTier,
     obj.memberTier,obj.member_tier,obj.tier,obj.grade,obj.memberGrade,obj.pklTier,
     obj.rank,obj.level,obj.tierLabel,obj.tierName,obj.memberTierName,
-    obj.badgeText,obj.badge,obj.role,obj.title
+    obj.badgeText,obj.badge,obj.role,obj.title,obj.raw
   ];
   for(const value of fields){
+    if(value && typeof value === 'object'){
+      const nested = pklTierRoleFromObjectFields(value);
+      if(pklIsSpecificTierScoreRole(nested)) return nested;
+      continue;
+    }
     const role=pklTierScoreRoleFromText(value);
     if(pklIsSpecificTierScoreRole(role)) return role;
   }
