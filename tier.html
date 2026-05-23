@@ -3067,11 +3067,10 @@ document.addEventListener("DOMContentLoaded", function(){
 <script id="pklTierScoreSyncScript">
 (function(){
   'use strict';
-  if(window.__PKL_TIER_SCORE_CLEAN_SOURCE_V57__) return;
-  window.__PKL_TIER_SCORE_CLEAN_SOURCE_V57__ = true;
+  if(window.__PKL_TIER_SCORE_CLEAN_SOURCE_V58__) return;
+  window.__PKL_TIER_SCORE_CLEAN_SOURCE_V58__ = true;
 
   var KEY = 'pklTierScoreConfig';
-  var KEY_V2 = 'pklTierScoreConfig_v2';
   var META_KEY = '__pklUpdatedAt';
   var saveTimer = 0;
   var loading = false;
@@ -3149,7 +3148,7 @@ document.addEventListener("DOMContentLoaded", function(){
     });
     out[META_KEY] = now();
     out.updatedAt = out[META_KEY];
-    out.source = 'tier_page_clean_v57';
+    out.source = 'tier_page_supabase_v58';
     return out;
   }
   function applyDom(value){
@@ -3163,15 +3162,18 @@ document.addEventListener("DOMContentLoaded", function(){
       inputs[0].setAttribute('value', String(row.target));
       inputs[1].setAttribute('value', String(row.death));
     });
-    setGlobal(cfg);
+    setGlobal(cfg, true);
+    lastSavedText = JSON.stringify(publicConfig(cfg));
     return true;
   }
-  function setGlobal(value){
+  function setGlobal(value, notify){
     var cfg = publicConfig(value);
     window.__PKL_TIER_SCORE_CONFIG = cfg;
     window.__PKL_TIER_SCORE_CONFIG_V2 = cfg;
     window.pklTierScoreConfig = cfg;
-    try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', { detail:{ config: cfg } })); }catch(e){}
+    if(notify){
+      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', { detail:{ config: cfg } })); }catch(e){}
+    }
   }
   async function jsonFetch(url, options){
     var res = await fetch(url, Object.assign({ cache:'no-store', headers:{ Accept:'application/json', 'Cache-Control':'no-store' } }, options || {}));
@@ -3179,29 +3181,24 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!res.ok || data.ok === false) throw new Error((data && data.message) || String(res.status));
     return data;
   }
-  async function post(url, body, keepalive){
-    return jsonFetch(url, { method:'POST', keepalive:!!keepalive, headers:{ 'Content-Type':'application/json', Accept:'application/json', 'Cache-Control':'no-store' }, body: JSON.stringify(body) });
+  async function post(url, body){
+    return jsonFetch(url, { method:'POST', headers:{ 'Content-Type':'application/json', Accept:'application/json', 'Cache-Control':'no-store' }, body: JSON.stringify(body) });
   }
-  async function readSharedApi(key){
+  async function readSharedApi(){
     try{
-      var data = await jsonFetch('/api/pkl-shared?key=' + encodeURIComponent(key) + '&_=' + Date.now());
+      var data = await jsonFetch('/api/pkl-shared?key=' + encodeURIComponent(KEY) + '&_=' + Date.now());
       var v = data && data.item && data.item.value;
       if(countRows(v)) return v;
     }catch(e){}
-    try{
-      var data2 = await jsonFetch('/api/pkl-data-store?type=shared&key=' + encodeURIComponent(key) + '&_=' + Date.now());
-      var v2 = data2 && data2.item && data2.item.value;
-      if(countRows(v2)) return v2;
-    }catch(e){}
     return null;
   }
-  async function readSupabaseDirect(key){
+  async function readSupabaseDirect(){
     try{
       var cfg = window.PKL_SUPABASE_CONFIG || (window.PKLGetSupabaseConfig ? await window.PKLGetSupabaseConfig() : null) || {};
       var url = String(cfg.url || cfg.supabaseUrl || cfg.SUPABASE_URL || '').replace(/\/rest\/v1\/?$/i,'').replace(/\/+$/,'');
       var anon = String(cfg.anonKey || cfg.anon_key || cfg.supabaseAnonKey || cfg.SUPABASE_ANON_KEY || '');
       if(!url || !anon) return null;
-      var res = await fetch(url + '/rest/v1/pkl_shared_data?select=key,value,updated_at&key=eq.' + encodeURIComponent(key) + '&limit=1', {
+      var res = await fetch(url + '/rest/v1/pkl_shared_data?select=key,value,updated_at&key=eq.' + encodeURIComponent(KEY) + '&limit=1', {
         cache:'no-store',
         headers:{ apikey:anon, Authorization:'Bearer ' + anon, Accept:'application/json', 'Cache-Control':'no-store' }
       });
@@ -3212,37 +3209,34 @@ document.addEventListener("DOMContentLoaded", function(){
     return null;
   }
   async function load(){
-    if(loading) return;
+    if(loading) return false;
     loading = true;
     var started = Date.now();
-    var value = await readSharedApi(KEY);
-    if(!value) value = await readSharedApi(KEY_V2);
-    if(!value) value = await readSupabaseDirect(KEY);
+    var value = await readSharedApi();
+    if(!value) value = await readSupabaseDirect();
     loading = false;
     if(!value || !countRows(value)){
-      setGlobal(collectDom());
+      setGlobal(collectDom(), false);
       return false;
     }
     if(dirtyAt && dirtyAt >= started) return false;
     return applyDom(value);
   }
-  async function save(keepalive){
+  async function save(){
     var payload = collectDom();
     var text = JSON.stringify(publicConfig(payload));
-    setGlobal(payload);
-    if(text === lastSavedText && !keepalive) return true;
+    setGlobal(payload, false);
+    if(text === lastSavedText) return true;
     saving = true;
     try{
-      await post('/api/pkl-shared', { key: KEY, value: payload }, keepalive);
+      await post('/api/pkl-shared', { key: KEY, value: payload });
       lastSavedText = text;
-      // 호환 mirror: 실패해도 원본 저장은 성공으로 본다.
-      post('/api/pkl-data-store', { type:'shared', key: KEY, value: payload }, keepalive).catch(function(){});
-      post('/api/pkl-shared', { key: KEY_V2, value: payload }, keepalive).catch(function(){});
       try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-saved', { detail:{ config: publicConfig(payload) } })); }catch(e){}
+      try{ window.dispatchEvent(new CustomEvent('pkl-tier-score-config-updated', { detail:{ config: publicConfig(payload) } })); }catch(e){}
       return true;
     }catch(e){
       console.error('PKL tier score save failed', e);
-      if(!keepalive && typeof window.pklAlert === 'function') window.pklAlert('목표점수/감점 저장 실패: ' + (e && e.message ? e.message : e), '저장 실패');
+      if(typeof window.pklAlert === 'function') window.pklAlert('목표점수/감점 저장 실패: ' + (e && e.message ? e.message : e), '저장 실패');
       return false;
     }finally{
       saving = false;
@@ -3250,31 +3244,28 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function schedule(immediate){
     dirtyAt = Date.now();
-    setGlobal(collectDom());
+    setGlobal(collectDom(), false);
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(function(){ save(false); }, immediate ? 20 : 250);
+    saveTimer = setTimeout(function(){ save(); }, immediate ? 120 : 700);
   }
-  function isInput(t){ return !!(t && t.closest && t.closest('.pkl-lane-score input')); }
   function bind(){
     eachLane(function(lane, inputs){
       Array.prototype.forEach.call(inputs, function(input){
-        input.dataset.pklTierScoreCleanSource = 'v57';
+        if(input.dataset.pklTierScoreCleanSource === 'v58') return;
+        input.dataset.pklTierScoreCleanSource = 'v58';
         input.addEventListener('input', function(){ schedule(false); }, true);
         input.addEventListener('change', function(){ schedule(true); }, true);
         input.addEventListener('blur', function(){ schedule(true); }, true);
       });
     });
-    document.addEventListener('input', function(e){ if(isInput(e.target)) schedule(false); }, true);
-    document.addEventListener('change', function(e){ if(isInput(e.target)) schedule(true); }, true);
-    setGlobal(collectDom());
+    setGlobal(collectDom(), false);
     load();
   }
-  window.pklTierCollectScoreConfig = function(){ var v = collectDom(); setGlobal(v); return publicConfig(v); };
-  window.pklTierSaveScoreConfig = function(){ return save(false); };
+  window.pklTierCollectScoreConfig = function(){ var v = collectDom(); setGlobal(v, false); return publicConfig(v); };
+  window.pklTierSaveScoreConfig = function(){ return save(); };
   window.pklTierLoadScoreConfig = function(){ return load(); };
   window.pklTierGetScoreConfig = function(){ return publicConfig(collectDom()); };
   window.pklTierScoreDebug = function(){ return { key:KEY, dom:collectDom(), global:window.__PKL_TIER_SCORE_CONFIG, dirtyAt:dirtyAt, saving:saving, loading:loading }; };
-  window.addEventListener('beforeunload', function(){ if(dirtyAt && !saving) try{ save(true); }catch(e){} });
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
 })();
 </script>
